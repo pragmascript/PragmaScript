@@ -175,6 +175,34 @@ namespace PragmaScript
         }
     }
 
+
+
+    class AST
+    {
+        public interface INode
+        {
+            void Parse(IList<Token> tokens, ref int pos);
+        }
+        public class VariableDeclaration : INode
+        {
+            public void Parse(IList<Token> tokens, ref int pos)
+            {
+                var current = tokens[pos];
+                if (current.type == Token.TokenType.Let)
+                {
+
+                }
+            }
+        }
+
+
+        public static AST Parse(IList<Token> tokens)
+        {
+            AST ast = new AST();
+            return ast;
+        }
+    }
+
     class Backend
     {
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
