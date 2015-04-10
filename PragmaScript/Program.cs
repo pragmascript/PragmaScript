@@ -321,6 +321,8 @@ namespace PragmaScript
         private static Node parseExpression(IList<Token> tokens, ref int pos)
         {
             var current = tokens[pos];
+            var next = peekToken(tokens, pos, false, true);
+
             expectTokenType(current, Token.TokenType.Number);
             var result = new ConstInt();
             result.number = int.Parse(current.text);
