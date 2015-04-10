@@ -204,29 +204,116 @@ namespace PragmaScript
     {
         public abstract class Node
         {
-
+            public virtual IEnumerable<Node> GetChilds()
+            {
+                yield break;
+            }
         }
 
         public class Block : Node
         {
             public List<Node> statements = new List<Node>();
+            public override IEnumerable<Node> GetChilds()
+            {
+                foreach (var s in statements)
+                    yield return s;
+            }
+            
         }
 
         public class VariableDeclaration : Node
         {
             public string variableName;
             public Node expression;
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return expression;
+            }
+            
+            public override string ToString()
+            {
+                return "var " + variableName + " = ";
+            }
         }
 
         public class Assignment : Node
         {
             public string variableName;
             public Node expression;
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return expression;
+            }
+
+            public override string ToString()
+            {
+                return variableName + " = ";
+            }
         }
 
         public class ConstInt : Node
         {
             public int number;
+
+            public override string ToString()
+            {
+                return number.ToString();
+            }
+        }
+
+        public class BinOp : Node
+        {
+            public enum BinOpType { Add, Subract, Multiply, Divide }
+            public BinOpType type;
+
+            public Node left;
+            public Node right;
+
+            public void SetTypeFromToken(Token next)
+            {
+                switch (next.type)
+                {
+                    case Token.TokenType.Add:
+                        type = BinOpType.Add;
+                        break;
+                    case Token.TokenType.Subtract:
+                        type = BinOpType.Subract;
+                        break;
+                    case Token.TokenType.Multiply:
+                        type = BinOpType.Multiply;
+                        break;
+                    case Token.TokenType.Divide:
+                        type = BinOpType.Divide;
+                        break;
+                    default:
+                        throw new CompilerError("Invalid token type for binary operation", next);
+                }
+            }
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return left;
+                yield return right;
+            }
+
+            public override string ToString()
+            {
+                switch (type)
+                {
+                    case BinOpType.Add:
+                        return "+";
+                    case BinOpType.Subract:
+                        return "-";
+                    case BinOpType.Multiply:
+                        return "*";
+                    case BinOpType.Divide:
+                        return "/";
+                    default:
+                        throw new InvalidCodePath();
+                }
+            }
         }
 
         public static int skipWhitespace(IList<Token> tokens, int pos, bool requireOneWS = false)
@@ -262,16 +349,16 @@ namespace PragmaScript
             }
             else if (current.type == Token.TokenType.Identifier)
             {
-                var nextToken = peekToken(tokens, pos, tokenMustExist: true, skipWS: true);
+                var next = peekToken(tokens, pos, tokenMustExist: true, skipWS: true);
 
                 // could be either a function call or an assignment
-                expectTokenType(nextToken, Token.TokenType.OpenBracket, Token.TokenType.Assignment);
+                expectTokenType(next, Token.TokenType.OpenBracket, Token.TokenType.Assignment);
 
-                if (nextToken.type == Token.TokenType.OpenBracket)
+                if (next.type == Token.TokenType.OpenBracket)
                 {
                     result = parseFunctionCall(tokens, ref pos);
                 }
-                else if (nextToken.type == Token.TokenType.Assignment)
+                else if (next.type == Token.TokenType.Assignment)
                 {
                     result = parseAssignment(tokens, ref pos);
                 }
@@ -318,15 +405,48 @@ namespace PragmaScript
             return result;
         }
 
+
         private static Node parseExpression(IList<Token> tokens, ref int pos)
         {
-            var current = tokens[pos];
-            var next = peekToken(tokens, pos, false, true);
+            var term = parseTerm(tokens, ref pos);
+            var otherTerm = default(Node);
+            var next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
 
+            var result = term;
+
+            // is operator precedence 2
+            while (next.type == Token.TokenType.Add || next.type == Token.TokenType.Subtract)
+            {
+                // continue to the next token after the add or subtract
+                nextToken(tokens, ref pos, true);
+                nextToken(tokens, ref pos, true);
+
+                otherTerm = parseTerm(tokens, ref pos);
+                var bo = new BinOp();
+                bo.left = term;
+                bo.right = otherTerm;
+                bo.SetTypeFromToken(next);
+                result = bo;
+                next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
+            }
+
+            return result;
+         
+        }
+
+        private static Node parseTerm(IList<Token> tokens, ref int pos)
+        {
+            var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Number);
+
             var result = new ConstInt();
             result.number = int.Parse(current.text);
             return result;
+        }    
+
+        private static Node parseFactor(IList<Token> tokens, ref int pos)
+        {
+            throw new NotImplementedException();
         }
 
         static void expectTokenType(Token t, Token.TokenType type)
@@ -346,7 +466,6 @@ namespace PragmaScript
                     break;
                 }
             }
-
             if (!found)
             {
                 string exp = "either ( " + string.Join(" | ", types.Select(tt => tt.ToString())) + " )";
@@ -361,23 +480,24 @@ namespace PragmaScript
 
         static Token peekToken(IList<Token> tokens, int pos, bool tokenMustExist = false, bool skipWS = false)
         {
+            pos++;
             if (skipWS)
             {
                 pos = skipWhitespace(tokens, pos);
             }
 
-            if (pos + 1 >= tokens.Count)
+            if (pos >= tokens.Count)
             {
                 if (tokenMustExist)
                 {
-                    throw new CompilerError("Missing next token", tokens[pos]);
+                    throw new CompilerError("Missing next token", tokens[pos - 1]);
                 }
                 else
                 {
                     return null;
                 }
             }
-            return tokens[pos + 1];
+            return tokens[pos];
         }
 
         static Token nextToken(IList<Token> tokens, ref int pos, bool skipWS = false)
@@ -387,7 +507,7 @@ namespace PragmaScript
             {
                 pos = skipWhitespace(tokens, pos);
             }
-           
+
             if (pos >= tokens.Count)
             {
                 throw new CompilerError("Missing next token", tokens[pos]);
@@ -480,7 +600,8 @@ namespace PragmaScript
         static void Main(string[] args)
         {
             // Backend.Test();
-            parse("var x = 12;");
+            // parse("var x = 12;");
+            parse("var y = 2 + 3;");
             Console.ReadLine();
         }
 
