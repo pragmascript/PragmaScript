@@ -8,8 +8,38 @@ using System.Threading.Tasks;
 using LLVMSharp;
 using System.Runtime.InteropServices;
 
+using Shields.GraphViz.Models;
+using System.Threading;
+
 namespace PragmaScript
 {
+    internal static class AsyncHelper
+    {
+        private static readonly TaskFactory _myTaskFactory = new
+          TaskFactory(CancellationToken.None,
+                      TaskCreationOptions.None,
+                      TaskContinuationOptions.None,
+                      TaskScheduler.Default);
+
+        public static TResult RunSync<TResult>(Func<Task<TResult>> func)
+        {
+            return AsyncHelper._myTaskFactory
+              .StartNew<Task<TResult>>(func)
+              .Unwrap<TResult>()
+              .GetAwaiter()
+              .GetResult();
+        }
+
+        public static void RunSync(Func<Task> func)
+        {
+            AsyncHelper._myTaskFactory
+              .StartNew<Task>(func)
+              .Unwrap()
+              .GetAwaiter()
+              .GetResult();
+        }
+    }
+
     class Token
     {
         public enum TokenType
@@ -218,7 +248,10 @@ namespace PragmaScript
                 foreach (var s in statements)
                     yield return s;
             }
-            
+            public override string ToString()
+            {
+                return "Block";
+            }
         }
 
         public class VariableDeclaration : Node
@@ -230,7 +263,7 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            
+
             public override string ToString()
             {
                 return "var " + variableName + " = ";
@@ -359,7 +392,7 @@ namespace PragmaScript
                     result = parseFunctionCall(tokens, ref pos);
                 }
                 else if (next.type == Token.TokenType.Assignment)
-                { 
+                {
                     result = parseAssignment(tokens, ref pos);
                 }
 
@@ -430,7 +463,7 @@ namespace PragmaScript
             }
 
             return result;
-         
+
         }
 
         private static Node parseTerm(IList<Token> tokens, ref int pos)
@@ -441,7 +474,7 @@ namespace PragmaScript
             var result = new ConstInt();
             result.number = int.Parse(current.text);
             return result;
-        }    
+        }
 
         private static Node parseFactor(IList<Token> tokens, ref int pos)
         {
@@ -629,6 +662,34 @@ namespace PragmaScript
             }
         }
 
+
+
+        static Graph getRenderGraph(Graph g, AST.Node node, string id)
+        {
+            var ns = NodeStatement.For(id);
+            ns = ns.Set("label", node.ToString());
+            var result = g.Add(ns);
+            foreach (var c in node.GetChilds())
+            {
+                var cid = Guid.NewGuid().ToString();
+                result = getRenderGraph(result, c, cid);
+                result = result.Add(EdgeStatement.For(id, cid));
+            }
+            return result;
+        }
+
+        static void renderGraph(AST.Node root)
+        {
+            var g = getRenderGraph(Graph.Undirected, root, Guid.NewGuid().ToString());
+            var renderer = new Shields.GraphViz.Components.Renderer(@"C:\Program Files (x86)\Graphviz2.38\bin\");
+            using (Stream file = File.Create("graph.png"))
+            {
+                AsyncHelper.RunSync(() =>
+                    renderer.RunAsync(g, file, Shields.GraphViz.Services.RendererLayouts.Dot, Shields.GraphViz.Services.RendererFormats.Png, CancellationToken.None)
+                 );
+            }
+        }
+
         static void parse(string text)
         {
             var tokens = tokenize(text).ToList();
@@ -642,9 +703,8 @@ namespace PragmaScript
                     Console.WriteLine("{0}: {1}", pos++, t);
             }
 
-
             var root = AST.Parse(tokens);
-
+            renderGraph(root);
             Console.WriteLine(root);
 
         }
