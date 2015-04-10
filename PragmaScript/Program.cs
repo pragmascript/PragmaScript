@@ -359,7 +359,7 @@ namespace PragmaScript
                     result = parseFunctionCall(tokens, ref pos);
                 }
                 else if (next.type == Token.TokenType.Assignment)
-                {
+                { 
                     result = parseAssignment(tokens, ref pos);
                 }
 
@@ -408,11 +408,10 @@ namespace PragmaScript
 
         private static Node parseExpression(IList<Token> tokens, ref int pos)
         {
-            var term = parseTerm(tokens, ref pos);
+            var result = parseTerm(tokens, ref pos);
             var otherTerm = default(Node);
             var next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
 
-            var result = term;
 
             // is operator precedence 2
             while (next.type == Token.TokenType.Add || next.type == Token.TokenType.Subtract)
@@ -423,7 +422,7 @@ namespace PragmaScript
 
                 otherTerm = parseTerm(tokens, ref pos);
                 var bo = new BinOp();
-                bo.left = term;
+                bo.left = result;
                 bo.right = otherTerm;
                 bo.SetTypeFromToken(next);
                 result = bo;
@@ -601,7 +600,7 @@ namespace PragmaScript
         {
             // Backend.Test();
             // parse("var x = 12;");
-            parse("var y = 2 + 3;");
+            parse("var y = 1 + 2 - 4 + 6;");
             Console.ReadLine();
         }
 
