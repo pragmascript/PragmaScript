@@ -14,9 +14,8 @@ namespace PragmaScript
     {
         public enum TokenType
         {
-            WhiteSpace, Let, Var, Fun, Identifier, OpenBracket, CloseBracket, Number, Assignment, Error, Add, Subtract, Multiply, Divide
+            WhiteSpace, Let, Var, Fun, Identifier, OpenBracket, CloseBracket, Number, Assignment, Error, Add, Subtract, Multiply, Divide, Semicolon
         }
-
 
         public TokenType type { get; private set; }
         public string text { get; private set; }
@@ -43,6 +42,7 @@ namespace PragmaScript
             operators.Add("-", TokenType.Subtract);
             operators.Add("*", TokenType.Multiply);
             operators.Add("/", TokenType.Divide);
+            operators.Add(";", TokenType.Semicolon);
         }
 
         public static bool isIdentifierChar(char c)
@@ -103,7 +103,7 @@ namespace PragmaScript
                     if (current == '.' && containsDecimalSeperator)
                     {
                         t.text = line.Substring(t.pos, t.length);
-                        return EmitError(t, "only one decimal seperator is allowed!");
+                        return EmitError(t, "Only one decimal seperator is allowed!");
                     }
                     containsDecimalSeperator = current == '.';
 
@@ -158,7 +158,7 @@ namespace PragmaScript
 
             t.length = 1;
             t.text = line.Substring(t.pos, t.length);
-            return EmitError(t, "syntax error!");
+            return EmitError(t, "Syntax error!");
         }
 
         public override string ToString()
@@ -176,30 +176,237 @@ namespace PragmaScript
     }
 
 
+    class InvalidCodePath : Exception
+    {
+        public InvalidCodePath()
+            : base("Program should never get here!")
+        { }
+    }
+
+    class CompilerError : Exception
+    {
+        public CompilerError(string message, Token t)
+            : base(String.Format("error: {0}! at {1}", message, t))
+        {
+        }
+    }
+
+    class CompilerErrorExpected : CompilerError
+    {
+        public CompilerErrorExpected(string expected, string got, Token t)
+            : base(string.Format("expected \"{0}\", but got \"{1}\""), t)
+        {
+
+        }
+    }
 
     class AST
     {
-        public interface INode
+        public abstract class Node
         {
-            void Parse(IList<Token> tokens, ref int pos);
-        }
-        public class VariableDeclaration : INode
-        {
-            public void Parse(IList<Token> tokens, ref int pos)
-            {
-                var current = tokens[pos];
-                if (current.type == Token.TokenType.Let)
-                {
 
+        }
+
+        public class Block : Node
+        {
+            public List<Node> statements = new List<Node>();
+        }
+
+        public class VariableDeclaration : Node
+        {
+            public string variableName;
+            public Node expression;
+        }
+
+        public class Assignment : Node
+        {
+            public string variableName;
+            public Node expression;
+        }
+
+        public class ConstInt : Node
+        {
+            public int number;
+        }
+
+        public static int skipWhitespace(IList<Token> tokens, int pos, bool requireOneWS = false)
+        {
+            bool foundWS = false;
+            while (tokens[pos].type == Token.TokenType.WhiteSpace)
+            {
+                foundWS = true;
+                pos++;
+                if (pos >= tokens.Count)
+                {
+                    break;
                 }
+            }
+
+            if (requireOneWS && !foundWS)
+            {
+                throw new CompilerError("Expected Whitespace", tokens[pos]);
+            }
+            return pos;
+        }
+
+
+        static Node parseStatement(IList<Token> tokens, ref int pos)
+        {
+            pos = skipWhitespace(tokens, pos);
+            var result = default(Node);
+
+            var current = tokens[pos];
+            if (current.type == Token.TokenType.Var)
+            {
+                result = parseVariableDeclaration(tokens, ref pos);
+            }
+            else if (current.type == Token.TokenType.Identifier)
+            {
+                var nextToken = peekToken(tokens, pos, tokenMustExist: true, skipWS: true);
+
+                // could be either a function call or an assignment
+                expectTokenType(nextToken, Token.TokenType.OpenBracket, Token.TokenType.Assignment);
+
+                if (nextToken.type == Token.TokenType.OpenBracket)
+                {
+                    result = parseFunctionCall(tokens, ref pos);
+                }
+                else if (nextToken.type == Token.TokenType.Assignment)
+                {
+                    result = parseAssignment(tokens, ref pos);
+                }
+
+                throw new InvalidCodePath();
+            }
+
+            var endOfStatement = nextToken(tokens, ref pos, true);
+            expectTokenType(endOfStatement, Token.TokenType.Semicolon);
+
+            return result;
+        }
+
+        static Node parseAssignment(IList<Token> tokens, ref int pos)
+        {
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Identifier);
+
+            var assign = nextToken(tokens, ref pos, skipWS: true);
+            expectTokenType(current, Token.TokenType.Assignment);
+
+            var result = new Assignment();
+            result.variableName = current.text;
+            result.expression = parseExpression(tokens, ref pos);
+            return result;
+        }
+
+        static Node parseVariableDeclaration(IList<Token> tokens, ref int pos)
+        {
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Var);
+
+            var ident = nextToken(tokens, ref pos, skipWS: true);
+            expectTokenType(ident, Token.TokenType.Identifier);
+
+            var assign = nextToken(tokens, ref pos, skipWS: true);
+            expectTokenType(assign, Token.TokenType.Assignment);
+
+            var firstExpressionToken = nextToken(tokens, ref pos, skipWS: true);
+
+            var result = new VariableDeclaration();
+            result.variableName = ident.text;
+            result.expression = parseExpression(tokens, ref pos);
+            return result;
+        }
+
+        private static Node parseExpression(IList<Token> tokens, ref int pos)
+        {
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Number);
+            var result = new ConstInt();
+            result.number = int.Parse(current.text);
+            return result;
+        }
+
+        static void expectTokenType(Token t, Token.TokenType type)
+        {
+            if (t.type != type)
+                throw new CompilerErrorExpected(type.ToString(), t.ToString(), t);
+        }
+
+        static void expectTokenType(Token token, params Token.TokenType[] types)
+        {
+            var found = false;
+            foreach (var tt in types)
+            {
+                if (token.type == tt)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                string exp = "either ( " + string.Join(" | ", types.Select(tt => tt.ToString())) + " )";
+                throw new CompilerErrorExpected(exp, token.ToString(), token);
             }
         }
 
-
-        public static AST Parse(IList<Token> tokens)
+        static Node parseFunctionCall(IList<Token> tokens, ref int pos)
         {
-            AST ast = new AST();
-            return ast;
+            throw new NotImplementedException();
+        }
+
+        static Token peekToken(IList<Token> tokens, int pos, bool tokenMustExist = false, bool skipWS = false)
+        {
+            if (skipWS)
+            {
+                pos = skipWhitespace(tokens, pos);
+            }
+
+            if (pos + 1 >= tokens.Count)
+            {
+                if (tokenMustExist)
+                {
+                    throw new CompilerError("Missing next token", tokens[pos]);
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            return tokens[pos + 1];
+        }
+
+        static Token nextToken(IList<Token> tokens, ref int pos, bool skipWS = false)
+        {
+            pos++;
+            if (skipWS)
+            {
+                pos = skipWhitespace(tokens, pos);
+            }
+           
+            if (pos >= tokens.Count)
+            {
+                throw new CompilerError("Missing next token", tokens[pos]);
+            }
+            else
+            {
+                return tokens[pos];
+            }
+        }
+
+        public static Node Parse(IList<Token> tokens)
+        {
+            var result = new Block();
+            int pos = 0;
+            while (pos < tokens.Count)
+            {
+                var s = parseStatement(tokens, ref pos);
+                result.statements.Add(s);
+                pos++;
+            }
+            return result;
         }
     }
 
@@ -249,7 +456,7 @@ namespace PragmaScript
             LLVM.CreateMCJITCompilerForModule(out engine, mod, out options, optionsSize, out error);
 
             var addMethod = (Add)Marshal.GetDelegateForFunctionPointer(LLVM.GetPointerToGlobal(engine, sum), typeof(Add));
-            int result = addMethod(10, 10);
+            int result = addMethod(10, 15);
 
             Console.WriteLine("Result of sum is: " + result);
 
@@ -270,12 +477,8 @@ namespace PragmaScript
     {
         static void Main(string[] args)
         {
-            parse("let x = 12.0");
-            parse("let y = x + 5");
-            parse("%%");
-            parse("var z = (2 + 3) * 5.0");
-            Console.ReadLine();
-            Backend.Test();
+            // Backend.Test();
+            parse("var x = 12;");
             Console.ReadLine();
         }
 
@@ -317,6 +520,10 @@ namespace PragmaScript
                     Console.WriteLine("{0}: {1}", pos++, t);
             }
 
+
+            var root = AST.Parse(tokens);
+
+            Console.WriteLine(root);
 
         }
     }
