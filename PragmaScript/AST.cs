@@ -49,6 +49,15 @@ namespace PragmaScript
         public class FunctionCall : Node
         {
             public string functionName;
+            public List<Node> argumentList = new List<Node>();
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                foreach (var exp in argumentList)
+                {
+                    yield return exp;
+                }
+            }
             public override string ToString()
             {
                 return functionName + "()";
@@ -259,7 +268,6 @@ namespace PragmaScript
             }
 
             return result;
-
         }
 
         private static Node parseTerm(IList<Token> tokens, ref int pos)
@@ -364,7 +372,27 @@ namespace PragmaScript
             var ob = nextToken(tokens, ref pos, skipWS: true);
             expectTokenType(ob, Token.TokenType.OpenBracket);
 
-            // TODO: parse parameter list
+            
+            var next = peekToken(tokens, pos, skipWS: true);
+            if (next.type != Token.TokenType.CloseBracket)
+            {
+                while (true)
+                {
+                    nextToken(tokens, ref pos);
+                    var exp = parseExpression(tokens, ref pos);
+                    result.argumentList.Add(exp);
+                    next = peekToken(tokens, pos);
+                    if (next.type != Token.TokenType.Comma)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        // skip comma
+                        nextToken(tokens, ref pos);
+                    }
+                }
+            }
 
             var cb = nextToken(tokens, ref pos, skipWS: true);
             expectTokenType(cb, Token.TokenType.CloseBracket);
@@ -372,7 +400,7 @@ namespace PragmaScript
             return result;
         }
 
-        static Token peekToken(IList<Token> tokens, int pos, bool tokenMustExist = false, bool skipWS = false)
+        static Token peekToken(IList<Token> tokens, int pos, bool tokenMustExist = false, bool skipWS = true)
         {
             pos++;
             if (skipWS)
@@ -394,7 +422,7 @@ namespace PragmaScript
             return tokens[pos];
         }
 
-        static Token nextToken(IList<Token> tokens, ref int pos, bool skipWS = false)
+        static Token nextToken(IList<Token> tokens, ref int pos, bool skipWS = true)
         {
             pos++;
             if (skipWS)

@@ -19,8 +19,8 @@ namespace PragmaScript
         static void Main(string[] args)
         {
             // Backend.Test();
-            // parse("var x = 12;");
-            parse("var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
+            parse("var x = exp(1+2, 2*bar(a,b)); var y = 4;");
+            // parse("var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
             Console.ReadLine();
         }
 
@@ -89,6 +89,8 @@ namespace PragmaScript
                     Console.WriteLine("{0}: {1}", pos++, t);
             }
 
+            Console.ReadLine();
+            
             var root = AST.Parse(tokens);
             renderGraph(root, text);
             Console.WriteLine(root);

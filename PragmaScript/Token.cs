@@ -10,7 +10,9 @@ namespace PragmaScript
     {
         public enum TokenType
         {
-            WhiteSpace, Let, Var, Fun, Identifier, OpenBracket, CloseBracket, Number, Assignment, Error, Add, Subtract, Multiply, Divide, Semicolon
+            WhiteSpace, Let, Var, Fun, Identifier, 
+            OpenBracket, CloseBracket, Number, Assignment, Error, 
+            Add, Subtract, Multiply, Divide, Semicolon, Comma
         }
 
         public TokenType type { get; private set; }
@@ -38,6 +40,7 @@ namespace PragmaScript
             operators.Add("-", TokenType.Subtract);
             operators.Add("*", TokenType.Multiply);
             operators.Add("/", TokenType.Divide);
+            operators.Add(",", TokenType.Comma);
             operators.Add(";", TokenType.Semicolon);
         }
 
