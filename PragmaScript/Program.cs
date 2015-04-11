@@ -224,7 +224,7 @@ namespace PragmaScript
     class CompilerErrorExpected : CompilerError
     {
         public CompilerErrorExpected(string expected, string got, Token t)
-            : base(string.Format("expected \"{0}\", but got \"{1}\""), t)
+            : base(string.Format("expected \"{0}\", but got \"{1}\"", expected, got), t)
         {
 
         }
@@ -395,7 +395,7 @@ namespace PragmaScript
                 {
                     result = parseAssignment(tokens, ref pos);
                 }
-
+                else
                 throw new InvalidCodePath();
             }
 
@@ -411,7 +411,9 @@ namespace PragmaScript
             expectTokenType(current, Token.TokenType.Identifier);
 
             var assign = nextToken(tokens, ref pos, skipWS: true);
-            expectTokenType(current, Token.TokenType.Assignment);
+            expectTokenType(assign, Token.TokenType.Assignment);
+
+            var firstExpressionToken = nextToken(tokens, ref pos, skipWS: true);
 
             var result = new Assignment();
             result.variableName = current.text;
@@ -437,7 +439,6 @@ namespace PragmaScript
             result.expression = parseExpression(tokens, ref pos);
             return result;
         }
-
 
         private static Node parseExpression(IList<Token> tokens, ref int pos)
         {
@@ -468,6 +469,32 @@ namespace PragmaScript
 
         private static Node parseTerm(IList<Token> tokens, ref int pos)
         {
+            var result = parseFactor(tokens, ref pos);
+            var otherFactor = default(Node);
+            var next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
+
+
+            // is operator precedence 2
+            while (next.type == Token.TokenType.Multiply || next.type == Token.TokenType.Divide)
+            {
+                // continue to the next token after the add or subtract
+                nextToken(tokens, ref pos, true);
+                nextToken(tokens, ref pos, true);
+
+                otherFactor = parseFactor(tokens, ref pos);
+                var bo = new BinOp();
+                bo.left = result;
+                bo.right = otherFactor;
+                bo.SetTypeFromToken(next);
+                result = bo;
+                next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
+            }
+
+            return result;
+        }
+
+        private static Node parseFactor(IList<Token> tokens, ref int pos)
+        {
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Number);
 
@@ -476,15 +503,10 @@ namespace PragmaScript
             return result;
         }
 
-        private static Node parseFactor(IList<Token> tokens, ref int pos)
-        {
-            throw new NotImplementedException();
-        }
-
         static void expectTokenType(Token t, Token.TokenType type)
         {
             if (t.type != type)
-                throw new CompilerErrorExpected(type.ToString(), t.ToString(), t);
+                throw new CompilerErrorExpected(type.ToString(), t.type.ToString(), t);
         }
 
         static void expectTokenType(Token token, params Token.TokenType[] types)
@@ -633,7 +655,7 @@ namespace PragmaScript
         {
             // Backend.Test();
             // parse("var x = 12;");
-            parse("var y = 1 + 2 - 4 + 6;");
+            parse("var y = 1 + 2 / 3 - 4 + 6 * 3 / 2   ;");
             Console.ReadLine();
         }
 
@@ -678,9 +700,10 @@ namespace PragmaScript
             return result;
         }
 
-        static void renderGraph(AST.Node root)
+        static void renderGraph(AST.Node root, string label)
         {
             var g = getRenderGraph(Graph.Undirected, root, Guid.NewGuid().ToString());
+            g = g.Add(AttributeStatement.Graph.Set("label", label));
             var renderer = new Shields.GraphViz.Components.Renderer(@"C:\Program Files (x86)\Graphviz2.38\bin\");
             using (Stream file = File.Create("graph.png"))
             {
@@ -704,7 +727,7 @@ namespace PragmaScript
             }
 
             var root = AST.Parse(tokens);
-            renderGraph(root);
+            renderGraph(root, text);
             Console.WriteLine(root);
 
         }
