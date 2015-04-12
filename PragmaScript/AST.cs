@@ -153,6 +153,48 @@ namespace PragmaScript
             }
         }
 
+        public class UnaryOp : Node
+        {
+            public enum UnaryOpType { Add, Subract }
+            public UnaryOpType type;
+
+            public Node expression;
+
+            public void SetTypeFromToken(Token next)
+            {
+                switch (next.type)
+                {
+                    case Token.TokenType.Add:
+                        type = UnaryOpType.Add;
+                        break;
+                    case Token.TokenType.Subtract:
+                        type = UnaryOpType.Subract;
+                        break;
+                    default:
+                        throw new CompilerError("Invalid token type for unary operator", next);
+                }
+            }
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return expression;
+            }
+
+            public override string ToString()
+            {
+                switch (type)
+                {
+                    case UnaryOpType.Add:
+                        return "unary +";
+                    case UnaryOpType.Subract:
+                        return "unary -";
+                
+                    default:
+                        throw new InvalidCodePath();
+                }
+            }
+        }
+
         public static int skipWhitespace(IList<Token> tokens, int pos, bool requireOneWS = false)
         {
             bool foundWS = false;
@@ -251,7 +293,7 @@ namespace PragmaScript
             var next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
 
 
-            // is operator precedence 2
+            // is operator precedence 4
             while (next.type == Token.TokenType.Add || next.type == Token.TokenType.Subtract)
             {
                 // continue to the next token after the add or subtract
@@ -272,19 +314,19 @@ namespace PragmaScript
 
         private static Node parseTerm(IList<Token> tokens, ref int pos)
         {
-            var result = parseFactor(tokens, ref pos);
+            var result = parseUnary(tokens, ref pos);
             var otherFactor = default(Node);
             var next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
 
 
-            // is operator precedence 1
+            // is operator precedence 3
             while (next.type == Token.TokenType.Multiply || next.type == Token.TokenType.Divide)
             {
                 // continue to the next token after the add or subtract
                 nextToken(tokens, ref pos, true);
                 nextToken(tokens, ref pos, true);
 
-                otherFactor = parseFactor(tokens, ref pos);
+                otherFactor = parseUnary(tokens, ref pos);
                 var bo = new BinOp();
                 bo.left = result;
                 bo.right = otherFactor;
@@ -294,6 +336,23 @@ namespace PragmaScript
             }
 
             return result;
+        }
+
+        private static Node parseUnary(IList<Token> tokens, ref int pos)
+        {
+            var current = tokens[pos];
+
+            // is operator precedence 2
+            if (current.type == Token.TokenType.Add || current.type == Token.TokenType.Subtract)
+            {
+                var result = new UnaryOp();
+                result.SetTypeFromToken(current);
+                nextToken(tokens, ref pos);
+                result.expression = parseFactor(tokens, ref pos);
+                return result;
+            }
+
+            return parseFactor(tokens, ref pos);
         }
 
         private static Node parseFactor(IList<Token> tokens, ref int pos)

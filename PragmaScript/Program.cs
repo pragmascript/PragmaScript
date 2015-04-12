@@ -19,7 +19,7 @@ namespace PragmaScript
         static void Main(string[] args)
         {
             // Backend.Test();
-            parse("var x = exp(1+2, 2*bar(a,b)); var y = 4;");
+            parse("var y = (12 + 12) * 2; var x = y - 6;");
             // parse("var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
             Console.ReadLine();
         }
@@ -88,11 +88,17 @@ namespace PragmaScript
                 if (t.type != Token.TokenType.WhiteSpace)
                     Console.WriteLine("{0}: {1}", pos++, t);
             }
-
             Console.ReadLine();
             
             var root = AST.Parse(tokens);
             renderGraph(root, text);
+
+            var backend = new Backend();
+            backend.EmitAndRun(root);
+
+            // Backend.Test();
+
+
             Console.WriteLine(root);
 
         }
