@@ -20,79 +20,17 @@ namespace PragmaScript
         LLVMBuilderRef builder;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate int Add(int a, int b);
-        public static void Test()
-        {
-
-            LLVMBool False = new LLVMBool(0);
-            LLVMModuleRef mod = LLVM.ModuleCreateWithName("LLVMSharpIntro");
-
-            LLVMTypeRef[] param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
-            LLVMTypeRef ret_type = LLVM.FunctionType(LLVM.Int32Type(), out param_types[0], 2, False);
-            LLVMValueRef sum = LLVM.AddFunction(mod, "sum", ret_type);
-
-            LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(sum, "entry");
-
-            LLVMBuilderRef builder = LLVM.CreateBuilder();
-            LLVM.PositionBuilderAtEnd(builder, entry);
-
-            LLVM.BuildAlloca(builder, LLVM.Int32Type(), "x");
-            
-            LLVMValueRef tmp = LLVM.BuildAdd(builder, LLVM.GetParam(sum, 0), LLVM.GetParam(sum, 1), "tmp");
-            LLVM.BuildRet(builder, tmp);
-
-            IntPtr error;
-            LLVM.VerifyModule(mod, LLVMVerifierFailureAction.LLVMAbortProcessAction, out error);
-            LLVM.DisposeMessage(error);
-
-            LLVMExecutionEngineRef engine;
-
-            LLVM.LinkInMCJIT();
-            LLVM.InitializeX86Target();
-            LLVM.InitializeX86TargetInfo();
-            LLVM.InitializeX86TargetMC();
-            LLVM.InitializeX86AsmPrinter();
-
-            var platform = Environment.OSVersion.Platform;
-            if (platform == PlatformID.Win32NT) // On Windows, LLVM currently (3.6) does not support PE/COFF
-            {
-                LLVM.SetTarget(mod, Marshal.PtrToStringAnsi(LLVM.GetDefaultTargetTriple()) + "-elf");
-            }
-
-            var options = new LLVMMCJITCompilerOptions();
-            var optionsSize = (4 * sizeof(int)) + IntPtr.Size; // LLVMMCJITCompilerOptions has 4 ints and a pointer
-
-            LLVM.InitializeMCJITCompilerOptions(out options, optionsSize);
-            LLVM.CreateMCJITCompilerForModule(out engine, mod, out options, optionsSize, out error);
-
-            var addMethod = (Add)Marshal.GetDelegateForFunctionPointer(LLVM.GetPointerToGlobal(engine, sum), typeof(Add));
-            int result = addMethod(10, 15);
-
-            Console.WriteLine("Result of sum is: " + result);
-
-            if (LLVM.WriteBitcodeToFile(mod, "sum.bc") != 0)
-            {
-                Console.WriteLine("error writing bitcode to file, skipping");
-            }
-
-            LLVM.DumpModule(mod);
-
-            LLVM.DisposeBuilder(builder);
-            LLVM.DisposeExecutionEngine(engine);
-            Console.ReadKey();
-        }
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate int llvm_main();
+        public delegate int llvm_main(int a);
         public void EmitAndRun(AST.Node root)
         {
             LLVMBool False = new LLVMBool(0);
             LLVMModuleRef mod = LLVM.ModuleCreateWithName("WhatIsThisIDontEven");
 
-            var passManager = LLVM.CreatePassManager();
+
+            // var passManager = LLVM.CreatePassManager();
 
             LLVMTypeRef[] param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
-            LLVMTypeRef ret_type = LLVM.FunctionType(LLVM.Int32Type(), out param_types[0], 0, False);
+            LLVMTypeRef ret_type = LLVM.FunctionType(LLVM.Int32Type(), out param_types[0], 1, False);
             LLVMValueRef main = LLVM.AddFunction(mod, "main", ret_type);
 
             LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(main, "entry");
@@ -102,8 +40,10 @@ namespace PragmaScript
             
             Visit(root);
 
-            LLVMValueRef tmp = LLVM.BuildLoad(builder, variables["x"], "result");
-            LLVM.BuildRet(builder, tmp);
+            LLVMValueRef tmp = LLVM.BuildLoad(builder, variables["x"], "tmp");
+            var a = LLVM.GetParam(main, 0);
+            var result = LLVM.BuildAdd(builder, tmp, a, "add_a");
+            LLVM.BuildRet(builder, result);
 
             IntPtr error;
             LLVM.VerifyModule(mod, LLVMVerifierFailureAction.LLVMAbortProcessAction, out error);
@@ -116,6 +56,7 @@ namespace PragmaScript
             LLVM.InitializeX86TargetInfo();
             LLVM.InitializeX86TargetMC();
             LLVM.InitializeX86AsmPrinter();
+            LLVM.InitializeX86Disassembler();
 
             var platform = Environment.OSVersion.Platform;
             if (platform == PlatformID.Win32NT) // On Windows, LLVM currently (3.6) does not support PE/COFF
@@ -133,12 +74,21 @@ namespace PragmaScript
 
             var mainMethod = (llvm_main)Marshal.GetDelegateForFunctionPointer(LLVM.GetPointerToGlobal(engine, main), typeof(llvm_main));
 
-            var answer = mainMethod(); 
+            var answer = mainMethod(12);
+            answer -= 42;
 
-            Console.WriteLine();
-            Console.WriteLine("THE ANSWER IS: " + answer);
-            Console.WriteLine();
+            if (answer == 0)
+            {
 
+                Console.WriteLine();
+                Console.WriteLine("THE ANSWER IS: " + answer);
+                Console.WriteLine();
+
+            }
+            else
+            {
+                Console.WriteLine("not null");
+            }
             //int result = addMethod(10, 15);
 
             //Console.WriteLine("Result of sum is: " + result);
@@ -149,7 +99,7 @@ namespace PragmaScript
             //}
 
             LLVM.DumpModule(mod);
-
+            
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeExecutionEngine(engine);
             Console.ReadKey();

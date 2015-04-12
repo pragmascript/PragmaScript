@@ -91,7 +91,7 @@ namespace PragmaScript
             Console.ReadLine();
             
             var root = AST.Parse(tokens);
-            renderGraph(root, text);
+            // renderGraph(root, text);
 
             var backend = new Backend();
             backend.EmitAndRun(root);
