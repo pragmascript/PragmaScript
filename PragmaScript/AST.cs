@@ -25,7 +25,7 @@ namespace PragmaScript
                 yield break;
             }
 
-            public abstract VariableType GetType(Scope scope);
+            public abstract VariableType CheckType(Scope scope);
         }
 
         public class VariableType
@@ -43,8 +43,8 @@ namespace PragmaScript
 
         public class VariableDefinition
         {
-            public string variableName;
-            public VariableType variableType;
+            public string name;
+            public VariableType type;
         }
 
         public class Scope
@@ -73,15 +73,16 @@ namespace PragmaScript
                 }
             }
 
-            public void AddVar(string name, Token t)
+            public VariableDefinition AddVar(string name, Token t)
             {
                 VariableDefinition v = new VariableDefinition();
-                v.variableName = name;
+                v.name = name;
                 if (variables.ContainsKey(name))
                 {
                     throw new RedefinedVariable(name, t);
                 }
                 variables.Add(name, v);
+                return v;
             }
 
             public VariableType GetType(string typeName)
@@ -113,6 +114,15 @@ namespace PragmaScript
                 }
                 types.Add(name, type);
             }
+
+            public void AddType(VariableType t, Token token)
+            {
+                if (types.ContainsKey(t.name))
+                {
+                    throw new RedefinedType(t.name, token);
+                }
+                types.Add(t.name, t);
+            }
         }
 
 
@@ -125,29 +135,29 @@ namespace PragmaScript
                 : base(t)
             {
             }
-
-
             public override IEnumerable<Node> GetChilds()
             {
                 foreach (var s in statements)
                     yield return s;
             }
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
+                foreach (var s in statements)
+                {
+                    s.CheckType(this.scope);
+                }
                 return null;
             }
             public override string ToString()
             {
                 return "Block";
             }
-
-
         }
 
 
         public class VariableDeclaration : Node
         {
-            public string variableName;
+            public VariableDefinition variable;
             public Node expression;
 
             public VariableDeclaration(Token t)
@@ -159,13 +169,13 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
-                return expression.GetType(scope);
+                return expression.CheckType(scope);
             }
             public override string ToString()
             {
-                return "var " + variableName + " = ";
+                return "var " + variable.name + " = ";
             }
 
         }
@@ -180,8 +190,6 @@ namespace PragmaScript
                 : base(t)
             {
             }
-
-
             public override IEnumerable<Node> GetChilds()
             {
                 foreach (var exp in argumentList)
@@ -189,7 +197,7 @@ namespace PragmaScript
                     yield return exp;
                 }
             }
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
                 return returnType;
             }
@@ -208,10 +216,9 @@ namespace PragmaScript
             {
             }
 
-
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
-                return scope.GetVar(variableName).variableType;
+                return scope.GetVar(variableName).type;
             }
             public override string ToString()
             {
@@ -221,7 +228,7 @@ namespace PragmaScript
 
         public class Assignment : Node
         {
-            public string variableName;
+            public VariableDefinition variable;
             public Node expression;
 
             public Assignment(Token t)
@@ -229,18 +236,17 @@ namespace PragmaScript
             {
             }
 
-
             public override IEnumerable<Node> GetChilds()
             {
                 yield return expression;
             }
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
-                return expression.GetType(scope);
+                return expression.CheckType(scope);
             }
             public override string ToString()
             {
-                return variableName + " = ";
+                return variable.name + " = ";
             }
         }
 
@@ -253,7 +259,7 @@ namespace PragmaScript
             {
             }
 
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
                 return VariableType.int32;
             }
@@ -273,7 +279,7 @@ namespace PragmaScript
             }
 
 
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
                 return VariableType.float32;
             }
@@ -297,7 +303,7 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
                 return null;
             }
@@ -321,7 +327,6 @@ namespace PragmaScript
             {
             }
 
-
             public void SetTypeFromToken(Token next)
             {
                 switch (next.type)
@@ -342,22 +347,22 @@ namespace PragmaScript
                         throw new ParserError("Invalid token type for binary operation", next);
                 }
             }
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
-                var lType = left.GetType(scope);
-                var rType = right.GetType(scope);
+                var lType = left.CheckType(scope);
+                var rType = right.CheckType(scope);
                 if (lType != rType)
                 {
                     throw new ParserTypeMismatch(lType, rType, token);
                 }
                 return lType;
             }
+            
             public override IEnumerable<Node> GetChilds()
             {
                 yield return left;
                 yield return right;
             }
-
 
             public override string ToString()
             {
@@ -405,9 +410,9 @@ namespace PragmaScript
                 }
             }
 
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
-                return expression.GetType(scope);
+                return expression.CheckType(scope);
             }
 
             public override IEnumerable<Node> GetChilds()
@@ -440,12 +445,11 @@ namespace PragmaScript
             {
             }
 
-
             public override IEnumerable<Node> GetChilds()
             {
                 yield return expression;
             }
-            public override VariableType GetType(Scope scope)
+            public override VariableType CheckType(Scope scope)
             {
                 return type;
             }
@@ -545,7 +549,12 @@ namespace PragmaScript
             var firstExpressionToken = nextToken(tokens, ref pos, skipWS: true);
 
             var result = new Assignment(current);
-            result.variableName = current.text;
+            var variable = scope.GetVar(current.text);
+            if (variable == null)
+            {
+                throw new UndefinedVariable(current.text, current);
+            }
+            result.variable = variable;
             result.expression = parseExpression(tokens, ref pos, scope);
 
             return result;
@@ -565,11 +574,10 @@ namespace PragmaScript
             var firstExpressionToken = nextToken(tokens, ref pos, skipWS: true);
 
             var result = new VariableDeclaration(current);
-            result.variableName = ident.text;
-            result.expression = parseExpression(tokens, ref pos, scope);
-
+            
             // add variable to scope
-            scope.AddVar(ident.text, current);
+            result.variable = scope.AddVar(ident.text, current); 
+            result.expression = parseExpression(tokens, ref pos, scope);
 
             return result;
         }
@@ -704,7 +712,7 @@ namespace PragmaScript
 
                 if (scope.GetVar(current.text) == null)
                 {
-                    throw new UndefinedVarialbe(current.text, current);
+                    throw new UndefinedVariable(current.text, current);
                 }
                 var varLookup = new VariableLookup(current);
                 varLookup.variableName = current.text;
@@ -839,10 +847,12 @@ namespace PragmaScript
         public static Node Parse(IList<Token> tokens)
         {
             int pos = 0;
+            var current = tokens[pos];
+            
             var rootScope = new Scope();
-
-
-            var block = parseBlock(tokens, ref pos, null);
+            rootScope.AddType(VariableType.float32, current);
+            rootScope.AddType(VariableType.int32, current);
+            var block = parseBlock(tokens, ref pos, rootScope);
 
             return block;
         }

@@ -39,11 +39,11 @@ namespace PragmaScript
                     var t = Token.Parse(line, pos, i);
                     yield return t;
 
-                    // abort on first error token
-                    if (t.type == Token.TokenType.Error)
-                    {
-                        yield break;
-                    }
+                    //// abort on first error token
+                    //if (t.type == Token.TokenType.Error)
+                    //{
+                    //    yield break;
+                    //}
                     pos += t.length;
                 }
             }

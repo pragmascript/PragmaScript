@@ -280,15 +280,15 @@ namespace PragmaScript
             switch (result.type)
             {
                 case BackendType.Float32:
-                    v = LLVM.BuildAlloca(builder, LLVM.FloatType(), node.variableName);
+                    v = LLVM.BuildAlloca(builder, LLVM.FloatType(), node.variable.name);
                     break;
                 case BackendType.Int32:
-                    v = LLVM.BuildAlloca(builder, LLVM.Int32Type(), node.variableName);
+                    v = LLVM.BuildAlloca(builder, LLVM.Int32Type(), node.variable.name);
                     break;
                 default:
                     throw new InvalidCodePath();
             }
-            variables[node.variableName] = new TypedValue(v, result.type);
+            variables[node.variable.name] = new TypedValue(v, result.type);
             LLVM.BuildStore(builder, result.value, v);
         }
 

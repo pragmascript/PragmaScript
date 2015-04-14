@@ -39,9 +39,9 @@ namespace PragmaScript
         }
     }
 
-    class UndefinedVarialbe : ParserError
+    class UndefinedVariable : ParserError
     {
-        public UndefinedVarialbe(string variableName, Token t)
+        public UndefinedVariable(string variableName, Token t)
             : base(string.Format("undefined varialbe \"{0}\"", variableName), t)
         {
 

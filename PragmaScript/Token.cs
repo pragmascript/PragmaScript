@@ -8,12 +8,13 @@ namespace PragmaScript
 {
     class Token
     {
+        public static Token Undefined = new Token { type = TokenType.Undefined, text = "undefined" };
         public enum TokenType
         {
             WhiteSpace, Let, Var, Fun, Identifier,
             OpenBracket, CloseBracket, IntNumber, FloatNumber, Assignment, Error,
             Add, Subtract, Multiply, Divide, Semicolon, Comma,
-            Return
+            Return, Undefined
         }
 
         public TokenType type { get; private set; }
