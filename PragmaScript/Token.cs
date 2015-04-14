@@ -10,9 +10,10 @@ namespace PragmaScript
     {
         public enum TokenType
         {
-            WhiteSpace, Let, Var, Fun, Identifier, 
-            OpenBracket, CloseBracket, Number, Assignment, Error, 
-            Add, Subtract, Multiply, Divide, Semicolon, Comma
+            WhiteSpace, Let, Var, Fun, Identifier,
+            OpenBracket, CloseBracket, IntNumber, FloatNumber, Assignment, Error,
+            Add, Subtract, Multiply, Divide, Semicolon, Comma,
+            Return
         }
 
         public TokenType type { get; private set; }
@@ -31,7 +32,7 @@ namespace PragmaScript
             keywords = new Dictionary<string, TokenType>();
             keywords.Add("let", TokenType.Let);
             keywords.Add("var", TokenType.Var);
-
+            keywords.Add("return", TokenType.Return);
             operators = new Dictionary<string, TokenType>();
             operators.Add("=", TokenType.Assignment);
             operators.Add("(", TokenType.OpenBracket);
@@ -46,7 +47,7 @@ namespace PragmaScript
 
         public static bool isIdentifierChar(char c)
         {
-            return char.IsLetter(c) || c == '_';
+            return char.IsLetter(c) || c == '_' || char.IsDigit(c);
         }
 
         public static bool isKeyword(string identifier)
@@ -104,7 +105,7 @@ namespace PragmaScript
                         t.text = line.Substring(t.pos, t.length);
                         return EmitError(t, "Only one decimal seperator is allowed!");
                     }
-                    containsDecimalSeperator = current == '.';
+                    containsDecimalSeperator |= current == '.';
 
                     t.length++;
                     pos++;
@@ -112,7 +113,7 @@ namespace PragmaScript
                         break;
                     current = line[pos];
                 }
-                t.type = TokenType.Number;
+                t.type = containsDecimalSeperator ? TokenType.FloatNumber : TokenType.IntNumber;
                 t.text = line.Substring(t.pos, t.length);
                 return t;
             }

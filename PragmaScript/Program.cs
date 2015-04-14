@@ -18,8 +18,8 @@ namespace PragmaScript
     {
         static void Main(string[] args)
         {
-            // Backend.Test();
-            parse("var y = (12 + 12) * 2; var x = y - 6;");
+            parse("var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36;");
+            // parse("var y = -3 + (12 + 12) * 2; var x = y - 3; return x;");
             // parse("var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
             Console.ReadLine();
         }
@@ -91,13 +91,10 @@ namespace PragmaScript
             Console.ReadLine();
             
             var root = AST.Parse(tokens);
-            // renderGraph(root, text);
+            renderGraph(root, text);
 
             var backend = new Backend();
-            backend.EmitAndRun(root);
-
-            // Backend.Test();
-
+            backend.EmitAndRun(root, false);
 
             Console.WriteLine(root);
 

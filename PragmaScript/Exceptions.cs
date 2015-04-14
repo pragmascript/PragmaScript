@@ -13,18 +13,66 @@ namespace PragmaScript
         { }
     }
 
-    class CompilerError : Exception
+    class ParserError : Exception
     {
-        public CompilerError(string message, Token t)
+        public ParserError(string message, Token t)
             : base(String.Format("error: {0}! at {1}", message, t))
         {
         }
     }
 
-    class CompilerErrorExpected : CompilerError
+    class ParserErrorExpected : ParserError
     {
-        public CompilerErrorExpected(string expected, string got, Token t)
+        public ParserErrorExpected(string expected, string got, Token t)
             : base(string.Format("expected \"{0}\", but got \"{1}\"", expected, got), t)
+        {
+
+        }
+    }
+
+    class ParserTypeMismatch : ParserError
+    {
+        public ParserTypeMismatch(AST.VariableType type1, AST.VariableType type2, Token t)
+            : base(string.Format("Type mismatch: type {0} != type {1}", type1, type2), t)
+        {
+
+        }
+    }
+
+    class UndefinedVarialbe : ParserError
+    {
+        public UndefinedVarialbe(string variableName, Token t)
+            : base(string.Format("undefined varialbe \"{0}\"", variableName), t)
+        {
+
+        }
+
+    }
+
+    class RedefinedVariable : ParserError
+    {
+        public RedefinedVariable(string variableName, Token t)
+            : base(string.Format("varialbe \"{0}\" already defined", variableName), t)
+        {
+
+        }
+
+    }
+
+    class RedefinedType : ParserError
+    {
+        public RedefinedType(string typeName, Token t)
+            : base(string.Format("type \"{0}\" already defined", typeName), t)
+        {
+
+        }
+
+    }
+
+    class BackendTypeMismatchException : Exception
+    {
+        public BackendTypeMismatchException(Backend.BackendType type1, Backend.BackendType type2)
+            : base(string.Format("Type mismatch: type {0} != type {1}", type1, type2))
         {
 
         }

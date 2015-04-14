@@ -1,55 +1,186 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace PragmaScript
 {
+
+
+
     class AST
     {
         public abstract class Node
         {
+            public Token token;
+
+            public Node(Token t)
+            {
+                token = t;
+            }
             public virtual IEnumerable<Node> GetChilds()
             {
                 yield break;
             }
+
+            public abstract VariableType GetType(Scope scope);
         }
+
+        public class VariableType
+        {
+            public static VariableType void_ = new VariableType { name = "void" };
+            public static VariableType int32 = new VariableType { name = "int32" };
+            public static VariableType float32 = new VariableType { name = "float32" };
+            public string name;
+
+            public override int GetHashCode()
+            {
+                return name.GetHashCode();
+            }
+        }
+
+        public class VariableDefinition
+        {
+            public string variableName;
+            public VariableType variableType;
+        }
+
+        public class Scope
+        {
+            public Scope parent;
+
+            public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
+            public Dictionary<string, VariableType> types = new Dictionary<string, VariableType>();
+
+            public VariableDefinition GetVar(string name)
+            {
+                VariableDefinition result;
+
+                if (variables.TryGetValue(name, out result))
+                {
+                    return result;
+                }
+
+                if (parent != null)
+                {
+                    return parent.GetVar(name);
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            public void AddVar(string name, Token t)
+            {
+                VariableDefinition v = new VariableDefinition();
+                v.variableName = name;
+                if (variables.ContainsKey(name))
+                {
+                    throw new RedefinedVariable(name, t);
+                }
+                variables.Add(name, v);
+            }
+
+            public VariableType GetType(string typeName)
+            {
+                VariableType result;
+
+                if (types.TryGetValue(typeName, out result))
+                {
+                    return result;
+                }
+
+                if (parent != null)
+                {
+                    return parent.GetType(typeName);
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            public void AddType(string name, Token t)
+            {
+                VariableType type = new VariableType();
+                type.name = name;
+                if (types.ContainsKey(name))
+                {
+                    throw new RedefinedType(name, t);
+                }
+                types.Add(name, type);
+            }
+        }
+
+
 
         public class Block : Node
         {
+            public Scope scope;
             public List<Node> statements = new List<Node>();
+            public Block(Token t)
+                : base(t)
+            {
+            }
+
+
             public override IEnumerable<Node> GetChilds()
             {
                 foreach (var s in statements)
                     yield return s;
             }
+            public override VariableType GetType(Scope scope)
+            {
+                return null;
+            }
             public override string ToString()
             {
                 return "Block";
             }
+
+
         }
+
 
         public class VariableDeclaration : Node
         {
             public string variableName;
             public Node expression;
 
+            public VariableDeclaration(Token t)
+                : base(t)
+            {
+            }
+
             public override IEnumerable<Node> GetChilds()
             {
                 yield return expression;
             }
-
+            public override VariableType GetType(Scope scope)
+            {
+                return expression.GetType(scope);
+            }
             public override string ToString()
             {
                 return "var " + variableName + " = ";
             }
+
         }
 
         public class FunctionCall : Node
         {
             public string functionName;
             public List<Node> argumentList = new List<Node>();
+            public VariableType returnType;
+
+            public FunctionCall(Token t)
+                : base(t)
+            {
+            }
+
 
             public override IEnumerable<Node> GetChilds()
             {
@@ -57,6 +188,10 @@ namespace PragmaScript
                 {
                     yield return exp;
                 }
+            }
+            public override VariableType GetType(Scope scope)
+            {
+                return returnType;
             }
             public override string ToString()
             {
@@ -68,6 +203,16 @@ namespace PragmaScript
         {
             public string variableName;
 
+            public VariableLookup(Token t)
+                : base(t)
+            {
+            }
+
+
+            public override VariableType GetType(Scope scope)
+            {
+                return scope.GetVar(variableName).variableType;
+            }
             public override string ToString()
             {
                 return variableName;
@@ -79,25 +224,88 @@ namespace PragmaScript
             public string variableName;
             public Node expression;
 
+            public Assignment(Token t)
+                : base(t)
+            {
+            }
+
+
             public override IEnumerable<Node> GetChilds()
             {
                 yield return expression;
             }
-
+            public override VariableType GetType(Scope scope)
+            {
+                return expression.GetType(scope);
+            }
             public override string ToString()
             {
                 return variableName + " = ";
             }
         }
 
-        public class ConstInt : Node
+        public class ConstInt32 : Node
         {
             public int number;
 
+            public ConstInt32(Token t)
+                : base(t)
+            {
+            }
+
+            public override VariableType GetType(Scope scope)
+            {
+                return VariableType.int32;
+            }
             public override string ToString()
             {
                 return number.ToString();
             }
+        }
+
+        public class ConstFloat32 : Node
+        {
+            public double number;
+
+            public ConstFloat32(Token t)
+                : base(t)
+            {
+            }
+
+
+            public override VariableType GetType(Scope scope)
+            {
+                return VariableType.float32;
+            }
+            public override string ToString()
+            {
+                return number.ToString();
+            }
+        }
+
+        public class Return : Node
+        {
+            public Node expression;
+
+            public Return(Token t)
+                : base(t)
+            {
+            }
+
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return expression;
+            }
+            public override VariableType GetType(Scope scope)
+            {
+                return null;
+            }
+            public override string ToString()
+            {
+                return "return";
+            }
+
         }
 
         public class BinOp : Node
@@ -107,6 +315,12 @@ namespace PragmaScript
 
             public Node left;
             public Node right;
+
+            public BinOp(Token t)
+                : base(t)
+            {
+            }
+
 
             public void SetTypeFromToken(Token next)
             {
@@ -125,15 +339,25 @@ namespace PragmaScript
                         type = BinOpType.Divide;
                         break;
                     default:
-                        throw new CompilerError("Invalid token type for binary operation", next);
+                        throw new ParserError("Invalid token type for binary operation", next);
                 }
             }
-
+            public override VariableType GetType(Scope scope)
+            {
+                var lType = left.GetType(scope);
+                var rType = right.GetType(scope);
+                if (lType != rType)
+                {
+                    throw new ParserTypeMismatch(lType, rType, token);
+                }
+                return lType;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 yield return left;
                 yield return right;
             }
+
 
             public override string ToString()
             {
@@ -160,6 +384,12 @@ namespace PragmaScript
 
             public Node expression;
 
+            public UnaryOp(Token t)
+                : base(t)
+            {
+            }
+
+
             public void SetTypeFromToken(Token next)
             {
                 switch (next.type)
@@ -171,8 +401,13 @@ namespace PragmaScript
                         type = UnaryOpType.Subract;
                         break;
                     default:
-                        throw new CompilerError("Invalid token type for unary operator", next);
+                        throw new ParserError("Invalid token type for unary operator", next);
                 }
+            }
+
+            public override VariableType GetType(Scope scope)
+            {
+                return expression.GetType(scope);
             }
 
             public override IEnumerable<Node> GetChilds()
@@ -188,10 +423,35 @@ namespace PragmaScript
                         return "unary +";
                     case UnaryOpType.Subract:
                         return "unary -";
-                
+
                     default:
                         throw new InvalidCodePath();
                 }
+            }
+        }
+
+        public class TypeCastOp : Node
+        {
+            public Node expression;
+            public VariableType type;
+
+            public TypeCastOp(Token t)
+                : base(t)
+            {
+            }
+
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return expression;
+            }
+            public override VariableType GetType(Scope scope)
+            {
+                return type;
+            }
+            public override string ToString()
+            {
+                return "(" + type.name + ")";
             }
         }
 
@@ -210,13 +470,13 @@ namespace PragmaScript
 
             if (requireOneWS && !foundWS)
             {
-                throw new CompilerError("Expected Whitespace", tokens[pos]);
+                throw new ParserError("Expected Whitespace", tokens[pos]);
             }
             return pos;
         }
 
 
-        static Node parseStatement(IList<Token> tokens, ref int pos)
+        static Node parseStatement(IList<Token> tokens, ref int pos, Scope scope)
         {
             pos = skipWhitespace(tokens, pos);
             var result = default(Node);
@@ -224,7 +484,11 @@ namespace PragmaScript
             var current = tokens[pos];
             if (current.type == Token.TokenType.Var)
             {
-                result = parseVariableDeclaration(tokens, ref pos);
+                result = parseVariableDeclaration(tokens, ref pos, scope);
+            }
+            if (current.type == Token.TokenType.Return)
+            {
+                result = parseReturn(tokens, ref pos, scope);
             }
             else if (current.type == Token.TokenType.Identifier)
             {
@@ -235,11 +499,11 @@ namespace PragmaScript
 
                 if (next.type == Token.TokenType.OpenBracket)
                 {
-                    result = parseFunctionCall(tokens, ref pos);
+                    result = parseFunctionCall(tokens, ref pos, scope);
                 }
                 else if (next.type == Token.TokenType.Assignment)
                 {
-                    result = parseAssignment(tokens, ref pos);
+                    result = parseAssignment(tokens, ref pos, scope);
                 }
                 else
                     throw new InvalidCodePath();
@@ -251,7 +515,26 @@ namespace PragmaScript
             return result;
         }
 
-        static Node parseAssignment(IList<Token> tokens, ref int pos)
+        static Node parseReturn(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Return);
+
+            var next = peekToken(tokens, pos, true, true);
+            if (next.type == Token.TokenType.Semicolon)
+            {
+                return new Return(current);
+            }
+            else
+            {
+                var result = new Return(current);
+                nextToken(tokens, ref pos);
+                result.expression = parseExpression(tokens, ref pos, scope);
+                return result;
+            }
+        }
+
+        static Node parseAssignment(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Identifier);
@@ -261,13 +544,14 @@ namespace PragmaScript
 
             var firstExpressionToken = nextToken(tokens, ref pos, skipWS: true);
 
-            var result = new Assignment();
+            var result = new Assignment(current);
             result.variableName = current.text;
-            result.expression = parseExpression(tokens, ref pos);
+            result.expression = parseExpression(tokens, ref pos, scope);
+
             return result;
         }
 
-        static Node parseVariableDeclaration(IList<Token> tokens, ref int pos)
+        static Node parseVariableDeclaration(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Var);
@@ -280,15 +564,19 @@ namespace PragmaScript
 
             var firstExpressionToken = nextToken(tokens, ref pos, skipWS: true);
 
-            var result = new VariableDeclaration();
+            var result = new VariableDeclaration(current);
             result.variableName = ident.text;
-            result.expression = parseExpression(tokens, ref pos);
+            result.expression = parseExpression(tokens, ref pos, scope);
+
+            // add variable to scope
+            scope.AddVar(ident.text, current);
+
             return result;
         }
 
-        private static Node parseExpression(IList<Token> tokens, ref int pos)
+        private static Node parseExpression(IList<Token> tokens, ref int pos, Scope scope)
         {
-            var result = parseTerm(tokens, ref pos);
+            var result = parseTerm(tokens, ref pos, scope);
             var otherTerm = default(Node);
             var next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
 
@@ -300,21 +588,20 @@ namespace PragmaScript
                 nextToken(tokens, ref pos, true);
                 nextToken(tokens, ref pos, true);
 
-                otherTerm = parseTerm(tokens, ref pos);
-                var bo = new BinOp();
+                otherTerm = parseTerm(tokens, ref pos, scope);
+                var bo = new BinOp(next);
                 bo.left = result;
                 bo.right = otherTerm;
                 bo.SetTypeFromToken(next);
                 result = bo;
                 next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
             }
-
             return result;
         }
 
-        private static Node parseTerm(IList<Token> tokens, ref int pos)
+        private static Node parseTerm(IList<Token> tokens, ref int pos, Scope scope)
         {
-            var result = parseUnary(tokens, ref pos);
+            var result = parseUnary(tokens, ref pos, scope);
             var otherFactor = default(Node);
             var next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
 
@@ -326,8 +613,8 @@ namespace PragmaScript
                 nextToken(tokens, ref pos, true);
                 nextToken(tokens, ref pos, true);
 
-                otherFactor = parseUnary(tokens, ref pos);
-                var bo = new BinOp();
+                otherFactor = parseUnary(tokens, ref pos, scope);
+                var bo = new BinOp(next);
                 bo.left = result;
                 bo.right = otherFactor;
                 bo.SetTypeFromToken(next);
@@ -338,33 +625,60 @@ namespace PragmaScript
             return result;
         }
 
-        private static Node parseUnary(IList<Token> tokens, ref int pos)
+        private static Node parseUnary(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
 
             // is operator precedence 2
+
+            // handle unary plus and minus
             if (current.type == Token.TokenType.Add || current.type == Token.TokenType.Subtract)
             {
-                var result = new UnaryOp();
+                var result = new UnaryOp(current);
                 result.SetTypeFromToken(current);
                 nextToken(tokens, ref pos);
-                result.expression = parseFactor(tokens, ref pos);
+                result.expression = parseFactor(tokens, ref pos, scope);
                 return result;
             }
 
-            return parseFactor(tokens, ref pos);
+            // handle type cast operator (T)x
+            if (current.type == Token.TokenType.OpenBracket)
+            {
+                var typeNameToken = nextToken(tokens, ref pos);
+                expectTokenType(typeNameToken, Token.TokenType.Identifier);
+                var closeBrackeToken = nextToken(tokens, ref pos);
+                expectTokenType(closeBrackeToken, Token.TokenType.CloseBracket);
+
+                nextToken(tokens, ref pos);
+                var exp = parseFactor(tokens, ref pos, scope);
+
+                var result = new TypeCastOp(current);
+
+                // TODO: check if valid type (in type check phase?)
+                result.type = scope.GetType(typeNameToken.text);
+                result.expression = exp;
+                return result;
+
+            }
+
+            return parseFactor(tokens, ref pos, scope);
         }
 
-        private static Node parseFactor(IList<Token> tokens, ref int pos)
+        private static Node parseFactor(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
-            expectTokenType(current, Token.TokenType.Number, Token.TokenType.Identifier, Token.TokenType.OpenBracket);
+            expectTokenType(current, Token.TokenType.IntNumber, Token.TokenType.FloatNumber, Token.TokenType.Identifier, Token.TokenType.OpenBracket);
 
-
-            if (current.type == Token.TokenType.Number)
+            if (current.type == Token.TokenType.IntNumber)
             {
-                var result = new ConstInt();
+                var result = new ConstInt32(current);
                 result.number = int.Parse(current.text);
+                return result;
+            }
+            if (current.type == Token.TokenType.FloatNumber)
+            {
+                var result = new ConstFloat32(current);
+                result.number = double.Parse(current.text, CultureInfo.InvariantCulture);
                 return result;
             }
 
@@ -372,7 +686,7 @@ namespace PragmaScript
             if (current.type == Token.TokenType.OpenBracket)
             {
                 var exprStart = nextToken(tokens, ref pos);
-                var result = parseExpression(tokens, ref pos);
+                var result = parseExpression(tokens, ref pos, scope);
                 var cBracket = nextToken(tokens, ref pos, skipWS: true);
                 expectTokenType(cBracket, Token.TokenType.CloseBracket);
                 return result;
@@ -384,10 +698,15 @@ namespace PragmaScript
                 var peek = peekToken(tokens, pos, skipWS: true);
                 if (peek.type == Token.TokenType.OpenBracket)
                 {
-                    var result = parseFunctionCall(tokens, ref pos);
+                    var result = parseFunctionCall(tokens, ref pos, scope);
                     return result;
                 }
-                var varLookup = new VariableLookup();
+
+                if (scope.GetVar(current.text) == null)
+                {
+                    throw new UndefinedVarialbe(current.text, current);
+                }
+                var varLookup = new VariableLookup(current);
                 varLookup.variableName = current.text;
                 return varLookup;
             }
@@ -395,50 +714,27 @@ namespace PragmaScript
             throw new InvalidCodePath();
         }
 
-        static void expectTokenType(Token t, Token.TokenType type)
+        static Node parseFunctionCall(IList<Token> tokens, ref int pos, Scope scope)
         {
-            if (t.type != type)
-                throw new CompilerErrorExpected(type.ToString(), t.type.ToString(), t);
-        }
-
-        static void expectTokenType(Token token, params Token.TokenType[] types)
-        {
-            var found = false;
-            foreach (var tt in types)
-            {
-                if (token.type == tt)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                string exp = "either ( " + string.Join(" | ", types.Select(tt => tt.ToString())) + " )";
-                throw new CompilerErrorExpected(exp, token.ToString(), token);
-            }
-        }
-
-        static Node parseFunctionCall(IList<Token> tokens, ref int pos)
-        {
-            var result = new FunctionCall();
+            
 
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Identifier);
 
+            var result = new FunctionCall(current);
             result.functionName = current.text;
 
             var ob = nextToken(tokens, ref pos, skipWS: true);
             expectTokenType(ob, Token.TokenType.OpenBracket);
 
-            
+
             var next = peekToken(tokens, pos, skipWS: true);
             if (next.type != Token.TokenType.CloseBracket)
             {
                 while (true)
                 {
                     nextToken(tokens, ref pos);
-                    var exp = parseExpression(tokens, ref pos);
+                    var exp = parseExpression(tokens, ref pos, scope);
                     result.argumentList.Add(exp);
                     next = peekToken(tokens, pos);
                     if (next.type != Token.TokenType.Comma)
@@ -459,6 +755,46 @@ namespace PragmaScript
             return result;
         }
 
+
+        public static Node parseBlock(IList<Token> tokens, ref int pos, Scope parentScope)
+        {
+            var current = tokens[pos];
+            var result = new Block(current);
+            result.scope = new Scope();
+            result.scope.parent = parentScope;
+            while (pos < tokens.Count)
+            {
+                var s = parseStatement(tokens, ref pos, result.scope);
+                result.statements.Add(s);
+                pos++;
+            }
+            return result;
+        }
+
+        static void expectTokenType(Token t, Token.TokenType type)
+        {
+            if (t.type != type)
+                throw new ParserErrorExpected(type.ToString(), t.type.ToString(), t);
+        }
+
+        static void expectTokenType(Token token, params Token.TokenType[] types)
+        {
+            var found = false;
+            foreach (var tt in types)
+            {
+                if (token.type == tt)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                string exp = "either ( " + string.Join(" | ", types.Select(tt => tt.ToString())) + " )";
+                throw new ParserErrorExpected(exp, token.ToString(), token);
+            }
+        }
+
         static Token peekToken(IList<Token> tokens, int pos, bool tokenMustExist = false, bool skipWS = true)
         {
             pos++;
@@ -471,7 +807,7 @@ namespace PragmaScript
             {
                 if (tokenMustExist)
                 {
-                    throw new CompilerError("Missing next token", tokens[pos - 1]);
+                    throw new ParserError("Missing next token", tokens[pos - 1]);
                 }
                 else
                 {
@@ -491,7 +827,7 @@ namespace PragmaScript
 
             if (pos >= tokens.Count)
             {
-                throw new CompilerError("Missing next token", tokens[pos]);
+                throw new ParserError("Missing next token", tokens[pos]);
             }
             else
             {
@@ -499,17 +835,21 @@ namespace PragmaScript
             }
         }
 
+
         public static Node Parse(IList<Token> tokens)
         {
-            var result = new Block();
             int pos = 0;
-            while (pos < tokens.Count)
-            {
-                var s = parseStatement(tokens, ref pos);
-                result.statements.Add(s);
-                pos++;
-            }
-            return result;
+            var rootScope = new Scope();
+
+
+            var block = parseBlock(tokens, ref pos, null);
+
+            return block;
+        }
+
+        public static void TypeCheck(Node root)
+        {
+
         }
     }
 
