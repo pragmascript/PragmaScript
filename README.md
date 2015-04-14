@@ -3,8 +3,9 @@
 ## Syntax
 
 ```
-let x = 5.0; // constant (assignment not allowed)
-var y = 5.0; // variable (assignment allowed)
+let x = 5.0; // constant
+var y = 3.0; // mutable variable
+y = 2.0; 
 
 // function
 let add = (x: int32, y: int32) -> { return x + y; }
