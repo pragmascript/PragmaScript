@@ -236,7 +236,6 @@ namespace PragmaScript
             public Assignment(Token t)
                 : base(t)
             {
-                int x = 3;
             }
 
             public override IEnumerable<Node> GetChilds()
@@ -313,7 +312,8 @@ namespace PragmaScript
             }
             public override VariableType CheckType(Scope scope)
             {
-                return null;
+                var result = expression.CheckType(scope);
+                return result;
             }
             public override string ToString()
             {
@@ -470,7 +470,8 @@ namespace PragmaScript
         public static int skipWhitespace(IList<Token> tokens, int pos, bool requireOneWS = false)
         {
             bool foundWS = false;
-            while (tokens[pos].type == Token.TokenType.WhiteSpace)
+
+            while (pos < tokens.Count && tokens[pos].type == Token.TokenType.WhiteSpace)
             {
                 foundWS = true;
                 pos++;
@@ -657,8 +658,17 @@ namespace PragmaScript
                 return result;
             }
 
+            // check if next token is an identifier
+            var nextIdx = pos;
+            var next = peekToken(tokens, ref nextIdx);
+            // check if next next token is close bracket
+            // TODO: DO I REALLY NEED 2 LOOKAHEAD HERE?
+            var nextNext = peekToken(tokens, nextIdx);
+            
             // handle type cast operator (T)x
-            if (current.type == Token.TokenType.OpenBracket)
+            if (current.type == Token.TokenType.OpenBracket 
+                && next.type == Token.TokenType.Identifier 
+                && nextNext.type == Token.TokenType.CloseBracket)
             {
                 var typeNameToken = nextToken(tokens, ref pos);
                 expectTokenType(typeNameToken, Token.TokenType.Identifier);
@@ -674,7 +684,6 @@ namespace PragmaScript
                 result.type = scope.GetType(typeNameToken.text);
                 result.expression = exp;
                 return result;
-
             }
 
             return parseFactor(tokens, ref pos, scope);
@@ -833,6 +842,28 @@ namespace PragmaScript
             return tokens[pos];
         }
 
+        static Token peekToken(IList<Token> tokens, ref int pos, bool tokenMustExist = false, bool skipWS = true)
+        {
+            pos++;
+            if (skipWS)
+            {
+                pos = skipWhitespace(tokens, pos);
+            }
+
+            if (pos >= tokens.Count)
+            {
+                if (tokenMustExist)
+                {
+                    throw new ParserError("Missing next token", tokens[pos - 1]);
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            return tokens[pos];
+        }
+
         static Token nextToken(IList<Token> tokens, ref int pos, bool skipWS = true)
         {
             pos++;
@@ -856,16 +887,25 @@ namespace PragmaScript
         {
             int pos = 0;
             var current = tokens[pos];
-            
-            var rootScope = new Scope();
-            rootScope.AddType(VariableType.float32, current);
-            rootScope.AddType(VariableType.int32, current);
 
-            // perform AST generation pass
-            var block = parseBlock(tokens, ref pos, rootScope);
+            Node block = null;
+            try
+            {
+                var rootScope = new Scope();
+                rootScope.AddType(VariableType.float32, current);
+                rootScope.AddType(VariableType.int32, current);
 
-            // perform type checking pass
-            block.CheckType(rootScope);
+                // perform AST generation pass
+                block = parseBlock(tokens, ref pos, rootScope);
+
+                // perform type checking pass
+                block.CheckType(rootScope);
+            }
+            catch (ParserError error)
+            {
+                Console.Error.WriteLine(error.Message);
+                return null;
+            }
 
             return block;
         }

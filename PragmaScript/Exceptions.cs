@@ -16,7 +16,7 @@ namespace PragmaScript
     class ParserError : Exception
     {
         public ParserError(string message, Token t)
-            : base(String.Format("error: {0}! at {1}", message, t))
+            : base(String.Format("error: {0} at {1}", message, t))
         {
         }
     }

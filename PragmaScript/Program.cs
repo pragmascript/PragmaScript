@@ -18,7 +18,7 @@ namespace PragmaScript
     {
         static void Main(string[] args)
         {
-            parse("var x = 12; x = (int32)5.0; return x;");
+            parse("var x = ((float32)12 + 3.0); return (int32)x * 10;");
             // parse("var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36;");
             // parse("var y = -3 + (12 + 12) * 2; var x = y - 3; return x;");
             // parse("var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
@@ -66,6 +66,8 @@ namespace PragmaScript
 
         static void renderGraph(AST.Node root, string label)
         {
+            if (root == null)
+                return;
             var g = getRenderGraph(Graph.Undirected, root, Guid.NewGuid().ToString());
             g = g.Add(AttributeStatement.Graph.Set("label", label));
             var renderer = new Shields.GraphViz.Components.Renderer(@"C:\Program Files (x86)\Graphviz2.38\bin\");
@@ -89,13 +91,23 @@ namespace PragmaScript
                 if (t.type != Token.TokenType.WhiteSpace)
                     Console.WriteLine("{0}: {1}", pos++, t);
             }
-            Console.ReadLine();
-            
+
+            Console.WriteLine();
+            Console.WriteLine("PARSING...");
+            Console.WriteLine();
             var root = AST.Parse(tokens);
+            Console.WriteLine();
+            if (root == null)
+            {
+                Console.ReadLine();
+                return;
+            }
+            
+
             renderGraph(root, text);
 
             var backend = new Backend();
-            backend.EmitAndRun(root, false);
+            backend.EmitAndRun(root, useOptimizations: false);
 
             Console.WriteLine(root);
 

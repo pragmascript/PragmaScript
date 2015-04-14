@@ -122,12 +122,6 @@ namespace PragmaScript
 
             var mainFunctionDelegate = (llvm_main)Marshal.GetDelegateForFunctionPointer(LLVM.GetPointerToGlobal(engine, mainFunction), typeof(llvm_main));
             var answer = mainFunctionDelegate();
-
-            Console.WriteLine();
-            Console.WriteLine("THE ANSWER IS: " + answer);
-            Console.WriteLine();
-
-         
             //if (LLVM.WriteBitcodeToFile(mod, "main.bc") != 0)
             //{
             //    Console.WriteLine("error writing bitcode to file, skipping");
@@ -137,6 +131,11 @@ namespace PragmaScript
 
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeExecutionEngine(engine);
+
+
+            Console.WriteLine();
+            Console.WriteLine("THE ANSWER IS: " + answer);
+            Console.WriteLine();
         }
         public void EmitAndRun(AST.Node root, bool useOptimizations)
         {
