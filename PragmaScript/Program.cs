@@ -18,7 +18,8 @@ namespace PragmaScript
     {
         static void Main(string[] args)
         {
-            parse("var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36;");
+            parse("var x = 12; x = (int32)5.0; return x;");
+            // parse("var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36;");
             // parse("var y = -3 + (12 + 12) * 2; var x = y - 3; return x;");
             // parse("var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
             Console.ReadLine();

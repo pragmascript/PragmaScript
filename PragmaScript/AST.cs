@@ -171,7 +171,9 @@ namespace PragmaScript
             }
             public override VariableType CheckType(Scope scope)
             {
-                return expression.CheckType(scope);
+                var type = expression.CheckType(scope);
+                variable.type = type;
+                return type; 
             }
             public override string ToString()
             {
@@ -234,6 +236,7 @@ namespace PragmaScript
             public Assignment(Token t)
                 : base(t)
             {
+                int x = 3;
             }
 
             public override IEnumerable<Node> GetChilds()
@@ -242,7 +245,12 @@ namespace PragmaScript
             }
             public override VariableType CheckType(Scope scope)
             {
-                return expression.CheckType(scope);
+                var et = expression.CheckType(scope);
+                if (et != variable.type)
+                {
+                    throw new ParserVariableTypeMismatch(variable.type, et, token);
+                }
+                return variable.type;
             }
             public override string ToString()
             {
@@ -852,7 +860,12 @@ namespace PragmaScript
             var rootScope = new Scope();
             rootScope.AddType(VariableType.float32, current);
             rootScope.AddType(VariableType.int32, current);
+
+            // perform AST generation pass
             var block = parseBlock(tokens, ref pos, rootScope);
+
+            // perform type checking pass
+            block.CheckType(rootScope);
 
             return block;
         }

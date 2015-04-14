@@ -292,6 +292,21 @@ namespace PragmaScript
             LLVM.BuildStore(builder, result.value, v);
         }
 
+        public void Visit(AST.Assignment node)
+        {
+            Visit(node.expression);
+
+            var result = valueStack.Pop();
+            var v = variables[node.variable.name];
+
+            if (v.type != result.type)
+            {
+                throw new BackendTypeMismatchException(result.type, v.type);
+            }
+
+            LLVM.BuildStore(builder, result.value, v.value);
+        }
+
         public void Visit(AST.Block node)
         {
             foreach (var s in node.statements)
@@ -347,6 +362,10 @@ namespace PragmaScript
             else if (node is AST.VariableDeclaration)
             {
                 Visit(node as AST.VariableDeclaration);
+            }
+            else if (node is AST.Assignment)
+            {
+                Visit(node as AST.Assignment);
             }
             else if (node is AST.Block)
             {

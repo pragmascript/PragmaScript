@@ -33,7 +33,16 @@ namespace PragmaScript
     class ParserTypeMismatch : ParserError
     {
         public ParserTypeMismatch(AST.VariableType type1, AST.VariableType type2, Token t)
-            : base(string.Format("Type mismatch: type {0} != type {1}", type1, type2), t)
+            : base(string.Format("Type mismatch: type {0} != type {1}", type1.name, type2.name), t)
+        {
+
+        }
+    }
+
+    class ParserVariableTypeMismatch : ParserError
+    {
+        public ParserVariableTypeMismatch(AST.VariableType varType, AST.VariableType otherType, Token t)
+            : base(string.Format("Type of expression does not match variable type: variable type {0} != expression type {1}", varType.name, otherType.name), t)
         {
 
         }
