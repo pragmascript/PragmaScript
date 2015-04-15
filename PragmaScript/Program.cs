@@ -13,15 +13,19 @@ using System.Threading;
 
 namespace PragmaScript
 {
-   
+
+    // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
     class Program
     {
         static void Main(string[] args)
         {
-            parse("var x = ((float32)12 + 3.0); return (int32)x * 10;");
+            Console.WriteLine();
+            // parse("return 3 / 2;");
+           //  parse("var x = ((float32)12 + 3.0); print(); print(); return (int32)x * 10;");
             // parse("var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36;");
             // parse("var y = -3 + (12 + 12) * 2; var x = y - 3; return x;");
-            // parse("var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
+            // parse("var x = !(12 < 4 << 5); var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
+            parse("var x = ~23 << 5; var y = (5*3)+add3(5,6,7)*25678/32.0*(1/x);");
             Console.ReadLine();
         }
 
@@ -92,24 +96,19 @@ namespace PragmaScript
                     Console.WriteLine("{0}: {1}", pos++, t);
             }
 
+            Console.ReadLine();
+
             Console.WriteLine();
             Console.WriteLine("PARSING...");
             Console.WriteLine();
             var root = AST.Parse(tokens);
             Console.WriteLine();
-            if (root == null)
-            {
-                Console.ReadLine();
-                return;
-            }
-            
-
             renderGraph(root, text);
 
+            Console.ReadLine();
             var backend = new Backend();
             backend.EmitAndRun(root, useOptimizations: false);
-
-            Console.WriteLine(root);
+            Console.WriteLine("bool: " + sizeof(bool));
 
         }
     }

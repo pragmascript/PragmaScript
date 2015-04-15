@@ -32,6 +32,7 @@ namespace PragmaScript
 
         Stack<TypedValue> valueStack = new Stack<TypedValue>();
         Dictionary<string, TypedValue> variables = new Dictionary<string, TypedValue>();
+        Dictionary<string, LLVMValueRef> functions = new Dictionary<string, LLVMValueRef>();
 
         LLVMModuleRef mod;
         LLVMBuilderRef builder;
@@ -40,18 +41,41 @@ namespace PragmaScript
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int llvm_main();
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void void_del();
+        public static void_del print; 
+
+
+        public Backend()
+        {
+            print += () =>
+            {
+                Console.WriteLine();
+                Console.WriteLine("Hello world!");
+                Console.WriteLine();
+            };
+
+            LLVMTypeRef[] print_int_param_types = { LLVM.Int32Type() };
+            var print_int_fun_type = LLVM.FunctionType(LLVM.VoidType(), out print_int_param_types[0], 0, llvmFalse);
+            IntPtr printPtr = Marshal.GetFunctionPointerForDelegate(print);
+            var printFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)printPtr, llvmFalse), LLVM.PointerType(print_int_fun_type, 0));
+            functions.Add("print", printFuncConst);
+        }
+
         void prepareModule()
         {
             mod = LLVM.ModuleCreateWithName("WhatIsThisIDontEven");
 
-            LLVMTypeRef[] param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
-            LLVMTypeRef ret_type = LLVM.FunctionType(LLVM.Int32Type(), out param_types[0], 0, llvmFalse);
-            mainFunction = LLVM.AddFunction(mod, "main", ret_type);
+            LLVMTypeRef[] main_param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
+            LLVMTypeRef main_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out main_param_types[0], 0, llvmFalse);
+            mainFunction = LLVM.AddFunction(mod, "main", main_fun_type);
 
             LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(mainFunction, "entry");
 
             builder = LLVM.CreateBuilder();
             LLVM.PositionBuilderAtEnd(builder, entry);
+
+            // LLVM.BuildCall(builder, printFuncConst, out args[0], 0, "");
         }
 
         void executeModule(bool useOptimizationPasses = true)
@@ -91,7 +115,6 @@ namespace PragmaScript
             var optionsSize = (4 * sizeof(int)) + IntPtr.Size; // LLVMMCJITCompilerOptions has 4 ints and a pointer
             options.OptLevel = 3;
             LLVM.InitializeMCJITCompilerOptions(out options, optionsSize);
-
             var compileError = LLVM.CreateMCJITCompilerForModule(out engine, mod, out options, optionsSize, out error);
             if (compileError.Value != 0)
             {
@@ -119,13 +142,15 @@ namespace PragmaScript
                 LLVM.AddVerifierPass(pass);
                 LLVM.RunPassManager(pass, mod);
             }
-
+            
             var mainFunctionDelegate = (llvm_main)Marshal.GetDelegateForFunctionPointer(LLVM.GetPointerToGlobal(engine, mainFunction), typeof(llvm_main));
             var answer = mainFunctionDelegate();
             //if (LLVM.WriteBitcodeToFile(mod, "main.bc") != 0)
             //{
             //    Console.WriteLine("error writing bitcode to file, skipping");
             //}
+
+            
 
             LLVM.DumpModule(mod);
 
@@ -247,7 +272,6 @@ namespace PragmaScript
             var typeName = node.type.name;
             TypedValue result;
             
-
             // TODO: check if integral type
             // TODO: handle non integral types
             // TODO: do i have to handle constant values differently?
@@ -322,6 +346,13 @@ namespace PragmaScript
             valueStack.Push(value);
         }
 
+        public void Visit(AST.FunctionCall node)
+        {
+            var f = functions[node.functionName];
+            LLVMValueRef[] parameters = new LLVMValueRef[1];
+            var v = LLVM.BuildCall(builder, f, out parameters[0], 0, "");
+        }
+
         public void Visit(AST.Return node)
         {
             if (node.expression != null)
@@ -373,6 +404,10 @@ namespace PragmaScript
             else if (node is AST.VariableLookup)
             {
                 Visit(node as AST.VariableLookup);
+            }
+            else if (node is AST.FunctionCall)
+            {
+                Visit(node as AST.FunctionCall);
             }
             else if (node is AST.Return)
             {

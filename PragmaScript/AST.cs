@@ -33,6 +33,8 @@ namespace PragmaScript
             public static VariableType void_ = new VariableType { name = "void" };
             public static VariableType int32 = new VariableType { name = "int32" };
             public static VariableType float32 = new VariableType { name = "float32" };
+            public static VariableType bool_ = new VariableType { name = "bool" };
+
             public string name;
 
             public override int GetHashCode()
@@ -173,7 +175,7 @@ namespace PragmaScript
             {
                 var type = expression.CheckType(scope);
                 variable.type = type;
-                return type; 
+                return type;
             }
             public override string ToString()
             {
@@ -324,7 +326,7 @@ namespace PragmaScript
 
         public class BinOp : Node
         {
-            public enum BinOpType { Add, Subract, Multiply, Divide }
+            public enum BinOpType { Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Modulo }
             public BinOpType type;
 
             public Node left;
@@ -334,7 +336,6 @@ namespace PragmaScript
                 : base(t)
             {
             }
-
             public void SetTypeFromToken(Token next)
             {
                 switch (next.type)
@@ -351,6 +352,48 @@ namespace PragmaScript
                     case Token.TokenType.Divide:
                         type = BinOpType.Divide;
                         break;
+                    case Token.TokenType.Modulo:
+                        type = BinOpType.Modulo;
+                        break;
+                    case Token.TokenType.LeftShift:
+                        type = BinOpType.LeftShift;
+                        break;
+                    case Token.TokenType.RightShift:
+                        type = BinOpType.RightShift;
+                        break;
+                    case Token.TokenType.ConditionalOR:
+                        type = BinOpType.ConditionalOR;
+                        break;
+                    case Token.TokenType.ConditionalAND:
+                        type = BinOpType.ConditionaAND;
+                        break;
+                    case Token.TokenType.LogicalOR:
+                        type = BinOpType.LogicalOR;
+                        break;
+                    case Token.TokenType.LogicalXOR:
+                        type = BinOpType.LogicalXOR;
+                        break;
+                    case Token.TokenType.LogicalAND:
+                        type = BinOpType.LogicalAND;
+                        break;
+                    case Token.TokenType.Equal:
+                        type = BinOpType.Equal;
+                        break;
+                    case Token.TokenType.NotEqual:
+                        type = BinOpType.NotEqual;
+                        break;
+                    case Token.TokenType.Greater:
+                        type = BinOpType.Greater;
+                        break;
+                    case Token.TokenType.Less:
+                        type = BinOpType.Less;
+                        break;
+                    case Token.TokenType.GreaterEqual:
+                        type = BinOpType.GreaterEqual;
+                        break;
+                    case Token.TokenType.LessEqual:
+                        type = BinOpType.LessEqual;
+                        break;
                     default:
                         throw new ParserError("Invalid token type for binary operation", next);
                 }
@@ -365,7 +408,7 @@ namespace PragmaScript
                 }
                 return lType;
             }
-            
+
             public override IEnumerable<Node> GetChilds()
             {
                 yield return left;
@@ -384,15 +427,45 @@ namespace PragmaScript
                         return "*";
                     case BinOpType.Divide:
                         return "/";
+                    case BinOpType.ConditionalOR:
+                        return "||";
+                    case BinOpType.ConditionaAND:
+                        return "&&";
+                    case BinOpType.LogicalOR:
+                        return "|";
+                    case BinOpType.LogicalXOR:
+                        return "^";
+                    case BinOpType.LogicalAND:
+                        return "&";
+                    case BinOpType.Equal:
+                        return "==";
+                    case BinOpType.NotEqual:
+                        return "!=";
+                    case BinOpType.Greater:
+                        return ">";
+                    case BinOpType.Less:
+                        return "<";
+                    case BinOpType.GreaterEqual:
+                        return ">=";
+                    case BinOpType.LessEqual:
+                        return "<=";
+                    case BinOpType.LeftShift:
+                        return "<<";
+                    case BinOpType.RightShift:
+                        return ">>";
+                    case BinOpType.Modulo:
+                        return "%";
                     default:
                         throw new InvalidCodePath();
                 }
+
+               
             }
         }
 
         public class UnaryOp : Node
         {
-            public enum UnaryOpType { Add, Subract }
+            public enum UnaryOpType { Add, Subract, LogicalNOT, Complement }
             public UnaryOpType type;
 
             public Node expression;
@@ -401,7 +474,6 @@ namespace PragmaScript
                 : base(t)
             {
             }
-
 
             public void SetTypeFromToken(Token next)
             {
@@ -412,6 +484,12 @@ namespace PragmaScript
                         break;
                     case Token.TokenType.Subtract:
                         type = UnaryOpType.Subract;
+                        break;
+                    case Token.TokenType.LogicalNOT:
+                        type = UnaryOpType.LogicalNOT;
+                        break;
+                    case Token.TokenType.Complement:
+                        type = UnaryOpType.Complement;
                         break;
                     default:
                         throw new ParserError("Invalid token type for unary operator", next);
@@ -436,7 +514,10 @@ namespace PragmaScript
                         return "unary +";
                     case UnaryOpType.Subract:
                         return "unary -";
-
+                    case UnaryOpType.LogicalNOT:
+                        return "!";
+                    case UnaryOpType.Complement:
+                        return "~";
                     default:
                         throw new InvalidCodePath();
                 }
@@ -542,7 +623,7 @@ namespace PragmaScript
             {
                 var result = new Return(current);
                 nextToken(tokens, ref pos);
-                result.expression = parseExpression(tokens, ref pos, scope);
+                result.expression = parseBinOp(tokens, ref pos, scope);
                 return result;
             }
         }
@@ -564,7 +645,7 @@ namespace PragmaScript
                 throw new UndefinedVariable(current.text, current);
             }
             result.variable = variable;
-            result.expression = parseExpression(tokens, ref pos, scope);
+            result.expression = parseBinOp(tokens, ref pos, scope);
 
             return result;
         }
@@ -583,54 +664,74 @@ namespace PragmaScript
             var firstExpressionToken = nextToken(tokens, ref pos, skipWS: true);
 
             var result = new VariableDeclaration(current);
-            
+
             // add variable to scope
-            result.variable = scope.AddVar(ident.text, current); 
-            result.expression = parseExpression(tokens, ref pos, scope);
+            result.variable = scope.AddVar(ident.text, current);
+            result.expression = parseBinOp(tokens, ref pos, scope);
 
             return result;
         }
 
-        private static Node parseExpression(IList<Token> tokens, ref int pos, Scope scope)
+
+        static bool isBinOp(Token t, int precedence)
         {
-            var result = parseTerm(tokens, ref pos, scope);
-            var otherTerm = default(Node);
-            var next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
-
-
-            // is operator precedence 4
-            while (next.type == Token.TokenType.Add || next.type == Token.TokenType.Subtract)
+            var tt = t.type;
+            switch (precedence)
             {
-                // continue to the next token after the add or subtract
-                nextToken(tokens, ref pos, true);
-                nextToken(tokens, ref pos, true);
+                case 2:
+                    return tt == Token.TokenType.Multiply
+                        || tt == Token.TokenType.Divide
+                        || tt == Token.TokenType.Modulo;
+                case 3:
+                    return tt == Token.TokenType.Add
+                        || tt == Token.TokenType.Subtract;
+                case 4:
+                    return tt == Token.TokenType.LeftShift
+                        || tt == Token.TokenType.RightShift;
+                case 5:
+                    return tt == Token.TokenType.Less
+                        || tt == Token.TokenType.Greater
+                        || tt == Token.TokenType.LessEqual
+                        || tt == Token.TokenType.GreaterEqual;
+                case 6:
+                    return tt == Token.TokenType.Equal
+                        || tt == Token.TokenType.NotEqual;
+                case 7:
+                    return tt == Token.TokenType.LogicalAND;
+                case 8:
+                    return tt == Token.TokenType.LogicalXOR;
+                case 9:
+                    return tt == Token.TokenType.LogicalOR;
+                case 10:
+                    return tt == Token.TokenType.ConditionalAND;
+                case 11:
+                    return tt == Token.TokenType.ConditionalOR;
+                default:
+                    throw new InvalidCodePath();
 
-                otherTerm = parseTerm(tokens, ref pos, scope);
-                var bo = new BinOp(next);
-                bo.left = result;
-                bo.right = otherTerm;
-                bo.SetTypeFromToken(next);
-                result = bo;
-                next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
             }
-            return result;
         }
-
-        private static Node parseTerm(IList<Token> tokens, ref int pos, Scope scope)
+        private static Node parseBinOp(IList<Token> tokens, ref int pos, Scope scope)
         {
-            var result = parseUnary(tokens, ref pos, scope);
+            return parseBinOp(tokens, ref pos, scope, 11);
+        }
+        private static Node parseBinOp(IList<Token> tokens, ref int pos, Scope scope, int precedence)
+        {
+            if (precedence == 1)
+            {
+                return parseUnary(tokens, ref pos, scope);
+            }
+            var result = parseBinOp(tokens, ref pos, scope, precedence - 1);
             var otherFactor = default(Node);
             var next = peekToken(tokens, pos, tokenMustExist: false, skipWS: true);
 
-
-            // is operator precedence 3
-            while (next.type == Token.TokenType.Multiply || next.type == Token.TokenType.Divide)
+            while (isBinOp(next, precedence))
             {
                 // continue to the next token after the add or subtract
                 nextToken(tokens, ref pos, true);
                 nextToken(tokens, ref pos, true);
 
-                otherFactor = parseUnary(tokens, ref pos, scope);
+                otherFactor = parseBinOp(tokens, ref pos, scope, precedence - 1);
                 var bo = new BinOp(next);
                 bo.left = result;
                 bo.right = otherFactor;
@@ -642,19 +743,20 @@ namespace PragmaScript
             return result;
         }
 
+        // operator precedence 1
         private static Node parseUnary(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
 
-            // is operator precedence 2
 
             // handle unary plus and minus
-            if (current.type == Token.TokenType.Add || current.type == Token.TokenType.Subtract)
+            if (current.type == Token.TokenType.Add || current.type == Token.TokenType.Subtract 
+                || current.type == Token.TokenType.LogicalNOT || current.type == Token.TokenType.Complement)
             {
                 var result = new UnaryOp(current);
                 result.SetTypeFromToken(current);
                 nextToken(tokens, ref pos);
-                result.expression = parseFactor(tokens, ref pos, scope);
+                result.expression = parsePrimary(tokens, ref pos, scope);
                 return result;
             }
 
@@ -664,10 +766,10 @@ namespace PragmaScript
             // check if next next token is close bracket
             // TODO: DO I REALLY NEED 2 LOOKAHEAD HERE?
             var nextNext = peekToken(tokens, nextIdx);
-            
+
             // handle type cast operator (T)x
-            if (current.type == Token.TokenType.OpenBracket 
-                && next.type == Token.TokenType.Identifier 
+            if (current.type == Token.TokenType.OpenBracket
+                && next.type == Token.TokenType.Identifier
                 && nextNext.type == Token.TokenType.CloseBracket)
             {
                 var typeNameToken = nextToken(tokens, ref pos);
@@ -676,7 +778,7 @@ namespace PragmaScript
                 expectTokenType(closeBrackeToken, Token.TokenType.CloseBracket);
 
                 nextToken(tokens, ref pos);
-                var exp = parseFactor(tokens, ref pos, scope);
+                var exp = parsePrimary(tokens, ref pos, scope);
 
                 var result = new TypeCastOp(current);
 
@@ -686,10 +788,11 @@ namespace PragmaScript
                 return result;
             }
 
-            return parseFactor(tokens, ref pos, scope);
+            return parsePrimary(tokens, ref pos, scope);
         }
 
-        private static Node parseFactor(IList<Token> tokens, ref int pos, Scope scope)
+        // operator precedence 0
+        private static Node parsePrimary(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.IntNumber, Token.TokenType.FloatNumber, Token.TokenType.Identifier, Token.TokenType.OpenBracket);
@@ -711,7 +814,7 @@ namespace PragmaScript
             if (current.type == Token.TokenType.OpenBracket)
             {
                 var exprStart = nextToken(tokens, ref pos);
-                var result = parseExpression(tokens, ref pos, scope);
+                var result = parseBinOp(tokens, ref pos, scope);
                 var cBracket = nextToken(tokens, ref pos, skipWS: true);
                 expectTokenType(cBracket, Token.TokenType.CloseBracket);
                 return result;
@@ -741,7 +844,7 @@ namespace PragmaScript
 
         static Node parseFunctionCall(IList<Token> tokens, ref int pos, Scope scope)
         {
-            
+
 
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Identifier);
@@ -759,7 +862,7 @@ namespace PragmaScript
                 while (true)
                 {
                     nextToken(tokens, ref pos);
-                    var exp = parseExpression(tokens, ref pos, scope);
+                    var exp = parseBinOp(tokens, ref pos, scope);
                     result.argumentList.Add(exp);
                     next = peekToken(tokens, pos);
                     if (next.type != Token.TokenType.Comma)
@@ -889,7 +992,7 @@ namespace PragmaScript
             var current = tokens[pos];
 
             Node block = null;
-            try
+            // try
             {
                 var rootScope = new Scope();
                 rootScope.AddType(VariableType.float32, current);
@@ -899,13 +1002,13 @@ namespace PragmaScript
                 block = parseBlock(tokens, ref pos, rootScope);
 
                 // perform type checking pass
-                block.CheckType(rootScope);
+                // block.CheckType(rootScope);
             }
-            catch (ParserError error)
-            {
-                Console.Error.WriteLine(error.Message);
-                return null;
-            }
+            //catch (ParserError error)
+            //{
+            //    Console.Error.WriteLine(error.Message);
+            //    return null;
+            //}
 
             return block;
         }

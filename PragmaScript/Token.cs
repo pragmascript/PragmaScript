@@ -8,13 +8,37 @@ namespace PragmaScript
 {
     class Token
     {
+
+      /*
+      * primary = 0;
+      * Unary = 1;
+      * Multiplicative = 2;
+      * Additive = 3;
+      * Shift = 4;
+      * Relational = 5
+      * Equality = 6
+      * LAND = 7
+      * LXOR = 8
+      * LOR = 9
+      * CAND = 10
+      * COR = 11
+      * Conditional = 12
+      * Assignment = 13
+      */
+
         public static Token Undefined = new Token { type = TokenType.Undefined, text = "undefined" };
         public enum TokenType
         {
             WhiteSpace, Let, Var, Fun, Identifier,
             OpenBracket, CloseBracket, IntNumber, FloatNumber, Assignment, Error,
-            Add, Subtract, Multiply, Divide, Semicolon, Comma,
-            Return, Undefined
+            Add, Subtract, Multiply, Divide, Modulo, Semicolon, Comma, Return,
+            LeftShift, RightShift,
+            ConditionalOR, ConditionalAND, LogicalOR, LogicalXOR, LogicalAND,
+            Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
+            Undefined,
+            LogicalNOT,
+            Complement,
+            Conditional
         }
 
         public TokenType type { get; private set; }
@@ -26,7 +50,7 @@ namespace PragmaScript
 
         static Dictionary<string, TokenType> keywords;
         static Dictionary<string, TokenType> operators;
-
+        static HashSet<char> operatorChars = new HashSet<char>();
 
         static Token()
         {
@@ -42,8 +66,32 @@ namespace PragmaScript
             operators.Add("-", TokenType.Subtract);
             operators.Add("*", TokenType.Multiply);
             operators.Add("/", TokenType.Divide);
+            operators.Add("%", TokenType.Modulo);
             operators.Add(",", TokenType.Comma);
             operators.Add(";", TokenType.Semicolon);
+            operators.Add("<<", TokenType.LeftShift);
+            operators.Add(">>", TokenType.RightShift);
+            operators.Add("||", TokenType.ConditionalOR);
+            operators.Add("&&", TokenType.ConditionalAND);
+            operators.Add("|", TokenType.LogicalOR);
+            operators.Add("^", TokenType.LogicalXOR);
+            operators.Add("&", TokenType.LogicalAND);
+            operators.Add("==", TokenType.Equal);
+            operators.Add("!=", TokenType.NotEqual);
+            operators.Add(">", TokenType.Greater);
+            operators.Add("<", TokenType.Less);
+            operators.Add(">=", TokenType.GreaterEqual);
+            operators.Add("<=", TokenType.LessEqual);
+            operators.Add("!", TokenType.LogicalNOT);
+            operators.Add("~", TokenType.Complement);
+
+            foreach (var op in operators.Keys)
+            {
+                foreach (var oc in op)
+                {
+                    operatorChars.Add(oc);
+                }
+            }
         }
 
         public static bool isIdentifierChar(char c)
@@ -60,6 +108,7 @@ namespace PragmaScript
         {
             return operators.ContainsKey(c.ToString());
         }
+       
 
         public static Token EmitError(Token t, string errorMessage)
         {
@@ -70,6 +119,7 @@ namespace PragmaScript
         public static Token Parse(string line, int pos, int lineNumber)
         {
             var t = new Token();
+            t.type = TokenType.Undefined;
             t.pos = pos;
             t.lineNumber = lineNumber;
             t.length = 0;
@@ -147,13 +197,28 @@ namespace PragmaScript
                 }
             }
 
-            // check if current char is operator
-            if (isOperator(current))
+            var operatorSB = new StringBuilder();
+            TokenType op = TokenType.Undefined; 
+            while (operatorChars.Contains(current))
             {
-                // TOOD: support combined operators of multipel chars ( e.g. +=, == )
-                t.length = 1;
-                t.type = operators[current.ToString()];
-                t.text = line.Substring(t.pos, t.length);
+                operatorSB.Append(current);
+                var ops = operatorSB.ToString();
+                // check if current char is operator
+                if (operators.TryGetValue(ops, out op))
+                {
+                    t.length = ops.Length;
+                    t.type = op;
+                    t.text = line.Substring(t.pos, t.length);
+                }
+                pos++;
+                if (pos >= line.Length)
+                    break;
+                current = line[pos];
+            }
+
+            // actually found an operator
+            if (op != TokenType.Undefined)
+            {
                 return t;
             }
 
