@@ -31,14 +31,16 @@ namespace PragmaScript
         {
             WhiteSpace, Let, Var, Fun, Identifier,
             OpenBracket, CloseBracket, IntNumber, FloatNumber, Assignment, Error,
-            Add, Subtract, Multiply, Divide, Modulo, Semicolon, Comma, Return,
+            Add, Subtract, Multiply, Divide, Remainder, Semicolon, Comma, Return,
             LeftShift, RightShift,
             ConditionalOR, ConditionalAND, LogicalOR, LogicalXOR, LogicalAND,
             Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
             Undefined,
             LogicalNOT,
             Complement,
-            Conditional
+            Conditional,
+            True,
+            False
         }
 
         public TokenType type { get; private set; }
@@ -58,6 +60,8 @@ namespace PragmaScript
             keywords.Add("let", TokenType.Let);
             keywords.Add("var", TokenType.Var);
             keywords.Add("return", TokenType.Return);
+            keywords.Add("true", TokenType.True);
+            keywords.Add("false", TokenType.False);
             operators = new Dictionary<string, TokenType>();
             operators.Add("=", TokenType.Assignment);
             operators.Add("(", TokenType.OpenBracket);
@@ -66,7 +70,7 @@ namespace PragmaScript
             operators.Add("-", TokenType.Subtract);
             operators.Add("*", TokenType.Multiply);
             operators.Add("/", TokenType.Divide);
-            operators.Add("%", TokenType.Modulo);
+            operators.Add("%", TokenType.Remainder);
             operators.Add(",", TokenType.Comma);
             operators.Add(";", TokenType.Semicolon);
             operators.Add("<<", TokenType.LeftShift);

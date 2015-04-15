@@ -294,7 +294,24 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return number.ToString();
+                return number.ToString("F2", CultureInfo.InvariantCulture);
+            }
+        }
+
+        public class ConstBool : Node
+        {
+            public bool value;
+            public ConstBool(Token t)
+                : base(t)
+            {
+            }
+            public override VariableType CheckType(Scope scope)
+            {
+                return VariableType.bool_;
+            }
+            public override string ToString()
+            {
+                return value.ToString();
             }
         }
 
@@ -326,7 +343,7 @@ namespace PragmaScript
 
         public class BinOp : Node
         {
-            public enum BinOpType { Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Modulo }
+            public enum BinOpType { Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Remainder }
             public BinOpType type;
 
             public Node left;
@@ -352,8 +369,8 @@ namespace PragmaScript
                     case Token.TokenType.Divide:
                         type = BinOpType.Divide;
                         break;
-                    case Token.TokenType.Modulo:
-                        type = BinOpType.Modulo;
+                    case Token.TokenType.Remainder:
+                        type = BinOpType.Remainder;
                         break;
                     case Token.TokenType.LeftShift:
                         type = BinOpType.LeftShift;
@@ -398,15 +415,46 @@ namespace PragmaScript
                         throw new ParserError("Invalid token type for binary operation", next);
                 }
             }
+
+            bool isEither(params BinOpType[] types)
+            {
+                for (int i = 0; i < types.Length; ++i)
+                {
+                    if (type == types[i])
+                        return true;
+                }
+
+                return false;
+            }
+
             public override VariableType CheckType(Scope scope)
             {
                 var lType = left.CheckType(scope);
                 var rType = right.CheckType(scope);
+
+                if (isEither(BinOpType.LeftShift, BinOpType.RightShift))
+                {
+                    // TODO: suppport all integer types here.
+                    if (lType != VariableType.int32 || rType != VariableType.int32)
+                    {
+                        throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lType, rType), token);
+                    }
+                }
+
                 if (lType != rType)
                 {
                     throw new ParserTypeMismatch(lType, rType, token);
                 }
-                return lType;
+
+                if (isEither(BinOpType.Less, BinOpType.LessEqual, BinOpType.Greater, BinOpType.GreaterEqual,
+                    BinOpType.Equal, BinOpType.NotEqual))
+                {
+                    return VariableType.bool_;
+                }
+                else
+                {
+                    return lType;
+                }
             }
 
             public override IEnumerable<Node> GetChilds()
@@ -453,13 +501,13 @@ namespace PragmaScript
                         return "<<";
                     case BinOpType.RightShift:
                         return ">>";
-                    case BinOpType.Modulo:
+                    case BinOpType.Remainder:
                         return "%";
                     default:
                         throw new InvalidCodePath();
                 }
 
-               
+
             }
         }
 
@@ -681,7 +729,7 @@ namespace PragmaScript
                 case 2:
                     return tt == Token.TokenType.Multiply
                         || tt == Token.TokenType.Divide
-                        || tt == Token.TokenType.Modulo;
+                        || tt == Token.TokenType.Remainder;
                 case 3:
                     return tt == Token.TokenType.Add
                         || tt == Token.TokenType.Subtract;
@@ -750,7 +798,7 @@ namespace PragmaScript
 
 
             // handle unary plus and minus
-            if (current.type == Token.TokenType.Add || current.type == Token.TokenType.Subtract 
+            if (current.type == Token.TokenType.Add || current.type == Token.TokenType.Subtract
                 || current.type == Token.TokenType.LogicalNOT || current.type == Token.TokenType.Complement)
             {
                 var result = new UnaryOp(current);
@@ -809,7 +857,12 @@ namespace PragmaScript
                 result.number = double.Parse(current.text, CultureInfo.InvariantCulture);
                 return result;
             }
-
+            if (current.type == Token.TokenType.True || current.type == Token.TokenType.False)
+            {
+                var result = new ConstBool(current);
+                result.value = current.type == Token.TokenType.True;
+                return result;
+            }
             // '(' expr ')'
             if (current.type == Token.TokenType.OpenBracket)
             {
@@ -844,8 +897,6 @@ namespace PragmaScript
 
         static Node parseFunctionCall(IList<Token> tokens, ref int pos, Scope scope)
         {
-
-
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Identifier);
 
@@ -997,12 +1048,13 @@ namespace PragmaScript
                 var rootScope = new Scope();
                 rootScope.AddType(VariableType.float32, current);
                 rootScope.AddType(VariableType.int32, current);
+                rootScope.AddType(VariableType.bool_, current);
 
                 // perform AST generation pass
                 block = parseBlock(tokens, ref pos, rootScope);
 
                 // perform type checking pass
-                // block.CheckType(rootScope);
+                block.CheckType(rootScope);
             }
             //catch (ParserError error)
             //{
@@ -1013,10 +1065,6 @@ namespace PragmaScript
             return block;
         }
 
-        public static void TypeCheck(Node root)
-        {
-
-        }
     }
 
 }

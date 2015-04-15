@@ -25,7 +25,7 @@ namespace PragmaScript
             // parse("var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36;");
             // parse("var y = -3 + (12 + 12) * 2; var x = y - 3; return x;");
             // parse("var x = !(12 < 4 << 5); var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
-            parse("var x = ~23 << 5; var y = (5*3)+add3(5,6,7)*25678/32.0*(1/x);");
+            parse("return ~(0);");
             Console.ReadLine();
         }
 
