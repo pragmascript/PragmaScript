@@ -49,11 +49,18 @@ namespace PragmaScript
             public VariableType type;
         }
 
+        public class FunctionDefinition
+        {
+            public string name;
+            public VariableType returnType;
+        }
+
         public class Scope
         {
             public Scope parent;
 
             public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
+            public Dictionary<string, FunctionDefinition> functions = new Dictionary<string, FunctionDefinition>();
             public Dictionary<string, VariableType> types = new Dictionary<string, VariableType>();
 
             public VariableDefinition GetVar(string name)
@@ -85,6 +92,34 @@ namespace PragmaScript
                 }
                 variables.Add(name, v);
                 return v;
+            }
+
+            public FunctionDefinition GetFunction(string name)
+            {
+                FunctionDefinition result;
+
+                if (functions.TryGetValue(name, out result))
+                {
+                    return result;
+                }
+
+                if (parent != null)
+                {
+                    return parent.GetFunction(name);
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            public void AddFunction(FunctionDefinition fun)
+            {
+                if (variables.ContainsKey(fun.name))
+                {
+                    throw new RedefinedFunction(fun.name, Token.Undefined);
+                }
+                functions.Add(fun.name, fun);
             }
 
             public VariableType GetType(string typeName)
@@ -125,6 +160,7 @@ namespace PragmaScript
                 }
                 types.Add(t.name, t);
             }
+
         }
 
 
@@ -275,7 +311,7 @@ namespace PragmaScript
             }
             public override VariableType CheckType(Scope scope)
             {
-                return returnType;
+                return scope.GetFunction(functionName).returnType;
             }
             public override string ToString()
             {
@@ -288,9 +324,6 @@ namespace PragmaScript
             public enum Incrementor { None, preIncrement, preDecrement, postIncrement, postDecrement }
             public Incrementor inc;
             public string variableName;
-
-
-
             public VariableLookup(Token t)
                 : base(t)
             {
@@ -1207,12 +1240,12 @@ namespace PragmaScript
                 {
                     foundReturn = true;
                 }
-
-                if (pos >= tokens.Count)
+                next = peekToken(tokens, pos);
+                if (pos >= tokens.Count || next == null)
                 {
                     throw new ParserError("No matching \"}\" found", current);
                 }
-                next = peekToken(tokens, pos);
+                
             }
 
             nextToken(tokens, ref pos);
@@ -1318,6 +1351,8 @@ namespace PragmaScript
                 rootScope.AddType(VariableType.float32, current);
                 rootScope.AddType(VariableType.int32, current);
                 rootScope.AddType(VariableType.bool_, current);
+                rootScope.AddFunction(new FunctionDefinition { name = "foo", returnType = VariableType.int32 });
+
 
                 // perform AST generation pass
                 pos = skipWhitespace(tokens, pos);

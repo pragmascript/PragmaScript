@@ -51,7 +51,13 @@ namespace PragmaScript
 
             // parse("{ var i = 0; var x = i-- + 1; return i; }");
             // parse("{ var i = 0; var x = --i + 1; return i; }");
-            parse(p2);
+            // parse(p2);
+
+
+            // parse("{ return foo(); }");
+            // parse("{ var x = foo() > 3 || foo() == 3 || foo() == -1; return (int32)x;}");
+            // parse("{ var x = foo() < 3 || foo() == 2 || foo() == -1; return (int32)x;}");
+
             Console.ReadLine();
         }
 

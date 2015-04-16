@@ -37,9 +37,6 @@ namespace PragmaScript
 
         }
     }
-
-
-
     class ParserTypeMismatch : ParserError
     {
         public ParserTypeMismatch(AST.VariableType type1, AST.VariableType type2, Token t)
@@ -48,7 +45,6 @@ namespace PragmaScript
 
         }
     }
-
     class ParserVariableTypeMismatch : ParserError
     {
         public ParserVariableTypeMismatch(AST.VariableType varType, AST.VariableType otherType, Token t)
@@ -77,7 +73,15 @@ namespace PragmaScript
         }
 
     }
+    class RedefinedFunction : ParserError
+    {
+        public RedefinedFunction(string functionName, Token t)
+            : base(string.Format("function \"{0}\" already defined", functionName), t)
+        {
 
+        }
+
+    }
     class RedefinedType : ParserError
     {
         public RedefinedType(string typeName, Token t)
@@ -87,7 +91,6 @@ namespace PragmaScript
         }
 
     }
-
     class BackendTypeMismatchException : Exception
     {
         public BackendTypeMismatchException(Backend.BackendType type1, Backend.BackendType type2)

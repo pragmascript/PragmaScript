@@ -67,6 +67,10 @@ namespace PragmaScript
         public delegate void void_del();
         public static void_del print;
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int int32_del();
+        public static int32_del foo;
+
 
         public Backend()
         {
@@ -76,12 +80,22 @@ namespace PragmaScript
                 Console.WriteLine("Hello world: " + i++);
             };
 
+            foo += () => { return 3; };
+
             LLVMTypeRef[] print_int_param_types = { LLVM.Int32Type() };
             var print_int_fun_type = LLVM.FunctionType(LLVM.VoidType(), out print_int_param_types[0], 0, Const.FalseBool);
             IntPtr printPtr = Marshal.GetFunctionPointerForDelegate(print);
             var printFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)printPtr, Const.FalseBool), LLVM.PointerType(print_int_fun_type, 0));
             functions.Add("print", printFuncConst);
+
+            LLVMTypeRef[] foo_int_param_types = { LLVM.Int32Type() };
+            var foo_int_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out print_int_param_types[0], 0, Const.FalseBool);
+            IntPtr fooPtr = Marshal.GetFunctionPointerForDelegate(foo);
+            var fooFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)fooPtr, Const.FalseBool), LLVM.PointerType(foo_int_fun_type, 0));
+            functions.Add("foo", fooFuncConst);
         }
+
+
 
         void prepareModule()
         {
@@ -116,6 +130,8 @@ namespace PragmaScript
             {
                 var s = Marshal.PtrToStringAnsi(error);
                 Console.WriteLine("VerifyModule error: " + s);
+                Console.WriteLine();
+                LLVM.DumpModule(mod);
             }
             LLVM.DisposeMessage(error);
 
@@ -145,6 +161,7 @@ namespace PragmaScript
                 Console.WriteLine();
                 Console.WriteLine("error: " + s);
                 Console.WriteLine();
+                LLVM.DumpModule(mod);
             }
 
             LLVMPassManagerRef pass = LLVM.CreatePassManager();
@@ -212,6 +229,13 @@ namespace PragmaScript
 
         public void Visit(AST.BinOp node)
         {
+            if (node.type == AST.BinOp.BinOpType.ConditionalOR)
+            {
+                visitConditionalOR(node);
+                return;
+            }
+
+
             Visit(node.left);
             Visit(node.right);
 
@@ -239,6 +263,7 @@ namespace PragmaScript
                         case AST.BinOp.BinOpType.LogicalXOR:
                             result = LLVM.BuildXor(builder, left.value, right.value, "or_tmp");
                             break;
+                        
                         default:
                             throw new InvalidCodePath();
                     }
@@ -346,6 +371,44 @@ namespace PragmaScript
             }
 
             valueStack.Push(new TypedValue(result, resultType));
+        }
+
+        void visitConditionalOR(AST.BinOp op)
+        {
+            //List<AST.BinOp> ors = new List<AST.BinOp>();
+            //ors.Add(op);
+            //// capture all consecutive ors
+            //while (op.left is AST.BinOp && (op.left as AST.BinOp).type == AST.BinOp.BinOpType.ConditionalOR)
+            //{
+            //    op = op.left as AST.BinOp;
+            //    ors.Add(op);
+            //}
+
+            
+
+            Visit(op.left);
+            var cmp = valueStack.Pop();
+            var cor_rhs = LLVM.AppendBasicBlock(ctx.function, "cor.rhs");
+            var cor_end = LLVM.AppendBasicBlock(ctx.function, "cor.end");
+            var block = LLVM.GetInsertBlock(builder);
+            LLVM.BuildCondBr(builder, cmp.value, cor_end, cor_rhs);
+            
+            // cor.rhs: 
+            LLVM.PositionBuilderAtEnd(builder, cor_rhs);
+            Visit(op.right);
+            var cor_rhs_value = valueStack.Pop().value;
+            LLVM.BuildBr(builder, cor_end);
+
+            // cor.end:
+            LLVM.PositionBuilderAtEnd(builder, cor_end);
+            var phi = LLVM.BuildPhi(builder, Const.BoolType, "corphi");
+
+            LLVMBasicBlockRef[] incomingBlocks = new LLVMBasicBlockRef[2] { block, cor_rhs };
+            LLVMValueRef[] incomingValues = new LLVMValueRef[2] { Const.True, cor_rhs_value };
+
+            LLVM.AddIncoming(phi, out incomingValues[0], out incomingBlocks[0], 2);
+
+            valueStack.Push(new TypedValue(phi, BackendType.Bool));        
         }
 
         public void Visit(AST.UnaryOp node)
@@ -551,7 +614,10 @@ namespace PragmaScript
         {
             var f = functions[node.functionName];
             LLVMValueRef[] parameters = new LLVMValueRef[1];
-            var v = LLVM.BuildCall(builder, f, out parameters[0], 0, "");
+            var v = LLVM.BuildCall(builder, f, out parameters[0], 0, node.functionName);
+
+            // TODO: use function return type
+            valueStack.Push(new TypedValue(v, BackendType.Int32));
         }
 
         public void Visit(AST.Return node)
