@@ -31,7 +31,7 @@ namespace PragmaScript
     }
     class ParserExpectedType : ParserError
     {
-        public ParserExpectedType(AST.VariableType expected, AST.VariableType got, Token t)
+        public ParserExpectedType(AST.FrontendType expected, AST.FrontendType got, Token t)
             : base(string.Format("expected type \"{0}\", but got type \"{1}\"", expected.name, got.name), t)
         {
 
@@ -39,7 +39,7 @@ namespace PragmaScript
     }
     class ParserTypeMismatch : ParserError
     {
-        public ParserTypeMismatch(AST.VariableType type1, AST.VariableType type2, Token t)
+        public ParserTypeMismatch(AST.FrontendType type1, AST.FrontendType type2, Token t)
             : base(string.Format("Type mismatch: type {0} is not equal to {1}", type1.name, type2.name), t)
         {
 
@@ -47,7 +47,7 @@ namespace PragmaScript
     }
     class ParserVariableTypeMismatch : ParserError
     {
-        public ParserVariableTypeMismatch(AST.VariableType varType, AST.VariableType otherType, Token t)
+        public ParserVariableTypeMismatch(AST.FrontendType varType, AST.FrontendType otherType, Token t)
             : base(string.Format("Type of expression does not match variable type: variable type {0} != expression type {1}", varType.name, otherType.name), t)
         {
 

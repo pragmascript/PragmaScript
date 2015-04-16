@@ -25,15 +25,15 @@ namespace PragmaScript
                 yield break;
             }
 
-            public abstract VariableType CheckType(Scope scope);
+            public abstract FrontendType CheckType(Scope scope);
         }
 
-        public class VariableType
+        public class FrontendType
         {
-            public static VariableType void_ = new VariableType { name = "void" };
-            public static VariableType int32 = new VariableType { name = "int32" };
-            public static VariableType float32 = new VariableType { name = "float32" };
-            public static VariableType bool_ = new VariableType { name = "bool" };
+            public static FrontendType void_ = new FrontendType { name = "void" };
+            public static FrontendType int32 = new FrontendType { name = "int32" };
+            public static FrontendType float32 = new FrontendType { name = "float32" };
+            public static FrontendType bool_ = new FrontendType { name = "bool" };
 
             public string name;
 
@@ -46,22 +46,23 @@ namespace PragmaScript
         public class VariableDefinition
         {
             public string name;
-            public VariableType type;
+            public FrontendType type;
         }
 
         public class FunctionDefinition
         {
             public string name;
-            public VariableType returnType;
+            public FrontendType returnType;
         }
 
         public class Scope
         {
+            public FunctionDefinition function;
             public Scope parent;
 
             public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
             public Dictionary<string, FunctionDefinition> functions = new Dictionary<string, FunctionDefinition>();
-            public Dictionary<string, VariableType> types = new Dictionary<string, VariableType>();
+            public Dictionary<string, FrontendType> types = new Dictionary<string, FrontendType>();
 
             public VariableDefinition GetVar(string name)
             {
@@ -122,9 +123,9 @@ namespace PragmaScript
                 functions.Add(fun.name, fun);
             }
 
-            public VariableType GetType(string typeName)
+            public FrontendType GetType(string typeName)
             {
-                VariableType result;
+                FrontendType result;
 
                 if (types.TryGetValue(typeName, out result))
                 {
@@ -143,7 +144,7 @@ namespace PragmaScript
 
             public void AddType(string name, Token t)
             {
-                VariableType type = new VariableType();
+                FrontendType type = new FrontendType();
                 type.name = name;
                 if (types.ContainsKey(name))
                 {
@@ -152,7 +153,7 @@ namespace PragmaScript
                 types.Add(name, type);
             }
 
-            public void AddType(VariableType t, Token token)
+            public void AddType(FrontendType t, Token token)
             {
                 if (types.ContainsKey(t.name))
                 {
@@ -178,13 +179,45 @@ namespace PragmaScript
                 foreach (var s in statements)
                     yield return s;
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
+                FrontendType result = null;
+                Token returnToken = null;
                 foreach (var s in statements)
                 {
-                    s.CheckType(this.scope);
+                    var rt = s.CheckType(this.scope);
+                    if (s is Return)
+                    {
+                        if (result != null)
+                        {
+                            if (rt != result)
+                            {
+                                throw new ParserError(string.Format("Return statement at {0} has different type", s.token), returnToken);
+                            }
+                        }
+                        else
+                        {
+                            result = rt;
+                            returnToken = s.token;
+                        }
+                    }
+                    if (s is Block)
+                    {
+                        if (result != null)
+                        {
+                            if (rt != result)
+                            {
+                                throw new ParserError(string.Format("Block at {0} has different return type", s.token), returnToken);
+                            }
+                        }
+                        else
+                        {
+                            result = rt;
+                            returnToken = s.token;
+                        }
+                    }
                 }
-                return null;
+                return result;
             }
             public override string ToString()
             {
@@ -211,11 +244,11 @@ namespace PragmaScript
                     yield return elseBlock;
                 }
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
                 var ct = condition.CheckType(scope);
-                if (ct != VariableType.bool_)
-                    throw new ParserExpectedType(VariableType.bool_, ct, condition.token);
+                if (ct != FrontendType.bool_)
+                    throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
 
                 thenBlock.CheckType(scope);
                 if (elseBlock != null)
@@ -249,13 +282,13 @@ namespace PragmaScript
                 yield return iterator;
                 yield return loopBody;
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
                 var loopBodyScope = (loopBody as Block).scope;
                 initializer.CheckType(loopBodyScope);
                 var ct = condition.CheckType(loopBodyScope);
-                if (ct != VariableType.bool_)
-                    throw new ParserExpectedType(VariableType.bool_, ct, condition.token);
+                if (ct != FrontendType.bool_)
+                    throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
                 iterator.CheckType(loopBodyScope);
                 loopBody.CheckType(scope);
                 return null;
@@ -280,7 +313,7 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
                 var type = expression.CheckType(scope);
                 variable.type = type;
@@ -292,11 +325,35 @@ namespace PragmaScript
             }
         }
 
+        public class FunctionDeclaration : Node
+        {
+            public FunctionDefinition variable;
+            public Block body;
+
+            public FunctionDeclaration(Token t)
+                : base(t)
+            {
+            }
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return body;
+            }
+            public override FrontendType CheckType(Scope scope)
+            {
+                return null;
+            }
+            public override string ToString()
+            {
+                return "var " + variable.name + " = ";
+            }
+        }
+
         public class FunctionCall : Node
         {
             public string functionName;
             public List<Node> argumentList = new List<Node>();
-            public VariableType returnType;
+            public FrontendType returnType;
 
             public FunctionCall(Token t)
                 : base(t)
@@ -309,9 +366,10 @@ namespace PragmaScript
                     yield return exp;
                 }
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
-                return scope.GetFunction(functionName).returnType;
+                returnType = scope.GetFunction(functionName).returnType;
+                return returnType;
             }
             public override string ToString()
             {
@@ -328,7 +386,7 @@ namespace PragmaScript
                 : base(t)
             {
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
                 return scope.GetVar(variableName).type;
             }
@@ -365,7 +423,7 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
                 var et = expression.CheckType(scope);
                 if (et != variable.type)
@@ -388,9 +446,9 @@ namespace PragmaScript
                 : base(t)
             {
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
-                return VariableType.int32;
+                return FrontendType.int32;
             }
             public override string ToString()
             {
@@ -405,9 +463,9 @@ namespace PragmaScript
                 : base(t)
             {
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
-                return VariableType.float32;
+                return FrontendType.float32;
             }
             public override string ToString()
             {
@@ -422,9 +480,9 @@ namespace PragmaScript
                 : base(t)
             {
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
-                return VariableType.bool_;
+                return FrontendType.bool_;
             }
             public override string ToString()
             {
@@ -444,7 +502,7 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
                 var result = expression.CheckType(scope);
                 return result;
@@ -542,7 +600,7 @@ namespace PragmaScript
                 return false;
             }
 
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
                 var lType = left.CheckType(scope);
                 var rType = right.CheckType(scope);
@@ -550,7 +608,7 @@ namespace PragmaScript
                 if (isEither(BinOpType.LeftShift, BinOpType.RightShift))
                 {
                     // TODO: suppport all integer types here.
-                    if (lType != VariableType.int32 || rType != VariableType.int32)
+                    if (lType != FrontendType.int32 || rType != FrontendType.int32)
                     {
                         throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lType, rType), token);
                     }
@@ -564,7 +622,7 @@ namespace PragmaScript
                 if (isEither(BinOpType.Less, BinOpType.LessEqual, BinOpType.Greater, BinOpType.GreaterEqual,
                     BinOpType.Equal, BinOpType.NotEqual))
                 {
-                    return VariableType.bool_;
+                    return FrontendType.bool_;
                 }
                 else
                 {
@@ -659,7 +717,7 @@ namespace PragmaScript
                 }
             }
 
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
                 return expression.CheckType(scope);
             }
@@ -690,7 +748,7 @@ namespace PragmaScript
         public class TypeCastOp : Node
         {
             public Node expression;
-            public VariableType type;
+            public FrontendType type;
 
             public TypeCastOp(Token t)
                 : base(t)
@@ -701,7 +759,7 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            public override VariableType CheckType(Scope scope)
+            public override FrontendType CheckType(Scope scope)
             {
                 return type;
             }
@@ -839,7 +897,7 @@ namespace PragmaScript
             var next = peekToken(tokens, pos);
             if (current.type == Token.TokenType.Identifier)
             {
-                if (next.type == Token.TokenType.CloseBracket 
+                if (next.type == Token.TokenType.CloseBracket
                     || next.type == Token.TokenType.Increment || next.type == Token.TokenType.Decrement)
                 {
                     var variable = parseVariableLookup(tokens, ref pos, scope);
@@ -860,7 +918,7 @@ namespace PragmaScript
                 return variable;
             }
 
-            throw new InvalidCodePath(); 
+            throw new InvalidCodePath();
         }
 
         static Node parseIf(IList<Token> tokens, ref int pos, Scope scope)
@@ -1150,12 +1208,12 @@ namespace PragmaScript
             }
 
             varLookup.variableName = current.text;
-            
+
             if (scope.GetVar(current.text) == null)
             {
                 throw new UndefinedVariable(current.text, current);
             }
-            
+
             var peek = peekToken(tokens, pos);
             if (peek.type == Token.TokenType.Increment || peek.type == Token.TokenType.Decrement)
             {
@@ -1223,7 +1281,6 @@ namespace PragmaScript
             }
             result.scope = newScope;
             result.scope.parent = parentScope;
-
             var next = peekToken(tokens, pos);
 
             bool foundReturn = false;
@@ -1245,11 +1302,42 @@ namespace PragmaScript
                 {
                     throw new ParserError("No matching \"}\" found", current);
                 }
-                
+
             }
 
             nextToken(tokens, ref pos);
             return result;
+        }
+
+        // TODO: make this LET thing work for variables as well
+        public static Node parseFunctionDefinition(IList<Token> tokens, ref int pos, Scope scope)
+        {
+
+            // let
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Let);
+
+            if (scope.parent != null)
+                throw new ParserError("functions can only be defined in the primary block for now!", current);
+
+            // let foo
+            var id = nextToken(tokens, ref pos);
+            expectTokenType(id, Token.TokenType.Identifier);
+
+            // let foo = 
+            var ass = nextToken(tokens, ref pos);
+            expectTokenType(ass, Token.TokenType.Assignment);
+
+            // let foo = (
+            var ob = nextToken(tokens, ref pos);
+            expectTokenType(ob, Token.TokenType.CloseBracket);
+
+            var next = peekToken(tokens, pos);
+            while (next.type != Token.TokenType.CloseBracket)
+            {
+                var tid = nextToken(tokens, ref pos);
+                expectTokenType(tid, Token.TokenType.Identifier);
+
         }
 
         static void expectTokenType(Token t, Token.TokenType type)
@@ -1345,14 +1433,14 @@ namespace PragmaScript
             var current = tokens[pos];
 
             Node block = null;
-            // try
+            try
             {
                 var rootScope = new Scope();
-                rootScope.AddType(VariableType.float32, current);
-                rootScope.AddType(VariableType.int32, current);
-                rootScope.AddType(VariableType.bool_, current);
-                rootScope.AddFunction(new FunctionDefinition { name = "foo", returnType = VariableType.int32 });
-
+                rootScope.AddType(FrontendType.float32, current);
+                rootScope.AddType(FrontendType.int32, current);
+                rootScope.AddType(FrontendType.bool_, current);
+                rootScope.AddFunction(new FunctionDefinition { name = "print", returnType = FrontendType.void_ });
+                rootScope.AddFunction(new FunctionDefinition { name = "foo", returnType = FrontendType.int32 });
 
                 // perform AST generation pass
                 pos = skipWhitespace(tokens, pos);
@@ -1361,11 +1449,16 @@ namespace PragmaScript
                 // perform type checking pass
                 block.CheckType(rootScope);
             }
-            //catch (ParserError error)
-            //{
-            //    Console.Error.WriteLine(error.Message);
-            //    return block;
-            //}
+            catch (ParserError error)
+            {
+
+                Console.Error.WriteLine(error.Message);
+#if DEBUG
+                throw error;
+#else
+                return block;
+#endif
+            }
 
             return block;
         }

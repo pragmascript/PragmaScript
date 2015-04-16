@@ -19,9 +19,26 @@ namespace PragmaScript
     {
         static void Main(string[] args)
         {
-            Console.WriteLine();
+            if (args.Length == 0)
+                return;
+
+            var path = args[0];
+            try
+            {
+                var text = File.ReadAllText(path);
+                run(text);
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Could not open file!");
+            }
+        }
+
+
+        static void Test()
+        {
             // parse(@"{ return 3 / 2; }");
-           //  parse("{ var x = ((float32)12 + 3.0); print(); print(); return (int32)x * 10; }");
+            //  parse("{ var x = ((float32)12 + 3.0); print(); print(); return (int32)x * 10; }");
             // parse("{ var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36; }");
             // parse("{ var y = -3 + (12 + 12) * 2; var x = y - 3; return x; }");
             // parse("{ var x = !(12 < 4 << 5); var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar(); }");
@@ -58,7 +75,8 @@ namespace PragmaScript
             // parse("{ var x = foo() > 3 || foo() == 3 || foo() == -1; return (int32)x;}");
             // parse("{ var x = foo() < 3 || foo() == 2 || foo() == -1; return (int32)x;}");
 
-            Console.ReadLine();
+            run("{ var x = foo() >= 3 && foo() > 1 && foo() > 0; return (int32)x; }");
+
         }
 
 
@@ -110,9 +128,10 @@ namespace PragmaScript
             }
         }
 
-        static void parse(string text)
+        static void run(string text)
         {
             var tokens = tokenize(text).ToList();
+#if DEBUG
             Console.WriteLine("input: " + text);
             Console.WriteLine();
             Console.WriteLine("tokens: ");
@@ -123,19 +142,26 @@ namespace PragmaScript
                     Console.WriteLine("{0}: {1}", pos++, t);
             }
 
-            Console.ReadLine();
-
             Console.WriteLine();
             Console.WriteLine("PARSING...");
             Console.WriteLine();
+#endif
             var root = AST.Parse(tokens);
+#if DEBUG
             Console.WriteLine();
             renderGraph(root, text);
-
-            Console.ReadLine();
+#endif
             var backend = new Backend();
+#if DEBUG
+            backend.EmitAndRun(root, useOptimizations: false);
+#else
             backend.EmitAndRun(root, useOptimizations: true);
+#endif
 
+
+#if DEBUG
+            Console.ReadLine();
+#endif
         }
     }
 }
