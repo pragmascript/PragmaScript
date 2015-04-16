@@ -17,6 +17,11 @@ namespace PragmaScript
             Float32, Int32, Bool
         }
 
+        public class ExecutionContext
+        {
+            public LLVMValueRef function;
+        }
+
         struct TypedValue
         {
             public BackendType type;
@@ -32,20 +37,24 @@ namespace PragmaScript
         {
             public static readonly LLVMBool TrueBool = new LLVMBool(1);
             public static readonly LLVMBool FalseBool = new LLVMBool(0);
-            public static readonly LLVMValueRef NegativeOne = LLVM.ConstInt(LLVM.Int32Type(), unchecked((ulong)-1), TrueBool);
+            public static readonly LLVMValueRef NegativeOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), unchecked((ulong)-1), TrueBool);
+            public static readonly LLVMValueRef OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, TrueBool);
+            public static readonly LLVMValueRef OneFloat32 = LLVM.ConstReal(LLVM.FloatType(), 1.0);
             public static readonly LLVMValueRef True = LLVM.ConstInt(LLVM.Int1Type(), (ulong)1, FalseBool);
             public static readonly LLVMValueRef False = LLVM.ConstInt(LLVM.Int1Type(), (ulong)0, FalseBool);
-            
+
             public static readonly LLVMTypeRef Float32Type = LLVM.FloatType();
             public static readonly LLVMTypeRef Int32Type = LLVM.Int32Type();
             public static readonly LLVMTypeRef BoolType = LLVM.Int1Type();
 
-            }
-        
+        }
+
 
         Stack<TypedValue> valueStack = new Stack<TypedValue>();
         Dictionary<string, TypedValue> variables = new Dictionary<string, TypedValue>();
         Dictionary<string, LLVMValueRef> functions = new Dictionary<string, LLVMValueRef>();
+
+        public ExecutionContext ctx = new ExecutionContext();
 
         LLVMModuleRef mod;
         LLVMBuilderRef builder;
@@ -56,16 +65,15 @@ namespace PragmaScript
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void void_del();
-        public static void_del print; 
+        public static void_del print;
 
 
         public Backend()
         {
+            int i = 0;
             print += () =>
             {
-                Console.WriteLine();
-                Console.WriteLine("Hello world!");
-                Console.WriteLine();
+                Console.WriteLine("Hello world: " + i++);
             };
 
             LLVMTypeRef[] print_int_param_types = { LLVM.Int32Type() };
@@ -82,8 +90,10 @@ namespace PragmaScript
             LLVMTypeRef[] main_param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
             LLVMTypeRef main_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out main_param_types[0], 0, Const.FalseBool);
             mainFunction = LLVM.AddFunction(mod, "main", main_fun_type);
+            ctx.function = mainFunction;
 
             LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(mainFunction, "entry");
+
 
             builder = LLVM.CreateBuilder();
             LLVM.PositionBuilderAtEnd(builder, entry);
@@ -108,7 +118,7 @@ namespace PragmaScript
                 Console.WriteLine("VerifyModule error: " + s);
             }
             LLVM.DisposeMessage(error);
-            
+
             LLVMExecutionEngineRef engine;
 
             LLVM.LinkInMCJIT();
@@ -155,7 +165,7 @@ namespace PragmaScript
                 LLVM.AddVerifierPass(pass);
                 LLVM.RunPassManager(pass, mod);
             }
-            
+
             var mainFunctionDelegate = (llvm_main)Marshal.GetDelegateForFunctionPointer(LLVM.GetPointerToGlobal(engine, mainFunction), typeof(llvm_main));
             var answer = mainFunctionDelegate();
             //if (LLVM.WriteBitcodeToFile(mod, "main.bc") != 0)
@@ -163,10 +173,7 @@ namespace PragmaScript
             //    Console.WriteLine("error writing bitcode to file, skipping");
             //}
 
-            
-
             LLVM.DumpModule(mod);
-
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeExecutionEngine(engine);
 
@@ -178,6 +185,7 @@ namespace PragmaScript
         public void EmitAndRun(AST.Node root, bool useOptimizations)
         {
             prepareModule();
+
             Visit(root);
             executeModule(useOptimizations);
         }
@@ -199,6 +207,7 @@ namespace PragmaScript
             var tv = new TypedValue();
             tv.type = BackendType.Bool;
             tv.value = node.value ? Const.True : Const.False;
+            valueStack.Push(tv);
         }
 
         public void Visit(AST.BinOp node)
@@ -352,7 +361,20 @@ namespace PragmaScript
                     result = v;
                     break;
                 case AST.UnaryOp.UnaryOpType.Subract:
-                    result.value = LLVM.BuildNeg(builder, v.value, "neg_tmp");
+                    switch (v.type)
+                    {
+                        case BackendType.Float32:
+                            result.value = LLVM.BuildFNeg(builder, v.value, "fneg_tmp");
+                            break;
+                        case BackendType.Int32:
+                            result.value = LLVM.BuildNeg(builder, v.value, "neg_tmp");
+                            break;
+                        case BackendType.Bool:
+                            break;
+                        default:
+                            break;
+                    }
+
                     break;
                 case AST.UnaryOp.UnaryOpType.LogicalNOT:
                     if (v.type != BackendType.Bool)
@@ -362,7 +384,7 @@ namespace PragmaScript
                     result.value = LLVM.BuildNot(builder, v.value, "not_tmp");
                     break;
                 case AST.UnaryOp.UnaryOpType.Complement:
-                    result.value = LLVM.BuildXor(builder, v.value, Const.NegativeOne, "complement_tmp");
+                    result.value = LLVM.BuildXor(builder, v.value, Const.NegativeOneInt32, "complement_tmp");
                     break;
                 default:
                     throw new InvalidCodePath();
@@ -378,7 +400,7 @@ namespace PragmaScript
 
             var typeName = node.type.name;
             TypedValue result;
-            
+
             // TODO: check if integral type
             // TODO: handle non integral types
             // TODO: do i have to handle constant values differently?
@@ -405,7 +427,7 @@ namespace PragmaScript
                     default:
                         throw new InvalidCodePath();
                 }
-                
+
             }
             else
             {
@@ -466,8 +488,63 @@ namespace PragmaScript
         {
             var v = variables[node.variableName];
             var l = LLVM.BuildLoad(builder, v.value, node.variableName);
-            var value = new TypedValue(l, v.type);
-            valueStack.Push(value);
+            var result = new TypedValue(l, v.type);
+            switch (node.inc)
+            {
+                case AST.VariableLookup.Incrementor.None:
+                    break;
+                
+                case AST.VariableLookup.Incrementor.preIncrement:
+                    if (v.type == BackendType.Int32)
+                    {
+                        result.value = LLVM.BuildAdd(builder, l, Const.OneInt32, "preinc");
+                    }
+                    if (v.type == BackendType.Float32)
+                    {
+                        result.value = LLVM.BuildFAdd(builder, l, Const.OneFloat32, "preinc");
+                    }
+                    LLVM.BuildStore(builder, result.value, v.value);
+                    break;
+                case AST.VariableLookup.Incrementor.preDecrement:
+                    if (v.type == BackendType.Int32)
+                    {
+                        result.value = LLVM.BuildSub(builder, l, Const.OneInt32, "predec");
+                    }
+                    if (v.type == BackendType.Float32)
+                    {
+                        result.value = LLVM.BuildFSub(builder, l, Const.OneFloat32, "predec");
+                    }
+                    LLVM.BuildStore(builder, result.value, v.value);
+                    break;
+                case AST.VariableLookup.Incrementor.postIncrement:
+                    var postinc = default(LLVMValueRef);
+                    if (v.type == BackendType.Int32)
+                    {
+                        postinc = LLVM.BuildAdd(builder, l, Const.OneInt32, "postinc");
+                    }
+                    if (v.type == BackendType.Float32)
+                    {
+                        postinc = LLVM.BuildFAdd(builder, l, Const.OneFloat32, "postinc");
+                    }
+                    LLVM.BuildStore(builder, postinc, v.value);
+                    break;
+                case AST.VariableLookup.Incrementor.postDecrement:
+                    var postdec = default(LLVMValueRef);
+                    if (v.type == BackendType.Int32)
+                    {
+                        postdec = LLVM.BuildSub(builder, l, Const.OneInt32, "postdec");
+                    }
+                    if (v.type == BackendType.Float32)
+                    {
+                        postdec = LLVM.BuildFSub(builder, l, Const.OneFloat32, "postdec");
+                    }
+                    LLVM.BuildStore(builder, postdec, v.value);
+                    break;
+                default:
+                    break;
+            }
+            valueStack.Push(result);
+            
         }
 
         public void Visit(AST.FunctionCall node)
@@ -491,6 +568,74 @@ namespace PragmaScript
             }
         }
 
+        public void Visit(AST.IfCondition node)
+        {
+            Visit(node.condition);
+            var condition = valueStack.Pop();
+            if (condition.type != BackendType.Bool)
+            {
+                throw new BackendTypeMismatchException(condition.type, BackendType.Bool);
+            }
+
+            var thenBlock = LLVM.AppendBasicBlock(ctx.function, "then");
+            var elseBlock = LLVM.AppendBasicBlock(ctx.function, "else");
+            var endIfBlock = LLVM.AppendBasicBlock(ctx.function, "endif");
+
+            if (node.elseBlock != null)
+            {
+                LLVM.BuildCondBr(builder, condition.value, thenBlock, elseBlock);
+            }
+            else
+            {
+                LLVM.BuildCondBr(builder, condition.value, thenBlock, endIfBlock);
+            }
+
+            LLVM.PositionBuilderAtEnd(builder, thenBlock);
+            Visit(node.thenBlock);
+            var term = LLVM.GetBasicBlockTerminator(thenBlock);
+            if (term.Pointer == IntPtr.Zero)
+                LLVM.BuildBr(builder, endIfBlock);
+            if (node.elseBlock != null)
+            {
+                LLVM.PositionBuilderAtEnd(builder, elseBlock);
+                Visit(node.elseBlock);
+                term = LLVM.GetBasicBlockTerminator(elseBlock);
+                if (term.Pointer == IntPtr.Zero)
+                    LLVM.BuildBr(builder, endIfBlock);
+            }
+
+            LLVM.PositionBuilderAtEnd(builder, endIfBlock);
+        }
+
+        public void Visit(AST.ForLoop node)
+        {
+            var loopPre = LLVM.AppendBasicBlock(ctx.function, "for_cond");
+            var loopBody = LLVM.AppendBasicBlock(ctx.function, "for");
+            var endFor = LLVM.AppendBasicBlock(ctx.function, "end_for");
+
+            Visit(node.initializer);
+            LLVM.BuildBr(builder, loopPre);
+
+            LLVM.PositionBuilderAtEnd(builder, loopPre);
+            Visit(node.condition);
+
+            var condition = valueStack.Pop();
+            if (condition.type != BackendType.Bool)
+            {
+                throw new BackendTypeMismatchException(condition.type, BackendType.Bool);
+            }
+            LLVM.BuildCondBr(builder, condition.value, loopBody, endFor);
+
+            LLVM.PositionBuilderAtEnd(builder, loopBody);
+            Visit(node.loopBody);
+            Visit(node.iterator);
+
+            LLVM.BuildBr(builder, loopPre);
+
+            LLVM.PositionBuilderAtEnd(builder, endFor);
+        }
+
+
         public void Visit(AST.Node node)
         {
             if (node is AST.ConstInt32)
@@ -500,6 +645,10 @@ namespace PragmaScript
             else if (node is AST.ConstFloat32)
             {
                 Visit(node as AST.ConstFloat32);
+            }
+            else if (node is AST.ConstBool)
+            {
+                Visit(node as AST.ConstBool);
             }
             else if (node is AST.BinOp)
             {
@@ -532,6 +681,14 @@ namespace PragmaScript
             else if (node is AST.FunctionCall)
             {
                 Visit(node as AST.FunctionCall);
+            }
+            else if (node is AST.IfCondition)
+            {
+                Visit(node as AST.IfCondition);
+            }
+            else if (node is AST.ForLoop)
+            {
+                Visit(node as AST.ForLoop);
             }
             else if (node is AST.Return)
             {

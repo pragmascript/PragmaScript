@@ -156,6 +156,79 @@ namespace PragmaScript
             }
         }
 
+        public class IfCondition : Node
+        {
+            public Node condition;
+            public Node thenBlock;
+            public Node elseBlock;
+            public IfCondition(Token t)
+                : base(t)
+            {
+            }
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return condition;
+                yield return thenBlock;
+                if (elseBlock != null)
+                {
+                    yield return elseBlock;
+                }
+            }
+            public override VariableType CheckType(Scope scope)
+            {
+                var ct = condition.CheckType(scope);
+                if (ct != VariableType.bool_)
+                    throw new ParserExpectedType(VariableType.bool_, ct, condition.token);
+
+                thenBlock.CheckType(scope);
+                if (elseBlock != null)
+                    elseBlock.CheckType(scope);
+
+                return null;
+            }
+
+            public override string ToString()
+            {
+                return "if";
+            }
+        }
+
+        public class ForLoop : Node
+        {
+            public Node initializer;
+            public Node condition;
+            public Node iterator;
+
+            public Node loopBody;
+
+            public ForLoop(Token t)
+                : base(t)
+            {
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return initializer;
+                yield return condition;
+                yield return iterator;
+                yield return loopBody;
+            }
+            public override VariableType CheckType(Scope scope)
+            {
+                var loopBodyScope = (loopBody as Block).scope;
+                initializer.CheckType(loopBodyScope);
+                var ct = condition.CheckType(loopBodyScope);
+                if (ct != VariableType.bool_)
+                    throw new ParserExpectedType(VariableType.bool_, ct, condition.token);
+                iterator.CheckType(loopBodyScope);
+                loopBody.CheckType(scope);
+                return null;
+            }
+            public override string ToString()
+            {
+                return "for";
+            }
+        }
 
         public class VariableDeclaration : Node
         {
@@ -181,7 +254,6 @@ namespace PragmaScript
             {
                 return "var " + variable.name + " = ";
             }
-
         }
 
         public class FunctionCall : Node
@@ -213,20 +285,37 @@ namespace PragmaScript
 
         public class VariableLookup : Node
         {
+            public enum Incrementor { None, preIncrement, preDecrement, postIncrement, postDecrement }
+            public Incrementor inc;
             public string variableName;
+
+
 
             public VariableLookup(Token t)
                 : base(t)
             {
             }
-
             public override VariableType CheckType(Scope scope)
             {
                 return scope.GetVar(variableName).type;
             }
             public override string ToString()
             {
-                return variableName;
+                switch (inc)
+                {
+                    case Incrementor.None:
+                        return variableName;
+                    case Incrementor.preIncrement:
+                        return "++" + variableName;
+                    case Incrementor.preDecrement:
+                        return "--" + variableName;
+                    case Incrementor.postIncrement:
+                        return variableName + "++";
+                    case Incrementor.postDecrement:
+                        return variableName + "--";
+                    default:
+                        throw new InvalidCodePath();
+                }
             }
         }
 
@@ -239,7 +328,6 @@ namespace PragmaScript
                 : base(t)
             {
             }
-
             public override IEnumerable<Node> GetChilds()
             {
                 yield return expression;
@@ -267,7 +355,6 @@ namespace PragmaScript
                 : base(t)
             {
             }
-
             public override VariableType CheckType(Scope scope)
             {
                 return VariableType.int32;
@@ -281,13 +368,10 @@ namespace PragmaScript
         public class ConstFloat32 : Node
         {
             public double number;
-
             public ConstFloat32(Token t)
                 : base(t)
             {
             }
-
-
             public override VariableType CheckType(Scope scope)
             {
                 return VariableType.float32;
@@ -323,8 +407,6 @@ namespace PragmaScript
                 : base(t)
             {
             }
-
-
             public override IEnumerable<Node> GetChilds()
             {
                 yield return expression;
@@ -620,7 +702,7 @@ namespace PragmaScript
 
         static Node parseStatement(IList<Token> tokens, ref int pos, Scope scope)
         {
-            pos = skipWhitespace(tokens, pos);
+
             var result = default(Node);
 
             var current = tokens[pos];
@@ -632,7 +714,7 @@ namespace PragmaScript
             {
                 result = parseReturn(tokens, ref pos, scope);
             }
-            else if (current.type == Token.TokenType.Identifier)
+            if (current.type == Token.TokenType.Identifier)
             {
                 var next = peekToken(tokens, pos, tokenMustExist: true, skipWS: true);
 
@@ -651,8 +733,129 @@ namespace PragmaScript
                     throw new InvalidCodePath();
             }
 
-            var endOfStatement = nextToken(tokens, ref pos, true);
-            expectTokenType(endOfStatement, Token.TokenType.Semicolon);
+            bool ignoreSemicolon = false;
+            if (current.type == Token.TokenType.If)
+            {
+                result = parseIf(tokens, ref pos, scope);
+                ignoreSemicolon = true;
+            }
+
+            if (current.type == Token.TokenType.For)
+            {
+                result = parseForLoop(tokens, ref pos, scope);
+                ignoreSemicolon = true;
+            }
+
+            if (!ignoreSemicolon)
+            {
+                var endOfStatement = nextToken(tokens, ref pos, true);
+                expectTokenType(endOfStatement, Token.TokenType.Semicolon);
+            }
+            return result;
+        }
+
+        static Node parseForLoop(IList<Token> tokens, ref int pos, Scope scope)
+        {
+
+            // for
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.For);
+
+            // for(
+            var ob = nextToken(tokens, ref pos);
+            expectTokenType(ob, Token.TokenType.OpenBracket);
+
+            var result = new ForLoop(current);
+            var loopBodyScope = new Scope();
+            loopBodyScope.parent = scope;
+
+            // for(int i = 0
+            nextToken(tokens, ref pos);
+            result.initializer = parseVariableDeclaration(tokens, ref pos, loopBodyScope);
+
+            // for(int i = 0;
+            nextToken(tokens, ref pos);
+            expectTokenType(tokens[pos], Token.TokenType.Semicolon);
+
+            // for(int i = 0; i < 10
+            nextToken(tokens, ref pos);
+            result.condition = parseBinOp(tokens, ref pos, loopBodyScope);
+
+            // for(int i = 0; i < 10;
+            nextToken(tokens, ref pos);
+            expectTokenType(tokens[pos], Token.TokenType.Semicolon);
+
+            // for(int i = 0; i < 10; i = i + 1
+            nextToken(tokens, ref pos);
+            result.iterator = parseForIterator(tokens, ref pos, loopBodyScope);
+
+            // for(int i = 0; i < 10; i = i + 1)
+            var cb = nextToken(tokens, ref pos);
+            expectTokenType(cb, Token.TokenType.CloseBracket);
+
+            // for(int i = 0; i < 10; i = i + 1) { ... }
+            nextToken(tokens, ref pos);
+            result.loopBody = parseBlock(tokens, ref pos, scope, newScope: loopBodyScope);
+
+            return result;
+        }
+
+        static Node parseForIterator(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            var current = tokens[pos];
+            var next = peekToken(tokens, pos);
+            if (current.type == Token.TokenType.Identifier)
+            {
+                if (next.type == Token.TokenType.CloseBracket 
+                    || next.type == Token.TokenType.Increment || next.type == Token.TokenType.Decrement)
+                {
+                    var variable = parseVariableLookup(tokens, ref pos, scope);
+                    return variable;
+                }
+
+                if (next.type == Token.TokenType.OpenBracket)
+                {
+                    nextToken(tokens, ref pos);
+                    var result = parseFunctionCall(tokens, ref pos, scope);
+                    return result;
+                }
+            }
+
+            if (current.type == Token.TokenType.Increment || current.type == Token.TokenType.Decrement)
+            {
+                var variable = parseVariableLookup(tokens, ref pos, scope);
+                return variable;
+            }
+
+            throw new InvalidCodePath(); 
+        }
+
+        static Node parseIf(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.If);
+
+            var ob = nextToken(tokens, ref pos);
+            expectTokenType(ob, Token.TokenType.OpenBracket);
+
+            var result = new IfCondition(current);
+            nextToken(tokens, ref pos);
+            result.condition = parseBinOp(tokens, ref pos, scope);
+
+            var cb = nextToken(tokens, ref pos);
+            expectTokenType(cb, Token.TokenType.CloseBracket);
+
+            nextToken(tokens, ref pos);
+
+            result.thenBlock = parseBlock(tokens, ref pos, scope);
+
+            var next = peekToken(tokens, pos);
+            if (next.type == Token.TokenType.Else)
+            {
+                nextToken(tokens, ref pos);
+                nextToken(tokens, ref pos);
+                result.elseBlock = parseBlock(tokens, ref pos, scope);
+            }
 
             return result;
         }
@@ -797,7 +1000,7 @@ namespace PragmaScript
             var current = tokens[pos];
 
 
-            // handle unary plus and minus
+            // handle unary plus and minus, ! and ~
             if (current.type == Token.TokenType.Add || current.type == Token.TokenType.Subtract
                 || current.type == Token.TokenType.LogicalNOT || current.type == Token.TokenType.Complement)
             {
@@ -843,7 +1046,8 @@ namespace PragmaScript
         private static Node parsePrimary(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
-            expectTokenType(current, Token.TokenType.IntNumber, Token.TokenType.FloatNumber, Token.TokenType.Identifier, Token.TokenType.OpenBracket);
+            expectTokenType(current, Token.TokenType.IntNumber, Token.TokenType.FloatNumber, Token.TokenType.Identifier, Token.TokenType.OpenBracket,
+                Token.TokenType.True, Token.TokenType.False, Token.TokenType.Increment, Token.TokenType.Decrement);
 
             if (current.type == Token.TokenType.IntNumber)
             {
@@ -879,20 +1083,59 @@ namespace PragmaScript
                 var peek = peekToken(tokens, pos, skipWS: true);
                 if (peek.type == Token.TokenType.OpenBracket)
                 {
+                    // TODO: check if function exists!
                     var result = parseFunctionCall(tokens, ref pos, scope);
                     return result;
                 }
 
-                if (scope.GetVar(current.text) == null)
-                {
-                    throw new UndefinedVariable(current.text, current);
-                }
-                var varLookup = new VariableLookup(current);
-                varLookup.variableName = current.text;
-                return varLookup;
+                return parseVariableLookup(tokens, ref pos, scope);
             }
 
-            throw new InvalidCodePath();
+            if (current.type == Token.TokenType.Increment || current.type == Token.TokenType.Decrement)
+            {
+                return parseVariableLookup(tokens, ref pos, scope);
+            }
+            throw new ParserError("Unexpected token type: " + current.type, current);
+        }
+
+        static Node parseVariableLookup(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Identifier, Token.TokenType.Increment, Token.TokenType.Decrement);
+
+            var varLookup = new VariableLookup(current);
+            varLookup.inc = VariableLookup.Incrementor.None;
+
+            if (current.type == Token.TokenType.Increment || current.type == Token.TokenType.Decrement)
+            {
+                varLookup.inc = current.type == Token.TokenType.Increment ?
+                    VariableLookup.Incrementor.preIncrement : VariableLookup.Incrementor.preDecrement;
+                var id = nextToken(tokens, ref pos);
+                expectTokenType(id, Token.TokenType.Identifier);
+                varLookup.token = id;
+                current = id;
+            }
+
+            varLookup.variableName = current.text;
+            
+            if (scope.GetVar(current.text) == null)
+            {
+                throw new UndefinedVariable(current.text, current);
+            }
+            
+            var peek = peekToken(tokens, pos);
+            if (peek.type == Token.TokenType.Increment || peek.type == Token.TokenType.Decrement)
+            {
+                if (varLookup.inc != VariableLookup.Incrementor.None)
+                {
+                    throw new ParserError("You can't use both pre-increment and post-increment", peek);
+                }
+                nextToken(tokens, ref pos);
+                varLookup.inc = peek.type == Token.TokenType.Increment ?
+                    VariableLookup.Incrementor.postIncrement : VariableLookup.Incrementor.postDecrement;
+            }
+
+            return varLookup;
         }
 
         static Node parseFunctionCall(IList<Token> tokens, ref int pos, Scope scope)
@@ -935,18 +1178,44 @@ namespace PragmaScript
         }
 
 
-        public static Node parseBlock(IList<Token> tokens, ref int pos, Scope parentScope)
+        public static Node parseBlock(IList<Token> tokens, ref int pos, Scope parentScope, Scope newScope = null)
         {
             var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.OpenCurly);
+
             var result = new Block(current);
-            result.scope = new Scope();
-            result.scope.parent = parentScope;
-            while (pos < tokens.Count)
+            if (newScope == null)
             {
-                var s = parseStatement(tokens, ref pos, result.scope);
-                result.statements.Add(s);
-                pos++;
+                newScope = new Scope();
             }
+            result.scope = newScope;
+            result.scope.parent = parentScope;
+
+            var next = peekToken(tokens, pos);
+
+            bool foundReturn = false;
+            while (next.type != Token.TokenType.CloseCurly)
+            {
+                nextToken(tokens, ref pos);
+                var s = parseStatement(tokens, ref pos, result.scope);
+                // ignore statements after the return so that return is the last statement in the block
+                if (!foundReturn)
+                {
+                    result.statements.Add(s);
+                }
+                if (s is Return)
+                {
+                    foundReturn = true;
+                }
+
+                if (pos >= tokens.Count)
+                {
+                    throw new ParserError("No matching \"}\" found", current);
+                }
+                next = peekToken(tokens, pos);
+            }
+
+            nextToken(tokens, ref pos);
             return result;
         }
 
@@ -1051,6 +1320,7 @@ namespace PragmaScript
                 rootScope.AddType(VariableType.bool_, current);
 
                 // perform AST generation pass
+                pos = skipWhitespace(tokens, pos);
                 block = parseBlock(tokens, ref pos, rootScope);
 
                 // perform type checking pass
@@ -1059,7 +1329,7 @@ namespace PragmaScript
             //catch (ParserError error)
             //{
             //    Console.Error.WriteLine(error.Message);
-            //    return null;
+            //    return block;
             //}
 
             return block;

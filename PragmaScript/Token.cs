@@ -26,7 +26,11 @@ namespace PragmaScript
       * Assignment = 13
       */
 
-        public static Token Undefined = new Token { type = TokenType.Undefined, text = "undefined" };
+        public static readonly Token Undefined = new Token { type = TokenType.Undefined, text = "undefined" };
+        public static Token NewLine(int pos, int line)
+        {
+            return new Token { type = TokenType.WhiteSpace, text = Environment.NewLine, length = 1, pos = pos, lineNumber = line };
+        }
         public enum TokenType
         {
             WhiteSpace, Let, Var, Fun, Identifier,
@@ -40,7 +44,14 @@ namespace PragmaScript
             Complement,
             Conditional,
             True,
-            False
+            False,
+            If,
+            Else,
+            OpenCurly,
+            CloseCurly,
+            For,
+            Increment,
+            Decrement
         }
 
         public TokenType type { get; private set; }
@@ -62,10 +73,16 @@ namespace PragmaScript
             keywords.Add("return", TokenType.Return);
             keywords.Add("true", TokenType.True);
             keywords.Add("false", TokenType.False);
+            keywords.Add("if", TokenType.If);
+            keywords.Add("else", TokenType.Else);
+            keywords.Add("for", TokenType.For);
+
             operators = new Dictionary<string, TokenType>();
             operators.Add("=", TokenType.Assignment);
             operators.Add("(", TokenType.OpenBracket);
             operators.Add(")", TokenType.CloseBracket);
+            operators.Add("{", TokenType.OpenCurly);
+            operators.Add("}", TokenType.CloseCurly);
             operators.Add("+", TokenType.Add);
             operators.Add("-", TokenType.Subtract);
             operators.Add("*", TokenType.Multiply);
@@ -88,6 +105,8 @@ namespace PragmaScript
             operators.Add("<=", TokenType.LessEqual);
             operators.Add("!", TokenType.LogicalNOT);
             operators.Add("~", TokenType.Complement);
+            operators.Add("++", TokenType.Increment);
+            operators.Add("--", TokenType.Decrement);
 
             foreach (var op in operators.Keys)
             {

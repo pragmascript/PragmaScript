@@ -20,12 +20,38 @@ namespace PragmaScript
         static void Main(string[] args)
         {
             Console.WriteLine();
-            // parse("return 3 / 2;");
-           //  parse("var x = ((float32)12 + 3.0); print(); print(); return (int32)x * 10;");
-            // parse("var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36;");
-            // parse("var y = -3 + (12 + 12) * 2; var x = y - 3; return x;");
-            // parse("var x = !(12 < 4 << 5); var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar();");
-            parse("return ~(0);");
+            // parse(@"{ return 3 / 2; }");
+           //  parse("{ var x = ((float32)12 + 3.0); print(); print(); return (int32)x * 10; }");
+            // parse("{ var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36; }");
+            // parse("{ var y = -3 + (12 + 12) * 2; var x = y - 3; return x; }");
+            // parse("{ var x = !(12 < 4 << 5); var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar(); }");
+            // parse("{ return 3; var x = 5; }");
+
+            var p1 = @"
+{ 
+    var x = (int32)(-3.0 * 4.0);
+    if (x > 0)
+    {
+        return 5;
+    }
+    else
+    {
+        x = 2 * x;
+    } 
+    return x; 
+}";
+            var p2 = @"
+{ 
+    for (var i = 10; i > 0; --i)
+    {
+        print();
+    }
+    return 0;
+}";
+
+            // parse("{ var i = 0; var x = i-- + 1; return i; }");
+            // parse("{ var i = 0; var x = --i + 1; return i; }");
+            parse(p2);
             Console.ReadLine();
         }
 
@@ -43,14 +69,9 @@ namespace PragmaScript
                 {
                     var t = Token.Parse(line, pos, i);
                     yield return t;
-
-                    //// abort on first error token
-                    //if (t.type == Token.TokenType.Error)
-                    //{
-                    //    yield break;
-                    //}
                     pos += t.length;
                 }
+                yield return Token.NewLine(pos, i);
             }
         }
 
@@ -107,8 +128,7 @@ namespace PragmaScript
 
             Console.ReadLine();
             var backend = new Backend();
-            backend.EmitAndRun(root, useOptimizations: false);
-            Console.WriteLine("bool: " + sizeof(bool));
+            backend.EmitAndRun(root, useOptimizations: true);
 
         }
     }

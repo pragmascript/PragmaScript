@@ -29,6 +29,16 @@ namespace PragmaScript
 
         }
     }
+    class ParserExpectedType : ParserError
+    {
+        public ParserExpectedType(AST.VariableType expected, AST.VariableType got, Token t)
+            : base(string.Format("expected type \"{0}\", but got type \"{1}\"", expected.name, got.name), t)
+        {
+
+        }
+    }
+
+
 
     class ParserTypeMismatch : ParserError
     {
