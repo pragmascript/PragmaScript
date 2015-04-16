@@ -22,6 +22,31 @@ namespace PragmaScript
 
         struct TypedValue
         {
+            public static BackendType MapType(PragmaScript.AST.FrontendType ftype)
+            {
+                BackendType type;
+                if (ftype == PragmaScript.AST.FrontendType.bool_)
+                {
+                    type = BackendType.Bool;
+                }
+                else if (ftype == PragmaScript.AST.FrontendType.int32)
+                {
+                    type = BackendType.Int32;
+                }
+                else if (ftype == PragmaScript.AST.FrontendType.float32)
+                {
+                    type = BackendType.Float32;
+                }
+                else if (ftype == PragmaScript.AST.FrontendType.void_)
+                {
+                    type = BackendType.Void;
+                }
+                else
+                    throw new InvalidCodePath();
+
+                return type;
+            }
+           
             public BackendType type;
             public LLVMValueRef value;
             public TypedValue(LLVMValueRef value, BackendType type)
@@ -44,7 +69,26 @@ namespace PragmaScript
             public static readonly LLVMTypeRef Float32Type = LLVM.FloatType();
             public static readonly LLVMTypeRef Int32Type = LLVM.Int32Type();
             public static readonly LLVMTypeRef BoolType = LLVM.Int1Type();
+            public static readonly LLVMTypeRef VoidType = LLVM.VoidType();
+            
+            public static LLVMTypeRef GetTypeRef(BackendType type)
+            {
+                switch (type)
+                {
+                    case BackendType.Float32:
+                        return Float32Type;
+                    case BackendType.Int32:
+                        return Int32Type;
+                    case BackendType.Bool:
+                        return BoolType;
+                    case BackendType.Void:
 
+                        break;
+                    default:
+                        throw new InvalidCodePath();
+                }
+                throw new InvalidCodePath();
+            }
         }
 
 
@@ -78,10 +122,10 @@ namespace PragmaScript
                 Console.WriteLine("Hello world: " + i++);
             };
 
-            foo += () => 
+            foo += () =>
             {
                 Console.WriteLine("foo called!");
-                return 3; 
+                return 3;
             };
 
             LLVMTypeRef[] print_int_param_types = { LLVM.Int32Type() };
@@ -179,6 +223,7 @@ namespace PragmaScript
                 LLVM.AddCFGSimplificationPass(pass);
                 LLVM.AddGlobalOptimizerPass(pass);
                 LLVM.AddVerifierPass(pass);
+                LLVM.AddFunctionInliningPass(pass);
                 LLVM.RunPassManager(pass, mod);
             }
             else
@@ -188,9 +233,9 @@ namespace PragmaScript
             }
 
             var mainFunctionDelegate = (llvm_main)Marshal.GetDelegateForFunctionPointer(LLVM.GetPointerToGlobal(engine, mainFunction), typeof(llvm_main));
-            
+
             // **************************** RUN THE THING **************************** 
-            
+
             var answer = mainFunctionDelegate();
 
             // *********************************************************************** 
@@ -279,7 +324,7 @@ namespace PragmaScript
                         case AST.BinOp.BinOpType.LogicalXOR:
                             result = LLVM.BuildXor(builder, left.value, right.value, "or_tmp");
                             break;
-                        
+
                         default:
                             throw new InvalidCodePath();
                     }
@@ -409,7 +454,7 @@ namespace PragmaScript
             var cor_end = LLVM.AppendBasicBlock(ctx.function, "cor.end");
             var block = LLVM.GetInsertBlock(builder);
             LLVM.BuildCondBr(builder, cmp.value, cor_end, cor_rhs);
-            
+
             // cor.rhs: 
             LLVM.PositionBuilderAtEnd(builder, cor_rhs);
             Visit(op.right);
@@ -428,7 +473,7 @@ namespace PragmaScript
 
             LLVM.AddIncoming(phi, out incomingValues[0], out incomingBlocks[0], 2);
 
-            valueStack.Push(new TypedValue(phi, BackendType.Bool));        
+            valueStack.Push(new TypedValue(phi, BackendType.Bool));
         }
 
         void visitConditionalAND(AST.BinOp op)
@@ -461,7 +506,7 @@ namespace PragmaScript
 
             LLVM.AddIncoming(phi, out incomingValues[0], out incomingBlocks[0], 2);
 
-            valueStack.Push(new TypedValue(phi, BackendType.Bool));        
+            valueStack.Push(new TypedValue(phi, BackendType.Bool));
         }
 
         public void Visit(AST.UnaryOp node)
@@ -515,39 +560,40 @@ namespace PragmaScript
             var v = valueStack.Pop();
 
             var typeName = node.type.name;
-            TypedValue result;
+            TypedValue result = new TypedValue();
 
             // TODO: check if integral type
             // TODO: handle non integral types
-            // TODO: do i have to handle constant values differently?
-            if (typeName == "float32")
+            result.type = TypedValue.MapType(node.type);
+            switch (result.type)
             {
-                result.type = BackendType.Float32;
-                result.value = LLVM.BuildSIToFP(builder, v.value, Const.Float32Type, "float32_cast");
-                // result.value = LLVM.ConstFPCast(v.value, LLVM.FloatType());
-            }
-            else if (typeName == "int32")
-            {
-                result.type = BackendType.Int32;
-                switch (v.type)
-                {
-                    case BackendType.Float32:
-                        result.value = LLVM.BuildFPToSI(builder, v.value, Const.Int32Type, "int32_cast");
-                        break;
-                    case BackendType.Int32:
-                        result = v;
-                        break;
-                    case BackendType.Bool:
-                        result.value = LLVM.BuildZExt(builder, v.value, Const.Int32Type, "int32_cast");
-                        break;
-                    default:
-                        throw new InvalidCodePath();
-                }
-
-            }
-            else
-            {
-                throw new InvalidCodePath();
+                case BackendType.Float32:
+                    result.value = LLVM.BuildSIToFP(builder, v.value, Const.Float32Type, "float32_cast");
+                    break;
+                case BackendType.Int32:
+                    switch (v.type)
+                    {
+                        case BackendType.Float32:
+                            result.value = LLVM.BuildFPToSI(builder, v.value, Const.Int32Type, "int32_cast");
+                            break;
+                        case BackendType.Int32:
+                            result = v;
+                            break;
+                        case BackendType.Bool:
+                            result.value = LLVM.BuildZExt(builder, v.value, Const.Int32Type, "int32_cast");
+                            break;
+                        default:
+                            throw new InvalidCodePath();
+                    }
+                    result.type = BackendType.Int32;
+                    break;
+                case BackendType.Bool:
+                    // TODO insert conversion to bool
+                    throw new NotImplementedException();
+                case BackendType.Void:
+                    throw new InvalidCodePath();
+                default:
+                    throw new InvalidCodePath();
             }
             valueStack.Push(result);
         }
@@ -602,6 +648,15 @@ namespace PragmaScript
 
         public void Visit(AST.VariableLookup node)
         {
+            if (node.varDefinition.isFunctionParameter)
+            {
+
+                var pr = new TypedValue(LLVM.GetParam(ctx.function, (uint)node.varDefinition.parameterIdx),
+                    TypedValue.MapType(node.varDefinition.type)); ;
+                valueStack.Push(pr);
+                return;
+            }
+
             var v = variables[node.variableName];
             var l = LLVM.BuildLoad(builder, v.value, node.variableName);
             var result = new TypedValue(l, v.type);
@@ -609,7 +664,7 @@ namespace PragmaScript
             {
                 case AST.VariableLookup.Incrementor.None:
                     break;
-                
+
                 case AST.VariableLookup.Incrementor.preIncrement:
                     if (v.type == BackendType.Int32)
                     {
@@ -660,13 +715,20 @@ namespace PragmaScript
                     break;
             }
             valueStack.Push(result);
-            
+
         }
 
         public void Visit(AST.FunctionCall node)
         {
             var f = functions[node.functionName];
-            LLVMValueRef[] parameters = new LLVMValueRef[1];
+            var cnt = node.argumentList.Count;
+            LLVMValueRef[] parameters = new LLVMValueRef[Math.Max(1, cnt)];
+
+            for (int i = 0; i < node.argumentList.Count; ++i)
+            {
+                Visit(node.argumentList[i]);
+                parameters[i] = valueStack.Pop().value;
+            }
 
             // TODO: use proper function declarations
             var t = default(BackendType);
@@ -689,7 +751,7 @@ namespace PragmaScript
             }
             else
             {
-                var v = LLVM.BuildCall(builder, f, out parameters[0], 0, node.functionName);
+                var v = LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, node.functionName);
                 valueStack.Push(new TypedValue(v, t));
             }
         }
@@ -775,6 +837,50 @@ namespace PragmaScript
             LLVM.PositionBuilderAtEnd(builder, endFor);
         }
 
+        public void Visit(AST.FunctionDeclaration node)
+        {
+            var fun = node.fun;
+
+            if (functions.ContainsKey(fun.name))
+                throw new Exception("function redefinition");
+
+            var cnt = Math.Max(1, fun.parameters.Count);
+            var par = new LLVMTypeRef[cnt];
+
+            for (int i = 0; i < fun.parameters.Count; ++i)
+            {
+                par[i] = Const.GetTypeRef(TypedValue.MapType(fun.parameters[i].type));
+            }
+
+            var returnType = Const.GetTypeRef(TypedValue.MapType(fun.returnType));
+
+            var funType = LLVM.FunctionType(returnType, out par[0], (uint)fun.parameters.Count, Const.FalseBool);
+            var function = LLVM.AddFunction(mod, fun.name, funType);
+            
+            // TODO: insert function type into dictionary as well?
+            functions.Add(fun.name, function);
+
+            for (int i = 0; i < fun.parameters.Count; ++i)
+            {
+                LLVMValueRef param = LLVM.GetParam(function, (uint)i);
+                LLVM.SetValueName(param, fun.parameters[i].name);
+                // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
+            }
+
+            var entry = LLVM.AppendBasicBlock(function, "entry");
+            
+            var blockTemp = LLVM.GetInsertBlock(builder);
+            
+            LLVM.PositionBuilderAtEnd(builder, entry);
+            var funTemp = ctx.function;
+            ctx.function = function;
+            Visit(node.body);
+            ctx.function = funTemp;
+
+            LLVM.PositionBuilderAtEnd(builder, blockTemp);
+
+            LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
+        }
 
         public void Visit(AST.Node node)
         {
@@ -833,6 +939,10 @@ namespace PragmaScript
             else if (node is AST.Return)
             {
                 Visit(node as AST.Return);
+            }
+            else if (node is AST.FunctionDeclaration)
+            {
+                Visit(node as AST.FunctionDeclaration);
             }
         }
     }

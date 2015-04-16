@@ -31,6 +31,7 @@ namespace PragmaScript
         {
             return new Token { type = TokenType.WhiteSpace, text = Environment.NewLine, length = 1, pos = pos, lineNumber = line };
         }
+        public static readonly Token EOF = new Token { type = TokenType.EOF };
         public enum TokenType
         {
             WhiteSpace, Let, Var, Fun, Identifier,
@@ -51,7 +52,10 @@ namespace PragmaScript
             CloseCurly,
             For,
             Increment,
-            Decrement
+            Decrement,
+            FatArrow,
+            Colon,
+            EOF
         }
 
         public TokenType type { get; private set; }
@@ -107,6 +111,8 @@ namespace PragmaScript
             operators.Add("~", TokenType.Complement);
             operators.Add("++", TokenType.Increment);
             operators.Add("--", TokenType.Decrement);
+            operators.Add("=>", TokenType.FatArrow);
+            operators.Add(":", TokenType.Colon);
 
             foreach (var op in operators.Keys)
             {

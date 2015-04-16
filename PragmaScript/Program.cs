@@ -28,7 +28,7 @@ namespace PragmaScript
                 var text = File.ReadAllText(path);
                 run(text);
             }
-            catch (Exception)
+            catch (FileNotFoundException e)
             {
                 Console.WriteLine("Could not open file!");
             }
@@ -97,6 +97,8 @@ namespace PragmaScript
                 }
                 yield return Token.NewLine(pos, i);
             }
+
+            yield return Token.EOF;
         }
 
         static Graph getRenderGraph(Graph g, AST.Node node, string id)
@@ -153,7 +155,7 @@ namespace PragmaScript
 #endif
             var backend = new Backend();
 #if DEBUG
-            backend.EmitAndRun(root, useOptimizations: false);
+            backend.EmitAndRun(root, useOptimizations: true);
 #else
             backend.EmitAndRun(root, useOptimizations: true);
 #endif
