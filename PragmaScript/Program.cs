@@ -34,7 +34,6 @@ namespace PragmaScript
             }
         }
 
-
         static void Test()
         {
             // parse(@"{ return 3 / 2; }");
@@ -76,7 +75,7 @@ namespace PragmaScript
             // parse("{ var x = foo() < 3 || foo() == 2 || foo() == -1; return (int32)x;}");
 
             run("{ var x = foo() >= 3 && foo() > 1 && foo() > 0; return (int32)x; }");
-
+            
         }
 
 
@@ -149,13 +148,17 @@ namespace PragmaScript
             Console.WriteLine();
 #endif
             var root = AST.Parse(tokens);
+            if (root == null)
+            {
+                return;
+            }
 #if DEBUG
             Console.WriteLine();
             renderGraph(root, text);
 #endif
             var backend = new Backend();
 #if DEBUG
-            backend.EmitAndRun(root, useOptimizations: true);
+            backend.EmitAndRun(root, useOptimizations: false);
 #else
             backend.EmitAndRun(root, useOptimizations: true);
 #endif

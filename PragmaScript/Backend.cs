@@ -105,40 +105,65 @@ namespace PragmaScript
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int llvm_main();
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void void_del();
-        public static void_del print;
+        //[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        //public delegate void void_del();
+        //public static void_del print;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate int int32_del();
-        public static int32_del foo;
-
+        public delegate void void_int_del(int x);
+        public static void_int_del print_i32;
+        
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void void_float_del(float x);
+        public static void_float_del print_f32;
 
         public Backend()
         {
             int i = 0;
-            print += () =>
+            //print += () =>
+            //{
+            //    Console.WriteLine("Hello world: " + i++);
+            //};
+
+            //foo += () =>
+            //{
+            //    Console.WriteLine("foo called!");
+            //    return 3;
+            //};
+
+            print_i32 += (x) =>
             {
-                Console.WriteLine("Hello world: " + i++);
+                Console.WriteLine(x);
             };
 
-            foo += () =>
+            print_f32 += (x) =>
             {
-                Console.WriteLine("foo called!");
-                return 3;
+                Console.WriteLine(x);
             };
 
-            LLVMTypeRef[] print_int_param_types = { LLVM.Int32Type() };
-            var print_int_fun_type = LLVM.FunctionType(LLVM.VoidType(), out print_int_param_types[0], 0, Const.FalseBool);
-            IntPtr printPtr = Marshal.GetFunctionPointerForDelegate(print);
-            var printFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)printPtr, Const.FalseBool), LLVM.PointerType(print_int_fun_type, 0));
-            functions.Add("print", printFuncConst);
+            //LLVMTypeRef[] print_int_param_types = { LLVM.Int32Type() };
+            //var print_int_fun_type = LLVM.FunctionType(LLVM.VoidType(), out print_int_param_types[0], 0, Const.FalseBool);
+            //IntPtr printPtr = Marshal.GetFunctionPointerForDelegate(print);
+            //var printFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)printPtr, Const.FalseBool), LLVM.PointerType(print_int_fun_type, 0));
+            //functions.Add("print", printFuncConst);
 
-            LLVMTypeRef[] foo_int_param_types = { LLVM.Int32Type() };
-            var foo_int_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out print_int_param_types[0], 0, Const.FalseBool);
-            IntPtr fooPtr = Marshal.GetFunctionPointerForDelegate(foo);
-            var fooFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)fooPtr, Const.FalseBool), LLVM.PointerType(foo_int_fun_type, 0));
-            functions.Add("foo", fooFuncConst);
+            //LLVMTypeRef[] foo_int_param_types = { LLVM.Int32Type() };
+            //var foo_int_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out print_int_param_types[0], 0, Const.FalseBool);
+            //IntPtr fooPtr = Marshal.GetFunctionPointerForDelegate(foo);
+            //var fooFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)fooPtr, Const.FalseBool), LLVM.PointerType(foo_int_fun_type, 0));
+            //functions.Add("foo", fooFuncConst);
+
+            LLVMTypeRef[] printi_param_types = { Const.Int32Type };
+            var printi_fun_type = LLVM.FunctionType(Const.VoidType, out printi_param_types[0], 1, Const.FalseBool);
+            IntPtr printiPtr = Marshal.GetFunctionPointerForDelegate(print_i32);
+            var printiFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)printiPtr, Const.FalseBool), LLVM.PointerType(printi_fun_type, 0));
+            functions.Add("print_i32", printiFuncConst);
+
+            LLVMTypeRef[] printf_param_types = { Const.Float32Type };
+            var printf_fun_type = LLVM.FunctionType(Const.VoidType, out printf_param_types[0], 1, Const.FalseBool);
+            IntPtr printfPtr = Marshal.GetFunctionPointerForDelegate(print_f32);
+            var printfFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)printfPtr, Const.FalseBool), LLVM.PointerType(printf_fun_type, 0));
+            functions.Add("print_f32", printfFuncConst);
         }
 
 
@@ -747,7 +772,7 @@ namespace PragmaScript
 
             if (node.returnType == AST.FrontendType.void_)
             {
-                LLVM.BuildCall(builder, f, out parameters[0], 0, "");
+                LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, "");
             }
             else
             {
@@ -780,7 +805,12 @@ namespace PragmaScript
             }
 
             var thenBlock = LLVM.AppendBasicBlock(ctx.function, "then");
-            var elseBlock = LLVM.AppendBasicBlock(ctx.function, "else");
+
+            var elseBlock = default(LLVMBasicBlockRef);
+            if (node.elseBlock != null)
+            {
+                elseBlock = LLVM.AppendBasicBlock(ctx.function, "else");
+            }
             var endIfBlock = LLVM.AppendBasicBlock(ctx.function, "endif");
 
             if (node.elseBlock != null)
@@ -876,7 +906,6 @@ namespace PragmaScript
             ctx.function = function;
             Visit(node.body);
             ctx.function = funTemp;
-
             LLVM.PositionBuilderAtEnd(builder, blockTemp);
 
             LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);

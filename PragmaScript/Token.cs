@@ -260,11 +260,11 @@ namespace PragmaScript
         {
             if (type != TokenType.Error)
             {
-                return string.Format("({0}, {1}, {2}, \"{3}\")", type.ToString(), lineNumber, pos, text);
+                return string.Format("({0}, line {1}, pos {2}, \"{3}\")", type.ToString(), lineNumber + 1, pos + 1, text);
             }
             else
             {
-                return string.Format("({0}, {1}, {2}, \"{3}\")", "error: " + errorMessage, lineNumber, pos, text);
+                return string.Format("({0}, line {1}, pos {2}, \"{3}\")", "error: " + errorMessage, lineNumber + 1, pos + 1, text);
             }
 
         }

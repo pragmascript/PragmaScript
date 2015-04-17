@@ -37,6 +37,15 @@ namespace PragmaScript
 
         }
     }
+
+    class ParserExpectedArgumentType : ParserError
+    {
+        public ParserExpectedArgumentType(AST.FrontendType expected, AST.FrontendType got, int idx, Token t)
+            : base(string.Format("function argument {2} has type \"{0}\", but got type \"{1}\"", expected.name, got.name, idx), t)
+        {
+
+        }
+    }
     class ParserTypeMismatch : ParserError
     {
         public ParserTypeMismatch(AST.FrontendType type1, AST.FrontendType type2, Token t)
