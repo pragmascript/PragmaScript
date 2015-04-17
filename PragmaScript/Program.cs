@@ -27,12 +27,16 @@ namespace PragmaScript
         static void Main(string[] args)
         {
             if (args.Length == 0)
+            {
+                Console.WriteLine("Input file name missing!");
                 return;
+            }
+                
 
             parseARGS(args);
 #if DEBUG
             CompilerOptions.debug = true;
-            CompilerOptions.useOptimizations = false;
+            CompilerOptions.useOptimizations = true;
 #endif
             try
             {
@@ -50,10 +54,15 @@ namespace PragmaScript
             Console.WriteLine(s + "!");
         }
 
+        static void printHelp()
+        {
+            Console.WriteLine("command line options: ");
+            Console.WriteLine("-D: turn on debug messages");
+            Console.WriteLine("-O0: turn off optimizations");
+            Console.WriteLine("-O1: turn on optimizations");
+        }
         static void parseARGS(string[] args)
         {
-           
-
             foreach (var arg in args)
             {
                 if (arg.TrimStart().StartsWith("-"))
@@ -74,6 +83,11 @@ namespace PragmaScript
                         case "O3":
                             CompilerOptions.useOptimizations = true;
                             break;
+                        case "HELP":
+                        case "-HELP":
+                        case "H":
+                            printHelp();
+                            break;
                         default:
                             writeError("Unknown command line option");
                             break;
@@ -85,51 +99,6 @@ namespace PragmaScript
                 }
             }
         }
-
-        static void Test()
-        {
-            // parse(@"{ return 3 / 2; }");
-            //  parse("{ var x = ((float32)12 + 3.0); print(); print(); return (int32)x * 10; }");
-            // parse("{ var x = 1.0 / (float32)2; return (int32)(12.0 * x) + 36; }");
-            // parse("{ var y = -3 + (12 + 12) * 2; var x = y - 3; return x; }");
-            // parse("{ var x = !(12 < 4 << 5); var y = (1 + 2 * 5 + 3) * (x + 4 / foo) + bar(); }");
-            // parse("{ return 3; var x = 5; }");
-
-            var p1 = @"
-{ 
-    var x = (int32)(-3.0 * 4.0);
-    if (x > 0)
-    {
-        return 5;
-    }
-    else
-    {
-        x = 2 * x;
-    } 
-    return x; 
-}";
-            var p2 = @"
-{ 
-    for (var i = 10; i > 0; --i)
-    {
-        print();
-    }
-    return 0;
-}";
-
-            // parse("{ var i = 0; var x = i-- + 1; return i; }");
-            // parse("{ var i = 0; var x = --i + 1; return i; }");
-            // parse(p2);
-
-
-            // parse("{ return foo(); }");
-            // parse("{ var x = foo() > 3 || foo() == 3 || foo() == -1; return (int32)x;}");
-            // parse("{ var x = foo() < 3 || foo() == 2 || foo() == -1; return (int32)x;}");
-
-            run("{ var x = foo() >= 3 && foo() > 1 && foo() > 0; return (int32)x; }");
-            
-        }
-
 
         static IEnumerable<Token> tokenize(string text)
         {
@@ -151,7 +120,7 @@ namespace PragmaScript
 
             yield return Token.EOF;
         }
-
+#if DEBUG
         static Graph getRenderGraph(Graph g, AST.Node node, string id)
         {
             var ns = NodeStatement.For(id);
@@ -180,7 +149,7 @@ namespace PragmaScript
                  );
             }
         }
-
+#endif
         static void run(string text)
         {
 
@@ -211,8 +180,7 @@ namespace PragmaScript
             {
                 return;
             }
-            if (CompilerOptions.debug)
-            {
+#if DEBUG
                 Console.WriteLine();
                 try
                 {
@@ -222,7 +190,7 @@ namespace PragmaScript
                 {
                     Console.WriteLine("graphviz not found. no graph rendering!");
                 }
-            }
+#endif
             var backend = new Backend();
 
             backend.EmitAndRun(root, useOptimizations: CompilerOptions.useOptimizations);

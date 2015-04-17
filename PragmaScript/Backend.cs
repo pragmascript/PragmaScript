@@ -117,17 +117,17 @@ namespace PragmaScript
         {
             print_i32 += (x) =>
             {
-                Console.WriteLine(x);
+                Console.Write(x);
             };
 
             print_f32 += (x) =>
             {
-                Console.WriteLine(x);
+                Console.Write(x);
             };
 
             print_string += (x) =>
             {
-                Console.WriteLine(Marshal.PtrToStringAnsi(x));
+                Console.Write(Marshal.PtrToStringAnsi(x));
             };
 
 
@@ -340,7 +340,7 @@ namespace PragmaScript
             }
 
             var answer = mainFunctionDelegate();
-
+            
             if (CompilerOptions.debug)
             {
                 Console.WriteLine();
@@ -394,14 +394,37 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
+        public static string ParseString(string txt)
+        {
+            var provider = new Microsoft.CSharp.CSharpCodeProvider();
+            var prms = new System.CodeDom.Compiler.CompilerParameters();
+            prms.GenerateExecutable = false;
+            prms.GenerateInMemory = true;
+            var results = provider.CompileAssemblyFromSource(prms, @"
+namespace tmp
+{
+    public class tmpClass
+    {
+        public static string GetValue()
+        {
+             return " + "\"" + txt + "\"" + @";
+        }
+    }
+}");
+            System.Reflection.Assembly ass = results.CompiledAssembly;
+            var method = ass.GetType("tmp.tmpClass").GetMethod("GetValue");
+            return method.Invoke(null, null) as string;
+        }
 
-        //static byte[] convertString(string s)
-        //{
-        //}
-
+        string convertString(string s)
+        {
+            var tmp = s.Substring(1, s.Length - 2);
+            return ParseString(tmp);
+        }
         public void Visit(AST.ConstString node)
         {
-            var constString = LLVM.BuildGlobalStringPtr(builder, node.s, "str");
+            var str = convertString(node.s);
+            var constString = LLVM.BuildGlobalStringPtr(builder, str, "str");
             var result = LLVM.BuildBitCast(builder, constString, Const.Int8PointerType, "str_ptr");
             valueStack.Push(result);
         }
@@ -720,22 +743,7 @@ namespace PragmaScript
             var resultType = LLVM.TypeOf(result);
 
             LLVMValueRef v;
-            if (isEqualType(resultType, Const.Float32Type))
-            {
-                v = LLVM.BuildAlloca(builder, LLVM.FloatType(), node.variable.name);
-            }
-            else if (isEqualType(resultType, Const.Int32Type))
-            {
-                v = LLVM.BuildAlloca(builder, LLVM.Int32Type(), node.variable.name);
-            }
-            else if (isEqualType(resultType, Const.BoolType))
-            {
-                v = LLVM.BuildAlloca(builder, LLVM.Int1Type(), node.variable.name);
-            }
-            else
-            {
-                throw new InvalidCodePath();
-            }
+            v = LLVM.BuildAlloca(builder, resultType, node.variable.name);
             variables[node.variable.name] = v;
             LLVM.BuildStore(builder, result, v);
         }
@@ -775,8 +783,9 @@ namespace PragmaScript
             }
 
             var v = variables[node.variableName];
-            var vtype = LLVM.TypeOf(v);
+            
             var l = LLVM.BuildLoad(builder, v, node.variableName);
+            var ltype = LLVM.TypeOf(l);
             var result = l;
             switch (node.inc)
             {
@@ -784,22 +793,22 @@ namespace PragmaScript
                     break;
 
                 case AST.VariableLookup.Incrementor.preIncrement:
-                    if (isEqualType(vtype, Const.Int32Type))
+                    if (isEqualType(ltype, Const.Int32Type))
                     {
                         result = LLVM.BuildAdd(builder, l, Const.OneInt32, "preinc");
                     }
-                    else if (isEqualType(vtype, Const.Float32Type))
+                    else if (isEqualType(ltype, Const.Float32Type))
                     {
                         result = LLVM.BuildFAdd(builder, l, Const.OneFloat32, "preinc");
                     }
                     LLVM.BuildStore(builder, result, v);
                     break;
                 case AST.VariableLookup.Incrementor.preDecrement:
-                    if (isEqualType(vtype, Const.Int32Type))
+                    if (isEqualType(ltype, Const.Int32Type))
                     {
                         result = LLVM.BuildSub(builder, l, Const.OneInt32, "predec");
                     }
-                    else if (isEqualType(vtype, Const.Float32Type))
+                    else if (isEqualType(ltype, Const.Float32Type))
                     {
                         result = LLVM.BuildFSub(builder, l, Const.OneFloat32, "predec");
                     }
@@ -807,11 +816,11 @@ namespace PragmaScript
                     break;
                 case AST.VariableLookup.Incrementor.postIncrement:
                     var postinc = default(LLVMValueRef);
-                    if (isEqualType(vtype, Const.Int32Type))
+                    if (isEqualType(ltype, Const.Int32Type))
                     {
                         postinc = LLVM.BuildAdd(builder, l, Const.OneInt32, "postinc");
                     }
-                    else if (isEqualType(vtype, Const.Float32Type))
+                    else if (isEqualType(ltype, Const.Float32Type))
                     {
                         postinc = LLVM.BuildFAdd(builder, l, Const.OneFloat32, "postinc");
                     }
@@ -819,11 +828,11 @@ namespace PragmaScript
                     break;
                 case AST.VariableLookup.Incrementor.postDecrement:
                     var postdec = default(LLVMValueRef);
-                    if (isEqualType(vtype, Const.Int32Type))
+                    if (isEqualType(ltype, Const.Int32Type))
                     {
                         postdec = LLVM.BuildSub(builder, l, Const.OneInt32, "postdec");
                     }
-                    else if (isEqualType(vtype, Const.Float32Type))
+                    else if (isEqualType(ltype, Const.Float32Type))
                     {
                         postdec = LLVM.BuildFSub(builder, l, Const.OneFloat32, "postdec");
                     }
@@ -850,7 +859,9 @@ namespace PragmaScript
 
             // TODO: use proper function declarations
             var ft = LLVM.TypeOf(f);
-            var rt = LLVM.GetReturnType(ft);
+            // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
+            var rt = LLVM.GetReturnType(LLVM.GetElementType(ft));
+            var rt_string = typeToString(rt);
             if (isEqualType(rt, Const.VoidType))
             {
                 LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, "");
@@ -880,7 +891,7 @@ namespace PragmaScript
         {
             Visit(node.condition);
             var condition = valueStack.Pop();
-            if (isEqualType(LLVM.TypeOf(condition), Const.BoolType))
+            if (!isEqualType(LLVM.TypeOf(condition), Const.BoolType))
             {
                 throw new BackendTypeMismatchException(LLVM.TypeOf(condition), Const.BoolType);
             }
@@ -933,7 +944,7 @@ namespace PragmaScript
             Visit(node.condition);
 
             var condition = valueStack.Pop();
-            if (isEqualType(LLVM.TypeOf(condition), Const.BoolType))
+            if (!isEqualType(LLVM.TypeOf(condition), Const.BoolType))
             {
                 throw new BackendTypeMismatchException(LLVM.TypeOf(condition), Const.BoolType);
             }
