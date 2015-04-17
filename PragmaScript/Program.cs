@@ -14,6 +14,13 @@ using System.Threading;
 namespace PragmaScript
 {
 
+    static class CompilerOptions
+    {
+        public static bool debug = false;
+        public static string inputFilename;
+        public static bool useOptimizations = true;
+    }
+
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
     class Program
     {
@@ -22,15 +29,60 @@ namespace PragmaScript
             if (args.Length == 0)
                 return;
 
-            var path = args[0];
+            parseARGS(args);
+#if DEBUG
+            CompilerOptions.debug = true;
+            CompilerOptions.useOptimizations = false;
+#endif
             try
             {
-                var text = File.ReadAllText(path);
+                var text = File.ReadAllText(CompilerOptions.inputFilename);
                 run(text);
             }
-            catch (FileNotFoundException e)
+            catch (FileNotFoundException)
             {
-                Console.WriteLine("Could not open file!");
+                writeError("Could not open input file");
+            }
+        }
+
+        static void writeError(string s)
+        {
+            Console.WriteLine(s + "!");
+        }
+
+        static void parseARGS(string[] args)
+        {
+           
+
+            foreach (var arg in args)
+            {
+                if (arg.TrimStart().StartsWith("-"))
+                {
+                    var x = arg.TrimStart().Remove(0, 1);
+                    x = x.ToUpperInvariant();
+                    switch (x)
+                    {
+                        case "D":
+                        case "DEGUG":
+                            CompilerOptions.debug = true;
+                            break;
+                        case "O0":
+                            CompilerOptions.useOptimizations = false;
+                            break;
+                        case "O1":
+                        case "O2":
+                        case "O3":
+                            CompilerOptions.useOptimizations = true;
+                            break;
+                        default:
+                            writeError("Unknown command line option");
+                            break;
+                    }
+                }
+                else
+                {
+                    CompilerOptions.inputFilename = arg;
+                }
             }
         }
 
@@ -131,39 +183,49 @@ namespace PragmaScript
 
         static void run(string text)
         {
-            var tokens = tokenize(text).ToList();
-#if DEBUG
-            Console.WriteLine("input: " + text);
-            Console.WriteLine();
-            Console.WriteLine("tokens: ");
-            int pos = 0;
-            foreach (var t in tokens)
-            {
-                if (t.type != Token.TokenType.WhiteSpace)
-                    Console.WriteLine("{0}: {1}", pos++, t);
-            }
 
-            Console.WriteLine();
-            Console.WriteLine("PARSING...");
-            Console.WriteLine();
-#endif
+            var tokens = tokenize(text).ToList();
+
+            if (CompilerOptions.debug)
+            {
+                Console.WriteLine("input: " + text);
+                Console.WriteLine();
+                Console.WriteLine("tokens: ");
+                int pos = 0;
+                foreach (var t in tokens)
+                {
+                    if (t.type != Token.TokenType.WhiteSpace)
+                        Console.WriteLine("{0}: {1}", pos++, t);
+                }
+
+                Console.ReadLine();
+
+                Console.WriteLine();
+                Console.WriteLine("PARSING...");
+                Console.WriteLine();
+
+
+            }
             var root = AST.Parse(tokens);
             if (root == null)
             {
                 return;
             }
-#if DEBUG
-            Console.WriteLine();
-            renderGraph(root, text);
-#endif
+            if (CompilerOptions.debug)
+            {
+                Console.WriteLine();
+                try
+                {
+                    renderGraph(root, text);
+                }
+                catch(Exception)
+                {
+                    Console.WriteLine("graphviz not found. no graph rendering!");
+                }
+            }
             var backend = new Backend();
-#if DEBUG
-            backend.EmitAndRun(root, useOptimizations: false);
-#else
-            backend.EmitAndRun(root, useOptimizations: true);
-#endif
 
-
+            backend.EmitAndRun(root, useOptimizations: CompilerOptions.useOptimizations);
 #if DEBUG
             Console.ReadLine();
 #endif

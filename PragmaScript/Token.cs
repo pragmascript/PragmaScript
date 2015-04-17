@@ -55,6 +55,7 @@ namespace PragmaScript
             Decrement,
             FatArrow,
             Colon,
+            String, 
             EOF
         }
 
@@ -138,13 +139,6 @@ namespace PragmaScript
             return operators.ContainsKey(c.ToString());
         }
        
-
-        public static Token EmitError(Token t, string errorMessage)
-        {
-            t.errorMessage = errorMessage;
-            t.type = TokenType.Error;
-            return t;
-        }
         public static Token Parse(string line, int pos, int lineNumber)
         {
             var t = new Token();
@@ -172,6 +166,27 @@ namespace PragmaScript
                 return t;
             }
 
+            if (current == '"')
+            {
+                t.type = TokenType.String;
+                char last = current;
+                do
+                {
+                    pos++;
+                    t.length++;
+                    if (pos >= line.Length)
+                    {
+                        t.text = line.Substring(t.pos, t.length - 1); 
+                        throw new LexerError("String constant exceeds line!", t);
+                    }
+                    last = current;
+                    current = line[pos];
+                } while (current != '"' || last == '\\');
+                pos++;
+                t.length++;
+                t.text = line.Substring(t.pos, t.length);
+                return t;
+            }
 
             // test if first char is a radix 10 digit
             if (char.IsDigit(current))
@@ -183,7 +198,7 @@ namespace PragmaScript
                     if (current == '.' && containsDecimalSeperator)
                     {
                         t.text = line.Substring(t.pos, t.length);
-                        return EmitError(t, "Only one decimal seperator is allowed!");
+                        throw new LexerError("Only one decimal seperator is allowed!", t);
                     }
                     containsDecimalSeperator |= current == '.';
 
@@ -253,7 +268,7 @@ namespace PragmaScript
 
             t.length = 1;
             t.text = line.Substring(t.pos, t.length);
-            return EmitError(t, "Syntax error!");
+            throw new LexerError("Syntax error!");
         }
 
         public override string ToString()

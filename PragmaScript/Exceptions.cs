@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LLVMSharp;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,6 +12,16 @@ namespace PragmaScript
         public InvalidCodePath()
             : base("Program should never get here!")
         { }
+    }
+
+    class LexerError : Exception
+    {
+        public LexerError(string s, Token t = null)
+            : base(s + t != null ? ("at (" + t + ")") : "")
+        {
+
+        }
+
     }
 
     class ParserError : Exception
@@ -101,10 +112,19 @@ namespace PragmaScript
 
     }
 
-    class BackendTypeMismatchException : Exception
+    class BackendException : Exception
     {
-        public BackendTypeMismatchException(Backend.BackendType type1, Backend.BackendType type2)
-            : base(string.Format("Type mismatch: type {0} != type {1}", type1, type2))
+        public BackendException(string s)
+            : base(s)
+        {
+
+        }
+    }
+
+    class BackendTypeMismatchException : BackendException
+    {
+        public BackendTypeMismatchException(LLVMTypeRef type1, LLVMTypeRef type2)
+            : base(string.Format("Type mismatch: type {0} != type {1}", Backend.typeToString(type1), Backend.typeToString(type2)))
         {
 
         }

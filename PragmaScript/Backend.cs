@@ -8,92 +8,81 @@ using System.Threading.Tasks;
 
 namespace PragmaScript
 {
+
+
     class Backend
     {
-        public enum BackendType
-        {
-            Float32, Int32, Bool, Void
-        }
 
         public class ExecutionContext
         {
             public LLVMValueRef function;
         }
 
-        struct TypedValue
-        {
-            public static BackendType MapType(PragmaScript.AST.FrontendType ftype)
-            {
-                BackendType type;
-                if (ftype == PragmaScript.AST.FrontendType.bool_)
-                {
-                    type = BackendType.Bool;
-                }
-                else if (ftype == PragmaScript.AST.FrontendType.int32)
-                {
-                    type = BackendType.Int32;
-                }
-                else if (ftype == PragmaScript.AST.FrontendType.float32)
-                {
-                    type = BackendType.Float32;
-                }
-                else if (ftype == PragmaScript.AST.FrontendType.void_)
-                {
-                    type = BackendType.Void;
-                }
-                else
-                    throw new InvalidCodePath();
+        //struct TypedValue
+        //{
+        //    public static LLVMTypeRef MapType(PragmaScript.AST.FrontendType ftype)
+        //    {
+        //        LLVMTypeRef type;
+        //        if (ftype == PragmaScript.AST.FrontendType.bool_)
+        //        {
+        //            type = Const.BoolType;
+        //        }
+        //        else if (ftype == PragmaScript.AST.FrontendType.int32)
+        //        {
+        //            type = Const.Int32Type;
+        //        }
+        //        else if (ftype == PragmaScript.AST.FrontendType.float32)
+        //        {
+        //            type = Const.Float32Type;
+        //        }
+        //        else if (ftype == PragmaScript.AST.FrontendType.void_)
+        //        {
+        //            type = Const.VoidType;
+        //        }
+        //        else if (ftype == PragmaScript.AST.FrontendType.string_)
+        //        {
+        //            type = Const.Int8PointerType;
+        //        }
+        //        else
+        //            throw new InvalidCodePath();
 
-                return type;
-            }
-           
-            public BackendType type;
-            public LLVMValueRef value;
-            public TypedValue(LLVMValueRef value, BackendType type)
-            {
-                this.value = value;
-                this.type = type;
-            }
-        }
+        //        return type;
+        //    }
+
+        //    public LLVMTypeRef type;
+        //    public LLVMValueRef value;
+        //    public TypedValue(LLVMValueRef value, LLVMTypeRef type)
+        //    {
+        //        this.value = value;
+        //        this.type = type;
+        //    }
+        //}
 
         public static class Const
         {
             public static readonly LLVMBool TrueBool = new LLVMBool(1);
             public static readonly LLVMBool FalseBool = new LLVMBool(0);
-            public static readonly LLVMValueRef NegativeOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), unchecked((ulong)-1), TrueBool);
-            public static readonly LLVMValueRef OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, TrueBool);
+            public static readonly LLVMValueRef NegativeOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), unchecked((ulong)-1), new LLVMBool(1));
+            public static readonly LLVMValueRef ZeroInt32 = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(1));
+            public static readonly LLVMValueRef OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, new LLVMBool(1));
             public static readonly LLVMValueRef OneFloat32 = LLVM.ConstReal(LLVM.FloatType(), 1.0);
-            public static readonly LLVMValueRef True = LLVM.ConstInt(LLVM.Int1Type(), (ulong)1, FalseBool);
-            public static readonly LLVMValueRef False = LLVM.ConstInt(LLVM.Int1Type(), (ulong)0, FalseBool);
+            public static readonly LLVMValueRef True = LLVM.ConstInt(LLVM.Int1Type(), (ulong)1, new LLVMBool(0));
+            public static readonly LLVMValueRef False = LLVM.ConstInt(LLVM.Int1Type(), (ulong)0, new LLVMBool(0));
 
             public static readonly LLVMTypeRef Float32Type = LLVM.FloatType();
             public static readonly LLVMTypeRef Int32Type = LLVM.Int32Type();
+            public static readonly LLVMTypeRef Int32ArrayType = LLVM.ArrayType(LLVM.Int32Type(), 0);
+            public static readonly LLVMTypeRef Int8ArrayType = LLVM.ArrayType(LLVM.Int8Type(), 0);
+            public static readonly LLVMTypeRef Int8PointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
             public static readonly LLVMTypeRef BoolType = LLVM.Int1Type();
             public static readonly LLVMTypeRef VoidType = LLVM.VoidType();
-            
-            public static LLVMTypeRef GetTypeRef(BackendType type)
-            {
-                switch (type)
-                {
-                    case BackendType.Float32:
-                        return Float32Type;
-                    case BackendType.Int32:
-                        return Int32Type;
-                    case BackendType.Bool:
-                        return BoolType;
-                    case BackendType.Void:
-
-                        break;
-                    default:
-                        throw new InvalidCodePath();
-                }
-                throw new InvalidCodePath();
-            }
+            public static readonly LLVMTypeRef VoidStarType = LLVM.PointerType(VoidType, 0);
         }
 
 
-        Stack<TypedValue> valueStack = new Stack<TypedValue>();
-        Dictionary<string, TypedValue> variables = new Dictionary<string, TypedValue>();
+
+        Stack<LLVMValueRef> valueStack = new Stack<LLVMValueRef>();
+        Dictionary<string, LLVMValueRef> variables = new Dictionary<string, LLVMValueRef>();
         Dictionary<string, LLVMValueRef> functions = new Dictionary<string, LLVMValueRef>();
 
         public ExecutionContext ctx = new ExecutionContext();
@@ -109,28 +98,23 @@ namespace PragmaScript
         //public delegate void void_del();
         //public static void_del print;
 
+        List<Delegate> functionDelegates = new List<Delegate>();
+
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void void_int_del(int x);
         public static void_int_del print_i32;
-        
+
+        // http://stackoverflow.com/questions/14106619/passing-delegate-to-a-unmanaged-method-which-expects-a-delegate-method-with-an-i
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void void_float_del(float x);
         public static void_float_del print_f32;
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void void_string_del(IntPtr ptr);
+        public static void_string_del print_string;
+
         public Backend()
         {
-            int i = 0;
-            //print += () =>
-            //{
-            //    Console.WriteLine("Hello world: " + i++);
-            //};
-
-            //foo += () =>
-            //{
-            //    Console.WriteLine("foo called!");
-            //    return 3;
-            //};
-
             print_i32 += (x) =>
             {
                 Console.WriteLine(x);
@@ -141,29 +125,114 @@ namespace PragmaScript
                 Console.WriteLine(x);
             };
 
-            //LLVMTypeRef[] print_int_param_types = { LLVM.Int32Type() };
-            //var print_int_fun_type = LLVM.FunctionType(LLVM.VoidType(), out print_int_param_types[0], 0, Const.FalseBool);
-            //IntPtr printPtr = Marshal.GetFunctionPointerForDelegate(print);
-            //var printFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)printPtr, Const.FalseBool), LLVM.PointerType(print_int_fun_type, 0));
-            //functions.Add("print", printFuncConst);
+            print_string += (x) =>
+            {
+                Console.WriteLine(Marshal.PtrToStringAnsi(x));
+            };
 
-            //LLVMTypeRef[] foo_int_param_types = { LLVM.Int32Type() };
-            //var foo_int_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out print_int_param_types[0], 0, Const.FalseBool);
-            //IntPtr fooPtr = Marshal.GetFunctionPointerForDelegate(foo);
-            //var fooFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)fooPtr, Const.FalseBool), LLVM.PointerType(foo_int_fun_type, 0));
-            //functions.Add("foo", fooFuncConst);
 
-            LLVMTypeRef[] printi_param_types = { Const.Int32Type };
-            var printi_fun_type = LLVM.FunctionType(Const.VoidType, out printi_param_types[0], 1, Const.FalseBool);
-            IntPtr printiPtr = Marshal.GetFunctionPointerForDelegate(print_i32);
-            var printiFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)printiPtr, Const.FalseBool), LLVM.PointerType(printi_fun_type, 0));
-            functions.Add("print_i32", printiFuncConst);
+            addDelegate(print_i32, "print_i32");
+            addDelegate(print_f32, "print_f32");
+            addDelegate(print_string, "print");
+        }
 
-            LLVMTypeRef[] printf_param_types = { Const.Float32Type };
-            var printf_fun_type = LLVM.FunctionType(Const.VoidType, out printf_param_types[0], 1, Const.FalseBool);
-            IntPtr printfPtr = Marshal.GetFunctionPointerForDelegate(print_f32);
-            var printfFuncConst = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)printfPtr, Const.FalseBool), LLVM.PointerType(printf_fun_type, 0));
-            functions.Add("print_f32", printfFuncConst);
+        static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendType t)
+        {
+            if (t == PragmaScript.AST.FrontendType.int32)
+            {
+                return Const.Int32Type;
+            }
+            if (t == PragmaScript.AST.FrontendType.float32)
+            {
+                return Const.Float32Type;
+            }
+            if (t == PragmaScript.AST.FrontendType.bool_)
+            {
+                return Const.BoolType;
+            }
+            if (t == PragmaScript.AST.FrontendType.void_)
+            {
+                return Const.VoidType;
+            }
+            if (t == PragmaScript.AST.FrontendType.string_)
+            {
+                return Const.Int8PointerType;
+            }
+            else
+            {
+                throw new InvalidCodePath();
+            }
+        }
+
+        static LLVMTypeRef getTypeRef(Type t)
+        {
+            if (t == typeof(Int32))
+            {
+                return Const.Int32Type;
+            }
+            else if (t == typeof(float))
+            {
+                return Const.Float32Type;
+            }
+            else if (t == typeof(void))
+            {
+                return Const.VoidType;
+            }
+            else if (t == typeof(IntPtr))
+            {
+                return Const.Int8PointerType;
+            }
+            else if (t == typeof(int[]))
+            {
+                return Const.Int32ArrayType;
+            }
+            // TODO how to handle string types properly
+            else if (t == typeof(byte[]))
+            {
+                return Const.Int8PointerType;
+            }
+
+            else
+            {
+                throw new BackendException("No LLVM type for " + t.Name);
+            }
+        }
+
+        public static bool isEqualType(LLVMTypeRef a, LLVMTypeRef b)
+        {
+            return a.Pointer == b.Pointer;
+        }
+
+        public static string typeToString(LLVMTypeRef t)
+        {
+            return Marshal.PtrToStringAnsi(LLVM.PrintTypeToString(t));
+        }
+
+        void addDelegate<T>(T del, string name) where T : class
+        {
+            if (!typeof(T).IsSubclassOf(typeof(Delegate)))
+            {
+                throw new InvalidOperationException(typeof(T).Name + " is not a delegate type");
+            }
+            var info = typeof(T).GetMethod("Invoke");
+            var parameters = info.GetParameters();
+
+
+            LLVMTypeRef[] param_types = new LLVMTypeRef[Math.Max(parameters.Length, 1)];
+
+            for (int i = 0; i < parameters.Length; ++i)
+            {
+                var p = parameters[i];
+                var pt = p.ParameterType;
+                param_types[i] = getTypeRef(pt);
+            }
+
+            var returnTypeRef = getTypeRef(info.ReturnType);
+
+            var fun_type = LLVM.FunctionType(Const.VoidType, out param_types[0], (uint)parameters.Length, Const.FalseBool);
+            IntPtr functionPtr = Marshal.GetFunctionPointerForDelegate(del as Delegate);
+            var llvmFuncPtr = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)functionPtr, Const.FalseBool), LLVM.PointerType(fun_type, 0));
+            functions.Add(name, llvmFuncPtr);
         }
 
 
@@ -182,6 +251,8 @@ namespace PragmaScript
 
             builder = LLVM.CreateBuilder();
             LLVM.PositionBuilderAtEnd(builder, entry);
+
+
 
             // LLVM.BuildCall(builder, printFuncConst, out args[0], 0, "");
         }
@@ -260,8 +331,22 @@ namespace PragmaScript
             var mainFunctionDelegate = (llvm_main)Marshal.GetDelegateForFunctionPointer(LLVM.GetPointerToGlobal(engine, mainFunction), typeof(llvm_main));
 
             // **************************** RUN THE THING **************************** 
+            if (CompilerOptions.debug)
+            {
+                Console.WriteLine();
+                Console.WriteLine("PROGRAM OUTPUT: ");
+                Console.WriteLine("****************************");
+                Console.WriteLine();
+            }
 
             var answer = mainFunctionDelegate();
+
+            if (CompilerOptions.debug)
+            {
+                Console.WriteLine();
+                Console.WriteLine("****************************");
+                Console.WriteLine();
+            }
 
             // *********************************************************************** 
 
@@ -270,17 +355,19 @@ namespace PragmaScript
             //{
             //    Console.WriteLine("error writing bitcode to file, skipping");
             //}
-#if DEBUG
-            LLVM.DumpModule(mod);
-#endif
+            if (CompilerOptions.debug)
+            {
+                LLVM.DumpModule(mod);
+            }
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeExecutionEngine(engine);
 
-#if DEBUG
-            Console.WriteLine();
-            Console.WriteLine("THE ANSWER IS: " + answer);
-            Console.WriteLine();
-#endif
+            if (CompilerOptions.debug)
+            {
+                Console.WriteLine();
+                Console.WriteLine("THE ANSWER IS: " + answer);
+                Console.WriteLine();
+            }
         }
         public void EmitAndRun(AST.Node root, bool useOptimizations)
         {
@@ -291,22 +378,32 @@ namespace PragmaScript
 
         public void Visit(AST.ConstInt32 node)
         {
-            var tv = new TypedValue(LLVM.ConstInt(Const.Int32Type, (ulong)node.number, Const.TrueBool), BackendType.Int32);
-            valueStack.Push(tv);
+            var result = LLVM.ConstInt(Const.Int32Type, (ulong)node.number, Const.TrueBool);
+            valueStack.Push(result);
         }
 
         public void Visit(AST.ConstFloat32 node)
         {
-            var tv = new TypedValue(LLVM.ConstReal(Const.Float32Type, node.number), BackendType.Float32);
-            valueStack.Push(tv);
+            var result = LLVM.ConstReal(Const.Float32Type, node.number);
+            valueStack.Push(result);
         }
 
         public void Visit(AST.ConstBool node)
         {
-            var tv = new TypedValue();
-            tv.type = BackendType.Bool;
-            tv.value = node.value ? Const.True : Const.False;
-            valueStack.Push(tv);
+            var result = node.value ? Const.True : Const.False;
+            valueStack.Push(result);
+        }
+
+
+        //static byte[] convertString(string s)
+        //{
+        //}
+
+        public void Visit(AST.ConstString node)
+        {
+            var constString = LLVM.BuildGlobalStringPtr(builder, node.s, "str");
+            var result = LLVM.BuildBitCast(builder, constString, Const.Int8PointerType, "str_ptr");
+            valueStack.Push(result);
         }
 
         public void Visit(AST.BinOp node)
@@ -328,135 +425,128 @@ namespace PragmaScript
             var right = valueStack.Pop();
             var left = valueStack.Pop();
 
-            if (left.type != right.type)
+            var leftType = LLVM.TypeOf(left);
+            var rightType = LLVM.TypeOf(right);
+
+
+            if (!isEqualType(leftType, rightType))
             {
-                throw new BackendTypeMismatchException(left.type, right.type);
+                throw new BackendTypeMismatchException(leftType, rightType);
             }
 
-            var resultType = left.type;
             LLVMValueRef result;
-            switch (left.type)
+            if (isEqualType(leftType, Const.BoolType))
             {
-                case BackendType.Bool:
-                    switch (node.type)
-                    {
-                        case AST.BinOp.BinOpType.LogicalAND:
-                            result = LLVM.BuildAnd(builder, left.value, right.value, "and_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.LogicalOR:
-                            result = LLVM.BuildOr(builder, left.value, right.value, "or_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.LogicalXOR:
-                            result = LLVM.BuildXor(builder, left.value, right.value, "or_tmp");
-                            break;
+                switch (node.type)
+                {
+                    case AST.BinOp.BinOpType.LogicalAND:
+                        result = LLVM.BuildAnd(builder, left, right, "and_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LogicalOR:
+                        result = LLVM.BuildOr(builder, left, right, "or_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LogicalXOR:
+                        result = LLVM.BuildXor(builder, left, right, "or_tmp");
+                        break;
 
-                        default:
-                            throw new InvalidCodePath();
-                    }
-                    break;
-                case BackendType.Int32:
-                    switch (node.type)
-                    {
-                        case AST.BinOp.BinOpType.Add:
-                            result = LLVM.BuildAdd(builder, left.value, right.value, "add_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Subract:
-                            result = LLVM.BuildSub(builder, left.value, right.value, "sub_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Multiply:
-                            result = LLVM.BuildMul(builder, left.value, right.value, "mul_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Divide:
-                            result = LLVM.BuildSDiv(builder, left.value, right.value, "div_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.LeftShift:
-                            result = LLVM.BuildShl(builder, left.value, right.value, "shl_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.RightShift:
-                            result = LLVM.BuildAShr(builder, left.value, right.value, "shr_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Remainder:
-                            result = LLVM.BuildSRem(builder, left.value, right.value, "srem_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Equal:
-                            result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, left.value, right.value, "icmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.NotEqual:
-                            result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, left.value, right.value, "icmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.Greater:
-                            result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGT, left.value, right.value, "icmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.GreaterEqual:
-                            result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGE, left.value, right.value, "icmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.Less:
-                            result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLT, left.value, right.value, "icmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.LessEqual:
-                            result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLE, left.value, right.value, "icmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        default:
-                            throw new InvalidCodePath();
-                    }
-                    break;
-                case BackendType.Float32:
-                    switch (node.type)
-                    {
-                        case AST.BinOp.BinOpType.Add:
-                            result = LLVM.BuildFAdd(builder, left.value, right.value, "fadd_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Subract:
-                            result = LLVM.BuildFSub(builder, left.value, right.value, "fsub_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Multiply:
-                            result = LLVM.BuildFMul(builder, left.value, right.value, "fmul_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Divide:
-                            result = LLVM.BuildFDiv(builder, left.value, right.value, "fdiv_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Remainder:
-                            result = LLVM.BuildFRem(builder, left.value, right.value, "frem_tmp");
-                            break;
-                        case AST.BinOp.BinOpType.Equal:
-                            result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, left.value, right.value, "fcmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.NotEqual:
-                            result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, left.value, right.value, "fcmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.Greater:
-                            result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, left.value, right.value, "fcmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.GreaterEqual:
-                            result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGE, left.value, right.value, "fcmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.Less:
-                            result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, left.value, right.value, "fcmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        case AST.BinOp.BinOpType.LessEqual:
-                            result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLE, left.value, right.value, "fcmp_tmp");
-                            resultType = BackendType.Bool;
-                            break;
-                        default:
-                            throw new InvalidCodePath();
-                    }
-                    break;
-                default:
-                    throw new InvalidCodePath();
+                    default:
+                        throw new InvalidCodePath();
+                }
+            }
+            else if (isEqualType(leftType, Const.Int32Type))
+            {
+                switch (node.type)
+                {
+                    case AST.BinOp.BinOpType.Add:
+                        result = LLVM.BuildAdd(builder, left, right, "add_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Subract:
+                        result = LLVM.BuildSub(builder, left, right, "sub_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Multiply:
+                        result = LLVM.BuildMul(builder, left, right, "mul_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Divide:
+                        result = LLVM.BuildSDiv(builder, left, right, "div_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LeftShift:
+                        result = LLVM.BuildShl(builder, left, right, "shl_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.RightShift:
+                        result = LLVM.BuildAShr(builder, left, right, "shr_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Remainder:
+                        result = LLVM.BuildSRem(builder, left, right, "srem_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Equal:
+                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, left, right, "icmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.NotEqual:
+                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, left, right, "icmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Greater:
+                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGT, left, right, "icmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.GreaterEqual:
+                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGE, left, right, "icmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Less:
+                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLT, left, right, "icmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LessEqual:
+                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLE, left, right, "icmp_tmp");
+                        break;
+                    default:
+                        throw new InvalidCodePath();
+                }
+            }
+            else if (isEqualType(leftType, Const.Float32Type))
+            {
+                switch (node.type)
+                {
+                    case AST.BinOp.BinOpType.Add:
+                        result = LLVM.BuildFAdd(builder, left, right, "fadd_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Subract:
+                        result = LLVM.BuildFSub(builder, left, right, "fsub_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Multiply:
+                        result = LLVM.BuildFMul(builder, left, right, "fmul_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Divide:
+                        result = LLVM.BuildFDiv(builder, left, right, "fdiv_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Remainder:
+                        result = LLVM.BuildFRem(builder, left, right, "frem_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Equal:
+                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, left, right, "fcmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.NotEqual:
+                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, left, right, "fcmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Greater:
+                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, left, right, "fcmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.GreaterEqual:
+                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGE, left, right, "fcmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Less:
+                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, left, right, "fcmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LessEqual:
+                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLE, left, right, "fcmp_tmp");
+                        break;
+                    default:
+                        throw new InvalidCodePath();
+                }
+            }
+            else
+            {
+                throw new InvalidCodePath();
             }
 
-            valueStack.Push(new TypedValue(result, resultType));
+            valueStack.Push(result);
         }
 
         void visitConditionalOR(AST.BinOp op)
@@ -472,20 +562,20 @@ namespace PragmaScript
 
             Visit(op.left);
             var cmp = valueStack.Pop();
-            if (cmp.type != BackendType.Bool)
-                throw new BackendTypeMismatchException(BackendType.Bool, cmp.type);
+            if (!isEqualType(LLVM.TypeOf(cmp), Const.BoolType))
+                throw new BackendTypeMismatchException(Const.BoolType, LLVM.TypeOf(cmp));
 
             var cor_rhs = LLVM.AppendBasicBlock(ctx.function, "cor.rhs");
             var cor_end = LLVM.AppendBasicBlock(ctx.function, "cor.end");
             var block = LLVM.GetInsertBlock(builder);
-            LLVM.BuildCondBr(builder, cmp.value, cor_end, cor_rhs);
+            LLVM.BuildCondBr(builder, cmp, cor_end, cor_rhs);
 
             // cor.rhs: 
             LLVM.PositionBuilderAtEnd(builder, cor_rhs);
             Visit(op.right);
             var cor_rhs_tv = valueStack.Pop();
-            if (cmp.type != BackendType.Bool)
-                throw new BackendTypeMismatchException(BackendType.Bool, cor_rhs_tv.type);
+            if (!isEqualType(LLVM.TypeOf(cor_rhs_tv), Const.BoolType))
+                throw new BackendTypeMismatchException(Const.BoolType, LLVM.TypeOf(cor_rhs_tv));
 
             LLVM.BuildBr(builder, cor_end);
 
@@ -494,44 +584,44 @@ namespace PragmaScript
             var phi = LLVM.BuildPhi(builder, Const.BoolType, "corphi");
 
             LLVMBasicBlockRef[] incomingBlocks = new LLVMBasicBlockRef[2] { block, cor_rhs };
-            LLVMValueRef[] incomingValues = new LLVMValueRef[2] { Const.True, cor_rhs_tv.value };
+            LLVMValueRef[] incomingValues = new LLVMValueRef[2] { Const.True, cor_rhs_tv };
 
             LLVM.AddIncoming(phi, out incomingValues[0], out incomingBlocks[0], 2);
 
-            valueStack.Push(new TypedValue(phi, BackendType.Bool));
+            valueStack.Push(phi);
         }
 
         void visitConditionalAND(AST.BinOp op)
         {
             Visit(op.left);
             var cmp = valueStack.Pop();
-            if (cmp.type != BackendType.Bool)
-                throw new BackendTypeMismatchException(BackendType.Bool, cmp.type);
+            if (!isEqualType(LLVM.TypeOf(cmp), Const.BoolType))
+                throw new BackendTypeMismatchException(Const.BoolType, LLVM.TypeOf(cmp));
 
             var cand_rhs = LLVM.AppendBasicBlock(ctx.function, "cand.rhs");
             var cand_end = LLVM.AppendBasicBlock(ctx.function, "cand.end");
             var block = LLVM.GetInsertBlock(builder);
 
-            LLVM.BuildCondBr(builder, cmp.value, cand_rhs, cand_end);
+            LLVM.BuildCondBr(builder, cmp, cand_rhs, cand_end);
 
             // cor.rhs: 
             LLVM.PositionBuilderAtEnd(builder, cand_rhs);
             Visit(op.right);
-            var cor_rhs_tv = valueStack.Pop();
-            if (cor_rhs_tv.type != BackendType.Bool)
-                throw new BackendTypeMismatchException(BackendType.Bool, cor_rhs_tv.type);
+            var cand_rhs_tv = valueStack.Pop();
+            if (!isEqualType(LLVM.TypeOf(cand_rhs_tv), Const.BoolType))
+                throw new BackendTypeMismatchException(Const.BoolType, LLVM.TypeOf(cand_rhs_tv));
             LLVM.BuildBr(builder, cand_end);
 
             // cor.end:
             LLVM.PositionBuilderAtEnd(builder, cand_end);
-            var phi = LLVM.BuildPhi(builder, Const.BoolType, "corphi");
+            var phi = LLVM.BuildPhi(builder, Const.BoolType, "candphi");
 
             LLVMBasicBlockRef[] incomingBlocks = new LLVMBasicBlockRef[2] { block, cand_rhs };
-            LLVMValueRef[] incomingValues = new LLVMValueRef[2] { Const.False, cor_rhs_tv.value };
+            LLVMValueRef[] incomingValues = new LLVMValueRef[2] { Const.False, cand_rhs_tv };
 
             LLVM.AddIncoming(phi, out incomingValues[0], out incomingBlocks[0], 2);
 
-            valueStack.Push(new TypedValue(phi, BackendType.Bool));
+            valueStack.Push(phi);
         }
 
         public void Visit(AST.UnaryOp node)
@@ -539,38 +629,36 @@ namespace PragmaScript
             Visit(node.expression);
 
             var v = valueStack.Pop();
-
-            TypedValue result = v;
+            var vtype = LLVM.TypeOf(v);
+            var result = default(LLVMValueRef);
             switch (node.type)
             {
                 case AST.UnaryOp.UnaryOpType.Add:
                     result = v;
                     break;
                 case AST.UnaryOp.UnaryOpType.Subract:
-                    switch (v.type)
+                    if (isEqualType(vtype, Const.Float32Type))
                     {
-                        case BackendType.Float32:
-                            result.value = LLVM.BuildFNeg(builder, v.value, "fneg_tmp");
-                            break;
-                        case BackendType.Int32:
-                            result.value = LLVM.BuildNeg(builder, v.value, "neg_tmp");
-                            break;
-                        case BackendType.Bool:
-                            break;
-                        default:
-                            break;
+                        result = LLVM.BuildFNeg(builder, v, "fneg_tmp");
                     }
-
+                    else if (isEqualType(vtype, Const.Int32Type))
+                    {
+                        result = LLVM.BuildNeg(builder, v, "neg_tmp");
+                    }
+                    else
+                    {
+                        throw new BackendException("unary subtract is not defined on type " + typeToString(vtype));
+                    }
                     break;
                 case AST.UnaryOp.UnaryOpType.LogicalNOT:
-                    if (v.type != BackendType.Bool)
+                    if (!isEqualType(vtype, Const.BoolType))
                     {
-                        throw new BackendTypeMismatchException(v.type, BackendType.Bool);
+                        throw new BackendTypeMismatchException(vtype, Const.BoolType);
                     }
-                    result.value = LLVM.BuildNot(builder, v.value, "not_tmp");
+                    result = LLVM.BuildNot(builder, v, "not_tmp");
                     break;
                 case AST.UnaryOp.UnaryOpType.Complement:
-                    result.value = LLVM.BuildXor(builder, v.value, Const.NegativeOneInt32, "complement_tmp");
+                    result = LLVM.BuildXor(builder, v, Const.NegativeOneInt32, "complement_tmp");
                     break;
                 default:
                     throw new InvalidCodePath();
@@ -583,42 +671,43 @@ namespace PragmaScript
             Visit(node.expression);
 
             var v = valueStack.Pop();
+            var vtype = LLVM.TypeOf(v);
 
             var typeName = node.type.name;
-            TypedValue result = new TypedValue();
+
+            var result = default(LLVMValueRef);
+            var resultType = getTypeRef(node.type);
 
             // TODO: check if integral type
             // TODO: handle non integral types
-            result.type = TypedValue.MapType(node.type);
-            switch (result.type)
+
+
+            if (isEqualType(resultType, Const.Float32Type))
             {
-                case BackendType.Float32:
-                    result.value = LLVM.BuildSIToFP(builder, v.value, Const.Float32Type, "float32_cast");
-                    break;
-                case BackendType.Int32:
-                    switch (v.type)
-                    {
-                        case BackendType.Float32:
-                            result.value = LLVM.BuildFPToSI(builder, v.value, Const.Int32Type, "int32_cast");
-                            break;
-                        case BackendType.Int32:
-                            result = v;
-                            break;
-                        case BackendType.Bool:
-                            result.value = LLVM.BuildZExt(builder, v.value, Const.Int32Type, "int32_cast");
-                            break;
-                        default:
-                            throw new InvalidCodePath();
-                    }
-                    result.type = BackendType.Int32;
-                    break;
-                case BackendType.Bool:
-                    // TODO insert conversion to bool
-                    throw new NotImplementedException();
-                case BackendType.Void:
+                result = LLVM.BuildSIToFP(builder, v, Const.Float32Type, "float32_cast");
+            }
+            else if (isEqualType(resultType, Const.Int32Type))
+            {
+                if (isEqualType(vtype, Const.Float32Type))
+                {
+                    result = LLVM.BuildFPToSI(builder, v, Const.Int32Type, "int32_cast");
+                }
+                else if (isEqualType(vtype, Const.Int32Type))
+                {
+                    result = v;
+                }
+                else if (isEqualType(vtype, Const.BoolType))
+                {
+                    result = LLVM.BuildZExt(builder, v, Const.Int32Type, "int32_cast");
+                }
+                else
+                {
                     throw new InvalidCodePath();
-                default:
-                    throw new InvalidCodePath();
+                }
+            }
+            else
+            {
+                throw new NotImplementedException();
             }
             valueStack.Push(result);
         }
@@ -628,24 +717,27 @@ namespace PragmaScript
             Visit(node.expression);
 
             var result = valueStack.Pop();
+            var resultType = LLVM.TypeOf(result);
 
             LLVMValueRef v;
-            switch (result.type)
+            if (isEqualType(resultType, Const.Float32Type))
             {
-                case BackendType.Float32:
-                    v = LLVM.BuildAlloca(builder, LLVM.FloatType(), node.variable.name);
-                    break;
-                case BackendType.Int32:
-                    v = LLVM.BuildAlloca(builder, LLVM.Int32Type(), node.variable.name);
-                    break;
-                case BackendType.Bool:
-                    v = LLVM.BuildAlloca(builder, LLVM.Int1Type(), node.variable.name);
-                    break;
-                default:
-                    throw new InvalidCodePath();
+                v = LLVM.BuildAlloca(builder, LLVM.FloatType(), node.variable.name);
             }
-            variables[node.variable.name] = new TypedValue(v, result.type);
-            LLVM.BuildStore(builder, result.value, v);
+            else if (isEqualType(resultType, Const.Int32Type))
+            {
+                v = LLVM.BuildAlloca(builder, LLVM.Int32Type(), node.variable.name);
+            }
+            else if (isEqualType(resultType, Const.BoolType))
+            {
+                v = LLVM.BuildAlloca(builder, LLVM.Int1Type(), node.variable.name);
+            }
+            else
+            {
+                throw new InvalidCodePath();
+            }
+            variables[node.variable.name] = v;
+            LLVM.BuildStore(builder, result, v);
         }
 
         public void Visit(AST.Assignment node)
@@ -653,14 +745,16 @@ namespace PragmaScript
             Visit(node.expression);
 
             var result = valueStack.Pop();
+            var resultType = LLVM.TypeOf(result);
             var v = variables[node.variable.name];
+            var vtype = LLVM.TypeOf(v);
 
-            if (v.type != result.type)
+            if (!isEqualType(vtype, resultType))
             {
-                throw new BackendTypeMismatchException(result.type, v.type);
+                throw new BackendTypeMismatchException(resultType, vtype);
             }
 
-            LLVM.BuildStore(builder, result.value, v.value);
+            LLVM.BuildStore(builder, result, v);
         }
 
         public void Visit(AST.Block node)
@@ -675,66 +769,65 @@ namespace PragmaScript
         {
             if (node.varDefinition.isFunctionParameter)
             {
-
-                var pr = new TypedValue(LLVM.GetParam(ctx.function, (uint)node.varDefinition.parameterIdx),
-                    TypedValue.MapType(node.varDefinition.type)); ;
+                var pr = LLVM.GetParam(ctx.function, (uint)node.varDefinition.parameterIdx);
                 valueStack.Push(pr);
                 return;
             }
 
             var v = variables[node.variableName];
-            var l = LLVM.BuildLoad(builder, v.value, node.variableName);
-            var result = new TypedValue(l, v.type);
+            var vtype = LLVM.TypeOf(v);
+            var l = LLVM.BuildLoad(builder, v, node.variableName);
+            var result = l;
             switch (node.inc)
             {
                 case AST.VariableLookup.Incrementor.None:
                     break;
 
                 case AST.VariableLookup.Incrementor.preIncrement:
-                    if (v.type == BackendType.Int32)
+                    if (isEqualType(vtype, Const.Int32Type))
                     {
-                        result.value = LLVM.BuildAdd(builder, l, Const.OneInt32, "preinc");
+                        result = LLVM.BuildAdd(builder, l, Const.OneInt32, "preinc");
                     }
-                    if (v.type == BackendType.Float32)
+                    else if (isEqualType(vtype, Const.Float32Type))
                     {
-                        result.value = LLVM.BuildFAdd(builder, l, Const.OneFloat32, "preinc");
+                        result = LLVM.BuildFAdd(builder, l, Const.OneFloat32, "preinc");
                     }
-                    LLVM.BuildStore(builder, result.value, v.value);
+                    LLVM.BuildStore(builder, result, v);
                     break;
                 case AST.VariableLookup.Incrementor.preDecrement:
-                    if (v.type == BackendType.Int32)
+                    if (isEqualType(vtype, Const.Int32Type))
                     {
-                        result.value = LLVM.BuildSub(builder, l, Const.OneInt32, "predec");
+                        result = LLVM.BuildSub(builder, l, Const.OneInt32, "predec");
                     }
-                    if (v.type == BackendType.Float32)
+                    else if (isEqualType(vtype, Const.Float32Type))
                     {
-                        result.value = LLVM.BuildFSub(builder, l, Const.OneFloat32, "predec");
+                        result = LLVM.BuildFSub(builder, l, Const.OneFloat32, "predec");
                     }
-                    LLVM.BuildStore(builder, result.value, v.value);
+                    LLVM.BuildStore(builder, result, v);
                     break;
                 case AST.VariableLookup.Incrementor.postIncrement:
                     var postinc = default(LLVMValueRef);
-                    if (v.type == BackendType.Int32)
+                    if (isEqualType(vtype, Const.Int32Type))
                     {
                         postinc = LLVM.BuildAdd(builder, l, Const.OneInt32, "postinc");
                     }
-                    if (v.type == BackendType.Float32)
+                    else if (isEqualType(vtype, Const.Float32Type))
                     {
                         postinc = LLVM.BuildFAdd(builder, l, Const.OneFloat32, "postinc");
                     }
-                    LLVM.BuildStore(builder, postinc, v.value);
+                    LLVM.BuildStore(builder, postinc, v);
                     break;
                 case AST.VariableLookup.Incrementor.postDecrement:
                     var postdec = default(LLVMValueRef);
-                    if (v.type == BackendType.Int32)
+                    if (isEqualType(vtype, Const.Int32Type))
                     {
                         postdec = LLVM.BuildSub(builder, l, Const.OneInt32, "postdec");
                     }
-                    if (v.type == BackendType.Float32)
+                    else if (isEqualType(vtype, Const.Float32Type))
                     {
                         postdec = LLVM.BuildFSub(builder, l, Const.OneFloat32, "postdec");
                     }
-                    LLVM.BuildStore(builder, postdec, v.value);
+                    LLVM.BuildStore(builder, postdec, v);
                     break;
                 default:
                     break;
@@ -752,32 +845,20 @@ namespace PragmaScript
             for (int i = 0; i < node.argumentList.Count; ++i)
             {
                 Visit(node.argumentList[i]);
-                parameters[i] = valueStack.Pop().value;
+                parameters[i] = valueStack.Pop();
             }
 
             // TODO: use proper function declarations
-            var t = default(BackendType);
-            if (node.returnType == AST.FrontendType.int32)
-            {
-                t = BackendType.Int32;
-            }
-            else if (node.returnType == AST.FrontendType.float32)
-            {
-                t = BackendType.Float32;
-            }
-            else if (node.returnType == AST.FrontendType.bool_)
-            {
-                t = BackendType.Bool;
-            }
-
-            if (node.returnType == AST.FrontendType.void_)
+            var ft = LLVM.TypeOf(f);
+            var rt = LLVM.GetReturnType(ft);
+            if (isEqualType(rt, Const.VoidType))
             {
                 LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, "");
             }
             else
             {
                 var v = LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, node.functionName);
-                valueStack.Push(new TypedValue(v, t));
+                valueStack.Push(v);
             }
         }
 
@@ -787,7 +868,7 @@ namespace PragmaScript
             {
                 Visit(node.expression);
                 var v = valueStack.Pop();
-                LLVM.BuildRet(builder, v.value);
+                LLVM.BuildRet(builder, v);
             }
             else
             {
@@ -799,9 +880,9 @@ namespace PragmaScript
         {
             Visit(node.condition);
             var condition = valueStack.Pop();
-            if (condition.type != BackendType.Bool)
+            if (isEqualType(LLVM.TypeOf(condition), Const.BoolType))
             {
-                throw new BackendTypeMismatchException(condition.type, BackendType.Bool);
+                throw new BackendTypeMismatchException(LLVM.TypeOf(condition), Const.BoolType);
             }
 
             var thenBlock = LLVM.AppendBasicBlock(ctx.function, "then");
@@ -815,11 +896,11 @@ namespace PragmaScript
 
             if (node.elseBlock != null)
             {
-                LLVM.BuildCondBr(builder, condition.value, thenBlock, elseBlock);
+                LLVM.BuildCondBr(builder, condition, thenBlock, elseBlock);
             }
             else
             {
-                LLVM.BuildCondBr(builder, condition.value, thenBlock, endIfBlock);
+                LLVM.BuildCondBr(builder, condition, thenBlock, endIfBlock);
             }
 
             LLVM.PositionBuilderAtEnd(builder, thenBlock);
@@ -852,11 +933,11 @@ namespace PragmaScript
             Visit(node.condition);
 
             var condition = valueStack.Pop();
-            if (condition.type != BackendType.Bool)
+            if (isEqualType(LLVM.TypeOf(condition), Const.BoolType))
             {
-                throw new BackendTypeMismatchException(condition.type, BackendType.Bool);
+                throw new BackendTypeMismatchException(LLVM.TypeOf(condition), Const.BoolType);
             }
-            LLVM.BuildCondBr(builder, condition.value, loopBody, endFor);
+            LLVM.BuildCondBr(builder, condition, loopBody, endFor);
 
             LLVM.PositionBuilderAtEnd(builder, loopBody);
             Visit(node.loopBody);
@@ -879,14 +960,14 @@ namespace PragmaScript
 
             for (int i = 0; i < fun.parameters.Count; ++i)
             {
-                par[i] = Const.GetTypeRef(TypedValue.MapType(fun.parameters[i].type));
+                par[i] = getTypeRef(fun.parameters[i].type);
             }
 
-            var returnType = Const.GetTypeRef(TypedValue.MapType(fun.returnType));
+            var returnType = getTypeRef((fun.returnType));
 
             var funType = LLVM.FunctionType(returnType, out par[0], (uint)fun.parameters.Count, Const.FalseBool);
             var function = LLVM.AddFunction(mod, fun.name, funType);
-            
+
             // TODO: insert function type into dictionary as well?
             functions.Add(fun.name, function);
 
@@ -898,9 +979,9 @@ namespace PragmaScript
             }
 
             var entry = LLVM.AppendBasicBlock(function, "entry");
-            
+
             var blockTemp = LLVM.GetInsertBlock(builder);
-            
+
             LLVM.PositionBuilderAtEnd(builder, entry);
             var funTemp = ctx.function;
             ctx.function = function;
@@ -924,6 +1005,10 @@ namespace PragmaScript
             else if (node is AST.ConstBool)
             {
                 Visit(node as AST.ConstBool);
+            }
+            else if (node is AST.ConstString)
+            {
+                Visit(node as AST.ConstString);
             }
             else if (node is AST.BinOp)
             {
