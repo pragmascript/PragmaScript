@@ -588,9 +588,14 @@ namespace tmp
             if (!isEqualType(LLVM.TypeOf(cmp), Const.BoolType))
                 throw new BackendTypeMismatchException(Const.BoolType, LLVM.TypeOf(cmp));
 
-            var cor_rhs = LLVM.AppendBasicBlock(ctx.function, "cor.rhs");
-            var cor_end = LLVM.AppendBasicBlock(ctx.function, "cor.end");
             var block = LLVM.GetInsertBlock(builder);
+
+            var cor_rhs = LLVM.AppendBasicBlock(ctx.function, "cor.rhs");
+            LLVM.MoveBasicBlockAfter(cor_rhs, block);
+
+            var cor_end = LLVM.AppendBasicBlock(ctx.function, "cor.end");
+            LLVM.MoveBasicBlockAfter(cor_end, cor_rhs);
+            
             LLVM.BuildCondBr(builder, cmp, cor_end, cor_rhs);
 
             // cor.rhs: 
@@ -621,9 +626,14 @@ namespace tmp
             if (!isEqualType(LLVM.TypeOf(cmp), Const.BoolType))
                 throw new BackendTypeMismatchException(Const.BoolType, LLVM.TypeOf(cmp));
 
-            var cand_rhs = LLVM.AppendBasicBlock(ctx.function, "cand.rhs");
-            var cand_end = LLVM.AppendBasicBlock(ctx.function, "cand.end");
             var block = LLVM.GetInsertBlock(builder);
+            
+            var cand_rhs = LLVM.AppendBasicBlock(ctx.function, "cand.rhs");
+            LLVM.MoveBasicBlockAfter(cand_rhs, block);
+            
+            var cand_end = LLVM.AppendBasicBlock(ctx.function, "cand.end");
+            LLVM.MoveBasicBlockAfter(cand_end, cand_rhs);
+            
 
             LLVM.BuildCondBr(builder, cmp, cand_rhs, cand_end);
 
@@ -896,14 +906,26 @@ namespace tmp
                 throw new BackendTypeMismatchException(LLVM.TypeOf(condition), Const.BoolType);
             }
 
+            var insert = LLVM.GetInsertBlock(builder);
+
             var thenBlock = LLVM.AppendBasicBlock(ctx.function, "then");
+            LLVM.MoveBasicBlockAfter(thenBlock, insert);
+            
 
             var elseBlock = default(LLVMBasicBlockRef);
+            var endIfBlock = default(LLVMBasicBlockRef);
             if (node.elseBlock != null)
             {
                 elseBlock = LLVM.AppendBasicBlock(ctx.function, "else");
+                endIfBlock = LLVM.AppendBasicBlock(ctx.function, "endif");
+                LLVM.MoveBasicBlockAfter(endIfBlock, insert);
+                LLVM.MoveBasicBlockAfter(elseBlock, endIfBlock);
             }
-            var endIfBlock = LLVM.AppendBasicBlock(ctx.function, "endif");
+            else
+            {
+                endIfBlock = LLVM.AppendBasicBlock(ctx.function, "endif");
+                LLVM.MoveBasicBlockAfter(endIfBlock, thenBlock);
+            }
 
             if (node.elseBlock != null)
             {
@@ -916,14 +938,17 @@ namespace tmp
 
             LLVM.PositionBuilderAtEnd(builder, thenBlock);
             Visit(node.thenBlock);
-            var term = LLVM.GetBasicBlockTerminator(thenBlock);
+
+            var term = LLVM.GetBasicBlockTerminator(LLVM.GetInsertBlock(builder));
             if (term.Pointer == IntPtr.Zero)
+            {
                 LLVM.BuildBr(builder, endIfBlock);
+            }
             if (node.elseBlock != null)
             {
                 LLVM.PositionBuilderAtEnd(builder, elseBlock);
                 Visit(node.elseBlock);
-                term = LLVM.GetBasicBlockTerminator(elseBlock);
+                term = LLVM.GetBasicBlockTerminator(LLVM.GetInsertBlock(builder));
                 if (term.Pointer == IntPtr.Zero)
                     LLVM.BuildBr(builder, endIfBlock);
             }
@@ -933,9 +958,14 @@ namespace tmp
 
         public void Visit(AST.ForLoop node)
         {
+            var insert = LLVM.GetInsertBlock(builder);
+
             var loopPre = LLVM.AppendBasicBlock(ctx.function, "for_cond");
+            LLVM.MoveBasicBlockAfter(loopPre, insert);
             var loopBody = LLVM.AppendBasicBlock(ctx.function, "for");
+            LLVM.MoveBasicBlockAfter(loopBody, loopPre);
             var endFor = LLVM.AppendBasicBlock(ctx.function, "end_for");
+            LLVM.MoveBasicBlockAfter(endFor, loopBody);
 
             Visit(node.initializer);
             LLVM.BuildBr(builder, loopPre);

@@ -9,9 +9,9 @@ namespace PragmaScript
 {
 
 
-
     class AST
     {
+        Scope rootScope;
         public abstract class Node
         {
             public Token token;
@@ -30,10 +30,11 @@ namespace PragmaScript
 
         public class FrontendType
         {
-            public static FrontendType void_ = new FrontendType { name = "void" };
-            public static FrontendType int32 = new FrontendType { name = "int32" };
-            public static FrontendType float32 = new FrontendType { name = "float32" };
-            public static FrontendType bool_ = new FrontendType { name = "bool" };
+            public static readonly FrontendType void_ = new FrontendType { name = "void" };
+            public static readonly FrontendType int32 = new FrontendType { name = "int32" };
+            public static readonly FrontendType float32 = new FrontendType { name = "float32" };
+            public static readonly FrontendType bool_ = new FrontendType { name = "bool" };
+            public static readonly FrontendType string_ = new FrontendType { name = "string" };
 
             public string name;
 
@@ -41,9 +42,22 @@ namespace PragmaScript
             {
                 return name.GetHashCode();
             }
+
+            public override string ToString()
+            {
+                return name;
+            }
         }
 
         public class VariableDefinition
+        {
+            public bool isFunctionParameter;
+            public int parameterIdx = -1;
+            public string name;
+            public FrontendType type;
+        }
+
+        public struct NamedParameter
         {
             public string name;
             public FrontendType type;
@@ -53,6 +67,11 @@ namespace PragmaScript
         {
             public string name;
             public FrontendType returnType;
+            public List<NamedParameter> parameters = new List<NamedParameter>();
+            public void AddParameter(string name, FrontendType type)
+            {
+                parameters.Add(new NamedParameter{name = name, type = type});
+            }
         }
 
         public class Scope
@@ -93,6 +112,17 @@ namespace PragmaScript
                 }
                 variables.Add(name, v);
                 return v;
+            }
+
+            // TODO: handle function parameters different?
+            public void AddFunctionParameter(string name, FrontendType type, int idx)
+            {
+                VariableDefinition v = new VariableDefinition();
+                v.name = name;
+                v.type = type;
+                v.isFunctionParameter = true;
+                v.parameterIdx = idx;
+                variables.Add(name, v);
             }
 
             public FunctionDefinition GetFunction(string name)
@@ -181,43 +211,11 @@ namespace PragmaScript
             }
             public override FrontendType CheckType(Scope scope)
             {
-                FrontendType result = null;
-                Token returnToken = null;
                 foreach (var s in statements)
                 {
                     var rt = s.CheckType(this.scope);
-                    if (s is Return)
-                    {
-                        if (result != null)
-                        {
-                            if (rt != result)
-                            {
-                                throw new ParserError(string.Format("Return statement at {0} has different type", s.token), returnToken);
-                            }
-                        }
-                        else
-                        {
-                            result = rt;
-                            returnToken = s.token;
-                        }
-                    }
-                    if (s is Block)
-                    {
-                        if (result != null)
-                        {
-                            if (rt != result)
-                            {
-                                throw new ParserError(string.Format("Block at {0} has different return type", s.token), returnToken);
-                            }
-                        }
-                        else
-                        {
-                            result = rt;
-                            returnToken = s.token;
-                        }
-                    }
                 }
-                return result;
+                return null;
             }
             public override string ToString()
             {
@@ -327,8 +325,8 @@ namespace PragmaScript
 
         public class FunctionDeclaration : Node
         {
-            public FunctionDefinition variable;
-            public Block body;
+            public FunctionDefinition fun;
+            public Node body;
 
             public FunctionDeclaration(Token t)
                 : base(t)
@@ -341,11 +339,20 @@ namespace PragmaScript
             }
             public override FrontendType CheckType(Scope scope)
             {
+                body.CheckType(scope);
                 return null;
             }
             public override string ToString()
             {
-                return "var " + variable.name + " = ";
+                string result = fun.name + "(";
+                for (int i = 0; i < fun.parameters.Count; ++i)
+                {
+                    var p = fun.parameters[i];
+                    result += p.name + ": " + p.type;
+                    if (i != fun.parameters.Count - 1)
+                        result += ", ";
+                }
+                return result + ")";
             }
         }
 
@@ -368,7 +375,17 @@ namespace PragmaScript
             }
             public override FrontendType CheckType(Scope scope)
             {
-                returnType = scope.GetFunction(functionName).returnType;
+                var fun = scope.GetFunction(functionName);
+                int idx = 0;
+                foreach (var arg in argumentList)
+                {
+                    var targ = arg.CheckType(scope);
+                    if (targ != fun.parameters[idx].type)
+                    {
+                        throw new ParserExpectedArgumentType(fun.parameters[idx].type, targ, idx + 1, token);
+                    }
+                }
+                returnType = fun.returnType;
                 return returnType;
             }
             public override string ToString()
@@ -382,13 +399,16 @@ namespace PragmaScript
             public enum Incrementor { None, preIncrement, preDecrement, postIncrement, postDecrement }
             public Incrementor inc;
             public string variableName;
+            public VariableDefinition varDefinition;
             public VariableLookup(Token t)
                 : base(t)
             {
             }
             public override FrontendType CheckType(Scope scope)
             {
-                return scope.GetVar(variableName).type;
+                var v = scope.GetVar(variableName);
+                varDefinition = v;
+                return v.type;
             }
             public override string ToString()
             {
@@ -490,6 +510,24 @@ namespace PragmaScript
             }
         }
 
+        public class ConstString : Node
+        {
+            public string s;
+
+            public ConstString(Token t)
+                : base(t)
+            {
+            }
+            public override FrontendType CheckType(Scope scope)
+            {
+                return FrontendType.string_;
+            }
+            public override string ToString()
+            {
+                return s;
+            }
+        }
+
         public class Return : Node
         {
             public Node expression;
@@ -500,11 +538,33 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return expression;
+                if (expression != null)
+                {
+                    yield return expression;
+                }
             }
             public override FrontendType CheckType(Scope scope)
             {
-                var result = expression.CheckType(scope);
+                var result = default(FrontendType);
+                if (expression != null)
+                {
+                    result = expression.CheckType(scope);
+                }
+                else
+                {
+                    result = FrontendType.void_;
+                }
+                if (scope.function.returnType != null)
+                {
+                    if (result != scope.function.returnType)
+                    {
+                        throw new ParserError("return statement returns different types in one block", token);
+                    }
+                }
+                else
+                {
+                    scope.function.returnType = result;
+                }
                 return result;
             }
             public override string ToString()
@@ -773,7 +833,7 @@ namespace PragmaScript
         {
             bool foundWS = false;
 
-            while (pos < tokens.Count && tokens[pos].type == Token.TokenType.WhiteSpace)
+            while (pos < tokens.Count && (tokens[pos].type == Token.TokenType.WhiteSpace || tokens[pos].type == Token.TokenType.Comment))
             {
                 foundWS = true;
                 pos++;
@@ -837,11 +897,24 @@ namespace PragmaScript
                 ignoreSemicolon = true;
             }
 
+            if (current.type == Token.TokenType.Let)
+            {
+                // TODO: distinguish between constant variables and function definition
+                result = parseFunctionDefinition(tokens, ref pos, scope);
+                ignoreSemicolon = true;
+            }
+
             if (!ignoreSemicolon)
             {
                 var endOfStatement = nextToken(tokens, ref pos, true);
                 expectTokenType(endOfStatement, Token.TokenType.Semicolon);
             }
+
+            if (result == null)
+            {
+                throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
+            }
+
             return result;
         }
 
@@ -959,7 +1032,8 @@ namespace PragmaScript
             var next = peekToken(tokens, pos, true, true);
             if (next.type == Token.TokenType.Semicolon)
             {
-                return new Return(current);
+                var result = new Return(current);
+                return result;
             }
             else
             {
@@ -1138,7 +1212,7 @@ namespace PragmaScript
         {
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.IntNumber, Token.TokenType.FloatNumber, Token.TokenType.Identifier, Token.TokenType.OpenBracket,
-                Token.TokenType.True, Token.TokenType.False, Token.TokenType.Increment, Token.TokenType.Decrement);
+                Token.TokenType.True, Token.TokenType.False, Token.TokenType.Increment, Token.TokenType.Decrement, Token.TokenType.String);
 
             if (current.type == Token.TokenType.IntNumber)
             {
@@ -1156,6 +1230,12 @@ namespace PragmaScript
             {
                 var result = new ConstBool(current);
                 result.value = current.type == Token.TokenType.True;
+                return result;
+            }
+            if (current.type == Token.TokenType.String)
+            {
+                var result = new ConstString(current);
+                result.s = current.text;
                 return result;
             }
             // '(' expr ')'
@@ -1237,10 +1317,14 @@ namespace PragmaScript
             var result = new FunctionCall(current);
             result.functionName = current.text;
 
+            if (scope.GetFunction(result.functionName) == null)
+            {
+                throw new ParserError(string.Format("Undefined function \"{0}\"", result.functionName), current);
+            }
+            
             var ob = nextToken(tokens, ref pos, skipWS: true);
             expectTokenType(ob, Token.TokenType.OpenBracket);
-
-
+            
             var next = peekToken(tokens, pos, skipWS: true);
             if (next.type != Token.TokenType.CloseBracket)
             {
@@ -1269,7 +1353,8 @@ namespace PragmaScript
         }
 
 
-        public static Node parseBlock(IList<Token> tokens, ref int pos, Scope parentScope, Scope newScope = null)
+        public static Node parseBlock(IList<Token> tokens, ref int pos, Scope parentScope, 
+            Scope newScope = null)
         {
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.OpenCurly);
@@ -1278,9 +1363,11 @@ namespace PragmaScript
             if (newScope == null)
             {
                 newScope = new Scope();
+                newScope.parent = parentScope;
+                newScope.function = parentScope.function;
             }
             result.scope = newScope;
-            result.scope.parent = parentScope;
+            
             var next = peekToken(tokens, pos);
 
             bool foundReturn = false;
@@ -1309,6 +1396,35 @@ namespace PragmaScript
             return result;
         }
 
+
+        public static Node parseMainBlock(IList<Token> tokens, ref int pos, Scope rootScope)
+        {
+            var current = tokens[pos];
+            var result = new Block(current);
+            result.scope = rootScope;
+
+            var next = current;
+
+            bool foundReturn = false;
+            while (next.type != Token.TokenType.EOF)
+            {
+                
+                var s = parseStatement(tokens, ref pos, result.scope);
+                // ignore statements after the return so that return is the last statement in the block
+                if (!foundReturn)
+                {
+                    result.statements.Add(s);
+                }
+                if (s is Return)
+                {
+                    foundReturn = true;
+                }
+
+                next = nextToken(tokens, ref pos); ;
+            }
+            return result;
+        }
+
         // TODO: make this LET thing work for variables as well
         public static Node parseFunctionDefinition(IList<Token> tokens, ref int pos, Scope scope)
         {
@@ -1320,9 +1436,12 @@ namespace PragmaScript
             if (scope.parent != null)
                 throw new ParserError("functions can only be defined in the primary block for now!", current);
 
+            var fun = new FunctionDefinition();
+
             // let foo
             var id = nextToken(tokens, ref pos);
             expectTokenType(id, Token.TokenType.Identifier);
+            fun.name = id.text;
 
             // let foo = 
             var ass = nextToken(tokens, ref pos);
@@ -1330,14 +1449,78 @@ namespace PragmaScript
 
             // let foo = (
             var ob = nextToken(tokens, ref pos);
-            expectTokenType(ob, Token.TokenType.CloseBracket);
+            expectTokenType(ob, Token.TokenType.OpenBracket);
 
             var next = peekToken(tokens, pos);
-            while (next.type != Token.TokenType.CloseBracket)
+            while (true)
             {
-                var tid = nextToken(tokens, ref pos);
-                expectTokenType(tid, Token.TokenType.Identifier);
+                // let foo = (x
+                var pid = nextToken(tokens, ref pos);
+                expectTokenType(pid, Token.TokenType.Identifier);
 
+                // let foo = (x: 
+                expectTokenType(nextToken(tokens, ref pos), Token.TokenType.Colon);
+
+                // let foo = (x: int32
+                var ptyp = nextToken(tokens, ref pos);
+                expectTokenType(ptyp, Token.TokenType.Identifier);
+                var type = scope.GetType(ptyp.text);
+                if (type == null)
+                {
+                    throw new ParserError(string.Format("Could not resolve type in function parameter list: {0}", type), ptyp);
+                }
+                fun.AddParameter(pid.text, type);
+
+                // let foo = (x: int32
+                next = nextToken(tokens, ref pos);
+                if (next == null)
+                {
+                    throw new ParserError("Missing \")\" in function definition", ptyp);
+                }
+                if (next.type != Token.TokenType.CloseBracket)
+                {
+                    // let foo = (x: int32,
+                    expectTokenType(next, Token.TokenType.Comma);
+                    continue;
+                }
+                else
+                {
+                    // let foo = (x: int32)
+                    nextToken(tokens, ref pos);
+                    break;
+                }
+            }
+
+            // let foo = (x: int32) =>
+            var arrow = tokens[pos];
+            expectTokenType(arrow, Token.TokenType.FatArrow);
+
+            nextToken(tokens, ref pos);
+            // let foo = (x: int32) => { ... }
+            scope.AddFunction(fun);
+            var result = new FunctionDeclaration(current);
+            result.fun = fun;
+            var funScope = new Scope();
+            funScope.parent = scope;
+            funScope.function = fun;
+
+            var idx = 0;
+            foreach (var pd in fun.parameters)
+            {
+                funScope.AddFunctionParameter(pd.name, pd.type, idx);
+                idx++;
+            }
+
+            result.body = parseBlock(tokens, ref pos, null, funScope);
+
+            var block = result.body as Block;
+            if (!(block.statements.Last() is Return))
+            {
+                var error = string.Format("Last statement of function \"{0}\" must be a \"return\" (for now)", result.fun.name);
+                throw new ParserError(error, block.statements.Last().token);
+            }
+
+            return result;
         }
 
         static void expectTokenType(Token t, Token.TokenType type)
@@ -1433,32 +1616,46 @@ namespace PragmaScript
             var current = tokens[pos];
 
             Node block = null;
+#if !DEBUG
             try
+#endif
             {
                 var rootScope = new Scope();
                 rootScope.AddType(FrontendType.float32, current);
                 rootScope.AddType(FrontendType.int32, current);
                 rootScope.AddType(FrontendType.bool_, current);
-                rootScope.AddFunction(new FunctionDefinition { name = "print", returnType = FrontendType.void_ });
-                rootScope.AddFunction(new FunctionDefinition { name = "foo", returnType = FrontendType.int32 });
+                
+                var print_i32 = new FunctionDefinition { name = "print_i32", returnType = FrontendType.void_ };
+                print_i32.AddParameter("x", FrontendType.int32);
+                rootScope.AddFunction(print_i32);
 
+                var print_f32 = new FunctionDefinition { name = "print_f32", returnType = FrontendType.void_ };
+                print_f32.AddParameter("x", FrontendType.float32);
+                rootScope.AddFunction(print_f32);
+
+                var print = new FunctionDefinition { name = "print", returnType = FrontendType.void_ };
+                print.AddParameter("s", FrontendType.string_);
+                rootScope.AddFunction(print);
+
+                var main = new FunctionDefinition { name = "main", returnType = FrontendType.int32 };
+                rootScope.AddFunction(main);
+                rootScope.function = main;
                 // perform AST generation pass
                 pos = skipWhitespace(tokens, pos);
-                block = parseBlock(tokens, ref pos, rootScope);
+                block = parseMainBlock(tokens, ref pos, rootScope);
 
                 // perform type checking pass
                 block.CheckType(rootScope);
             }
+#if !DEBUG
             catch (ParserError error)
             {
-
+                Console.WriteLine();
                 Console.Error.WriteLine(error.Message);
-#if DEBUG
-                throw error;
-#else
-                return block;
-#endif
+                Console.WriteLine();
+                return null;
             }
+#endif
 
             return block;
         }

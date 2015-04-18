@@ -55,7 +55,8 @@ namespace PragmaScript
             Decrement,
             FatArrow,
             Colon,
-            String, 
+            String,
+            Comment,
             EOF
         }
 
@@ -164,6 +165,20 @@ namespace PragmaScript
                 t.type = TokenType.WhiteSpace;
                 t.text = line.Substring(t.pos, t.length);
                 return t;
+            }
+
+            if (current == '/')
+            {
+               if (pos + 1 < line.Length)
+               {
+                   if (line[pos + 1] == '/')
+                   {
+                       t.type = TokenType.Comment;
+                       t.text = line.Substring(t.pos, line.Length - t.pos);
+                       t.length = t.text.Length;
+                       return t;
+                   }
+               }
             }
 
             if (current == '"')

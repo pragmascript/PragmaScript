@@ -36,7 +36,7 @@ namespace PragmaScript
             parseARGS(args);
 #if DEBUG
             CompilerOptions.debug = true;
-            CompilerOptions.useOptimizations = true;
+            CompilerOptions.useOptimizations = false;
 #endif
             try
             {
@@ -182,14 +182,7 @@ namespace PragmaScript
             }
 #if DEBUG
                 Console.WriteLine();
-                try
-                {
-                    renderGraph(root, text);
-                }
-                catch(Exception)
-                {
-                    Console.WriteLine("graphviz not found. no graph rendering!");
-                }
+                renderGraph(root, text);
 #endif
             var backend = new Backend();
 
