@@ -36,7 +36,7 @@ namespace PragmaScript
             parseARGS(args);
 #if DEBUG
             CompilerOptions.debug = true;
-            CompilerOptions.useOptimizations = false;
+            CompilerOptions.useOptimizations = true;
 #endif
             try
             {
@@ -124,13 +124,22 @@ namespace PragmaScript
         static Graph getRenderGraph(Graph g, AST.Node node, string id)
         {
             var ns = NodeStatement.For(id);
-            ns = ns.Set("label", node.ToString());
+            ns = ns.Set("label", node.ToString().Replace(@"\", @"\\")).Set("font", "Consolas");
             var result = g.Add(ns);
             foreach (var c in node.GetChilds())
             {
                 var cid = Guid.NewGuid().ToString();
                 result = getRenderGraph(result, c, cid);
-                result = result.Add(EdgeStatement.For(id, cid));
+                if (c is AST.AnnotatedNode)
+                {
+                    var ca = (c as AST.AnnotatedNode);
+                    var edge = EdgeStatement.For(id, cid).Set("label", ca.annotation).Set("font", "Consolas").Set("fontsize", "10");
+                    result = result.Add(edge);
+                }
+                else
+                {
+                    result = result.Add(EdgeStatement.For(id, cid));
+                }
             }
             return result;
         }
@@ -140,7 +149,10 @@ namespace PragmaScript
             if (root == null)
                 return;
             var g = getRenderGraph(Graph.Undirected, root, Guid.NewGuid().ToString());
-            g = g.Add(AttributeStatement.Graph.Set("label", label));
+            //g = g.Add(AttributeStatement.Graph.Set("label", label))
+            //    .Add(AttributeStatement.Graph.Set("labeljust", "l"))
+            //    .Add(AttributeStatement.Graph.Set("fontname", "Consolas"));
+
             var renderer = new Shields.GraphViz.Components.Renderer(@"C:\Program Files (x86)\Graphviz2.38\bin\");
             using (Stream file = File.Create("graph.png"))
             {

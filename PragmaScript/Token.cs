@@ -57,7 +57,8 @@ namespace PragmaScript
             Colon,
             String,
             Comment,
-            EOF
+            EOF,
+            Elif
         }
 
         public TokenType type { get; private set; }
@@ -80,8 +81,10 @@ namespace PragmaScript
             keywords.Add("true", TokenType.True);
             keywords.Add("false", TokenType.False);
             keywords.Add("if", TokenType.If);
+            keywords.Add("elif", TokenType.Elif);
             keywords.Add("else", TokenType.Else);
             keywords.Add("for", TokenType.For);
+            
 
             operators = new Dictionary<string, TokenType>();
             operators.Add("=", TokenType.Assignment);

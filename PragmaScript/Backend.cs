@@ -18,45 +18,6 @@ namespace PragmaScript
             public LLVMValueRef function;
         }
 
-        //struct TypedValue
-        //{
-        //    public static LLVMTypeRef MapType(PragmaScript.AST.FrontendType ftype)
-        //    {
-        //        LLVMTypeRef type;
-        //        if (ftype == PragmaScript.AST.FrontendType.bool_)
-        //        {
-        //            type = Const.BoolType;
-        //        }
-        //        else if (ftype == PragmaScript.AST.FrontendType.int32)
-        //        {
-        //            type = Const.Int32Type;
-        //        }
-        //        else if (ftype == PragmaScript.AST.FrontendType.float32)
-        //        {
-        //            type = Const.Float32Type;
-        //        }
-        //        else if (ftype == PragmaScript.AST.FrontendType.void_)
-        //        {
-        //            type = Const.VoidType;
-        //        }
-        //        else if (ftype == PragmaScript.AST.FrontendType.string_)
-        //        {
-        //            type = Const.Int8PointerType;
-        //        }
-        //        else
-        //            throw new InvalidCodePath();
-
-        //        return type;
-        //    }
-
-        //    public LLVMTypeRef type;
-        //    public LLVMValueRef value;
-        //    public TypedValue(LLVMValueRef value, LLVMTypeRef type)
-        //    {
-        //        this.value = value;
-        //        this.type = type;
-        //    }
-        //}
 
         public static class Const
         {
@@ -574,15 +535,6 @@ namespace tmp
 
         void visitConditionalOR(AST.BinOp op)
         {
-            //List<AST.BinOp> ors = new List<AST.BinOp>();
-            //ors.Add(op);
-            //// capture all consecutive ors
-            //while (op.left is AST.BinOp && (op.left as AST.BinOp).type == AST.BinOp.BinOpType.ConditionalOR)
-            //{
-            //    op = op.left as AST.BinOp;
-            //    ors.Add(op);
-            //}
-
             Visit(op.left);
             var cmp = valueStack.Pop();
             if (!isEqualType(LLVM.TypeOf(cmp), Const.BoolType))
@@ -910,31 +862,43 @@ namespace tmp
 
             var thenBlock = LLVM.AppendBasicBlock(ctx.function, "then");
             LLVM.MoveBasicBlockAfter(thenBlock, insert);
-            
+
+
+            var lastBlock = thenBlock;
+            List<LLVMBasicBlockRef> elifBlocks = new List<LLVMBasicBlockRef>();
+            var idx = 0;
+            foreach (var elif in node.elifs)
+            {
+                var elifBlock = LLVM.AppendBasicBlock(ctx.function, "elif_" + (idx++));
+                LLVM.MoveBasicBlockAfter(elifBlock, lastBlock);
+                lastBlock = elifBlock;
+                elifBlocks.Add(elifBlock);
+            }
 
             var elseBlock = default(LLVMBasicBlockRef);
             var endIfBlock = default(LLVMBasicBlockRef);
             if (node.elseBlock != null)
             {
                 elseBlock = LLVM.AppendBasicBlock(ctx.function, "else");
-                endIfBlock = LLVM.AppendBasicBlock(ctx.function, "endif");
-                LLVM.MoveBasicBlockAfter(endIfBlock, insert);
-                LLVM.MoveBasicBlockAfter(elseBlock, endIfBlock);
-            }
-            else
-            {
-                endIfBlock = LLVM.AppendBasicBlock(ctx.function, "endif");
-                LLVM.MoveBasicBlockAfter(endIfBlock, thenBlock);
+                LLVM.MoveBasicBlockAfter(elseBlock, lastBlock);
+                lastBlock = elseBlock;
             }
 
-            if (node.elseBlock != null)
+            endIfBlock = LLVM.AppendBasicBlock(ctx.function, "endif");
+            LLVM.MoveBasicBlockAfter(endIfBlock, lastBlock);
+            lastBlock = endIfBlock;
+
+            var nextFail = endIfBlock;
+            if (elifBlocks.Count > 0)
             {
-                LLVM.BuildCondBr(builder, condition, thenBlock, elseBlock);
+                nextFail = elifBlocks.First();
             }
-            else
+            else if (node.elseBlock != null)
             {
-                LLVM.BuildCondBr(builder, condition, thenBlock, endIfBlock);
+                nextFail = elseBlock;
             }
+
+            LLVM.BuildCondBr(builder, condition, thenBlock, nextFail);
 
             LLVM.PositionBuilderAtEnd(builder, thenBlock);
             Visit(node.thenBlock);
@@ -944,6 +908,42 @@ namespace tmp
             {
                 LLVM.BuildBr(builder, endIfBlock);
             }
+
+
+            for (int i = 0; i < elifBlocks.Count; ++i)
+            {
+                var elif = elifBlocks[i];
+                
+                var elifThen = LLVM.AppendBasicBlock(ctx.function, "elif_" + i + "_then");
+                LLVM.MoveBasicBlockAfter(elifThen, elif);
+                
+                LLVM.PositionBuilderAtEnd(builder, elif);
+                var elifNode = node.elifs[i] as AST.Elif;
+                Visit(elifNode.condition);
+                var elifCond = valueStack.Pop();
+                
+
+                var nextBlock = endIfBlock;
+                if (node.elseBlock != null)
+                {
+                    nextBlock = elseBlock;
+                }
+                if (i < elifBlocks.Count - 1)
+                {
+                    nextBlock = elifBlocks[i+1];
+                }
+                LLVM.BuildCondBr(builder, elifCond, elifThen, nextBlock);
+
+                LLVM.PositionBuilderAtEnd(builder, elifThen);
+                Visit(elifNode.thenBlock);
+
+                term = LLVM.GetBasicBlockTerminator(LLVM.GetInsertBlock(builder));
+                if (term.Pointer == IntPtr.Zero)
+                {
+                    LLVM.BuildBr(builder, endIfBlock);
+                }
+            }
+
             if (node.elseBlock != null)
             {
                 LLVM.PositionBuilderAtEnd(builder, elseBlock);
@@ -1009,7 +1009,6 @@ namespace tmp
             var funType = LLVM.FunctionType(returnType, out par[0], (uint)fun.parameters.Count, Const.FalseBool);
             var function = LLVM.AddFunction(mod, fun.name, funType);
 
-            // TODO: insert function type into dictionary as well?
             functions.Add(fun.name, function);
 
             for (int i = 0; i < fun.parameters.Count; ++i)

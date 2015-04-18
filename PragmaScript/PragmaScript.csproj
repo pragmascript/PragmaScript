@@ -125,6 +125,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AST.cs" />
+    <Compile Include="AST.Nodes.cs" />
     <Compile Include="Backend.cs" />
     <Compile Include="Exceptions.cs" />
     <Compile Include="Program.cs" />
