@@ -113,6 +113,7 @@ namespace PragmaScript
             public Dictionary<string, FunctionDefinition> functions = new Dictionary<string, FunctionDefinition>();
             public Dictionary<string, FrontendType> types = new Dictionary<string, FrontendType>();
 
+
             public VariableDefinition GetVar(string name)
             {
                 VariableDefinition result;
@@ -915,43 +916,53 @@ namespace PragmaScript
             expectTokenType(ob, Token.TokenType.OpenBracket);
 
             var next = peekToken(tokens, pos);
-            while (true)
+
+            if (next.type != Token.TokenType.CloseBracket)
             {
-                // let foo = (x
-                var pid = nextToken(tokens, ref pos);
-                expectTokenType(pid, Token.TokenType.Identifier);
+                while (true)
+                {
+                    // let foo = (x
+                    var pid = nextToken(tokens, ref pos);
+                    expectTokenType(pid, Token.TokenType.Identifier);
 
-                // let foo = (x: 
-                expectTokenType(nextToken(tokens, ref pos), Token.TokenType.Colon);
+                    // let foo = (x: 
+                    expectTokenType(nextToken(tokens, ref pos), Token.TokenType.Colon);
 
-                // let foo = (x: int32
-                var ptyp = nextToken(tokens, ref pos);
-                expectTokenType(ptyp, Token.TokenType.Identifier);
-                var type = scope.GetType(ptyp.text);
-                if (type == null)
-                {
-                    throw new ParserError(string.Format("Could not resolve type in function parameter list: {0}", type), ptyp);
-                }
-                fun.AddParameter(pid.text, type);
+                    // let foo = (x: int32
+                    var ptyp = nextToken(tokens, ref pos);
+                    expectTokenType(ptyp, Token.TokenType.Identifier);
+                    var type = scope.GetType(ptyp.text);
+                    if (type == null)
+                    {
+                        throw new ParserError(string.Format("Could not resolve type in function parameter list: {0}", type), ptyp);
+                    }
+                    fun.AddParameter(pid.text, type);
 
-                // let foo = (x: int32
-                next = nextToken(tokens, ref pos);
-                if (next == null)
-                {
-                    throw new ParserError("Missing \")\" in function definition", ptyp);
+                    // let foo = (x: int32
+                    next = nextToken(tokens, ref pos);
+                    if (next == null)
+                    {
+                        throw new ParserError("Missing \")\" in function definition", ptyp);
+                    }
+                    if (next.type != Token.TokenType.CloseBracket)
+                    {
+                        // let foo = (x: int32,
+                        expectTokenType(next, Token.TokenType.Comma);
+                        continue;
+                    }
+                    else
+                    {
+                        // let foo = (x: int32)
+                        nextToken(tokens, ref pos);
+                        break;
+                    }
                 }
-                if (next.type != Token.TokenType.CloseBracket)
-                {
-                    // let foo = (x: int32,
-                    expectTokenType(next, Token.TokenType.Comma);
-                    continue;
-                }
-                else
-                {
-                    // let foo = (x: int32)
-                    nextToken(tokens, ref pos);
-                    break;
-                }
+            }
+            else
+            {
+                nextToken(tokens, ref pos);
+                nextToken(tokens, ref pos);
+                // let foo = ( ) =>
             }
 
             // let foo = (x: int32) =>

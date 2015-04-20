@@ -17,7 +17,7 @@ namespace PragmaScript
     static class CompilerOptions
     {
         public static bool debug = false;
-        public static string inputFilename;
+        public static string  inputFilename;
         public static bool useOptimizations = true;
     }
 
@@ -26,14 +26,13 @@ namespace PragmaScript
     {
         static void Main(string[] args)
         {
-            if (args.Length == 0)
+            parseARGS(args);
+
+            if (CompilerOptions.inputFilename == null)
             {
                 Console.WriteLine("Input file name missing!");
                 return;
             }
-                
-
-            parseARGS(args);
 #if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.useOptimizations = true;
@@ -45,7 +44,7 @@ namespace PragmaScript
             }
             catch (FileNotFoundException)
             {
-                writeError("Could not open input file");
+                writeError("Could not open input file!");
             }
         }
 
@@ -56,10 +55,12 @@ namespace PragmaScript
 
         static void printHelp()
         {
+            Console.WriteLine();
             Console.WriteLine("command line options: ");
             Console.WriteLine("-D: turn on debug messages");
             Console.WriteLine("-O0: turn off optimizations");
             Console.WriteLine("-O1: turn on optimizations");
+            Console.WriteLine();
         }
         static void parseARGS(string[] args)
         {
