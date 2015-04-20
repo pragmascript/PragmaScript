@@ -20,12 +20,13 @@ namespace PragmaScript
             {
                 token = t;
             }
+
             public virtual IEnumerable<Node> GetChilds()
             {
                 yield break;
             }
 
-            public abstract FrontendType CheckType(Scope scope);
+            public abstract Task<FrontendType> CheckType(Scope scope);
         }
 
         public class AnnotatedNode : Node
@@ -47,9 +48,9 @@ namespace PragmaScript
                 }
             }
 
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return node.CheckType(scope);
+                return await node.CheckType(scope);
             }
 
             public override string ToString()
@@ -145,7 +146,6 @@ namespace PragmaScript
                 return v;
             }
 
-            // TODO: handle function parameters different?
             public void AddFunctionParameter(string name, FrontendType type, int idx)
             {
                 VariableDefinition v = new VariableDefinition();
@@ -238,14 +238,13 @@ namespace PragmaScript
                 foreach (var s in statements)
                     yield return s;
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
-                foreach (var s in statements)
-                {
-                    var rt = s.CheckType(this.scope);
-                }
+
+                var types = await Task.WhenAll(statements.Select(s => s.CheckType(this.scope)));
                 return null;
             }
+
             public override string ToString()
             {
                 return "Block";
@@ -718,7 +717,6 @@ namespace PragmaScript
                 var peek = peekToken(tokens, pos, skipWS: true);
                 if (peek.type == Token.TokenType.OpenBracket)
                 {
-                    // TODO: check if function exists!
                     var result = parseFunctionCall(tokens, ref pos, scope);
                     return result;
                 }
@@ -988,11 +986,28 @@ namespace PragmaScript
             result.body = parseBlock(tokens, ref pos, null, funScope);
 
             var block = result.body as Block;
-            if (!(block.statements.Last() is Return))
-            {
-                var error = string.Format("Last statement of function \"{0}\" must be a \"return\" (for now)", result.fun.name);
-                throw new ParserError(error, block.statements.Last().token);
-            }
+            //if (!(block.statements.Last() is Return))
+            //{
+            //    // TODO: do proper checking if all code path have a return statement
+            //    var rtn = new Return(result.body.token);
+                
+
+            //    // TODO: have a default operator to return a default value for a given type
+            //    if (fun.returnType == FrontendType.int32)
+            //    {
+            //        var i = new ConstInt32(Token.Undefined);
+            //        i.number = 0;
+            //        rtn.expression = i;
+            //    }
+            //    if (fun.returnType == FrontendType.float32)
+            //    {
+            //        var f = new ConstFloat32(Token.Undefined);
+            //        f.number = 0.0f;
+            //        rtn.expression = f;
+            //    }
+
+            //    block.statements.Add(rtn);
+            //}
 
             return result;
         }
@@ -1119,7 +1134,8 @@ namespace PragmaScript
                 block = parseMainBlock(tokens, ref pos, rootScope);
 
                 // perform type checking pass
-                block.CheckType(rootScope);
+                // block.CheckType(rootScope).Wait();
+                AsyncHelper.RunSync(() => block.CheckType(rootScope));
             }
 #if !DEBUG
             catch (ParserError error)

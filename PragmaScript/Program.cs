@@ -35,7 +35,7 @@ namespace PragmaScript
             }
 #if DEBUG
             CompilerOptions.debug = true;
-            CompilerOptions.useOptimizations = true;
+            CompilerOptions.useOptimizations = false;
 #endif
             try
             {

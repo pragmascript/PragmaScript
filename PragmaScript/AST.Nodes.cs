@@ -25,13 +25,13 @@ namespace PragmaScript
                 yield return thenBlock;
             }
 
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var ct = condition.CheckType(scope);
+                var ct = await condition.CheckType(scope);
                 if (ct != FrontendType.bool_)
                     throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
 
-                thenBlock.CheckType(scope);
+                await thenBlock.CheckType(scope);
 
                 return null;
             }
@@ -65,21 +65,23 @@ namespace PragmaScript
                     yield return new AnnotatedNode(elseBlock, "else");
                 }
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var ct = condition.CheckType(scope);
+                var ct = await condition.CheckType(scope);
                 if (ct != FrontendType.bool_)
                     throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
 
-                thenBlock.CheckType(scope);
+                await thenBlock.CheckType(scope);
 
-                foreach (var elif in elifs)
-                {
-                    elif.CheckType(scope);
-                }
+                await Task.WhenAll(elifs.Select(e => e.CheckType(scope)));
+
+                //foreach (var elif in elifs)
+                //{
+                //    elif.CheckType(scope);
+                //}
 
                 if (elseBlock != null)
-                    elseBlock.CheckType(scope);
+                    await elseBlock.CheckType(scope);
 
                 return null;
             }
@@ -109,15 +111,15 @@ namespace PragmaScript
                 yield return new AnnotatedNode(iterator, "iterator");
                 yield return new AnnotatedNode(loopBody, "body");
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var loopBodyScope = (loopBody as Block).scope;
-                initializer.CheckType(loopBodyScope);
-                var ct = condition.CheckType(loopBodyScope);
+                await initializer.CheckType(loopBodyScope);
+                var ct = await condition.CheckType(loopBodyScope);
                 if (ct != FrontendType.bool_)
                     throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
-                iterator.CheckType(loopBodyScope);
-                loopBody.CheckType(scope);
+                await iterator.CheckType(loopBodyScope);
+                await loopBody.CheckType(scope);
                 return null;
             }
             public override string ToString()
@@ -140,9 +142,9 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var type = expression.CheckType(scope);
+                var type = await expression.CheckType(scope);
                 variable.type = type;
                 return type;
             }
@@ -166,9 +168,9 @@ namespace PragmaScript
             {
                 yield return body;
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
-                body.CheckType(scope);
+                await body.CheckType(scope);
                 return null;
             }
             public override string ToString()
@@ -202,13 +204,14 @@ namespace PragmaScript
                     yield return exp;
                 }
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var fun = scope.GetFunction(functionName);
                 int idx = 0;
-                foreach (var arg in argumentList)
+
+                var args = await Task.WhenAll(argumentList.Select(arg => arg.CheckType(scope)));
+                foreach (var targ in args)
                 {
-                    var targ = arg.CheckType(scope);
                     if (targ != fun.parameters[idx].type)
                     {
                         throw new ParserExpectedArgumentType(fun.parameters[idx].type, targ, idx + 1, token);
@@ -233,10 +236,15 @@ namespace PragmaScript
                 : base(t)
             {
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var v = scope.GetVar(variableName);
                 varDefinition = v;
+
+                while(v.type == null)
+                {
+                    await Task.Yield();
+                }
                 return v.type;
             }
             public override string ToString()
@@ -272,9 +280,9 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var et = expression.CheckType(scope);
+                var et = await expression.CheckType(scope);
                 if (et != variable.type)
                 {
                     throw new ParserVariableTypeMismatch(variable.type, et, token);
@@ -295,7 +303,7 @@ namespace PragmaScript
                 : base(t)
             {
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
                 return FrontendType.int32;
             }
@@ -312,7 +320,7 @@ namespace PragmaScript
                 : base(t)
             {
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
                 return FrontendType.float32;
             }
@@ -329,7 +337,7 @@ namespace PragmaScript
                 : base(t)
             {
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
                 return FrontendType.bool_;
             }
@@ -347,7 +355,7 @@ namespace PragmaScript
                 : base(t)
             {
             }
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
                 return FrontendType.string_;
             }
@@ -372,12 +380,13 @@ namespace PragmaScript
                     yield return expression;
                 }
             }
-            public override FrontendType CheckType(Scope scope)
+
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var result = default(FrontendType);
                 if (expression != null)
                 {
-                    result = expression.CheckType(scope);
+                    result = await expression.CheckType(scope);
                 }
                 else
                 {
@@ -489,10 +498,11 @@ namespace PragmaScript
                 return false;
             }
 
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var lType = left.CheckType(scope);
-                var rType = right.CheckType(scope);
+                var opTypes = await Task.WhenAll(left.CheckType(scope), right.CheckType(scope));
+                var lType = opTypes[0];
+                var rType = opTypes[1];
 
                 if (isEither(BinOpType.LeftShift, BinOpType.RightShift))
                 {
@@ -606,9 +616,9 @@ namespace PragmaScript
                 }
             }
 
-            public override FrontendType CheckType(Scope scope)
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return expression.CheckType(scope);
+                return await expression.CheckType(scope);
             }
 
             public override IEnumerable<Node> GetChilds()
@@ -634,6 +644,8 @@ namespace PragmaScript
             }
         }
 
+
+        
         public class TypeCastOp : Node
         {
             public Node expression;
@@ -648,7 +660,9 @@ namespace PragmaScript
             {
                 yield return expression;
             }
-            public override FrontendType CheckType(Scope scope)
+
+            // TODO: handle types that are not resolved yet!
+            public override async Task<FrontendType> CheckType(Scope scope)
             {
                 return type;
             }

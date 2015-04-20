@@ -220,6 +220,8 @@ namespace PragmaScript
 
         void executeModule(bool useOptimizationPasses = true)
         {
+
+
             IntPtr error;
 
             var verifyFunction = LLVM.VerifyFunction(mainFunction, LLVMVerifierFailureAction.LLVMReturnStatusAction);
@@ -334,7 +336,25 @@ namespace PragmaScript
         {
             prepareModule();
             Visit(root);
+            InsertMissingReturn(Const.Int32Type);
             executeModule(useOptimizations);
+        }
+
+        public void InsertMissingReturn(LLVMTypeRef returnType)
+        {
+            var term = LLVM.GetBasicBlockTerminator(LLVM.GetInsertBlock(builder));
+            if (term.Pointer == IntPtr.Zero)
+            {
+                if (isEqualType(returnType, Const.VoidType))
+                {
+                    LLVM.BuildRetVoid(builder);
+                }
+                else
+                {
+                    var dummy = LLVM.BuildBitCast(builder, Const.ZeroInt32, returnType, "dummy");
+                    LLVM.BuildRet(builder, dummy);
+                }
+            }
         }
 
         public void Visit(AST.ConstInt32 node)
@@ -665,8 +685,6 @@ namespace tmp
 
             // TODO: check if integral type
             // TODO: handle non integral types
-
-
             if (isEqualType(resultType, Const.Float32Type))
             {
                 result = LLVM.BuildSIToFP(builder, v, Const.Float32Type, "float32_cast");
@@ -819,11 +837,9 @@ namespace tmp
                 parameters[i] = valueStack.Pop();
             }
 
-            // TODO: use proper function declarations
             var ft = LLVM.TypeOf(f);
             // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
             var rt = LLVM.GetReturnType(LLVM.GetElementType(ft));
-            var rt_string = typeToString(rt);
             if (isEqualType(rt, Const.VoidType))
             {
                 LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, "");
@@ -1025,7 +1041,10 @@ namespace tmp
             LLVM.PositionBuilderAtEnd(builder, entry);
             var funTemp = ctx.function;
             ctx.function = function;
+            
             Visit(node.body);
+            InsertMissingReturn(returnType);            
+
             ctx.function = funTemp;
             LLVM.PositionBuilderAtEnd(builder, blockTemp);
 
