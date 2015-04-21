@@ -58,7 +58,17 @@ namespace PragmaScript
             String,
             Comment,
             EOF,
-            Elif
+            Elif,
+            PlusEquals,
+            RightShiftEquals,
+            LeftShiftEquals,
+            OREquals,
+            DivideEquals,
+            ANDEquals,
+            RemainderEquals,
+            MultiplyEquals,
+            MinusEquals,
+            XOREquals
         }
 
         public TokenType type { get; private set; }
@@ -117,7 +127,17 @@ namespace PragmaScript
             operators.Add("++", TokenType.Increment);
             operators.Add("--", TokenType.Decrement);
             operators.Add("=>", TokenType.FatArrow);
-            operators.Add(":", TokenType.Colon);
+
+            operators.Add("+=", TokenType.PlusEquals);
+            operators.Add("-=", TokenType.MinusEquals);
+            operators.Add("*=", TokenType.MultiplyEquals);
+            operators.Add("/=", TokenType.DivideEquals);
+            operators.Add("%=", TokenType.RemainderEquals);
+            operators.Add("&=", TokenType.ANDEquals);
+            operators.Add("|=", TokenType.OREquals);
+            operators.Add("^=", TokenType.XOREquals);
+            operators.Add("<<=", TokenType.LeftShiftEquals);
+            operators.Add(">>=", TokenType.RightShiftEquals);
 
             foreach (var op in operators.Keys)
             {
@@ -141,6 +161,27 @@ namespace PragmaScript
         public static bool isOperator(char c)
         {
             return operators.ContainsKey(c.ToString());
+        }
+
+        public bool isAssignmentOperator()
+        {
+            switch (type)
+            {
+                case TokenType.Assignment:
+                case TokenType.PlusEquals:
+                case TokenType.RightShiftEquals:
+                case TokenType.LeftShiftEquals:
+                case TokenType.XOREquals:
+                case TokenType.OREquals:
+                case TokenType.DivideEquals:
+                case TokenType.ANDEquals:
+                case TokenType.RemainderEquals:
+                case TokenType.MultiplyEquals:
+                case TokenType.MinusEquals:
+                    return true;
+                default:
+                    return false;
+            }
         }
        
         public static Token Parse(string line, int pos, int lineNumber)

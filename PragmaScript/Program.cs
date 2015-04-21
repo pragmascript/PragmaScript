@@ -28,15 +28,17 @@ namespace PragmaScript
         {
             parseARGS(args);
 
+           
+#if DEBUG
+            CompilerOptions.debug = true;
+            CompilerOptions.useOptimizations = false;
+            CompilerOptions.inputFilename = @"Programs\hello.ps";
+#endif
             if (CompilerOptions.inputFilename == null)
             {
                 Console.WriteLine("Input file name missing!");
                 return;
             }
-#if DEBUG
-            CompilerOptions.debug = true;
-            CompilerOptions.useOptimizations = false;
-#endif
             try
             {
                 var text = File.ReadAllText(CompilerOptions.inputFilename);
@@ -193,7 +195,7 @@ namespace PragmaScript
             {
                 return;
             }
-#if DEBUG
+#if FALSE
                 Console.WriteLine();
                 renderGraph(root, text);
 #endif

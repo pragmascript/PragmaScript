@@ -292,13 +292,16 @@ namespace PragmaScript
                 var next = peekToken(tokens, pos, tokenMustExist: true, skipWS: true);
 
                 // could be either a function call or an assignment
-                expectTokenType(next, Token.TokenType.OpenBracket, Token.TokenType.Assignment);
+                if (!next.isAssignmentOperator() && !(next.type == Token.TokenType.OpenBracket))
+                {
+                    throw new ParserErrorExpected("assignment operator or function call", next.type.ToString(), next);
+                }
 
                 if (next.type == Token.TokenType.OpenBracket)
                 {
                     result = parseFunctionCall(tokens, ref pos, scope);
                 }
-                else if (next.type == Token.TokenType.Assignment)
+                else if (next.isAssignmentOperator())
                 {
                     result = parseAssignment(tokens, ref pos, scope);
                 }
@@ -435,7 +438,7 @@ namespace PragmaScript
             // if(i < 10)
             var cb = nextToken(tokens, ref pos);
             expectTokenType(cb, Token.TokenType.CloseBracket);
-            
+
             // if(i < 10) {
             nextToken(tokens, ref pos);
             result.thenBlock = parseBlock(tokens, ref pos, scope);
@@ -513,7 +516,11 @@ namespace PragmaScript
             expectTokenType(current, Token.TokenType.Identifier);
 
             var assign = nextToken(tokens, ref pos, skipWS: true);
-            expectTokenType(assign, Token.TokenType.Assignment);
+            // expectTokenType(assign, Token.TokenType.Assignment);
+            if (!assign.isAssignmentOperator())
+            {
+                throw new ParserErrorExpected("assignment operator", assign.type.ToString(), assign);
+            }
 
             var firstExpressionToken = nextToken(tokens, ref pos, skipWS: true);
 
@@ -524,7 +531,57 @@ namespace PragmaScript
                 throw new UndefinedVariable(current.text, current);
             }
             result.variable = variable;
-            result.expression = parseBinOp(tokens, ref pos, scope);
+
+            var exp = parseBinOp(tokens, ref pos, scope);
+
+            var compound = new BinOp(assign);
+            var v = new VariableLookup(current);
+            v.variableName = current.text;
+            compound.left = v;
+            compound.right = exp;
+
+            result.expression = compound;
+
+            switch (assign.type)
+            {
+                case Token.TokenType.Assignment:
+                    result.expression = exp;
+                    break;
+                case Token.TokenType.PlusEquals:
+                    compound.type = BinOp.BinOpType.Add;
+                    break;
+                case Token.TokenType.RightShiftEquals:
+                    compound.type = BinOp.BinOpType.RightShift;
+                    break;
+                case Token.TokenType.LeftShiftEquals:
+                    compound.type = BinOp.BinOpType.LeftShift;
+                    break;
+                case Token.TokenType.XOREquals:
+                    compound.type = BinOp.BinOpType.LogicalXOR;
+                    break;
+                case Token.TokenType.OREquals:
+                    compound.type = BinOp.BinOpType.LogicalOR;
+                    break;
+                case Token.TokenType.DivideEquals:
+                    compound.type = BinOp.BinOpType.Divide;
+                    break;
+                case Token.TokenType.ANDEquals:
+                    compound.type = BinOp.BinOpType.LogicalAND;
+                    break;
+                case Token.TokenType.RemainderEquals:
+                    compound.type = BinOp.BinOpType.Remainder;
+                    break;
+                case Token.TokenType.MultiplyEquals:
+                    compound.type = BinOp.BinOpType.Multiply;
+                    break;
+                case Token.TokenType.MinusEquals:
+                    compound.type = BinOp.BinOpType.Subract;
+                    break;
+                default:
+                    throw new InvalidCodePath();
+            }
+
+            
 
             return result;
         }
@@ -990,7 +1047,7 @@ namespace PragmaScript
             //{
             //    // TODO: do proper checking if all code path have a return statement
             //    var rtn = new Return(result.body.token);
-                
+
 
             //    // TODO: have a default operator to return a default value for a given type
             //    if (fun.returnType == FrontendType.int32)
@@ -1099,6 +1156,21 @@ namespace PragmaScript
         }
 
 
+        static async Task<FrontendType> performTypeChecking(Node main, Scope root)
+        {
+            try
+            {
+                var result = await main.CheckType(root);
+                return result;
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+
+
+        }
+
         public static Node Parse(IList<Token> tokens)
         {
             int pos = 0;
@@ -1134,8 +1206,14 @@ namespace PragmaScript
                 block = parseMainBlock(tokens, ref pos, rootScope);
 
                 // perform type checking pass
-                // block.CheckType(rootScope).Wait();
-                AsyncHelper.RunSync(() => block.CheckType(rootScope));
+                try
+                {
+                    performTypeChecking(block, rootScope).Wait();
+                }
+                catch (System.AggregateException e)
+                {
+                    throw e.InnerException;
+                }
             }
 #if !DEBUG
             catch (ParserError error)
