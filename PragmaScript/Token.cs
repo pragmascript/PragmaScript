@@ -68,7 +68,9 @@ namespace PragmaScript
             RemainderEquals,
             MultiplyEquals,
             MinusEquals,
-            XOREquals
+            XOREquals,
+            Continue,
+            Break
         }
 
         public TokenType type { get; private set; }
@@ -94,6 +96,8 @@ namespace PragmaScript
             keywords.Add("elif", TokenType.Elif);
             keywords.Add("else", TokenType.Else);
             keywords.Add("for", TokenType.For);
+            keywords.Add("break", TokenType.Break);
+            keywords.Add("continue", TokenType.Continue);
             
 
             operators = new Dictionary<string, TokenType>();

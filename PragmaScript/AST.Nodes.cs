@@ -94,9 +94,9 @@ namespace PragmaScript
 
         public class ForLoop : Node
         {
-            public Node initializer;
+            public List<Node> initializer;
             public Node condition;
-            public Node iterator;
+            public List<Node> iterator;
 
             public Node loopBody;
 
@@ -106,19 +106,42 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(initializer, "initializer");
+                int idx = 1;
+                foreach (var init in initializer)
+                {
+                    yield return new AnnotatedNode(init, "init_" + idx);
+                    idx++;
+                }
+                
                 yield return new AnnotatedNode(condition, "condition");
-                yield return new AnnotatedNode(iterator, "iterator");
+
+                idx = 1;
+                foreach (var it in iterator)
+                {
+                    yield return new AnnotatedNode(it, "iter_" + idx);
+                    idx++;
+                }
+                
                 yield return new AnnotatedNode(loopBody, "body");
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var loopBodyScope = (loopBody as Block).scope;
-                await initializer.CheckType(loopBodyScope);
+
+                if (initializer.Count > 0)
+                {
+                    await Task.WhenAll(initializer.Select(init => init.CheckType(loopBodyScope)));
+                }
+                
                 var ct = await condition.CheckType(loopBodyScope);
                 if (ct != FrontendType.bool_)
                     throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
-                await iterator.CheckType(loopBodyScope);
+
+                if (iterator.Count > 0)
+                {
+                    await Task.WhenAll(iterator.Select(iter => iter.CheckType(loopBodyScope)));
+                }
+                
                 await loopBody.CheckType(scope);
                 return null;
             }
@@ -337,6 +360,13 @@ namespace PragmaScript
                 : base(t)
             {
             }
+
+            public ConstBool(Token t, bool b)
+                : base(t)
+            {
+                // TODO: Complete member initialization
+                this.value = b;
+            }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
                 return FrontendType.bool_;
@@ -365,11 +395,46 @@ namespace PragmaScript
             }
         }
 
-        public class Return : Node
+        public class BreakLoop : Node
+        {
+            public BreakLoop(Token t)
+                : base(t)
+            {
+            }
+
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                 return null;
+            }
+            public override string ToString()
+            {
+                return "break";
+            }
+        }
+
+        public class ContinueLoop : Node
+        {
+            public ContinueLoop(Token t)
+                : base(t)
+            {
+            }
+
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                return null;
+            }
+
+            public override string ToString()
+            {
+                return "continue";
+            }
+        }
+
+        public class ReturnFunction : Node
         {
             public Node expression;
 
-            public Return(Token t)
+            public ReturnFunction(Token t)
                 : base(t)
             {
             }

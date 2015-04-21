@@ -195,9 +195,9 @@ namespace PragmaScript
             {
                 return;
             }
-#if FALSE
-                Console.WriteLine();
-                renderGraph(root, text);
+#if DEBUG
+            Console.WriteLine();
+            renderGraph(root, text);
 #endif
             var backend = new Backend();
 
