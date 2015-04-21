@@ -313,6 +313,9 @@ namespace PragmaScript
                 LLVM.AddGlobalOptimizerPass(pass);
                 LLVM.AddVerifierPass(pass);
                 LLVM.AddFunctionInliningPass(pass);
+                LLVM.AddBBVectorizePass(pass);
+                LLVM.AddLoopVectorizePass(pass);
+                LLVM.AddSLPVectorizePass(pass);
                 LLVM.RunPassManager(pass, mod);
             }
             else
