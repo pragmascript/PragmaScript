@@ -9,22 +9,22 @@ namespace PragmaScript
     class Token
     {
 
-      /*
-      * primary = 0;
-      * Unary = 1;
-      * Multiplicative = 2;
-      * Additive = 3;
-      * Shift = 4;
-      * Relational = 5
-      * Equality = 6
-      * LAND = 7
-      * LXOR = 8
-      * LOR = 9
-      * CAND = 10
-      * COR = 11
-      * Conditional = 12
-      * Assignment = 13
-      */
+        /*
+        * primary = 0;
+        * Unary = 1;
+        * Multiplicative = 2;
+        * Additive = 3;
+        * Shift = 4;
+        * Relational = 5
+        * Equality = 6
+        * LAND = 7
+        * LXOR = 8
+        * LOR = 9
+        * CAND = 10
+        * COR = 11
+        * Conditional = 12
+        * Assignment = 13
+        */
 
         public static readonly Token Undefined = new Token { type = TokenType.Undefined, text = "undefined" };
         public static Token NewLine(int pos, int line)
@@ -70,7 +70,8 @@ namespace PragmaScript
             MinusEquals,
             XOREquals,
             Continue,
-            Break
+            Break,
+            While
         }
 
         public TokenType type { get; private set; }
@@ -96,9 +97,10 @@ namespace PragmaScript
             keywords.Add("elif", TokenType.Elif);
             keywords.Add("else", TokenType.Else);
             keywords.Add("for", TokenType.For);
+            keywords.Add("while", TokenType.While);
             keywords.Add("break", TokenType.Break);
             keywords.Add("continue", TokenType.Continue);
-            
+
 
             operators = new Dictionary<string, TokenType>();
             operators.Add("=", TokenType.Assignment);
@@ -187,7 +189,7 @@ namespace PragmaScript
                     return false;
             }
         }
-       
+
         public static Token Parse(string line, int pos, int lineNumber)
         {
             var t = new Token();
@@ -217,16 +219,16 @@ namespace PragmaScript
 
             if (current == '/')
             {
-               if (pos + 1 < line.Length)
-               {
-                   if (line[pos + 1] == '/')
-                   {
-                       t.type = TokenType.Comment;
-                       t.text = line.Substring(t.pos, line.Length - t.pos);
-                       t.length = t.text.Length;
-                       return t;
-                   }
-               }
+                if (pos + 1 < line.Length)
+                {
+                    if (line[pos + 1] == '/')
+                    {
+                        t.type = TokenType.Comment;
+                        t.text = line.Substring(t.pos, line.Length - t.pos);
+                        t.length = t.text.Length;
+                        return t;
+                    }
+                }
             }
 
             if (current == '"')
@@ -239,7 +241,7 @@ namespace PragmaScript
                     t.length++;
                     if (pos >= line.Length)
                     {
-                        t.text = line.Substring(t.pos, t.length - 1); 
+                        t.text = line.Substring(t.pos, t.length - 1);
                         throw new LexerError("String constant exceeds line!", t);
                     }
                     last = current;
@@ -305,7 +307,7 @@ namespace PragmaScript
             }
 
             var operatorSB = new StringBuilder();
-            TokenType op = TokenType.Undefined; 
+            TokenType op = TokenType.Undefined;
             while (operatorChars.Contains(current))
             {
                 operatorSB.Append(current);

@@ -640,7 +640,7 @@ namespace tmp
             var loopBody = LLVM.AppendBasicBlock(ctx.Peek().function, "for");
             LLVM.MoveBasicBlockAfter(loopBody, loopPre);
             var loopIter = LLVM.AppendBasicBlock(ctx.Peek().function, "for_iter");
-            LLVM.MoveBasicBlockAfter(loopBody, loopBody);
+            LLVM.MoveBasicBlockAfter(loopIter, loopBody);
             var endFor = LLVM.AppendBasicBlock(ctx.Peek().function, "end_for");
             LLVM.MoveBasicBlockAfter(endFor, loopIter);
 
@@ -679,6 +679,43 @@ namespace tmp
             LLVM.BuildBr(builder, loopPre);
 
             LLVM.PositionBuilderAtEnd(builder, endFor);
+        }
+
+        public void Visit(AST.WhileLoop node)
+        {
+            var insert = LLVM.GetInsertBlock(builder);
+
+            var loopPre = LLVM.AppendBasicBlock(ctx.Peek().function, "while_cond");
+            LLVM.MoveBasicBlockAfter(loopPre, insert);
+            var loopBody = LLVM.AppendBasicBlock(ctx.Peek().function, "while");
+            LLVM.MoveBasicBlockAfter(loopBody, loopPre);
+            var loopEnd = LLVM.AppendBasicBlock(ctx.Peek().function, "while_end");
+            LLVM.MoveBasicBlockAfter(loopEnd, loopBody);
+
+            LLVM.BuildBr(builder, loopPre);
+
+            LLVM.PositionBuilderAtEnd(builder, loopPre);
+            Visit(node.condition);
+
+            var condition = valueStack.Pop();
+            if (!isEqualType(LLVM.TypeOf(condition), Const.BoolType))
+            {
+                throw new BackendTypeMismatchException(LLVM.TypeOf(condition), Const.BoolType);
+            }
+            LLVM.BuildCondBr(builder, condition, loopBody, loopEnd);
+            LLVM.PositionBuilderAtEnd(builder, loopBody);
+
+            ctx.Push(new ExecutionContext(ctx.Peek()) { loop = true, loopNext = loopPre, loopEnd = loopEnd });
+
+            Visit(node.loopBody);
+
+            ctx.Pop();
+
+            var term = LLVM.GetBasicBlockTerminator(LLVM.GetInsertBlock(builder));
+            if (term.Pointer == IntPtr.Zero)
+                LLVM.BuildBr(builder, loopPre);
+
+            LLVM.PositionBuilderAtEnd(builder, loopEnd);
         }
 
         public void Visit(AST.FunctionDeclaration node)
@@ -811,6 +848,10 @@ namespace tmp
             else if (node is AST.ForLoop)
             {
                 Visit(node as AST.ForLoop);
+            }
+            else if (node is AST.WhileLoop)
+            {
+                Visit(node as AST.WhileLoop);
             }
             else if (node is AST.BreakLoop)
             {

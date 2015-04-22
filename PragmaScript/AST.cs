@@ -297,9 +297,10 @@ namespace PragmaScript
                 var next = peekToken(tokens, pos, tokenMustExist: true, skipWS: true);
 
                 // could be either a function call or an assignment
-                if (!next.isAssignmentOperator() && !(next.type == Token.TokenType.OpenBracket))
+                if (!next.isAssignmentOperator() && !(next.type == Token.TokenType.OpenBracket)
+                    && !((next.type == Token.TokenType.Increment || next.type == Token.TokenType.Decrement)))
                 {
-                    throw new ParserErrorExpected("assignment operator or function call", next.type.ToString(), next);
+                    throw new ParserErrorExpected("assignment operator, function call, or increment/decrement", next.type.ToString(), next);
                 }
 
                 if (next.type == Token.TokenType.OpenBracket)
@@ -310,8 +311,14 @@ namespace PragmaScript
                 {
                     result = parseAssignment(tokens, ref pos, scope);
                 }
+                else if (next.type == Token.TokenType.Increment || next.type == Token.TokenType.Decrement)
+                {
+                    result = parseVariableLookup(tokens, ref pos, scope);
+                }
                 else
+                {
                     throw new InvalidCodePath();
+                }
             }
 
             bool ignoreSemicolon = false;
@@ -324,6 +331,12 @@ namespace PragmaScript
             if (current.type == Token.TokenType.For)
             {
                 result = parseForLoop(tokens, ref pos, scope);
+                ignoreSemicolon = true;
+            }
+
+            if (current.type == Token.TokenType.While)
+            {
+                result = parseWhileLoop(tokens, ref pos, scope);
                 ignoreSemicolon = true;
             }
 
@@ -357,6 +370,37 @@ namespace PragmaScript
             {
                 throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
             }
+
+            return result;
+        }
+
+
+        static Node parseWhileLoop(IList<Token> tokens, ref int pos, Scope scope)
+        {
+
+            // while
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.While);
+
+            // while (
+            var ob = nextToken(tokens, ref pos);
+            expectTokenType(ob, Token.TokenType.OpenBracket);
+
+            var result = new WhileLoop(current);
+            var loopBodyScope = new Scope(scope, scope.function);
+
+          
+            // while (i < 10
+            nextToken(tokens, ref pos);
+            result.condition = parseBinOp(tokens, ref pos, loopBodyScope);
+
+            // while (i < 10)
+            var cb = nextToken(tokens, ref pos);
+            expectTokenType(cb, Token.TokenType.CloseBracket);
+
+            // while (i < 10) { ... }
+            nextToken(tokens, ref pos);
+            result.loopBody = parseBlock(tokens, ref pos, scope, newScope: loopBodyScope);
 
             return result;
         }

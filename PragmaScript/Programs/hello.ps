@@ -1,13 +1,14 @@
-﻿
-print("enter your name: ");
-
-var name = read();
-
-print("\nhello ");
-
-print(name);
-
-print("!");
-
-
-return 0;
+﻿var i = 0;
+while (i++ < 20)
+{
+	if (i < 5)
+	{
+		continue;
+	}
+	print_i32(i);
+	print("\n");
+	if (i > 10)
+	{
+		break;
+	}
+}

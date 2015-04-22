@@ -151,6 +151,36 @@ namespace PragmaScript
             }
         }
 
+        public class WhileLoop : Node
+        {
+            public Node condition;
+            public Node loopBody;
+
+            public WhileLoop(Token t)
+                : base(t)
+            {
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return new AnnotatedNode(condition, "condition");
+                yield return new AnnotatedNode(loopBody, "body");
+            }
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                var loopBodyScope = (loopBody as Block).scope;
+
+                var ct = await condition.CheckType(loopBodyScope);
+                if (ct != FrontendType.bool_)
+                    throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
+                await loopBody.CheckType(scope);
+                return null;
+            }
+            public override string ToString()
+            {
+                return "while";
+            }
+        }
+
         public class VariableDeclaration : Node
         {
             public VariableDefinition variable;
