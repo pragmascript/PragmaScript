@@ -1285,6 +1285,12 @@ namespace PragmaScript
                 print.AddParameter("s", FrontendType.string_);
                 rootScope.AddFunction(print);
 
+                var read = new FunctionDefinition { name = "read", returnType = FrontendType.string_ };
+                rootScope.AddFunction(read);
+
+                var cat = new FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
+                rootScope.AddFunction(cat);
+
                 
                 rootScope.AddFunction(main);
                 rootScope.function = main;

@@ -8,7 +8,7 @@
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>PragmaScript</RootNamespace>
-    <AssemblyName>PragmaScript</AssemblyName>
+    <AssemblyName>pragma</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <NuGetPackageImportStamp>74a3fa39</NuGetPackageImportStamp>
@@ -143,6 +143,9 @@
       <SubType>Designer</SubType>
     </None>
     <None Include="Programs\hello.ps">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Programs\mandelbrot.ps">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

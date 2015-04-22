@@ -1,53 +1,13 @@
 ﻿
-var ra = -2.0;
-var rb = 1.0;
-var ia = -1.0;
-var ib = 1.0;
+print("enter your name: ");
 
-var maxx = 60.0;
-var maxy = maxx * 0.5 * (ib  - ia) / (rb - ra);
+var name = read();
 
-var full = "#";
-var half = "x";
-var empt = ".";
+print("\nhello ");
 
-var deltay = (ib - ia) / maxy;
-var deltax = (rb - ra) / maxx;
+print(name);
 
-for (var cy = ia; cy < ib; cy += deltay)
-{
-	for (var cx = ra; cx < rb; cx += deltax)
-	{
-		var x = 0.0;
-		var y = 0.0;
-		var iter = 0;
-		for (; iter < 256; ++iter)
-		{
-			var x2 = x * x;
-			var y2 = y * y;
-			// stop iteration when length of Z > 2
-			if (x2 + y2 > 4.0)
-			{
-				break;
-			}
-			var twoxy = 2.0 * x * y;
-			x = x2 - y2 + cx;
-			y = twoxy + cy;
-		}
-		if (iter < 25)
-		{
-			print(empt);
-		}
-		elif (iter < 200)
-		{
-			print(half);
-		}
-		else
-		{
-			print(full);
-		}
+print("!");
 
-	}
-	print("\n");
-}
 
+return 0;
