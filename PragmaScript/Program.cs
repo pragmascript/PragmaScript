@@ -17,7 +17,7 @@ namespace PragmaScript
     static class CompilerOptions
     {
         public static bool debug = false;
-        public static string  inputFilename;
+        public static string inputFilename;
         public static bool useOptimizations = true;
     }
 
@@ -28,7 +28,7 @@ namespace PragmaScript
         {
             parseARGS(args);
 
-           
+
 #if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.useOptimizations = true;
@@ -206,5 +206,13 @@ namespace PragmaScript
             Console.ReadLine();
 #endif
         }
+  
     }
+
+
+
+
+
+
 }
+

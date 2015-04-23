@@ -77,7 +77,7 @@ namespace PragmaScript
     class UndefinedVariable : ParserError
     {
         public UndefinedVariable(string variableName, Token t)
-            : base(string.Format("undefined varialbe \"{0}\"", variableName), t)
+            : base(string.Format("undefined variable \"{0}\"", variableName), t)
         {
 
         }
@@ -87,7 +87,7 @@ namespace PragmaScript
     class RedefinedVariable : ParserError
     {
         public RedefinedVariable(string variableName, Token t)
-            : base(string.Format("varialbe \"{0}\" already defined", variableName), t)
+            : base(string.Format("variable \"{0}\" already defined", variableName), t)
         {
 
         }

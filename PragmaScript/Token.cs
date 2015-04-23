@@ -71,7 +71,9 @@ namespace PragmaScript
             XOREquals,
             Continue,
             Break,
-            While
+            While,
+            OpenSquareBracket,
+            CloseSquareBracket
         }
 
         public TokenType type { get; private set; }
@@ -106,6 +108,8 @@ namespace PragmaScript
             operators.Add("=", TokenType.Assignment);
             operators.Add("(", TokenType.OpenBracket);
             operators.Add(")", TokenType.CloseBracket);
+            operators.Add("[", TokenType.OpenSquareBracket);
+            operators.Add("]", TokenType.CloseSquareBracket);
             operators.Add("{", TokenType.OpenCurly);
             operators.Add("}", TokenType.CloseCurly);
             operators.Add("+", TokenType.Add);
@@ -115,6 +119,7 @@ namespace PragmaScript
             operators.Add("%", TokenType.Remainder);
             operators.Add(",", TokenType.Comma);
             operators.Add(";", TokenType.Semicolon);
+            operators.Add(":", TokenType.Colon);
             operators.Add("<<", TokenType.LeftShift);
             operators.Add(">>", TokenType.RightShift);
             operators.Add("||", TokenType.ConditionalOR);

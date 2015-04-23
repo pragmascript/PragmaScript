@@ -62,6 +62,33 @@ namespace tmp
             valueStack.Push(result);
         }
 
+        public void Visit(AST.ConstArray node)
+        {
+
+            LLVMValueRef[] values = new LLVMValueRef[node.elements.Count];
+            
+            var idx = 0;
+            foreach (var elem in node.elements)
+            {
+                Visit(elem);
+                values[idx++] = valueStack.Pop();
+            }
+
+
+            var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
+
+            var global = LLVM.AddGlobal(mod, LLVM.TypeOf(arr), ctx.Peek().functionName + "." + "const_array");
+            LLVM.SetInitializer(global, arr);
+            LLVM.SetGlobalConstant(global, Const.TrueBool);
+            LLVM.SetLinkage(global, LLVMLinkage.LLVMPrivateLinkage);
+            LLVM.SetUnnamedAddr(global, Const.TrueBool);
+            var result = LLVM.BuildLoad(builder, global, "array_load");
+            valueStack.Push(result);
+            
+
+            // valueStack.Push(arr);
+        }
+
         public void Visit(AST.BinOp node)
         {
             if (node.type == AST.BinOp.BinOpType.ConditionalOR)
@@ -373,6 +400,7 @@ namespace tmp
 
             var result = valueStack.Pop();
             var resultType = LLVM.TypeOf(result);
+
             LLVMValueRef v;
 
             var insert = LLVM.GetInsertBlock(builder);
@@ -754,7 +782,7 @@ namespace tmp
 
             LLVM.PositionBuilderAtEnd(builder, entry);
 
-            ctx.Push(new ExecutionContext(function, vars, entry));
+            ctx.Push(new ExecutionContext(function, fun.name, vars, entry));
 
             Visit(node.body);
 
@@ -791,6 +819,26 @@ namespace tmp
             LLVM.BuildBr(builder, ctx.Peek().loopNext);
         }
 
+        public void Visit(AST.ArrayElementAccess node)
+        {
+            var arr = variables[node.variableName];
+
+            var art = typeToString(LLVM.TypeOf(arr));
+            Console.WriteLine(art);
+            
+
+            Visit(node.index);
+            var idx = valueStack.Pop();
+
+            var indices = new LLVMValueRef[]{ Const.ZeroInt32, idx };
+            var gep = LLVM.BuildInBoundsGEP(builder, arr, out indices[0], 2, "array_elem_ptr");
+
+            var load = LLVM.BuildLoad(builder, gep, "array_elem");
+
+            valueStack.Push(load);
+
+        }
+
         public void Visit(AST.Node node)
         {
             if (node is AST.ConstInt32)
@@ -808,6 +856,10 @@ namespace tmp
             else if (node is AST.ConstString)
             {
                 Visit(node as AST.ConstString);
+            }
+            else if (node is AST.ConstArray)
+            {
+                Visit(node as AST.ConstArray);
             }
             else if (node is AST.BinOp)
             {
@@ -836,6 +888,10 @@ namespace tmp
             else if (node is AST.VariableLookup)
             {
                 Visit(node as AST.VariableLookup);
+            }
+            else if (node is AST.ArrayElementAccess)
+            {
+                Visit(node as AST.ArrayElementAccess);
             }
             else if (node is AST.FunctionCall)
             {

@@ -59,6 +59,8 @@ namespace PragmaScript
             }
         }
 
+       
+
         public class FrontendType
         {
             public static readonly FrontendType void_ = new FrontendType { name = "void" };
@@ -67,7 +69,17 @@ namespace PragmaScript
             public static readonly FrontendType bool_ = new FrontendType { name = "bool" };
             public static readonly FrontendType string_ = new FrontendType { name = "string" };
 
-            public string name;
+            public string name { get; protected set; }
+
+            public FrontendType(string name)
+            {
+                this.name = name;
+            }
+
+            protected FrontendType()
+            {
+
+            }
 
             public override int GetHashCode()
             {
@@ -78,6 +90,18 @@ namespace PragmaScript
             {
                 return name;
             }
+        }
+
+        public class FrontendArrayType : FrontendType
+        {
+            public FrontendType elementType;
+            public FrontendArrayType(FrontendType elementType)
+            {
+                this.elementType = elementType;
+                name = "[" + elementType + "]";
+            }
+
+
         }
 
         public class VariableDefinition
@@ -211,8 +235,7 @@ namespace PragmaScript
 
             public void AddType(string name, Token t)
             {
-                FrontendType type = new FrontendType();
-                type.name = name;
+                FrontendType type = new FrontendType(name);
                 if (types.ContainsKey(name))
                 {
                     throw new RedefinedType(name, t);
@@ -719,6 +742,36 @@ namespace PragmaScript
             return result;
         }
 
+
+        static Node parseArray(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.OpenSquareBracket);
+
+            var next = peekToken(tokens, pos);
+
+            var result = new ConstArray(current);
+
+            while (next.type != Token.TokenType.CloseSquareBracket)
+            {
+                current = nextToken(tokens, ref pos);
+                var elem = parseBinOp(tokens, ref pos, scope);
+                result.elements.Add(elem);
+                next = peekToken(tokens, pos);
+                if (next.type == Token.TokenType.Comma)
+                {
+                    nextToken(tokens, ref pos);
+                }
+                else
+                {
+                    expectTokenType(next, Token.TokenType.CloseSquareBracket);
+                }
+            }
+
+            nextToken(tokens, ref pos);
+            return result;
+        }
+
         static Node parseVariableDeclaration(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
@@ -736,7 +789,16 @@ namespace PragmaScript
 
             // add variable to scope
             result.variable = scope.AddVar(ident.text, current);
-            result.expression = parseBinOp(tokens, ref pos, scope);
+
+            if (firstExpressionToken.type == Token.TokenType.OpenSquareBracket)
+            {
+                result.expression = parseArray(tokens, ref pos, scope);
+            }
+            else
+            {
+                result.expression = parseBinOp(tokens, ref pos, scope);
+            }
+            
 
             return result;
         }
@@ -911,6 +973,7 @@ namespace PragmaScript
                     return result;
                 }
 
+
                 return parseVariableLookup(tokens, ref pos, scope);
             }
 
@@ -926,20 +989,20 @@ namespace PragmaScript
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Identifier, Token.TokenType.Increment, Token.TokenType.Decrement);
 
-            var varLookup = new VariableLookup(current);
-            varLookup.inc = VariableLookup.Incrementor.None;
+            VariableLookup result = new VariableLookup(current);
+            result.inc = VariableLookup.Incrementor.None;
 
             if (current.type == Token.TokenType.Increment || current.type == Token.TokenType.Decrement)
             {
-                varLookup.inc = current.type == Token.TokenType.Increment ?
+                result.inc = current.type == Token.TokenType.Increment ?
                     VariableLookup.Incrementor.preIncrement : VariableLookup.Incrementor.preDecrement;
                 var id = nextToken(tokens, ref pos);
                 expectTokenType(id, Token.TokenType.Identifier);
-                varLookup.token = id;
+                result.token = id;
                 current = id;
             }
 
-            varLookup.variableName = current.text;
+            result.variableName = current.text;
 
             if (scope.GetVar(current.text) == null)
             {
@@ -949,16 +1012,33 @@ namespace PragmaScript
             var peek = peekToken(tokens, pos);
             if (peek.type == Token.TokenType.Increment || peek.type == Token.TokenType.Decrement)
             {
-                if (varLookup.inc != VariableLookup.Incrementor.None)
+                if (result.inc != VariableLookup.Incrementor.None)
                 {
                     throw new ParserError("You can't use both pre-increment and post-increment", peek);
                 }
                 nextToken(tokens, ref pos);
-                varLookup.inc = peek.type == Token.TokenType.Increment ?
+                result.inc = peek.type == Token.TokenType.Increment ?
                     VariableLookup.Incrementor.postIncrement : VariableLookup.Incrementor.postDecrement;
             }
 
-            return varLookup;
+            // TODO: handle multi dimensional arrays
+            if (peek.type == Token.TokenType.OpenSquareBracket)
+            {
+                // skip [ token
+                nextToken(tokens, ref pos);
+                nextToken(tokens, ref pos);
+
+                var arrayElem = new ArrayElementAccess(peek);
+                arrayElem.variableName = current.text;
+                
+                arrayElem.index = parseBinOp(tokens, ref pos, scope);
+                var cb = nextToken(tokens, ref pos); 
+                expectTokenType(cb, Token.TokenType.CloseSquareBracket);
+
+                return arrayElem;
+            }
+
+            return result;
         }
 
         static Node parseFunctionCall(IList<Token> tokens, ref int pos, Scope scope)
@@ -971,6 +1051,7 @@ namespace PragmaScript
 
             if (scope.GetFunction(result.functionName) == null)
             {
+
                 throw new ParserError(string.Format("Undefined function \"{0}\"", result.functionName), current);
             }
 

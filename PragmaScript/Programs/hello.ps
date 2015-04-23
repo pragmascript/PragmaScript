@@ -1,14 +1,11 @@
-﻿var i = 0;
-while (i++ < 20)
+﻿var x = [7,12,8];
+
+var sum = 0;
+
+for (var i = 0; i < 3; ++i)
 {
-	if (i < 5)
-	{
-		continue;
-	}
-	print_i32(i);
-	print("\n");
-	if (i > 10)
-	{
-		break;
-	}
+	sum += x[i];
+
 }
+
+return sum;

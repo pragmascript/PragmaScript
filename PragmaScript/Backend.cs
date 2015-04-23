@@ -16,6 +16,7 @@ namespace PragmaScript
         public class ExecutionContext
         {
             public LLVMValueRef function;
+            public string functionName;
             public LLVMBasicBlockRef entry;
             public LLVMBasicBlockRef vars;
 
@@ -23,9 +24,10 @@ namespace PragmaScript
             public LLVMBasicBlockRef loopNext;
             public LLVMBasicBlockRef loopEnd;
 
-            public ExecutionContext(LLVMValueRef function, LLVMBasicBlockRef entry, LLVMBasicBlockRef vars)
+            public ExecutionContext(LLVMValueRef function, string functionName, LLVMBasicBlockRef entry, LLVMBasicBlockRef vars)
             {
                 this.function = function;
+                this.functionName = functionName;
                 this.entry = entry;
                 this.vars = vars;
                 loop = false;
@@ -36,6 +38,7 @@ namespace PragmaScript
             public ExecutionContext(ExecutionContext other)
             {
                 function = other.function;
+                functionName = other.functionName;
                 entry = other.entry;
                 vars = other.vars;
                 loop = other.loop;
@@ -304,10 +307,13 @@ namespace PragmaScript
             LLVMTypeRef[] main_param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
             LLVMTypeRef main_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out main_param_types[0], 0, Const.FalseBool);
             mainFunction = LLVM.AddFunction(mod, "main", main_fun_type);
+            
+            LLVM.AddFunctionAttr(mainFunction, LLVMAttribute.LLVMNoUnwindAttribute);
+
             LLVMBasicBlockRef vars = LLVM.AppendBasicBlock(mainFunction, "vars");
             LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(mainFunction, "entry");
 
-            var c = new ExecutionContext(mainFunction, entry, vars);
+            var c = new ExecutionContext(mainFunction, "main", entry, vars);
             ctx.Push(c);
 
 
@@ -343,6 +349,8 @@ namespace PragmaScript
 
             LLVMExecutionEngineRef engine;
 
+            
+
             LLVM.LinkInMCJIT();
             LLVM.InitializeX86Target();
             LLVM.InitializeX86TargetInfo();
@@ -375,17 +383,64 @@ namespace PragmaScript
             LLVM.AddTargetData(LLVM.GetExecutionEngineTargetData(engine), pass);
             if (useOptimizationPasses)
             {
-                LLVM.AddConstantPropagationPass(pass);
-                LLVM.AddInstructionCombiningPass(pass);
-                LLVM.AddPromoteMemoryToRegisterPass(pass);
-                LLVM.AddGVNPass(pass);
-                LLVM.AddCFGSimplificationPass(pass);
-                LLVM.AddGlobalOptimizerPass(pass);
-                LLVM.AddVerifierPass(pass);
-                LLVM.AddFunctionInliningPass(pass);
                 LLVM.AddBBVectorizePass(pass);
-                LLVM.AddLoopVectorizePass(pass);
+                LLVM.AddConstantMergePass(pass);
+                LLVM.AddDemoteMemoryToRegisterPass(pass);
+                LLVM.AddFunctionInliningPass(pass);
+                LLVM.AddGVNPass(pass);
+                // LLVM.AddInternalizePass(pass, (uint)0);
+                LLVM.AddIPSCCPPass(pass);
+                LLVM.AddLoopRerollPass(pass);
+                LLVM.AddLoopUnswitchPass(pass);
+                LLVM.AddLowerSwitchPass(pass);
+                LLVM.AddMergedLoadStoreMotionPass(pass);
+                LLVM.AddPartiallyInlineLibCallsPass(pass);
+                LLVM.AddPromoteMemoryToRegisterPass(pass);
+                LLVM.AddSimplifyLibCallsPass(pass);
                 LLVM.AddSLPVectorizePass(pass);
+                LLVM.AddStripSymbolsPass(pass);
+                LLVM.AddAggressiveDCEPass(pass);
+                LLVM.AddAlignmentFromAssumptionsPass(pass);
+                LLVM.AddCorrelatedValuePropagationPass(pass);
+                LLVM.AddBasicAliasAnalysisPass(pass);
+                LLVM.AddConstantPropagationPass(pass);
+                LLVM.AddCFGSimplificationPass(pass);
+                LLVM.AddScopedNoAliasAAPass(pass);
+                LLVM.AddJumpThreadingPass(pass);
+                LLVM.AddScalarReplAggregatesPass(pass);
+                LLVM.AddScalarReplAggregatesPassSSA(pass);
+                LLVM.AddInstructionCombiningPass(pass);
+                LLVM.AddMemCpyOptPass(pass);
+                LLVM.AddLoopVectorizePass(pass);
+                LLVM.AddEarlyCSEPass(pass);
+                LLVM.AddLoopRotatePass(pass);
+                LLVM.AddStripDeadPrototypesPass(pass);
+                LLVM.AddLoopDeletionPass(pass);
+                LLVM.AddTypeBasedAliasAnalysisPass(pass);
+                LLVM.AddPruneEHPass(pass);
+                LLVM.AddIndVarSimplifyPass(pass);
+                LLVM.AddLoopUnrollPass(pass);
+                LLVM.AddReassociatePass(pass);
+                LLVM.AddSCCPPass(pass);
+                // LLVM.AddAlwaysInlinerPass(pass);
+                LLVM.AddBasicAliasAnalysisPass(pass);
+                LLVM.AddDeadStoreEliminationPass(pass);
+                LLVM.AddGlobalOptimizerPass(pass);
+                LLVM.AddTailCallEliminationPass(pass);
+                LLVM.AddFunctionAttrsPass(pass);
+                LLVM.AddDeadArgEliminationPass(pass);
+                LLVM.AddScalarizerPass(pass);
+                LLVM.AddLowerExpectIntrinsicPass(pass);
+                LLVM.AddLICMPass(pass);
+                LLVM.AddLoopIdiomPass(pass);
+                LLVM.AddIPConstantPropagationPass(pass);
+                LLVM.AddArgumentPromotionPass(pass);
+
+
+                LLVM.AddVerifierPass(pass);
+                
+   
+                
                 LLVM.RunPassManager(pass, mod);
             }
             else

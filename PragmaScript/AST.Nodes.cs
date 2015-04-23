@@ -320,6 +320,8 @@ namespace PragmaScript
             }
         }
 
+       
+
         public class Assignment : Node
         {
             public VariableDefinition variable;
@@ -424,6 +426,105 @@ namespace PragmaScript
                 return s;
             }
         }
+
+        public class ConstArray : Node
+        {
+            public FrontendType elementType;
+            public List<Node> elements = new List<Node>();
+
+            public ConstArray(Token t)
+                : base(t)
+            {
+
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                var idx = 0;
+                foreach (var x in elements)
+                {
+                    yield return new AnnotatedNode(x, "elem_" + idx++);
+                }
+            }
+
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                if (elements.Count == 0)
+                {
+                    throw new ParserError("zero sized array detected", token);
+                }
+                var ets = await Task.WhenAll(elements.Select(e => e.CheckType(scope)));
+
+                var firstType = ets.First();
+                if (!ets.All(e => e == firstType))
+                {
+                    throw new ParserError("all elements in an array must have the same type", token);
+                }
+
+                elementType = firstType;
+
+                return new FrontendArrayType(elementType);
+
+            }
+            public override string ToString()
+            {
+                return elementType.ToString() + "[]";
+            }
+        }
+
+
+        public class ArrayElementAccess : Node
+        {
+            
+            public Node index;
+
+            public string variableName;
+            public VariableDefinition varDefinition;
+
+            public ArrayElementAccess(Token t)
+                : base(t)
+            {
+
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return index;
+              
+            }
+
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                
+                var v = scope.GetVar(variableName);
+                varDefinition = v;
+
+                while(v.type == null)
+                {
+                    await Task.Yield();
+                }
+
+                if (!(v.type is FrontendArrayType))
+                {
+                    throw new ParserError("variable is not an array type", token);
+                }
+     
+                
+
+                var idxType = await index.CheckType(scope);
+                if (idxType != FrontendType.int32)
+                {
+                    throw new ParserExpectedType(FrontendType.int32, idxType, index.token);
+                }
+
+                var atype = v.type as FrontendArrayType;
+                return atype.elementType;
+            }
+            public override string ToString()
+            {
+                return variableName + "[]";
+            }
+        }
+
+      
 
         public class BreakLoop : Node
         {
