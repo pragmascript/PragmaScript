@@ -59,7 +59,7 @@ namespace PragmaScript
             }
         }
 
-       
+
 
         public class FrontendType
         {
@@ -68,8 +68,7 @@ namespace PragmaScript
             public static readonly FrontendType float32 = new FrontendType { name = "float32" };
             public static readonly FrontendType bool_ = new FrontendType { name = "bool" };
             public static readonly FrontendType string_ = new FrontendType { name = "string" };
-
-            public string name { get; protected set; }
+            string name;
 
             public FrontendType(string name)
             {
@@ -83,7 +82,29 @@ namespace PragmaScript
 
             public override int GetHashCode()
             {
-                return name.GetHashCode();
+                return ToString().GetHashCode();
+            }
+
+            public override string ToString()
+            {
+                return name;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return ToString() == obj.ToString();
+            }
+        }
+
+        public class FrontendArrayType : FrontendStructType
+        {
+            public FrontendType elementType;
+            string name;
+            public FrontendArrayType(FrontendType elementType)
+            {
+                this.elementType = elementType;
+                name = "[" + elementType + "]";
+                AddField("length", FrontendType.int32);
             }
 
             public override string ToString()
@@ -92,17 +113,46 @@ namespace PragmaScript
             }
         }
 
-        public class FrontendArrayType : FrontendType
+        public class FrontendStructType : FrontendType
         {
-            public FrontendType elementType;
-            public FrontendArrayType(FrontendType elementType)
+            Dictionary<string, FrontendType> fields = new Dictionary<string, FrontendType>();
+
+
+            string name = "";
+            public FrontendStructType()
             {
-                this.elementType = elementType;
-                name = "[" + elementType + "]";
             }
 
+            public void AddField(string name, FrontendType type)
+            {
+                fields.Add(name, type);
+            }
+
+            public FrontendType GetField(string name)
+            {
+                var result = default(FrontendType);
+                if (fields.TryGetValue(name, out result))
+                {
+                    return result;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            void calcTypeName()
+            {
+                name = "{" + string.Join(",", fields.Values) + "}";
+            }
+
+            public override string ToString()
+            {
+                return name;
+            }
 
         }
+
 
         public class VariableDefinition
         {
@@ -245,11 +295,11 @@ namespace PragmaScript
 
             public void AddType(FrontendType t, Token token)
             {
-                if (types.ContainsKey(t.name))
+                if (types.ContainsKey(t.ToString()))
                 {
-                    throw new RedefinedType(t.name, token);
+                    throw new RedefinedType(t.ToString(), token);
                 }
-                types.Add(t.name, t);
+                types.Add(t.ToString(), t);
             }
 
         }
@@ -279,7 +329,6 @@ namespace PragmaScript
                 return "Block";
             }
         }
-
         public static int skipWhitespace(IList<Token> tokens, int pos, bool requireOneWS = false)
         {
             bool foundWS = false;
@@ -412,7 +461,7 @@ namespace PragmaScript
             var result = new WhileLoop(current);
             var loopBodyScope = new Scope(scope, scope.function);
 
-          
+
             // while (i < 10
             nextToken(tokens, ref pos);
             result.condition = parseBinOp(tokens, ref pos, loopBodyScope);
@@ -737,7 +786,7 @@ namespace PragmaScript
                     throw new InvalidCodePath();
             }
 
-            
+
 
             return result;
         }
@@ -798,7 +847,7 @@ namespace PragmaScript
             {
                 result.expression = parseBinOp(tokens, ref pos, scope);
             }
-            
+
 
             return result;
         }
@@ -963,7 +1012,7 @@ namespace PragmaScript
                 return result;
             }
 
-            // either function call or variable
+            // either function call variable or struct field access
             if (current.type == Token.TokenType.Identifier)
             {
                 var peek = peekToken(tokens, pos, skipWS: true);
@@ -972,8 +1021,10 @@ namespace PragmaScript
                     var result = parseFunctionCall(tokens, ref pos, scope);
                     return result;
                 }
-
-
+                if (peek.type == Token.TokenType.Dot)
+                {
+                    return parseStructFieldAccess(tokens, ref pos, scope);
+                }
                 return parseVariableLookup(tokens, ref pos, scope);
             }
 
@@ -982,6 +1033,32 @@ namespace PragmaScript
                 return parseVariableLookup(tokens, ref pos, scope);
             }
             throw new ParserError("Unexpected token type: " + current.type, current);
+        }
+
+
+        static Node parseStructFieldAccess(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Identifier);
+
+            var dot = nextToken(tokens, ref pos);
+            expectTokenType(dot, Token.TokenType.Dot);
+
+            var fieldName = nextToken(tokens, ref pos);
+            expectTokenType(fieldName, Token.TokenType.Identifier);
+
+            
+
+            if (scope.GetVar(current.text) == null)
+            {
+                throw new UndefinedVariable(current.text, current);
+            }
+            var result = new StructFieldAccess(current);
+            result.structName = current.text;
+            result.fieldName = fieldName.text;
+
+            // TODO: what happens if the field is an array? [ ]
+            return result;
         }
 
         static Node parseVariableLookup(IList<Token> tokens, ref int pos, Scope scope)
@@ -1030,16 +1107,17 @@ namespace PragmaScript
 
                 var arrayElem = new ArrayElementAccess(peek);
                 arrayElem.variableName = current.text;
-                
+
                 arrayElem.index = parseBinOp(tokens, ref pos, scope);
-                var cb = nextToken(tokens, ref pos); 
+                var cb = nextToken(tokens, ref pos);
                 expectTokenType(cb, Token.TokenType.CloseSquareBracket);
 
                 return arrayElem;
             }
-
             return result;
         }
+
+
 
         static Node parseFunctionCall(IList<Token> tokens, ref int pos, Scope scope)
         {
@@ -1416,7 +1494,7 @@ namespace PragmaScript
                 var cat = new FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
                 rootScope.AddFunction(cat);
 
-                
+
                 rootScope.AddFunction(main);
                 rootScope.function = main;
                 // perform AST generation pass

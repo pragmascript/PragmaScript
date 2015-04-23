@@ -357,7 +357,7 @@ namespace tmp
             var v = valueStack.Pop();
             var vtype = LLVM.TypeOf(v);
 
-            var typeName = node.type.name;
+            var typeName = node.type.ToString();
 
             var result = default(LLVMValueRef);
             var resultType = getTypeRef(node.type);

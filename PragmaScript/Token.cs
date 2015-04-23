@@ -73,7 +73,8 @@ namespace PragmaScript
             Break,
             While,
             OpenSquareBracket,
-            CloseSquareBracket
+            CloseSquareBracket,
+            Dot
         }
 
         public TokenType type { get; private set; }
@@ -138,7 +139,7 @@ namespace PragmaScript
             operators.Add("++", TokenType.Increment);
             operators.Add("--", TokenType.Decrement);
             operators.Add("=>", TokenType.FatArrow);
-
+            operators.Add(".", TokenType.Dot);
             operators.Add("+=", TokenType.PlusEquals);
             operators.Add("-=", TokenType.MinusEquals);
             operators.Add("*=", TokenType.MultiplyEquals);

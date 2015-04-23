@@ -472,6 +472,45 @@ namespace PragmaScript
         }
 
 
+        public class StructFieldAccess : Node
+        {
+            public string structName;
+            public string fieldName;
+            public VariableDefinition structure;
+
+            public StructFieldAccess(Token t) :
+                base(t)
+            {
+
+            }
+
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                var v = scope.GetVar(structName);
+                structure = v;
+
+                while (v.type == null)
+                {
+                    await Task.Yield();
+                }
+
+                if (!(v.type is FrontendStructType))
+                {
+                    throw new ParserError("variable is not a struct type", token);
+                }
+                var str = v.type as FrontendStructType;
+
+                // TODO: what happens if the type of field is not already resolved?
+                var field = str.GetField(fieldName);
+                if (str.GetField(fieldName) == null)
+                {
+                    throw new ParserError(
+                        string.Format("struct does not contain field \"{0}\"", fieldName), token);
+                }
+                return field;
+            }
+        }
+
         public class ArrayElementAccess : Node
         {
             
@@ -864,7 +903,7 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return "(" + type.name + ")";
+                return "(" + type.ToString() + ")";
             }
         }
     }
