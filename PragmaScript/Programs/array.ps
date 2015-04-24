@@ -1,0 +1,36 @@
+﻿var x = [7, 12, 8, 16, 191, 1212];
+var y = [0.1, 0.2, 0.3, 0.4];
+
+let min = (x: int32, y: int32) =>
+{
+	if (x <= y)
+	{
+	  return x;
+	}
+	else
+	{
+	  return y;
+	}
+}
+
+let max = (x: int32, y: int32) =>
+{
+	if (x >= y)
+	{
+	  return x;
+	}
+	else
+	{
+	  return y;
+	}
+}
+
+
+
+for (var i = 0; i < min(x.length, y.length); ++i)
+{
+	print_i32(x[i]);
+	print("\n");
+	print_f32(y[i]);
+	print("\n");
+}

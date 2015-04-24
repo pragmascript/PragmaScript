@@ -399,7 +399,7 @@ namespace tmp
             valueStack.Push(result);
         }
 
-        public void Visit(AST.VariableDeclaration node)
+        public void Visit(AST.VariableDefinition node)
         {
             Visit(node.expression);
 
@@ -751,7 +751,7 @@ namespace tmp
             LLVM.PositionBuilderAtEnd(builder, loopEnd);
         }
 
-        public void Visit(AST.FunctionDeclaration node)
+        public void Visit(AST.FunctionDefinition node)
         {
             var fun = node.fun;
 
@@ -884,9 +884,9 @@ namespace tmp
             {
                 Visit(node as AST.TypeCastOp);
             }
-            else if (node is AST.VariableDeclaration)
+            else if (node is AST.VariableDefinition)
             {
-                Visit(node as AST.VariableDeclaration);
+                Visit(node as AST.VariableDefinition);
             }
             else if (node is AST.Assignment)
             {
@@ -936,9 +936,9 @@ namespace tmp
             {
                 Visit(node as AST.ReturnFunction);
             }
-            else if (node is AST.FunctionDeclaration)
+            else if (node is AST.FunctionDefinition)
             {
-                Visit(node as AST.FunctionDeclaration);
+                Visit(node as AST.FunctionDefinition);
             }
         }
     }

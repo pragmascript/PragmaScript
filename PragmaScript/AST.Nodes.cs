@@ -181,12 +181,14 @@ namespace PragmaScript
             }
         }
 
-        public class VariableDeclaration : Node
+
+      
+        public class VariableDefinition : Node
         {
-            public VariableDefinition variable;
+            public Scope.VariableDefinition variable;
             public Node expression;
 
-            public VariableDeclaration(Token t)
+            public VariableDefinition(Token t)
                 : base(t)
             {
             }
@@ -207,12 +209,12 @@ namespace PragmaScript
             }
         }
 
-        public class FunctionDeclaration : Node
+        public class FunctionDefinition : Node
         {
-            public FunctionDefinition fun;
+            public Scope.FunctionDefinition fun;
             public Node body;
 
-            public FunctionDeclaration(Token t)
+            public FunctionDefinition(Token t)
                 : base(t)
             {
             }
@@ -238,6 +240,28 @@ namespace PragmaScript
                 }
                 return result + ")";
             }
+        }
+
+        public class StructDefinition : Node
+        {
+            public Scope.StructDefinition structure;
+            public StructDefinition(Token t)
+                : base(t)
+            {
+
+            }
+
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                return structure.type;
+            }
+
+            public override string ToString()
+            {
+                var fields = string.Join(", ", structure.fields.Select(f => f.name + ": " + f.type));
+                return structure.name + " = struct { " + fields + " }";
+            }
+
         }
 
         public class FunctionCall : Node
@@ -284,7 +308,7 @@ namespace PragmaScript
             public enum Incrementor { None, preIncrement, preDecrement, postIncrement, postDecrement }
             public Incrementor inc;
             public string variableName;
-            public VariableDefinition varDefinition;
+            public Scope.VariableDefinition varDefinition;
             public VariableLookup(Token t)
                 : base(t)
             {
@@ -324,7 +348,7 @@ namespace PragmaScript
 
         public class Assignment : Node
         {
-            public VariableDefinition variable;
+            public Scope.VariableDefinition variable;
             public Node expression;
 
             public Assignment(Token t)
@@ -476,7 +500,7 @@ namespace PragmaScript
         {
             public string structName;
             public string fieldName;
-            public VariableDefinition structure;
+            public Scope.VariableDefinition structure;
 
             public StructFieldAccess(Token t) :
                 base(t)
@@ -517,7 +541,7 @@ namespace PragmaScript
             public Node index;
 
             public string variableName;
-            public VariableDefinition varDefinition;
+            public Scope.VariableDefinition varDefinition;
 
             public ArrayElementAccess(Token t)
                 : base(t)

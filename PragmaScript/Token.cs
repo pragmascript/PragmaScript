@@ -74,7 +74,8 @@ namespace PragmaScript
             While,
             OpenSquareBracket,
             CloseSquareBracket,
-            Dot
+            Dot,
+            Struct
         }
 
         public TokenType type { get; private set; }
@@ -93,6 +94,7 @@ namespace PragmaScript
             keywords = new Dictionary<string, TokenType>();
             keywords.Add("let", TokenType.Let);
             keywords.Add("var", TokenType.Var);
+            keywords.Add("struct", TokenType.Struct);
             keywords.Add("return", TokenType.Return);
             keywords.Add("true", TokenType.True);
             keywords.Add("false", TokenType.False);

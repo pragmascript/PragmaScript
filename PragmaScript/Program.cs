@@ -48,6 +48,9 @@ namespace PragmaScript
             {
                 writeError("Could not open input file!");
             }
+#if DEBUG
+            Console.ReadLine();
+#endif
         }
 
         static void writeError(string s)

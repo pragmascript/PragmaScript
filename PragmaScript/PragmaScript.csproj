@@ -142,8 +142,11 @@
     <None Include="packages.config">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Programs\hello.ps">
+    <None Include="Programs\array.ps">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Programs\hello.ps">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="Programs\mandelbrot.ps">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

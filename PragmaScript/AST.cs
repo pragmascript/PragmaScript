@@ -68,7 +68,7 @@ namespace PragmaScript
             public static readonly FrontendType float32 = new FrontendType { name = "float32" };
             public static readonly FrontendType bool_ = new FrontendType { name = "bool" };
             public static readonly FrontendType string_ = new FrontendType { name = "string" };
-            string name;
+            public string name;
 
             public FrontendType(string name)
             {
@@ -170,33 +170,47 @@ namespace PragmaScript
         }
 
 
-        public class VariableDefinition
-        {
-            public bool isFunctionParameter;
-            public int parameterIdx = -1;
-            public string name;
-            public FrontendType type;
-        }
-
-        public struct NamedParameter
-        {
-            public string name;
-            public FrontendType type;
-        }
-
-        public class FunctionDefinition
-        {
-            public string name;
-            public FrontendType returnType;
-            public List<NamedParameter> parameters = new List<NamedParameter>();
-            public void AddParameter(string name, FrontendType type)
-            {
-                parameters.Add(new NamedParameter { name = name, type = type });
-            }
-        }
+      
 
         public class Scope
         {
+            public class VariableDefinition
+            {
+                public bool isFunctionParameter;
+                public int parameterIdx = -1;
+                public string name;
+                public FrontendType type;
+            }
+
+            public struct NamedParameter
+            {
+                public string name;
+                public FrontendType type;
+            }
+
+            public class FunctionDefinition
+            {
+                public string name;
+                public FrontendType returnType;
+                public List<NamedParameter> parameters = new List<NamedParameter>();
+                public void AddParameter(string name, FrontendType type)
+                {
+                    parameters.Add(new NamedParameter { name = name, type = type });
+                }
+            }
+
+            public class StructDefinition
+            {
+                public string name;
+                public FrontendType type;
+                public List<NamedParameter> fields = new List<NamedParameter>();
+
+                public void AddField(string name, FrontendType type)
+                {
+                    fields.Add(new NamedParameter { name = name, type = type });
+                }
+            }
+
             public FunctionDefinition function;
             public Scope parent;
 
@@ -428,11 +442,32 @@ namespace PragmaScript
                 ignoreSemicolon = true;
             }
 
+            // TODO: make this LET thing work for variables as well
             if (current.type == Token.TokenType.Let)
             {
+                var letPos = pos;
+                // TODO: do i really need 3 lookahead?
+                var identifier = nextToken(tokens, ref pos);
+                expectTokenType(identifier, Token.TokenType.Identifier);
+
+                var assignment = nextToken(tokens, ref pos);
+                expectTokenType(assignment, Token.TokenType.Assignment);
+
+                var next = peekToken(tokens, ref pos);
+
+                pos = letPos;
+
                 // TODO: distinguish between constant variables and function definition
-                result = parseFunctionDefinition(tokens, ref pos, scope);
-                ignoreSemicolon = true;
+                if (next.type == Token.TokenType.Struct)
+                {
+                    result = parseStructDefinition(tokens, ref pos, scope);
+                    ignoreSemicolon = true;
+                }
+                else
+                {
+                    result = parseFunctionDefinition(tokens, ref pos, scope);
+                    ignoreSemicolon = true;
+                }
             }
 
 
@@ -850,7 +885,7 @@ namespace PragmaScript
 
             var firstExpressionToken = nextToken(tokens, ref pos, skipWS: true);
 
-            var result = new VariableDeclaration(current);
+            var result = new VariableDefinition(current);
 
             // add variable to scope
             result.variable = scope.AddVar(ident.text, current);
@@ -863,7 +898,6 @@ namespace PragmaScript
             {
                 result.expression = parseBinOp(tokens, ref pos, scope);
             }
-
 
             return result;
         }
@@ -1250,7 +1284,68 @@ namespace PragmaScript
             return result;
         }
 
-        // TODO: make this LET thing work for variables as well
+
+        public static Node parseStructDefinition(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            // let
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Let);
+
+            var scopeStruct = new Scope.StructDefinition();
+
+            // let foo
+            var id = nextToken(tokens, ref pos);
+            expectTokenType(id, Token.TokenType.Identifier);
+            scopeStruct.name = id.text;
+
+            // let foo = 
+            var ass = nextToken(tokens, ref pos);
+            expectTokenType(ass, Token.TokenType.Assignment);
+
+            // let foo = struct
+            var st = nextToken(tokens, ref pos);
+            expectTokenType(st, Token.TokenType.Struct);
+
+
+            // let foo = stuct { 
+            var oc = nextToken(tokens, ref pos);
+            expectTokenType(oc, Token.TokenType.OpenCurly);
+
+
+            var next = peekToken(tokens, pos);
+            while(next.type != Token.TokenType.CloseCurly)
+            {
+                // let foo = struct { x 
+                var ident = nextToken(tokens, ref pos);
+                expectTokenType(ident, Token.TokenType.Identifier);
+
+                // let foo = struct { x: 
+                var c = nextToken(tokens, ref pos);
+                expectTokenType(c, Token.TokenType.Colon);
+
+                // let foo = struct { x: int32
+                var typ = nextToken(tokens, ref pos);
+                expectTokenType(ident, Token.TokenType.Identifier);
+
+                // TODO: what if type cannot be resolved here?
+                // insert type proxy to be resolved later?
+                scopeStruct.AddField(ident.text, scope.GetType(typ.text));
+                next = peekToken(tokens, ref pos);
+
+                if (next.type != Token.TokenType.CloseCurly)
+                {
+                    // let foo = struct { x: int32, ... 
+                    expectTokenType(next, Token.TokenType.Comma);
+                    nextToken(tokens, ref pos);
+                }
+            }
+
+            var result = new StructDefinition(current);
+            result.structure = scopeStruct;
+
+            return result;
+        }
+        
         public static Node parseFunctionDefinition(IList<Token> tokens, ref int pos, Scope scope)
         {
 
@@ -1261,7 +1356,7 @@ namespace PragmaScript
             if (scope.parent != null)
                 throw new ParserError("functions can only be defined in the primary block for now!", current);
 
-            var fun = new FunctionDefinition();
+            var fun = new Scope.FunctionDefinition();
 
             // let foo
             var id = nextToken(tokens, ref pos);
@@ -1333,7 +1428,7 @@ namespace PragmaScript
             nextToken(tokens, ref pos);
             // let foo = (x: int32) => { ... }
             scope.AddFunction(fun);
-            var result = new FunctionDeclaration(current);
+            var result = new FunctionDefinition(current);
             result.fun = fun;
             var funScope = new Scope(scope, fun);
 
@@ -1485,29 +1580,29 @@ namespace PragmaScript
             try
 #endif
             {
-                var main = new FunctionDefinition { name = "main", returnType = FrontendType.int32 };
+                var main = new Scope.FunctionDefinition { name = "main", returnType = FrontendType.int32 };
 
                 var rootScope = new Scope(null, main);
                 rootScope.AddType(FrontendType.float32, current);
                 rootScope.AddType(FrontendType.int32, current);
                 rootScope.AddType(FrontendType.bool_, current);
 
-                var print_i32 = new FunctionDefinition { name = "print_i32", returnType = FrontendType.void_ };
+                var print_i32 = new Scope.FunctionDefinition { name = "print_i32", returnType = FrontendType.void_ };
                 print_i32.AddParameter("x", FrontendType.int32);
                 rootScope.AddFunction(print_i32);
 
-                var print_f32 = new FunctionDefinition { name = "print_f32", returnType = FrontendType.void_ };
+                var print_f32 = new Scope.FunctionDefinition { name = "print_f32", returnType = FrontendType.void_ };
                 print_f32.AddParameter("x", FrontendType.float32);
                 rootScope.AddFunction(print_f32);
 
-                var print = new FunctionDefinition { name = "print", returnType = FrontendType.void_ };
+                var print = new Scope.FunctionDefinition { name = "print", returnType = FrontendType.void_ };
                 print.AddParameter("s", FrontendType.string_);
                 rootScope.AddFunction(print);
 
-                var read = new FunctionDefinition { name = "read", returnType = FrontendType.string_ };
+                var read = new Scope.FunctionDefinition { name = "read", returnType = FrontendType.string_ };
                 rootScope.AddFunction(read);
 
-                var cat = new FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
+                var cat = new Scope.FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
                 rootScope.AddFunction(cat);
 
 
