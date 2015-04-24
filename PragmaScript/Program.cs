@@ -155,13 +155,19 @@ namespace PragmaScript
             //g = g.Add(AttributeStatement.Graph.Set("label", label))
             //    .Add(AttributeStatement.Graph.Set("labeljust", "l"))
             //    .Add(AttributeStatement.Graph.Set("fontname", "Consolas"));
-
-            var renderer = new Shields.GraphViz.Components.Renderer(@"C:\Program Files (x86)\Graphviz2.38\bin\");
-            using (Stream file = File.Create("graph.png"))
+            if (Directory.Exists(@"C:\Program Files (x86)\Graphviz2.38\bin\"))
             {
-                AsyncHelper.RunSync(() =>
-                    renderer.RunAsync(g, file, Shields.GraphViz.Services.RendererLayouts.Dot, Shields.GraphViz.Services.RendererFormats.Png, CancellationToken.None)
-                 );
+                var renderer = new Shields.GraphViz.Components.Renderer(@"C:\Program Files (x86)\Graphviz2.38\bin\");
+                using (Stream file = File.Create("graph.png"))
+                {
+                    AsyncHelper.RunSync(() =>
+                        renderer.RunAsync(g, file, Shields.GraphViz.Services.RendererLayouts.Dot, Shields.GraphViz.Services.RendererFormats.Png, CancellationToken.None)
+                     );
+                }
+            }
+            else
+            {
+                Console.WriteLine("graphviz not found skipping rendering graph!");
             }
         }
 #endif

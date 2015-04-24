@@ -74,20 +74,25 @@ namespace tmp
                 values[idx++] = valueStack.Pop();
             }
 
-
+            var size = LLVM.ConstInt(Const.Int32Type, (ulong)node.elements.Count, Const.FalseBool);
             var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
 
-            var global = LLVM.AddGlobal(mod, LLVM.TypeOf(arr), ctx.Peek().functionName + "." + "const_array");
-            LLVM.SetInitializer(global, arr);
-            LLVM.SetGlobalConstant(global, Const.TrueBool);
-            LLVM.SetLinkage(global, LLVMLinkage.LLVMPrivateLinkage);
-            LLVM.SetUnnamedAddr(global, Const.TrueBool);
-            var result = LLVM.BuildLoad(builder, global, "array_load");
-            valueStack.Push(result);
+            var sp = new LLVMValueRef[] { size, arr };
+            // TODO: does this need to be packed?
+            var structure = LLVM.ConstStruct(out sp[0], 2, Const.FalseBool);
+
+            //var global = LLVM.AddGlobal(mod, LLVM.TypeOf(arr), ctx.Peek().functionName + "." + "const_array");
+            //LLVM.SetInitializer(global, arr);
+            //LLVM.SetGlobalConstant(global, Const.TrueBool);
+            //LLVM.SetLinkage(global, LLVMLinkage.LLVMPrivateLinkage);
+            //LLVM.SetUnnamedAddr(global, Const.TrueBool);
+            //var result = LLVM.BuildLoad(builder, global, "array_load");
+            //valueStack.Push(result);
             
 
-            // valueStack.Push(arr);
+            valueStack.Push(structure);
         }
+
 
         public void Visit(AST.BinOp node)
         {
@@ -823,20 +828,26 @@ namespace tmp
         {
             var arr = variables[node.variableName];
 
-            var art = typeToString(LLVM.TypeOf(arr));
-            Console.WriteLine(art);
-            
-
             Visit(node.index);
             var idx = valueStack.Pop();
 
-            var indices = new LLVMValueRef[]{ Const.ZeroInt32, idx };
-            var gep = LLVM.BuildInBoundsGEP(builder, arr, out indices[0], 2, "array_elem_ptr");
-
+            var gep_idx = new LLVMValueRef[]{ Const.ZeroInt32, Const.OneInt32, idx };
+            var gep = LLVM.BuildInBoundsGEP(builder, arr, out gep_idx[0], 3, "array_elem_ptr");
             var load = LLVM.BuildLoad(builder, gep, "array_elem");
 
             valueStack.Push(load);
+        }
 
+        public void Visit(AST.StructFieldAccess node)
+        {
+            var v = variables[node.structName];
+            var s = node.structure.type as AST.FrontendStructType;
+            var idx = s.GetFieldIndex(node.fieldName);
+            var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
+            var gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
+            var load = LLVM.BuildLoad(builder, gep, "struct_field");
+
+            valueStack.Push(load);
         }
 
         public void Visit(AST.Node node)
@@ -892,6 +903,10 @@ namespace tmp
             else if (node is AST.ArrayElementAccess)
             {
                 Visit(node as AST.ArrayElementAccess);
+            }
+            else if (node is AST.StructFieldAccess)
+            {
+                Visit(node as AST.StructFieldAccess);
             }
             else if (node is AST.FunctionCall)
             {

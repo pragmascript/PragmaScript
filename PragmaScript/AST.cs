@@ -113,10 +113,20 @@ namespace PragmaScript
             }
         }
 
+
+        
         public class FrontendStructType : FrontendType
         {
-            Dictionary<string, FrontendType> fields = new Dictionary<string, FrontendType>();
-
+            class Field
+            {
+                public string name;
+                public FrontendType type;
+                public override string ToString()
+                {
+                    return type.ToString();
+                }
+            }
+            List<Field> fields = new List<Field>();
 
             string name = "";
             public FrontendStructType()
@@ -125,32 +135,38 @@ namespace PragmaScript
 
             public void AddField(string name, FrontendType type)
             {
-                fields.Add(name, type);
+                fields.Add(new Field { name = name, type = type });
             }
 
             public FrontendType GetField(string name)
             {
-                var result = default(FrontendType);
-                if (fields.TryGetValue(name, out result))
+                var f = fields.Where(x => x.name == name).FirstOrDefault();
+                return f != null ? f.type : null;
+            }
+
+            public int GetFieldIndex(string name)
+            {
+                int idx = 0;
+                foreach (var f in fields)
                 {
-                    return result;
+                    if (f.name == name)
+                    {
+                        return idx;
+                    }
+                    idx++;
                 }
-                else
-                {
-                    return null;
-                }
+                throw new InvalidCodePath();
             }
 
             void calcTypeName()
             {
-                name = "{" + string.Join(",", fields.Values) + "}";
+                name = "{" + string.Join(",", fields) + "}";
             }
 
             public override string ToString()
             {
                 return name;
             }
-
         }
 
 

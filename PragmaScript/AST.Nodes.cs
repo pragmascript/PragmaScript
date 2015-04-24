@@ -502,7 +502,7 @@ namespace PragmaScript
 
                 // TODO: what happens if the type of field is not already resolved?
                 var field = str.GetField(fieldName);
-                if (str.GetField(fieldName) == null)
+                if (field == null)
                 {
                     throw new ParserError(
                         string.Format("struct does not contain field \"{0}\"", fieldName), token);
