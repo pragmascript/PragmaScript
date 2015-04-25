@@ -2,13 +2,10 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace PragmaScript
 {
-
-
     partial class AST
     {
         Scope rootScope;
@@ -59,8 +56,6 @@ namespace PragmaScript
             }
         }
 
-
-
         public class FrontendType
         {
             public static readonly FrontendType void_ = new FrontendType { name = "void" };
@@ -99,7 +94,6 @@ namespace PragmaScript
         public class FrontendArrayType : FrontendStructType
         {
             public FrontendType elementType;
-            string name;
             public FrontendArrayType(FrontendType elementType)
             {
                 this.elementType = elementType;
@@ -113,11 +107,9 @@ namespace PragmaScript
             }
         }
 
-
-        
         public class FrontendStructType : FrontendType
         {
-            class Field
+            public class Field
             {
                 public string name;
                 public FrontendType type;
@@ -126,9 +118,8 @@ namespace PragmaScript
                     return type.ToString();
                 }
             }
-            List<Field> fields = new List<Field>();
+            public List<Field> fields = new List<Field>();
 
-            string name = "";
             public FrontendStructType()
             {
             }
@@ -169,9 +160,6 @@ namespace PragmaScript
             }
         }
 
-
-      
-
         public class Scope
         {
             public class VariableDefinition
@@ -199,25 +187,11 @@ namespace PragmaScript
                 }
             }
 
-            public class StructDefinition
-            {
-                public string name;
-                public FrontendType type;
-                public List<NamedParameter> fields = new List<NamedParameter>();
-
-                public void AddField(string name, FrontendType type)
-                {
-                    fields.Add(new NamedParameter { name = name, type = type });
-                }
-            }
-
             public FunctionDefinition function;
             public Scope parent;
-
             public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
             public Dictionary<string, FunctionDefinition> functions = new Dictionary<string, FunctionDefinition>();
             public Dictionary<string, FrontendType> types = new Dictionary<string, FrontendType>();
-
 
             public Scope(Scope parent, FunctionDefinition function)
             {
@@ -269,12 +243,10 @@ namespace PragmaScript
             public FunctionDefinition GetFunction(string name)
             {
                 FunctionDefinition result;
-
                 if (functions.TryGetValue(name, out result))
                 {
                     return result;
                 }
-
                 if (parent != null)
                 {
                     return parent.GetFunction(name);
@@ -313,14 +285,13 @@ namespace PragmaScript
                 }
             }
 
-            public void AddType(string name, Token t)
+            public void AddType(string name, FrontendType typ, Token t)
             {
-                FrontendType type = new FrontendType(name);
                 if (types.ContainsKey(name))
                 {
                     throw new RedefinedType(name, t);
                 }
-                types.Add(name, type);
+                types.Add(name, typ);
             }
 
             public void AddType(FrontendType t, Token token)
@@ -379,7 +350,6 @@ namespace PragmaScript
             }
             return pos;
         }
-
 
         static Node parseStatement(IList<Token> tokens, ref int pos, Scope scope)
         {
@@ -453,7 +423,7 @@ namespace PragmaScript
                 var assignment = nextToken(tokens, ref pos);
                 expectTokenType(assignment, Token.TokenType.Assignment);
 
-                var next = peekToken(tokens, ref pos);
+                var next = peekTokenUpdatePos(tokens, ref pos);
 
                 pos = letPos;
 
@@ -469,14 +439,11 @@ namespace PragmaScript
                     ignoreSemicolon = true;
                 }
             }
-
-
             // TODO: check if inside loop
             if (current.type == Token.TokenType.Continue)
             {
                 result = new ContinueLoop(current);
             }
-
             // TODO: check if inside loop
             if (current.type == Token.TokenType.Break)
             {
@@ -488,19 +455,16 @@ namespace PragmaScript
                 var endOfStatement = nextToken(tokens, ref pos, true);
                 expectTokenType(endOfStatement, Token.TokenType.Semicolon);
             }
-
             if (result == null)
             {
                 throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
             }
-
             return result;
         }
 
 
         static Node parseWhileLoop(IList<Token> tokens, ref int pos, Scope scope)
         {
-
             // while
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.While);
@@ -601,6 +565,7 @@ namespace PragmaScript
         {
             return parseForStatements(tokens, ref pos, scope, declaration: true);
         }
+
         static List<Node> parseForIterator(IList<Token> tokens, ref int pos, Scope scope)
         {
             return parseForStatements(tokens, ref pos, scope, declaration: false);
@@ -836,12 +801,8 @@ namespace PragmaScript
                 default:
                     throw new InvalidCodePath();
             }
-
-
-
             return result;
         }
-
 
         static Node parseArray(IList<Token> tokens, ref int pos, Scope scope)
         {
@@ -901,7 +862,6 @@ namespace PragmaScript
 
             return result;
         }
-
 
         static bool isBinOp(Token t, int precedence)
         {
@@ -992,7 +952,7 @@ namespace PragmaScript
 
             // check if next token is an identifier
             var nextIdx = pos;
-            var next = peekToken(tokens, ref nextIdx);
+            var next = peekTokenUpdatePos(tokens, ref nextIdx);
             // check if next next token is close bracket
             // TODO: DO I REALLY NEED 2 LOOKAHEAD HERE?
             var nextNext = peekToken(tokens, nextIdx);
@@ -1061,7 +1021,6 @@ namespace PragmaScript
                 expectTokenType(cBracket, Token.TokenType.CloseBracket);
                 return result;
             }
-
             // either function call variable or struct field access
             if (current.type == Token.TokenType.Identifier)
             {
@@ -1096,8 +1055,6 @@ namespace PragmaScript
 
             var fieldName = nextToken(tokens, ref pos);
             expectTokenType(fieldName, Token.TokenType.Identifier);
-
-            
 
             if (scope.GetVar(current.text) == null)
             {
@@ -1167,8 +1124,6 @@ namespace PragmaScript
             return result;
         }
 
-
-
         static Node parseFunctionCall(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
@@ -1213,7 +1168,6 @@ namespace PragmaScript
             return result;
         }
 
-
         public static Node parseBlock(IList<Token> tokens, ref int pos, Scope parentScope,
             Scope newScope = null)
         {
@@ -1255,7 +1209,6 @@ namespace PragmaScript
             return result;
         }
 
-
         public static Node parseMainBlock(IList<Token> tokens, ref int pos, Scope rootScope)
         {
             var current = tokens[pos];
@@ -1284,19 +1237,15 @@ namespace PragmaScript
             return result;
         }
 
-
         public static Node parseStructDefinition(IList<Token> tokens, ref int pos, Scope scope)
         {
             // let
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Let);
 
-            var scopeStruct = new Scope.StructDefinition();
-
             // let foo
             var id = nextToken(tokens, ref pos);
             expectTokenType(id, Token.TokenType.Identifier);
-            scopeStruct.name = id.text;
 
             // let foo = 
             var ass = nextToken(tokens, ref pos);
@@ -1311,6 +1260,12 @@ namespace PragmaScript
             var oc = nextToken(tokens, ref pos);
             expectTokenType(oc, Token.TokenType.OpenCurly);
 
+            var result = new StructDefinition(current);
+            result.type = new FrontendStructType();
+            result.type.name = id.text;
+
+            // add struct type to scope here to allow recursive structs
+            scope.AddType(result.type.name, result.type, current);
 
             var next = peekToken(tokens, pos);
             while(next.type != Token.TokenType.CloseCurly)
@@ -1329,19 +1284,17 @@ namespace PragmaScript
 
                 // TODO: what if type cannot be resolved here?
                 // insert type proxy to be resolved later?
-                scopeStruct.AddField(ident.text, scope.GetType(typ.text));
-                next = peekToken(tokens, ref pos);
+                result.type.AddField(ident.text, scope.GetType(typ.text));
 
-                if (next.type != Token.TokenType.CloseCurly)
-                {
-                    // let foo = struct { x: int32, ... 
-                    expectTokenType(next, Token.TokenType.Comma);
-                    nextToken(tokens, ref pos);
-                }
+
+                // let foo = struct { x: int32, ... 
+                var sc = nextToken(tokens, ref pos);
+                expectTokenType(sc, Token.TokenType.Semicolon);
+                next = peekToken(tokens, pos);
             }
 
-            var result = new StructDefinition(current);
-            result.structure = scopeStruct;
+            nextToken(tokens, ref pos);
+            
 
             return result;
         }
@@ -1442,29 +1395,6 @@ namespace PragmaScript
             result.body = parseBlock(tokens, ref pos, null, funScope);
 
             var block = result.body as Block;
-            //if (!(block.statements.Last() is Return))
-            //{
-            //    // TODO: do proper checking if all code path have a return statement
-            //    var rtn = new Return(result.body.token);
-
-
-            //    // TODO: have a default operator to return a default value for a given type
-            //    if (fun.returnType == FrontendType.int32)
-            //    {
-            //        var i = new ConstInt32(Token.Undefined);
-            //        i.number = 0;
-            //        rtn.expression = i;
-            //    }
-            //    if (fun.returnType == FrontendType.float32)
-            //    {
-            //        var f = new ConstFloat32(Token.Undefined);
-            //        f.number = 0.0f;
-            //        rtn.expression = f;
-            //    }
-
-            //    block.statements.Add(rtn);
-            //}
-
             return result;
         }
 
@@ -1514,7 +1444,7 @@ namespace PragmaScript
             return tokens[pos];
         }
 
-        static Token peekToken(IList<Token> tokens, ref int pos, bool tokenMustExist = false, bool skipWS = true)
+        static Token peekTokenUpdatePos(IList<Token> tokens, ref int pos, bool tokenMustExist = false, bool skipWS = true)
         {
             pos++;
             if (skipWS)
@@ -1553,7 +1483,6 @@ namespace PragmaScript
                 return tokens[pos];
             }
         }
-
 
         static async Task<FrontendType> performTypeChecking(Node main, Scope root)
         {
@@ -1634,7 +1563,5 @@ namespace PragmaScript
 
             return block;
         }
-
     }
-
 }

@@ -244,7 +244,7 @@ namespace PragmaScript
 
         public class StructDefinition : Node
         {
-            public Scope.StructDefinition structure;
+            public FrontendStructType type;
             public StructDefinition(Token t)
                 : base(t)
             {
@@ -253,13 +253,13 @@ namespace PragmaScript
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return structure.type;
+                return type;
             }
 
             public override string ToString()
             {
-                var fields = string.Join(", ", structure.fields.Select(f => f.name + ": " + f.type));
-                return structure.name + " = struct { " + fields + " }";
+                var fields = string.Join(", ", type.fields.Select(f => f.name + ": " + f.type));
+                return type.name + " = struct { " + fields + " }";
             }
 
         }
