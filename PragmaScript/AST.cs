@@ -1034,6 +1034,10 @@ namespace PragmaScript
                 {
                     return parseStructFieldAccess(tokens, ref pos, scope);
                 }
+                if (peek.type == Token.TokenType.OpenCurly)
+                {
+                    return parseStructConstructor(tokens, ref pos, scope);
+                }
                 return parseVariableLookup(tokens, ref pos, scope);
             }
 
@@ -1044,6 +1048,47 @@ namespace PragmaScript
             throw new ParserError("Unexpected token type: " + current.type, current);
         }
 
+
+        static Node parseStructConstructor(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            
+            // var x = vec3_i32
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Identifier);
+
+            var result = new StructConstructor(current);
+            result.structName = current.text;
+            
+            // var x = vec3_i32 {
+            var oc = nextToken(tokens, ref pos);
+            expectTokenType(oc, Token.TokenType.OpenCurly);
+
+            var next = peekToken(tokens, pos, skipWS: true);
+            if (next.type != Token.TokenType.CloseCurly)
+            {
+                while (true)
+                {
+                    nextToken(tokens, ref pos);
+                    var exp = parseBinOp(tokens, ref pos, scope);
+                    result.argumentList.Add(exp);
+                    next = peekToken(tokens, pos);
+                    if (next.type != Token.TokenType.Comma)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        // skip comma
+                        nextToken(tokens, ref pos);
+                    }
+                }
+            }
+
+            var cc = nextToken(tokens, ref pos, skipWS: true);
+            expectTokenType(cc, Token.TokenType.CloseCurly);
+
+            return result;
+        }
 
         static Node parseStructFieldAccess(IList<Token> tokens, ref int pos, Scope scope)
         {

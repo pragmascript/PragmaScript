@@ -850,6 +850,23 @@ namespace tmp
             valueStack.Push(load);
         }
 
+        public void Visit(AST.StructConstructor node)
+        {
+            var s = node.structType;
+
+            var values = new LLVMValueRef[s.fields.Count];
+
+            for (int i = 0; i < values.Length; ++i)
+            {
+                Visit(node.argumentList[i]);
+                values[i] = valueStack.Pop();
+            }
+
+            // TODO: how do i know if the struct should be packed here?
+            var result = LLVM.ConstStruct(out values[0], (uint)values.Length, Const.FalseBool);
+            valueStack.Push(result);
+        }
+
         public void Visit(AST.Node node)
         {
             if (node is AST.ConstInt32)
@@ -907,6 +924,10 @@ namespace tmp
             else if (node is AST.StructFieldAccess)
             {
                 Visit(node as AST.StructFieldAccess);
+            }
+            else if (node is AST.StructConstructor)
+            {
+                Visit(node as AST.StructConstructor);
             }
             else if (node is AST.FunctionCall)
             {

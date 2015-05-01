@@ -242,6 +242,58 @@ namespace PragmaScript
             }
         }
 
+        public class StructConstructor : Node
+        {
+            public string structName;
+            public List<Node> argumentList = new List<Node>();
+
+            public FrontendStructType structType;
+
+            public StructConstructor(Token t)
+                : base(t)
+            {
+            }
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                foreach (var a in argumentList)
+                {
+                    yield return a;
+                }
+            }
+
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                var _type = scope.GetType(structName);
+                
+                if (!(_type is FrontendStructType))
+                {
+                    throw new ParserErrorExpected("struct type", _type.name, token);
+                }
+
+                structType = _type as FrontendStructType;
+
+                int idx = 0;
+                var args = await Task.WhenAll(argumentList.Select(arg => arg.CheckType(scope)));
+
+                foreach (var targ in args)
+                {
+                    var fieldType = structType.fields[idx++].type;
+                    if (targ != fieldType)
+                    {
+                        throw new ParserExpectedArgumentType(fieldType, targ, idx + 1, token);
+                    }
+                }
+                
+                return structType;
+            }
+
+            public override string ToString()
+            {
+                return structName + "{ }";
+            }
+        }
+
         public class StructDefinition : Node
         {
             public FrontendStructType type;
@@ -532,6 +584,11 @@ namespace PragmaScript
                         string.Format("struct does not contain field \"{0}\"", fieldName), token);
                 }
                 return field;
+            }
+
+            public override string ToString()
+            {
+                return structName + "." + fieldName;
             }
         }
 
