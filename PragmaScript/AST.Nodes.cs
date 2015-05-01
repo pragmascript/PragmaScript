@@ -547,6 +547,47 @@ namespace PragmaScript
             }
         }
 
+        public class EmptyArray : Node
+        {
+            public Node count;
+            public string elementTypeName;
+            public FrontendType elementType;
+
+            public EmptyArray(Token t)
+                : base(t)
+            {
+
+            }
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return count;
+            }
+
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                var v = scope.GetType(elementTypeName);
+                var ct = await count.CheckType(scope);
+
+                if (ct != FrontendType.int32)
+                {
+                    throw new ParserExpectedType(FrontendType.int32, ct, count.token);
+                }
+                
+                // TODO: wait for type definition?
+                if (v == null)
+                {
+                    throw new UndefinedType(elementTypeName, token);
+                }
+
+                return new FrontendArrayType(elementType);
+            }
+
+            public override string ToString()
+            {
+                return elementType.ToString() + "[]";
+            }
+        }
 
         public class StructFieldAccess : Node
         {

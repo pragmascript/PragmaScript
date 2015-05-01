@@ -79,9 +79,15 @@ namespace PragmaScript
         public UndefinedVariable(string variableName, Token t)
             : base(string.Format("undefined variable \"{0}\"", variableName), t)
         {
-
         }
+    }
 
+    class UndefinedType : ParserError
+    {
+        public UndefinedType(string typeName, Token t)
+            : base(string.Format("undefined type \"{0}\"", typeName), t)
+        {
+        }
     }
 
     class RedefinedVariable : ParserError

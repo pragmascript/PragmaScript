@@ -804,6 +804,25 @@ namespace PragmaScript
             return result;
         }
 
+        static Node parseEmptyArray(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            var current = tokens[pos];
+            expectTokenType(current, Token.TokenType.Identifier);
+
+            var result = new EmptyArray(current);
+
+            var os = nextToken(tokens, ref pos);
+            expectTokenType(os, Token.TokenType.OpenSquareBracket);
+
+            result.count = parseBinOp(tokens, ref pos, scope);
+
+            var cs = nextToken(tokens, ref pos);
+            expectTokenType(cs, Token.TokenType.CloseSquareBracket);
+
+            return result;
+
+        }
+
         static Node parseArray(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
@@ -985,8 +1004,6 @@ namespace PragmaScript
         private static Node parsePrimary(IList<Token> tokens, ref int pos, Scope scope)
         {
             var current = tokens[pos];
-            expectTokenType(current, Token.TokenType.IntNumber, Token.TokenType.FloatNumber, Token.TokenType.Identifier, Token.TokenType.OpenBracket,
-                Token.TokenType.True, Token.TokenType.False, Token.TokenType.Increment, Token.TokenType.Decrement, Token.TokenType.String);
 
             if (current.type == Token.TokenType.IntNumber)
             {
@@ -1021,7 +1038,7 @@ namespace PragmaScript
                 expectTokenType(cBracket, Token.TokenType.CloseBracket);
                 return result;
             }
-            // either function call variable or struct field access
+            // either function call variable or struct field access, empty array
             if (current.type == Token.TokenType.Identifier)
             {
                 var peek = peekToken(tokens, pos, skipWS: true);
