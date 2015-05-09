@@ -199,27 +199,45 @@ namespace PragmaScript
             addDelegate(print_cat, "cat");
         }
 
+
+        // TODO: cache struct times at definition time
+        static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendStructType t)
+        {
+            LLVMTypeRef[] ets = new LLVMTypeRef[t.fields.Count];
+            for (int i = 0; i < ets.Length; ++i)
+            {
+                ets[i] = getTypeRef(t.fields[i].type);
+            }
+
+            // TODO packed?
+            return LLVM.StructType(out ets[0], (uint)ets.Length, Const.FalseBool);
+        }
+
         static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendType t)
         {
-            if (t == PragmaScript.AST.FrontendType.int32)
+            if (t == AST.FrontendType.int32)
             {
                 return Const.Int32Type;
             }
-            if (t == PragmaScript.AST.FrontendType.float32)
+            if (t == AST.FrontendType.float32)
             {
                 return Const.Float32Type;
             }
-            if (t == PragmaScript.AST.FrontendType.bool_)
+            if (t == AST.FrontendType.bool_)
             {
                 return Const.BoolType;
             }
-            if (t == PragmaScript.AST.FrontendType.void_)
+            if (t == AST.FrontendType.void_)
             {
                 return Const.VoidType;
             }
-            if (t == PragmaScript.AST.FrontendType.string_)
+            if (t == AST.FrontendType.string_)
             {
                 return Const.Int8PointerType;
+            }
+            if (t is AST.FrontendStructType)
+            {
+                return getTypeRef(t as AST.FrontendStructType);
             }
             else
             {

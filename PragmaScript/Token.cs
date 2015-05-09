@@ -75,7 +75,8 @@ namespace PragmaScript
             OpenSquareBracket,
             CloseSquareBracket,
             Dot,
-            Struct
+            Struct,
+            ArrayTypeBrackets
         }
 
         public TokenType type { get; private set; }
@@ -152,6 +153,7 @@ namespace PragmaScript
             operators.Add("^=", TokenType.XOREquals);
             operators.Add("<<=", TokenType.LeftShiftEquals);
             operators.Add(">>=", TokenType.RightShiftEquals);
+            operators.Add("[]", TokenType.ArrayTypeBrackets);
 
             foreach (var op in operators.Keys)
             {

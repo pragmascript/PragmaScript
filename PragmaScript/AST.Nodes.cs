@@ -226,6 +226,11 @@ namespace PragmaScript
             public override async Task<FrontendType> CheckType(Scope scope)
             {
                 await body.CheckType(scope);
+
+                if (fun.returnType == null)
+                {
+                    fun.returnType = FrontendType.void_;
+                }
                 return null;
             }
             public override string ToString()
@@ -547,35 +552,37 @@ namespace PragmaScript
             }
         }
 
-        public class EmptyArray : Node
+        public class UninitializedArray : Node
         {
-            public Node count;
+            // public Node length;
+            //TODO: change this to work without compiletime constants
+            public int length;
             public string elementTypeName;
             public FrontendType elementType;
 
-            public EmptyArray(Token t)
+            public UninitializedArray(Token t)
                 : base(t)
             {
 
             }
 
-            public override IEnumerable<Node> GetChilds()
-            {
-                yield return count;
-            }
+            //public override IEnumerable<Node> GetChilds()
+            //{
+            //    yield return length;
+            //}
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var v = scope.GetType(elementTypeName);
-                var ct = await count.CheckType(scope);
+                elementType = scope.GetType(elementTypeName);
 
-                if (ct != FrontendType.int32)
-                {
-                    throw new ParserExpectedType(FrontendType.int32, ct, count.token);
-                }
+                //var ct = await length.CheckType(scope);
+                //if (ct != FrontendType.int32)
+                //{
+                //    throw new ParserExpectedType(FrontendType.int32, ct, length.token);
+                //}
                 
                 // TODO: wait for type definition?
-                if (v == null)
+                if (elementType == null)
                 {
                     throw new UndefinedType(elementTypeName, token);
                 }
@@ -585,7 +592,7 @@ namespace PragmaScript
 
             public override string ToString()
             {
-                return elementType.ToString() + "[]";
+                return elementType.ToString() + $"[{length}]";
             }
         }
 

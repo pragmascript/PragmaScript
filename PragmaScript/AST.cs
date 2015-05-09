@@ -804,23 +804,39 @@ namespace PragmaScript
             return result;
         }
 
-        static Node parseEmptyArray(IList<Token> tokens, ref int pos, Scope scope)
+        static Node parseUninitializedArray(IList<Token> tokens, ref int pos, Scope scope)
         {
+            // var x = int32
             var current = tokens[pos];
             expectTokenType(current, Token.TokenType.Identifier);
 
-            var result = new EmptyArray(current);
+            var result = new UninitializedArray(current);
+            result.elementTypeName = current.text;
+            
+            // var x = int32[]
+            var atb = nextToken(tokens, ref pos);
+            expectTokenType(atb, Token.TokenType.ArrayTypeBrackets);
 
-            var os = nextToken(tokens, ref pos);
-            expectTokenType(os, Token.TokenType.OpenSquareBracket);
+            // var x = int32[] { 
+            var oc = nextToken(tokens, ref pos);
+            expectTokenType(oc, Token.TokenType.OpenCurly);
 
-            result.count = parseBinOp(tokens, ref pos, scope);
+            
+            // var x = int32[] { 12
+            var cnt = nextToken(tokens, ref pos);
+            try
+            {
+                result.length = int.Parse(cnt.text);
+            }
+            catch 
+            {
+                throw new ParserErrorExpected("compile time constant integer array length", cnt.text, cnt);
+            }
 
-            var cs = nextToken(tokens, ref pos);
-            expectTokenType(cs, Token.TokenType.CloseSquareBracket);
+            var cc = nextToken(tokens, ref pos);
+            expectTokenType(cc, Token.TokenType.CloseCurly);
 
             return result;
-
         }
 
         static Node parseArray(IList<Token> tokens, ref int pos, Scope scope)
@@ -1038,23 +1054,34 @@ namespace PragmaScript
                 expectTokenType(cBracket, Token.TokenType.CloseBracket);
                 return result;
             }
-            // either function call variable or struct field access, empty array
             if (current.type == Token.TokenType.Identifier)
             {
                 var peek = peekToken(tokens, pos, skipWS: true);
+
+                // function call
                 if (peek.type == Token.TokenType.OpenBracket)
                 {
                     var result = parseFunctionCall(tokens, ref pos, scope);
                     return result;
                 }
+
+                // struct field access
                 if (peek.type == Token.TokenType.Dot)
                 {
                     return parseStructFieldAccess(tokens, ref pos, scope);
                 }
+
+                // struct defintion
                 if (peek.type == Token.TokenType.OpenCurly)
                 {
                     return parseStructConstructor(tokens, ref pos, scope);
                 }
+
+                if (peek.type == Token.TokenType.ArrayTypeBrackets)
+                {
+                    return parseUninitializedArray(tokens, ref pos, scope);
+                }
+
                 return parseVariableLookup(tokens, ref pos, scope);
             }
 

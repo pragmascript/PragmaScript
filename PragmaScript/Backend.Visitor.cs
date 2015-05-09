@@ -62,8 +62,11 @@ namespace tmp
             valueStack.Push(result);
         }
 
+
+        
         public void Visit(AST.ConstArray node)
         {
+
 
             LLVMValueRef[] values = new LLVMValueRef[node.elements.Count];
             
@@ -93,6 +96,27 @@ namespace tmp
             valueStack.Push(structure);
         }
 
+        public void Visit(AST.UninitializedArray node)
+        {
+            var l = node.length;
+
+            var values = new LLVMValueRef[l];
+            var et = getTypeRef(node.elementType);
+
+            // TODO: do we want to have a default "zero" value for every type here?
+            for (int i = 0; i < values.Length; ++i)
+            {
+                values[i] = LLVM.ConstBitCast(Const.ZeroInt32, et);
+            }
+
+            var size = LLVM.ConstInt(Const.Int32Type, (ulong)l, Const.FalseBool);
+            var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
+            var sp = new LLVMValueRef[] { size, arr };
+
+            // TODO: does this need to be packed?
+            var structure = LLVM.ConstStruct(out sp[0], 2, Const.FalseBool);
+            valueStack.Push(structure);
+        }
 
         public void Visit(AST.BinOp node)
         {
@@ -445,20 +469,22 @@ namespace tmp
             }
         }
 
+
         public void Visit(AST.VariableLookup node)
         {
-            if (node.varDefinition.isFunctionParameter)
+            var vd = node.varDefinition;
+            // if variable is function paramter just return it immediately
+            if (vd.isFunctionParameter)
             {
-                var pr = LLVM.GetParam(ctx.Peek().function, (uint)node.varDefinition.parameterIdx);
+                var pr = LLVM.GetParam(ctx.Peek().function, (uint)vd.parameterIdx);
                 valueStack.Push(pr);
                 return;
             }
-
-            var v = variables[node.variableName];
-
-            var l = LLVM.BuildLoad(builder, v, node.variableName);
+            var v = variables[vd.name];
+            var l = LLVM.BuildLoad(builder, v, vd.name);
             var ltype = LLVM.TypeOf(l);
-            var result = l;
+            
+            LLVMValueRef result = l;
             switch (node.inc)
             {
                 case AST.VariableLookup.Incrementor.None:
@@ -840,15 +866,46 @@ namespace tmp
 
         public void Visit(AST.StructFieldAccess node)
         {
-            var v = variables[node.structName];
+            var vd = node.structure;
+
+            LLVMValueRef v;
+            if (vd.isFunctionParameter)
+            {
+                v = LLVM.GetParam(ctx.Peek().function, (uint)vd.parameterIdx);
+            }
+            else
+            {
+                v = variables[vd.name];
+            }
+
+            var ts = typeToString(LLVM.TypeOf(v));
+            Console.WriteLine(ts);
+
+
             var s = node.structure.type as AST.FrontendStructType;
             var idx = s.GetFieldIndex(node.fieldName);
             var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
-            var gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
-            var load = LLVM.BuildLoad(builder, gep, "struct_field");
 
-            valueStack.Push(load);
+            LLVMValueRef gep;
+            if (!vd.isFunctionParameter)
+            {
+                gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
+                var load = LLVM.BuildLoad(builder, gep, "struct_field");
+                valueStack.Push(load);
+                return;
+            }
+            else
+            {
+                uint[] uindices = { (uint)idx };
+                var result = LLVM.BuildExtractValue(builder, v, (uint)idx, "struct_field_extract");
+                valueStack.Push(result);
+                return;
+            }
+            
+            
         }
+
+      
 
         public void Visit(AST.StructConstructor node)
         {
@@ -928,6 +985,10 @@ namespace tmp
             else if (node is AST.StructConstructor)
             {
                 Visit(node as AST.StructConstructor);
+            }
+            else if (node is AST.UninitializedArray)
+            {
+                Visit(node as AST.UninitializedArray);
             }
             else if (node is AST.FunctionCall)
             {
