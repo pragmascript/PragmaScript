@@ -1,14 +1,38 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace PragmaScript
 {
     partial class AST
     {
+        public class Block : Node
+        {
+            public Scope scope;
+            public List<Node> statements = new List<Node>();
+            public Block(Token t)
+                : base(t)
+            {
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                foreach (var s in statements)
+                    yield return s;
+            }
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+
+                var types = await Task.WhenAll(statements.Select(s => s.CheckType(this.scope)));
+                return null;
+            }
+
+            public override string ToString()
+            {
+                return "Block";
+            }
+        }
+
         public class Elif : Node
         {
             public Node condition;
