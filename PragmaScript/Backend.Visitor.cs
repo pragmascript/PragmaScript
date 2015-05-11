@@ -2,8 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PragmaScript
 {
@@ -852,16 +850,32 @@ namespace tmp
 
         public void Visit(AST.ArrayElementAccess node)
         {
-            var arr = variables[node.variableName];
+            var vd = node.varDefinition;
+            var arr = default(LLVMValueRef);
+            if (vd.isFunctionParameter)
+            {
+                arr = LLVM.GetParam(ctx.Peek().function, (uint)vd.parameterIdx);
+            }
+            else
+            {
+                arr = variables[vd.name];
+            }
 
             Visit(node.index);
             var idx = valueStack.Pop();
 
-            var gep_idx = new LLVMValueRef[]{ Const.ZeroInt32, Const.OneInt32, idx };
-            var gep = LLVM.BuildInBoundsGEP(builder, arr, out gep_idx[0], 3, "array_elem_ptr");
-            var load = LLVM.BuildLoad(builder, gep, "array_elem");
-
-            valueStack.Push(load);
+            if (!vd.isFunctionParameter)
+            {
+                var gep_idx = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32, idx };
+                var gep = LLVM.BuildInBoundsGEP(builder, arr, out gep_idx[0], 3, "array_elem_ptr");
+                var load = LLVM.BuildLoad(builder, gep, "array_elem");
+                valueStack.Push(load);
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
+            
         }
 
         public void Visit(AST.StructFieldAccess node)

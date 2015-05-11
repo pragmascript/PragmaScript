@@ -18,17 +18,25 @@ let print_vec = (v: vec) =>
 	print(")");
 }
 
-print("\n");
-var i = 5;
-var x = [1,2,3,4,5];
 
-var int32 = 5;
-
-for (var i = 0; i < x.length; ++i)
+let print_int32_array = (a: int32[]) => 
 {
-	print_i32(x[i]);
-	print(" ");
+	for (var i = 0; i < a.length; ++i)
+	{
+		print_i32(a[i]);
+		if (i < a.length - 1)
+		{
+			print(", ");
+		}
+	}
 }
+
+print("\n");
+var x = [1,2,3,4,5];
+print_int32_array(x);
+
+
+
 
 
 print_vec(v);

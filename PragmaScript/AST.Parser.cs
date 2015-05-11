@@ -977,6 +977,24 @@ namespace PragmaScript
             return result;
         }
 
+        public static FrontendType parseTypeString(IList<Token> tokens, ref int pos, Scope scope)
+        {
+            var current = expectCurrent(tokens, pos, Token.TokenType.Identifier);
+            var next = peekToken(tokens, pos);
+
+            FrontendType result = null;
+            if (next.type == Token.TokenType.ArrayTypeBrackets)
+            {
+                result = scope.GetArrayType(current.text);
+                nextToken(tokens, ref pos);
+            }
+            else
+            {
+                result = scope.GetType(current.text);
+            }
+            return result;
+        }
+
         public static Node parseFunctionDefinition(IList<Token> tokens, ref int pos, Scope scope)
         {
 
@@ -1011,11 +1029,10 @@ namespace PragmaScript
 
                     // let foo = (x: int32
                     var ptyp = expectNext(tokens, ref pos, Token.TokenType.Identifier);
-
-                    var type = scope.GetType(ptyp.text);
+                    var type = parseTypeString(tokens, ref pos, scope);
                     if (type == null)
                     {
-                        throw new ParserError(string.Format("Could not resolve type in function parameter list: {0}", type), ptyp);
+                        throw new ParserError($"Could not resolve type in function parameter list: {type}", ptyp);
                     }
                     fun.AddParameter(pid.text, type);
 

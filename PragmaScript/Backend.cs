@@ -1,10 +1,7 @@
 ﻿using LLVMSharp;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PragmaScript
 {
@@ -215,23 +212,23 @@ namespace PragmaScript
 
         static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendType t)
         {
-            if (t == AST.FrontendType.int32)
+            if (t.Equals(AST.FrontendType.int32))
             {
                 return Const.Int32Type;
             }
-            if (t == AST.FrontendType.float32)
+            if (t.Equals(AST.FrontendType.float32))
             {
                 return Const.Float32Type;
             }
-            if (t == AST.FrontendType.bool_)
+            if (t.Equals(AST.FrontendType.bool_))
             {
                 return Const.BoolType;
             }
-            if (t == AST.FrontendType.void_)
+            if (t.Equals(AST.FrontendType.void_))
             {
                 return Const.VoidType;
             }
-            if (t == AST.FrontendType.string_)
+            if (t.Equals(AST.FrontendType.string_))
             {
                 return Const.Int8PointerType;
             }

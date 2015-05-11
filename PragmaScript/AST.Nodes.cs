@@ -52,7 +52,7 @@ namespace PragmaScript
             public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var ct = await condition.CheckType(scope);
-                if (ct != FrontendType.bool_)
+                if (!ct.Equals(FrontendType.bool_))
                     throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
 
                 await thenBlock.CheckType(scope);
@@ -92,7 +92,7 @@ namespace PragmaScript
             public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var ct = await condition.CheckType(scope);
-                if (ct != FrontendType.bool_)
+                if (!ct.Equals(FrontendType.bool_))
                     throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
 
                 await thenBlock.CheckType(scope);
@@ -158,7 +158,7 @@ namespace PragmaScript
                 }
                 
                 var ct = await condition.CheckType(loopBodyScope);
-                if (ct != FrontendType.bool_)
+                if (!ct.Equals(FrontendType.bool_))
                     throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
 
                 if (iterator.Count > 0)
@@ -194,7 +194,7 @@ namespace PragmaScript
                 var loopBodyScope = (loopBody as Block).scope;
 
                 var ct = await condition.CheckType(loopBodyScope);
-                if (ct != FrontendType.bool_)
+                if (!ct.Equals(FrontendType.bool_))
                     throw new ParserExpectedType(FrontendType.bool_, ct, condition.token);
                 await loopBody.CheckType(scope);
                 return null;
@@ -308,7 +308,7 @@ namespace PragmaScript
                 foreach (var targ in args)
                 {
                     var fieldType = structType.fields[idx++].type;
-                    if (targ != fieldType)
+                    if (!targ.Equals(fieldType))
                     {
                         throw new ParserExpectedArgumentType(fieldType, targ, idx + 1, token);
                     }
@@ -370,7 +370,7 @@ namespace PragmaScript
                 var args = await Task.WhenAll(argumentList.Select(arg => arg.CheckType(scope)));
                 foreach (var targ in args)
                 {
-                    if (targ != fun.parameters[idx].type)
+                    if (!targ.Equals(fun.parameters[idx].type))
                     {
                         throw new ParserExpectedArgumentType(fun.parameters[idx].type, targ, idx + 1, token);
                     }
@@ -443,7 +443,7 @@ namespace PragmaScript
             public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var et = await expression.CheckType(scope);
-                if (et != variable.type)
+                if (!et.Equals(variable.type))
                 {
                     throw new ParserVariableTypeMismatch(variable.type, et, token);
                 }
@@ -560,7 +560,7 @@ namespace PragmaScript
                 var ets = await Task.WhenAll(elements.Select(e => e.CheckType(scope)));
 
                 var firstType = ets.First();
-                if (!ets.All(e => e == firstType))
+                if (!ets.All(e => e.Equals(firstType)))
                 {
                     throw new ParserError("all elements in an array must have the same type", token);
                 }
@@ -702,7 +702,7 @@ namespace PragmaScript
                 
 
                 var idxType = await index.CheckType(scope);
-                if (idxType != FrontendType.int32)
+                if (!idxType.Equals(FrontendType.int32))
                 {
                     throw new ParserExpectedType(FrontendType.int32, idxType, index.token);
                 }
@@ -782,7 +782,7 @@ namespace PragmaScript
                 }
                 if (scope.function.returnType != null)
                 {
-                    if (result != scope.function.returnType)
+                    if (!result.Equals(scope.function.returnType))
                     {
                         throw new ParserError("return statement returns different types in one block", token);
                     }
@@ -895,13 +895,13 @@ namespace PragmaScript
                 if (isEither(BinOpType.LeftShift, BinOpType.RightShift))
                 {
                     // TODO: suppport all integer types here.
-                    if (lType != FrontendType.int32 || rType != FrontendType.int32)
+                    if (!lType.Equals(FrontendType.int32) || !rType.Equals(FrontendType.int32))
                     {
                         throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lType, rType), token);
                     }
                 }
 
-                if (lType != rType)
+                if (!lType.Equals(rType))
                 {
                     throw new ParserTypeMismatch(lType, rType, token);
                 }

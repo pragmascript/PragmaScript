@@ -57,37 +57,50 @@ namespace PragmaScript
 
         public class FrontendType
         {
-            public static readonly FrontendType void_ = new FrontendType { name = "void" };
-            public static readonly FrontendType int32 = new FrontendType { name = "int32" };
-            public static readonly FrontendType float32 = new FrontendType { name = "float32" };
-            public static readonly FrontendType bool_ = new FrontendType { name = "bool" };
-            public static readonly FrontendType string_ = new FrontendType { name = "string" };
+            public static readonly FrontendType void_ = new FrontendType("void");
+            public static readonly FrontendType int32 = new FrontendType("int32");
+            public static readonly FrontendType float32 = new FrontendType("float32");
+            public static readonly FrontendType bool_ = new FrontendType("bool");
+            public static readonly FrontendType string_ = new FrontendType("string");
             public string name;
-
-            public FrontendType(string name)
-            {
-                this.name = name;
-            }
 
             protected FrontendType()
             {
 
             }
 
+            public FrontendType(string name)
+            {
+                this.name = name;
+            }
             public override int GetHashCode()
             {
                 return ToString().GetHashCode();
             }
-
             public override string ToString()
             {
                 return name;
             }
-
             public override bool Equals(object obj)
             {
                 return ToString() == obj.ToString();
             }
+
+            // TODO: remove
+            public static bool operator ==(FrontendType t1, FrontendType t2)
+            {
+                // only compare against null not other type
+                if (!ReferenceEquals(t1, null) && !ReferenceEquals(t2, null))
+                    throw new InvalidCodePath();
+
+                return ReferenceEquals(t1, t2);
+            }
+
+            public static bool operator !=(FrontendType t1, FrontendType t2)
+            {
+                return !(t1 == t2);
+            }
+
         }
 
         public class FrontendArrayType : FrontendStructType
@@ -98,11 +111,6 @@ namespace PragmaScript
                 this.elementType = elementType;
                 name = "[" + elementType + "]";
                 AddField("length", FrontendType.int32);
-            }
-
-            public override string ToString()
-            {
-                return name;
             }
         }
 
@@ -118,10 +126,6 @@ namespace PragmaScript
                 }
             }
             public List<Field> fields = new List<Field>();
-
-            public FrontendStructType()
-            {
-            }
 
             public void AddField(string name, FrontendType type)
             {
@@ -151,11 +155,6 @@ namespace PragmaScript
             void calcTypeName()
             {
                 name = "{" + string.Join(",", fields) + "}";
-            }
-
-            public override string ToString()
-            {
-                return name;
             }
         }
 
@@ -282,6 +281,12 @@ namespace PragmaScript
                 {
                     return null;
                 }
+            }
+
+            public FrontendType GetArrayType(string elementType)
+            {
+                var et = GetType(elementType);
+                return new FrontendArrayType(et);
             }
 
             public void AddType(string name, FrontendType typ, Token t)
