@@ -11,7 +11,8 @@
     <AssemblyName>pragma</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <NuGetPackageImportStamp>74a3fa39</NuGetPackageImportStamp>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
@@ -106,12 +107,12 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="LLVMSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\LLVMSharp.3.6.0\lib\net40\LLVMSharp.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="LLVMSharp">
+      <HintPath>External\LLVMSharp.dll</HintPath>
     </Reference>
-    <Reference Include="Shields.GraphViz">
-      <HintPath>..\packages\Shields.GraphViz.1.0.0.6\lib\net45\Shields.GraphViz.dll</HintPath>
+    <Reference Include="Shields.GraphViz, Version=1.0.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Shields.GraphViz.1.0.2.0\lib\net45\Shields.GraphViz.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Collections.Immutable">
@@ -154,10 +155,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="x64\libLLVM.dll" />
-    <Content Include="x86\libLLVM.dll" />
-  </ItemGroup>
-  <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.5">
       <Visible>False</Visible>
       <ProductName>Microsoft .NET Framework 4.5 %28x86 and x64%29</ProductName>
@@ -174,14 +171,12 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="External\libLLVM.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="..\packages\LLVMSharp.3.6.0\build\LLVMSharp.targets" Condition="Exists('..\packages\LLVMSharp.3.6.0\build\LLVMSharp.targets')" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\LLVMSharp.3.6.0\build\LLVMSharp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\LLVMSharp.3.6.0\build\LLVMSharp.targets'))" />
-  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

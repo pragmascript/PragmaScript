@@ -186,7 +186,7 @@ namespace PragmaScript
                         Console.WriteLine("{0}: {1}", pos++, t);
                 }
 
-                Console.ReadLine();
+                // Console.ReadLine();
 
                 Console.WriteLine();
                 Console.WriteLine("PARSING...");

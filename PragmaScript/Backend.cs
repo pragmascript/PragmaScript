@@ -48,23 +48,43 @@ namespace PragmaScript
 
         public static class Const
         {
-            public static readonly LLVMBool TrueBool = new LLVMBool(1);
-            public static readonly LLVMBool FalseBool = new LLVMBool(0);
-            public static readonly LLVMValueRef NegativeOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), unchecked((ulong)-1), new LLVMBool(1));
-            public static readonly LLVMValueRef ZeroInt32 = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(1));
-            public static readonly LLVMValueRef OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, new LLVMBool(1));
-            public static readonly LLVMValueRef OneFloat32 = LLVM.ConstReal(LLVM.FloatType(), 1.0);
-            public static readonly LLVMValueRef True = LLVM.ConstInt(LLVM.Int1Type(), (ulong)1, new LLVMBool(0));
-            public static readonly LLVMValueRef False = LLVM.ConstInt(LLVM.Int1Type(), (ulong)0, new LLVMBool(0));
+            public static readonly LLVMBool TrueBool;
+            public static readonly LLVMBool FalseBool;
+            public static readonly LLVMValueRef NegativeOneInt32;
+            public static readonly LLVMValueRef ZeroInt32;
+            public static readonly LLVMValueRef OneInt32;
+            public static readonly LLVMValueRef OneFloat32;
+            public static readonly LLVMValueRef True;
+            public static readonly LLVMValueRef False;
 
-            public static readonly LLVMTypeRef Float32Type = LLVM.FloatType();
-            public static readonly LLVMTypeRef Int32Type = LLVM.Int32Type();
-            public static readonly LLVMTypeRef Int32ArrayType = LLVM.ArrayType(LLVM.Int32Type(), 0);
-            public static readonly LLVMTypeRef Int8ArrayType = LLVM.ArrayType(LLVM.Int8Type(), 0);
-            public static readonly LLVMTypeRef Int8PointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
-            public static readonly LLVMTypeRef BoolType = LLVM.Int1Type();
-            public static readonly LLVMTypeRef VoidType = LLVM.VoidType();
-            public static readonly LLVMTypeRef VoidStarType = LLVM.PointerType(VoidType, 0);
+            public static readonly LLVMTypeRef Float32Type;
+            public static readonly LLVMTypeRef Int32Type;
+            public static readonly LLVMTypeRef Int32ArrayType;
+            public static readonly LLVMTypeRef Int8ArrayType;
+            public static readonly LLVMTypeRef Int8PointerType;
+            public static readonly LLVMTypeRef BoolType;
+            public static readonly LLVMTypeRef VoidType;
+            // public static readonly LLVMTypeRef VoidStarType = LLVM.PointerType(VoidType, 0);
+
+            static Const()
+            {
+                TrueBool = new LLVMBool(1);
+                FalseBool = new LLVMBool(0);
+                NegativeOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), unchecked((ulong)-1), TrueBool);
+                ZeroInt32 = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(1));
+                OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, new LLVMBool(1));
+                OneFloat32 = LLVM.ConstReal(LLVM.FloatType(), 1.0);
+                True = LLVM.ConstInt(LLVM.Int1Type(), (ulong)1, new LLVMBool(0));
+                False = LLVM.ConstInt(LLVM.Int1Type(), (ulong)0, new LLVMBool(0));
+
+                Float32Type = LLVM.FloatType();
+                Int32Type = LLVM.Int32Type();
+                Int32ArrayType = LLVM.ArrayType(LLVM.Int32Type(), 0);
+                Int8ArrayType = LLVM.ArrayType(LLVM.Int8Type(), 0);
+                Int8PointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
+                BoolType = LLVM.Int1Type();
+                VoidType = LLVM.VoidType();
+            }
         }
 
 
@@ -367,11 +387,11 @@ namespace PragmaScript
             
 
             LLVM.LinkInMCJIT();
-            LLVM.InitializeX86Target();
-            LLVM.InitializeX86TargetInfo();
-            LLVM.InitializeX86TargetMC();
-            LLVM.InitializeX86AsmPrinter();
-            LLVM.InitializeX86Disassembler();
+            //LLVM.InitializeX86Target();
+            //LLVM.InitializeX86TargetInfo();
+            //LLVM.InitializeX86TargetMC();
+            //LLVM.InitializeX86AsmPrinter();
+            //LLVM.InitializeX86Disassembler();
 
             var platform = Environment.OSVersion.Platform;
             if (platform == PlatformID.Win32NT) // On Windows, LLVM currently (3.6) does not support PE/COFF

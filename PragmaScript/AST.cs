@@ -66,7 +66,6 @@ namespace PragmaScript
 
             protected FrontendType()
             {
-
             }
 
             public FrontendType(string name)
@@ -441,8 +440,6 @@ namespace PragmaScript
             {
                 throw e;
             }
-
-
         }
 
         public static Node Parse(IList<Token> tokens)
