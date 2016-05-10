@@ -7,7 +7,6 @@ namespace PragmaScript
 {
     partial class AST
     {
-        Scope rootScope;
         public abstract class Node
         {
             public Token token;

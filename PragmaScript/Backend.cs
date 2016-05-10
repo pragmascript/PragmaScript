@@ -387,6 +387,11 @@ namespace PragmaScript
             
 
             LLVM.LinkInMCJIT();
+
+            LLVM.InitializeNativeTarget();
+            LLVM.InitializeNativeAsmPrinter();
+            LLVM.InitializeNativeAsmParser();
+
             //LLVM.InitializeX86Target();
             //LLVM.InitializeX86TargetInfo();
             //LLVM.InitializeX86TargetMC();

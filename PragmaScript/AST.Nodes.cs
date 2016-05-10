@@ -334,7 +334,7 @@ namespace PragmaScript
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return type;
+                return await Task.FromResult(type);
             }
 
             public override string ToString()
@@ -401,6 +401,8 @@ namespace PragmaScript
 
                 while(v.type == null)
                 {
+                    // TODO: use TaskCompletionSource instead
+                    // http://stackoverflow.com/questions/15122936/write-an-async-method-that-will-await-a-bool
                     await Task.Yield();
                 }
                 return v.type;
@@ -465,7 +467,7 @@ namespace PragmaScript
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return FrontendType.int32;
+                return await Task.FromResult(FrontendType.int32);
             }
             public override string ToString()
             {
@@ -482,7 +484,7 @@ namespace PragmaScript
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return FrontendType.float32;
+                return await Task.FromResult(FrontendType.float32);
             }
             public override string ToString()
             {
@@ -506,7 +508,7 @@ namespace PragmaScript
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return FrontendType.bool_;
+                return await Task.FromResult(FrontendType.bool_);
             }
             public override string ToString()
             {
@@ -524,7 +526,7 @@ namespace PragmaScript
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return FrontendType.string_;
+                return await Task.FromResult(FrontendType.string_);
             }
             public override string ToString()
             {
@@ -611,7 +613,7 @@ namespace PragmaScript
                     throw new UndefinedType(elementTypeName, token);
                 }
 
-                return new FrontendArrayType(elementType);
+                return await Task.FromResult(new FrontendArrayType(elementType));
             }
 
             public override string ToString()
@@ -727,7 +729,7 @@ namespace PragmaScript
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                 return null;
+                return await Task.FromResult<FrontendType>(null);
             }
             public override string ToString()
             {
@@ -744,7 +746,7 @@ namespace PragmaScript
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return null;
+                return await Task.FromResult<FrontendType>(null);
             }
 
             public override string ToString()
@@ -1052,7 +1054,7 @@ namespace PragmaScript
             // TODO: handle types that are not resolved yet!
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return type;
+                return await Task.FromResult(type);
             }
             public override string ToString()
             {
