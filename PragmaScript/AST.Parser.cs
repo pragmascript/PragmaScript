@@ -475,7 +475,7 @@ namespace PragmaScript
             var current = expectCurrent(tokens, pos, Token.TokenType.OpenSquareBracket);
             var next = peekToken(tokens, pos);
 
-            var result = new ConstArray(current);
+            var result = new ArrayConstructor(current);
             while (next.type != Token.TokenType.CloseSquareBracket)
             {
                 current = nextToken(tokens, ref pos);

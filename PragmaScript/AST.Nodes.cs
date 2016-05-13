@@ -534,12 +534,12 @@ namespace PragmaScript
             }
         }
 
-        public class ConstArray : Node
+        public class ArrayConstructor : Node
         {
             public FrontendArrayType type;
             public List<Node> elements = new List<Node>();
 
-            public ConstArray(Token t)
+            public ArrayConstructor(Token t)
                 : base(t)
             {
 
