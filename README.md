@@ -1,24 +1,21 @@
 # PragmaScript
 
-## Syntax
+## Syntax Example (everything is still in flux)
 
 ```
-let x = 5.0; // constant
-var y = 3.0; // mutable variable
-y = 2.0; 
+let print_int32_array = (a: int32[]) => 
+{
+	for (var i = 0; i < a.length; ++i)
+	{
+		print_i32(a[i]);
+		if (i < a.length - 1)
+		{
+			print(", ");
+		}
+	}
+}
 
-// function
-let add = (x: int32, y: int32) -> { return x + y; }
-let add1 = (x: int32) -> { return x + 1; }
+var x = [1,2,3,4,12];
+print_int32_array(x);
 
-// function pointer (delegate)
-var foo = (x: int32) -> { return x + 2; }
-
-// allows reassignment
-foo = (x: int32) -> { return x + 3; }
-
-// higher order function
-var apply = (x: int, f: (int32) -> (int32)) { return f(x); }
-
-apply(12, add1);
 ```
