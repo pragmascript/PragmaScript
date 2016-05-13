@@ -536,7 +536,7 @@ namespace PragmaScript
 
         public class ConstArray : Node
         {
-            public FrontendType elementType;
+            public FrontendArrayType type;
             public List<Node> elements = new List<Node>();
 
             public ConstArray(Token t)
@@ -567,14 +567,15 @@ namespace PragmaScript
                     throw new ParserError("all elements in an array must have the same type", token);
                 }
 
-                elementType = firstType;
+                var elementType = firstType;
+                type = new FrontendArrayType(elementType);
 
-                return new FrontendArrayType(elementType);
+                return type;
 
             }
             public override string ToString()
             {
-                return elementType.ToString() + "[]";
+                return type.ToString();
             }
         }
 

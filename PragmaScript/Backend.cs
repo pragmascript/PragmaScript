@@ -70,10 +70,13 @@ namespace PragmaScript
             {
                 TrueBool = new LLVMBool(1);
                 FalseBool = new LLVMBool(0);
-                NegativeOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), unchecked((ulong)-1), TrueBool);
-                ZeroInt32 = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(1));
+                
                 OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, new LLVMBool(1));
                 OneFloat32 = LLVM.ConstReal(LLVM.FloatType(), 1.0);
+
+
+                NegativeOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), unchecked((ulong)-1), TrueBool);
+                ZeroInt32 = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(1));
                 True = LLVM.ConstInt(LLVM.Int1Type(), (ulong)1, new LLVMBool(0));
                 False = LLVM.ConstInt(LLVM.Int1Type(), (ulong)0, new LLVMBool(0));
 
@@ -230,6 +233,18 @@ namespace PragmaScript
             return LLVM.StructType(out ets[0], (uint)ets.Length, Const.FalseBool);
         }
 
+        // TODO: cache struct times at definition time
+        static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendArrayType t)
+        {
+            LLVMTypeRef[] ets = new LLVMTypeRef[2];
+
+            ets[0] = Const.Int32Type;
+            ets[1] = LLVM.PointerType(getTypeRef(t.elementType), 0);
+
+            // TODO packed?
+            return LLVM.StructType(out ets[0], (uint)ets.Length, Const.FalseBool);
+        }
+
         static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendType t)
         {
             if (t.Equals(AST.FrontendType.int32))
@@ -251,6 +266,10 @@ namespace PragmaScript
             if (t.Equals(AST.FrontendType.string_))
             {
                 return Const.Int8PointerType;
+            }
+            if (t is AST.FrontendArrayType)
+            {
+                return getTypeRef(t as AST.FrontendArrayType);
             }
             if (t is AST.FrontendStructType)
             {
@@ -342,7 +361,7 @@ namespace PragmaScript
             LLVMTypeRef[] main_param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
             LLVMTypeRef main_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out main_param_types[0], 0, Const.FalseBool);
             mainFunction = LLVM.AddFunction(mod, "main", main_fun_type);
-            
+
             LLVM.AddFunctionAttr(mainFunction, LLVMAttribute.LLVMNoUnwindAttribute);
 
             LLVMBasicBlockRef vars = LLVM.AppendBasicBlock(mainFunction, "vars");
@@ -360,6 +379,10 @@ namespace PragmaScript
 
             // LLVM.BuildCall(builder, printFuncConst, out args[0], 0, "");
         }
+
+
+
+        const int OptAggressiveThreshold = 275;
 
         void executeModule(bool useOptimizationPasses = true)
         {
@@ -384,10 +407,8 @@ namespace PragmaScript
 
             LLVMExecutionEngineRef engine;
 
-            
 
             LLVM.LinkInMCJIT();
-
             LLVM.InitializeNativeTarget();
             LLVM.InitializeNativeAsmPrinter();
             LLVM.InitializeNativeAsmParser();
@@ -420,67 +441,24 @@ namespace PragmaScript
             }
 
             LLVMPassManagerRef pass = LLVM.CreatePassManager();
-            LLVM.AddTargetData(LLVM.GetExecutionEngineTargetData(engine), pass);
+            /*
+            < joker - eph > pragmascript: it should look like a sequence of 
+            LLVMPassManagerBuilderSetOptLevel, LLVMPassManagerBuilderPopulateFunctionPassManager, and LLVMPassManagerBuilderPopulateModulePassManager
+            oh and also LLVMPassManagerBuilderUseInlinerWithThreshold
+            (before populating)
+             the best way to figure out if your pipeline is correctly setup is to pass -debug-pass=Structure and compare to clang
+              echo "" | clang -c -x c - -o /dev/null -O3 -mllvm -debug-pass=Structure  
+
+            */
+
+            // LLVM.AddTargetData(LLVM.GetExecutionEngineTargetData(engine), pass);
             if (useOptimizationPasses)
             {
-                LLVM.AddBBVectorizePass(pass);
-                LLVM.AddConstantMergePass(pass);
-                LLVM.AddDemoteMemoryToRegisterPass(pass);
-                LLVM.AddFunctionInliningPass(pass);
-                LLVM.AddGVNPass(pass);
-                // LLVM.AddInternalizePass(pass, (uint)0);
-                LLVM.AddIPSCCPPass(pass);
-                LLVM.AddLoopRerollPass(pass);
-                LLVM.AddLoopUnswitchPass(pass);
-                LLVM.AddLowerSwitchPass(pass);
-                LLVM.AddMergedLoadStoreMotionPass(pass);
-                LLVM.AddPartiallyInlineLibCallsPass(pass);
-                LLVM.AddPromoteMemoryToRegisterPass(pass);
-                LLVM.AddSimplifyLibCallsPass(pass);
-                LLVM.AddSLPVectorizePass(pass);
-                LLVM.AddStripSymbolsPass(pass);
-                LLVM.AddAggressiveDCEPass(pass);
-                LLVM.AddAlignmentFromAssumptionsPass(pass);
-                LLVM.AddCorrelatedValuePropagationPass(pass);
-                LLVM.AddBasicAliasAnalysisPass(pass);
-                LLVM.AddConstantPropagationPass(pass);
-                LLVM.AddCFGSimplificationPass(pass);
-                LLVM.AddScopedNoAliasAAPass(pass);
-                LLVM.AddJumpThreadingPass(pass);
-                LLVM.AddScalarReplAggregatesPass(pass);
-                LLVM.AddScalarReplAggregatesPassSSA(pass);
-                LLVM.AddInstructionCombiningPass(pass);
-                LLVM.AddMemCpyOptPass(pass);
-                LLVM.AddLoopVectorizePass(pass);
-                LLVM.AddEarlyCSEPass(pass);
-                LLVM.AddLoopRotatePass(pass);
-                LLVM.AddStripDeadPrototypesPass(pass);
-                LLVM.AddLoopDeletionPass(pass);
-                LLVM.AddTypeBasedAliasAnalysisPass(pass);
-                LLVM.AddPruneEHPass(pass);
-                LLVM.AddIndVarSimplifyPass(pass);
-                LLVM.AddLoopUnrollPass(pass);
-                LLVM.AddReassociatePass(pass);
-                LLVM.AddSCCPPass(pass);
-                // LLVM.AddAlwaysInlinerPass(pass);
-                LLVM.AddBasicAliasAnalysisPass(pass);
-                LLVM.AddDeadStoreEliminationPass(pass);
-                LLVM.AddGlobalOptimizerPass(pass);
-                LLVM.AddTailCallEliminationPass(pass);
-                LLVM.AddFunctionAttrsPass(pass);
-                LLVM.AddDeadArgEliminationPass(pass);
-                LLVM.AddScalarizerPass(pass);
-                LLVM.AddLowerExpectIntrinsicPass(pass);
-                LLVM.AddLICMPass(pass);
-                LLVM.AddLoopIdiomPass(pass);
-                LLVM.AddIPConstantPropagationPass(pass);
-                LLVM.AddArgumentPromotionPass(pass);
-
-
-                LLVM.AddVerifierPass(pass);
-                
-   
-                
+                var pb = LLVM.PassManagerBuilderCreate();
+                LLVM.PassManagerBuilderSetOptLevel(pb, 3);
+                LLVM.PassManagerBuilderUseInlinerWithThreshold(pb, OptAggressiveThreshold);
+                LLVM.PassManagerBuilderPopulateFunctionPassManager(pb, pass);
+                LLVM.PassManagerBuilderPopulateModulePassManager(pb, pass);
                 LLVM.RunPassManager(pass, mod);
             }
             else

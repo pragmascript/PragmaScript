@@ -75,13 +75,23 @@ namespace tmp
                 values[idx++] = valueStack.Pop();
             }
 
+
+            var elem_type = getTypeRef(node.type.elementType);
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)node.elements.Count, Const.FalseBool);
-            var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
+            var const_arr = LLVM.ConstArray(elem_type, out values[0], (uint)values.Length);
 
-            var sp = new LLVMValueRef[] { size, arr };
-            // TODO: does this need to be packed?
-            var structure = LLVM.ConstStruct(out sp[0], 2, Const.FalseBool);
+            var alloc_arr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_alloca");
+            var alloc_arr_typ = typeToString(LLVM.TypeOf(alloc_arr));
 
+            var arr_ptr = LLVM.BuildBitCast(builder, alloc_arr, LLVM.PointerType(LLVM.TypeOf(const_arr), 0), "arr_ptr");
+            var store_arr = LLVM.BuildStore(builder, const_arr, arr_ptr);
+
+
+            // var alloc_struct = LLVM.BuildAlloca(builder, getTypeRef(node.))
+
+            
+            
+            
             //var global = LLVM.AddGlobal(mod, LLVM.TypeOf(arr), ctx.Peek().functionName + "." + "const_array");
             //LLVM.SetInitializer(global, arr);
             //LLVM.SetGlobalConstant(global, Const.TrueBool);
@@ -91,7 +101,7 @@ namespace tmp
             //valueStack.Push(result);
             
 
-            valueStack.Push(structure);
+           //  valueStack.Push(structure);
         }
 
         public void Visit(AST.UninitializedArray node)
@@ -109,8 +119,9 @@ namespace tmp
 
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)l, Const.FalseBool);
             var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
-            var sp = new LLVMValueRef[] { size, arr };
 
+
+            var sp = new LLVMValueRef[] { size, arr };
             // TODO: does this need to be packed?
             var structure = LLVM.ConstStruct(out sp[0], 2, Const.FalseBool);
             valueStack.Push(structure);
@@ -423,21 +434,41 @@ namespace tmp
 
         public void Visit(AST.VariableDefinition node)
         {
-            Visit(node.expression);
+            if (node.expression is AST.StructConstructor)
+            {
+                var sc = node.expression as AST.StructConstructor;
 
-            var result = valueStack.Pop();
-            var resultType = LLVM.TypeOf(result);
+                var structType = getTypeRef(sc.structType);
 
-            LLVMValueRef v;
+                var insert = LLVM.GetInsertBlock(builder);
+                LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+                var struct_ptr = LLVM.BuildAlloca(builder, structType, node.variable.name);
+                variables[node.variable.name] = struct_ptr;
+                LLVM.PositionBuilderAtEnd(builder, insert);
 
-            var insert = LLVM.GetInsertBlock(builder);
+                for (int i = 0; i < sc.argumentList.Count; ++i)
+                {
+                    Visit(sc.argumentList[i]);
+                    var arg = valueStack.Pop();
+                    var arg_ptr = LLVM.BuildStructGEP(builder, struct_ptr, (uint)i, "struct_arg_" + i);
+                    LLVM.BuildStore(builder, arg, arg_ptr);
+                }
+            }
+            else
+            {
+                Visit(node.expression);
+                var result = valueStack.Pop();
+                var resultType = LLVM.TypeOf(result);
+                LLVMValueRef v;
 
-            LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
-            v = LLVM.BuildAlloca(builder, resultType, node.variable.name);
-            variables[node.variable.name] = v;
+                var insert = LLVM.GetInsertBlock(builder);
+                LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+                v = LLVM.BuildAlloca(builder, resultType, node.variable.name);
+                variables[node.variable.name] = v;
+                LLVM.PositionBuilderAtEnd(builder, insert);
 
-            LLVM.PositionBuilderAtEnd(builder, insert);
-            LLVM.BuildStore(builder, result, v);
+                LLVM.BuildStore(builder, result, v);
+            }
         }
 
         public void Visit(AST.Assignment node)
@@ -866,6 +897,9 @@ namespace tmp
 
             if (!vd.isFunctionParameter)
             {
+                var typeName = typeToString(LLVM.TypeOf(arr));
+                Console.WriteLine(typeName);
+
                 var gep_idx = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32, idx };
                 var gep = LLVM.BuildInBoundsGEP(builder, arr, out gep_idx[0], 3, "array_elem_ptr");
                 var load = LLVM.BuildLoad(builder, gep, "array_elem");
@@ -873,7 +907,10 @@ namespace tmp
             }
             else
             {
-                throw new NotImplementedException();
+                var gep_idx = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32, idx };
+                var gep = LLVM.BuildInBoundsGEP(builder, arr, out gep_idx[0], 3, "array_elem_ptr");
+                var load = LLVM.BuildLoad(builder, gep, "array_elem");
+                valueStack.Push(load);
             }
             
         }
@@ -923,19 +960,7 @@ namespace tmp
 
         public void Visit(AST.StructConstructor node)
         {
-            var s = node.structType;
-
-            var values = new LLVMValueRef[s.fields.Count];
-
-            for (int i = 0; i < values.Length; ++i)
-            {
-                Visit(node.argumentList[i]);
-                values[i] = valueStack.Pop();
-            }
-
-            // TODO: how do i know if the struct should be packed here?
-            var result = LLVM.ConstStruct(out values[0], (uint)values.Length, Const.FalseBool);
-            valueStack.Push(result);
+            throw new InvalidCodePath();
         }
 
         public void Visit(AST.Node node)
