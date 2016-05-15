@@ -131,6 +131,7 @@
     <Compile Include="AST.Nodes.cs" />
     <Compile Include="AST.Parser.cs" />
     <Compile Include="Backend.cs" />
+    <Compile Include="Backend.JIT.cs" />
     <Compile Include="Backend.Visitor.cs" />
     <Compile Include="Exceptions.cs" />
     <Compile Include="Program.cs" />
@@ -142,6 +143,7 @@
     <None Include="App.config">
       <SubType>Designer</SubType>
     </None>
+    <Compile Include="Backend.AOT.cs" />
     <None Include="packages.config">
       <SubType>Designer</SubType>
     </None>
@@ -173,6 +175,12 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="External\llc.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="External\llc.pdb">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="x64\libLLVM.dll" />
     <Content Include="x64\libLLVM.pdb" />
     <Content Include="x86\libLLVM.dll" />

@@ -205,7 +205,8 @@ namespace PragmaScript
 #endif
             var backend = new Backend();
 
-            backend.EmitAndRun(root, useOptimizations: CompilerOptions.useOptimizations);
+            // backend.EmitAndRun(root, useOptimizations: CompilerOptions.useOptimizations);
+            backend.EmitAndAOT(root, "output.o");
 #if DEBUG
             Console.ReadLine();
 #endif

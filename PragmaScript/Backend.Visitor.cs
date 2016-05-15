@@ -843,7 +843,7 @@ namespace tmp
 
 
 
-            InsertMissingReturn(returnType);
+            insertMissingReturn(returnType);
 
             LLVM.PositionBuilderAtEnd(builder, vars);
             LLVM.BuildBr(builder, entry);
