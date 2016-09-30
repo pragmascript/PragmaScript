@@ -31,7 +31,8 @@ namespace PragmaScript
             var prms = new System.CodeDom.Compiler.CompilerParameters();
             prms.GenerateExecutable = false;
             prms.GenerateInMemory = true;
-            var results = provider.CompileAssemblyFromSource(prms, @"
+            var results = provider.CompileAssemblyFromSource(prms, 
+@"
 namespace tmp
 {
     public class tmpClass
@@ -41,7 +42,8 @@ namespace tmp
              return " + "\"" + txt + "\"" + @";
         }
     }
-}");
+}"
+                );
             System.Reflection.Assembly ass = results.CompiledAssembly;
             var method = ass.GetType("tmp.tmpClass").GetMethod("GetValue");
             return method.Invoke(null, null) as string;
@@ -52,12 +54,66 @@ namespace tmp
             var tmp = s.Substring(1, s.Length - 2);
             return ParseString(tmp);
         }
+
+        //public void Visit(AST.ConstString node)
+        //{
+        //    var str = convertString(node.s);
+        //    var constString = LLVM.BuildGlobalStringPtr(builder, str, "str");
+        //    var result = LLVM.BuildBitCast(builder, constString, Const.Int8PointerType, "str_ptr");
+        //    valueStack.Push(result);
+        //}
+
         public void Visit(AST.ConstString node)
         {
             var str = convertString(node.s);
-            var constString = LLVM.BuildGlobalStringPtr(builder, str, "str");
-            var result = LLVM.BuildBitCast(builder, constString, Const.Int8PointerType, "str_ptr");
-            valueStack.Push(result);
+            var bytes = System.Text.ASCIIEncoding.ASCII.GetBytes(str);
+
+            var type = AST.FrontendType.string_;
+
+            var arr_struct_type = getTypeRef(type);
+
+            var insert = LLVM.GetInsertBlock(builder);
+            LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+
+            var arr_struct_ptr = LLVM.BuildAlloca(builder, arr_struct_type, "arr_struct_alloca");
+            var elem_type = getTypeRef(type.elementType);
+
+            var size = LLVM.ConstInt(Const.Int32Type, (ulong)bytes.Length, Const.FalseBool);
+            var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
+
+
+            LLVM.PositionBuilderAtEnd(builder, insert);
+
+            // set array length in struct
+            var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.ZeroInt32 };
+            var gep_arr_length = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
+            LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int32Type, (ulong)bytes.Length, true), gep_arr_length);
+
+            // set array elem pointer in struct
+            var gep_idx_1 = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32 };
+            var gep_arr_elem_ptr = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_1[0], 2, "gep_arr_elem_ptr");
+            LLVM.BuildStore(builder, arr_elem_ptr, gep_arr_elem_ptr);
+
+
+            for (int i = 0; i < bytes.Length; ++i)
+            {
+                var c = bytes[i];
+                var gep_idx = new LLVMValueRef[] { LLVM.ConstInt(Const.Int32Type, (ulong)i, Const.FalseBool) };
+                var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_" + i);
+
+                LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int8Type, (ulong)c, true), gep);
+            }
+
+            var arr_struct = LLVM.BuildLoad(builder, arr_struct_ptr, "arr_struct_load");
+
+            valueStack.Push(arr_struct);
+            // TODO: use memcopy intrinsic here use
+            // http://stackoverflow.com/questions/27681500/generate-call-to-intrinsic-using-llvm-c-api
+            // with
+            // http://llvm.org/docs/LangRef.html#standard-c-library-intrinsics
+
+
+
         }
 
         public void Visit(AST.UninitializedArray node)
@@ -390,6 +446,7 @@ namespace tmp
 
         public void Visit(AST.VariableDefinition node)
         {
+            // TODO simplify this so you dont have to dynamicly dispatch here
             if (node.expression is AST.StructConstructor)
             {
                 var sc = node.expression as AST.StructConstructor;
@@ -410,6 +467,7 @@ namespace tmp
                     LLVM.BuildStore(builder, arg, arg_ptr);
                 }
             }
+            // TODO simplify this so you dont have to dynamicly dispatch here
             else if (node.expression is AST.ArrayConstructor)
             {
                 var ac = node.expression as AST.ArrayConstructor;
@@ -445,6 +503,8 @@ namespace tmp
 
                     LLVM.BuildStore(builder, arg, gep);
                 }
+
+
                 variables[node.variable.name] = arr_struct_ptr;
             }
             else
@@ -577,7 +637,10 @@ namespace tmp
             {
                 Visit(node.argumentList[i]);
                 parameters[i] = valueStack.Pop();
+                var pn = parameters[i].GetTypeString();
             }
+
+            var ftn = f.GetTypeString();
 
             var ft = LLVM.TypeOf(f);
             // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
@@ -588,7 +651,7 @@ namespace tmp
             }
             else
             {
-                var v = LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, node.functionName);
+                var v = LLVM.BuildCall(builder, f, parameters, node.functionName);
                 valueStack.Push(v);
             }
         }

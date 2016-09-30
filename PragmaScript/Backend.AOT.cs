@@ -15,18 +15,20 @@ namespace PragmaScript
 {
     partial class Backend
     {
+
+        // NOTE: function signature is broken in LLVMSharp 3.7 so we declare it here manually
         [DllImport("libLLVM.dll", EntryPoint = "LLVMGetBufferStart", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr GetBufferStart(LLVMMemoryBufferRef @MemBuf);
 
         public void aot(string filename)
         {
-            //LLVMPassManagerRef pass = LLVM.CreatePassManager();
-            //var pb = LLVM.PassManagerBuilderCreate();
-            //LLVM.PassManagerBuilderSetOptLevel(pb, 3);
-            //LLVM.PassManagerBuilderUseInlinerWithThreshold(pb, OptAggressiveThreshold);
-            //LLVM.PassManagerBuilderPopulateFunctionPassManager(pb, pass);
-            //LLVM.PassManagerBuilderPopulateModulePassManager(pb, pass);
-            //LLVM.RunPassManager(pass, mod);
+            LLVMPassManagerRef pass = LLVM.CreatePassManager();
+            var pb = LLVM.PassManagerBuilderCreate();
+            LLVM.PassManagerBuilderSetOptLevel(pb, 3);
+            LLVM.PassManagerBuilderUseInlinerWithThreshold(pb, OptAggressiveThreshold);
+            LLVM.PassManagerBuilderPopulateFunctionPassManager(pb, pass);
+            LLVM.PassManagerBuilderPopulateModulePassManager(pb, pass);
+            LLVM.RunPassManager(pass, mod);
 
             var llcProcess = new Process();
 
@@ -71,6 +73,11 @@ namespace PragmaScript
 
             Console.WriteLine("done");
             Console.ReadLine();
+
+
+            // lld -flavor link output.o /ENTRY:main
+            // -L"C:\Program Files\Microsoft Platform SDK\Lib\"
+            // http://denisbider.blogspot.de/2016/04/hello-world-in-llvm-ir-language-without.html
         }
     }
 }

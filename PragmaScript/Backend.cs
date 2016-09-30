@@ -59,18 +59,17 @@ namespace PragmaScript
 
             public static readonly LLVMTypeRef Float32Type;
             public static readonly LLVMTypeRef Int32Type;
-            public static readonly LLVMTypeRef Int32ArrayType;
-            public static readonly LLVMTypeRef Int8ArrayType;
+            public static readonly LLVMTypeRef Int64Type;
+            public static readonly LLVMTypeRef Int8Type;
             public static readonly LLVMTypeRef Int8PointerType;
             public static readonly LLVMTypeRef BoolType;
             public static readonly LLVMTypeRef VoidType;
-            // public static readonly LLVMTypeRef VoidStarType = LLVM.PointerType(VoidType, 0);
 
             static Const()
             {
                 TrueBool = new LLVMBool(1);
                 FalseBool = new LLVMBool(0);
-                
+
                 OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, new LLVMBool(1));
                 OneFloat32 = LLVM.ConstReal(LLVM.FloatType(), 1.0);
 
@@ -82,9 +81,11 @@ namespace PragmaScript
 
                 Float32Type = LLVM.FloatType();
                 Int32Type = LLVM.Int32Type();
-                Int32ArrayType = LLVM.ArrayType(LLVM.Int32Type(), 0);
-                Int8ArrayType = LLVM.ArrayType(LLVM.Int8Type(), 0);
+                Int64Type = LLVM.Int64Type();
+
+                Int8Type = LLVM.IntType(8);
                 Int8PointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
+
                 BoolType = LLVM.Int1Type();
                 VoidType = LLVM.VoidType();
             }
@@ -115,14 +116,18 @@ namespace PragmaScript
         public delegate void void_int_del(int x);
         public static void_int_del print_i32;
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void void_byte_del(byte x);
+        public static void_byte_del print_i8;
+
         // http://stackoverflow.com/questions/14106619/passing-delegate-to-a-unmanaged-method-which-expects-a-delegate-method-with-an-i
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void void_float_del(float x);
         public static void_float_del print_f32;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void void_intptr_del(IntPtr ptr);
-        public static void_intptr_del print_string;
+        public delegate void void_string_del(int length, IntPtr str);
+        public static void_string_del print;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate IntPtr intptr_void_del();
@@ -139,14 +144,21 @@ namespace PragmaScript
                 Console.Write(x);
             };
 
+            print_i8 += (x) =>
+            {
+                Console.Write(x);
+            };
+
             print_f32 += (x) =>
             {
                 Console.Write(x);
             };
 
-            print_string += (x) =>
+
+            print += (length, ptr) =>
             {
-                Console.Write(Marshal.PtrToStringAnsi(x));
+                Console.Write(Marshal.PtrToStringAnsi(ptr, length));
+                             
             };
 
             read_string += () =>
@@ -213,10 +225,11 @@ namespace PragmaScript
             };
 
             addDelegate(print_i32, "print_i32");
-            addDelegate(print_f32, "print_f32");
-            addDelegate(print_string, "print");
-            addDelegate(read_string, "read");
-            addDelegate(print_cat, "cat");
+            addDelegate(print_i8, "print_i8");
+            //addDelegate(print_f32, "print_f32");
+            addDelegate(print, "print");
+            //addDelegate(read_string, "read");
+            //addDelegate(print_cat, "cat");
         }
 
 
@@ -230,7 +243,7 @@ namespace PragmaScript
             }
 
             // TODO packed?
-            return LLVM.StructType(out ets[0], (uint)ets.Length, Const.FalseBool);
+            return LLVM.StructType(ets, true);
         }
 
         // TODO: cache struct times at definition time
@@ -242,7 +255,7 @@ namespace PragmaScript
             ets[1] = LLVM.PointerType(getTypeRef(t.elementType), 0);
 
             // TODO packed?
-            return LLVM.StructType(out ets[0], (uint)ets.Length, Const.FalseBool);
+            return LLVM.StructType(ets, true);
         }
 
         static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendType t)
@@ -250,6 +263,14 @@ namespace PragmaScript
             if (t.Equals(AST.FrontendType.int32))
             {
                 return Const.Int32Type;
+            }
+            if (t.Equals(AST.FrontendType.int64))
+            {
+                return Const.Int64Type;
+            }
+            if  (t.Equals(AST.FrontendType.int8))
+            {
+                return Const.Int8Type;
             }
             if (t.Equals(AST.FrontendType.float32))
             {
@@ -265,7 +286,7 @@ namespace PragmaScript
             }
             if (t.Equals(AST.FrontendType.string_))
             {
-                return Const.Int8PointerType;
+                return getTypeRef(t as AST.FrontendArrayType);
             }
             if (t is AST.FrontendArrayType)
             {
@@ -299,19 +320,13 @@ namespace PragmaScript
             {
                 return Const.Int8PointerType;
             }
-            else if (t == typeof(int[]))
+            else if (t == typeof(byte))
             {
-                return Const.Int32ArrayType;
+                return Const.Int8Type;
             }
-            // TODO how to handle string types properly
-            else if (t == typeof(byte[]))
-            {
-                return Const.Int8PointerType;
-            }
-
             else
             {
-                throw new BackendException("No LLVM type for " + t.Name);
+                throw new InvalidCodePath();
             }
         }
 
@@ -346,7 +361,7 @@ namespace PragmaScript
 
             var returnTypeRef = getTypeRef(info.ReturnType);
 
-            var fun_type = LLVM.FunctionType(returnTypeRef, out param_types[0], (uint)parameters.Length, Const.FalseBool);
+            var fun_type = LLVM.FunctionType(returnTypeRef, param_types, Const.FalseBool);
             IntPtr functionPtr = Marshal.GetFunctionPointerForDelegate(del as Delegate);
             var llvmFuncPtr = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)functionPtr, Const.FalseBool), LLVM.PointerType(fun_type, 0));
             functions.Add(name, llvmFuncPtr);
@@ -370,26 +385,65 @@ namespace PragmaScript
         }
 
 
+        void addPreamble()
+        {
+            {
+                LLVMTypeRef[] main_param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
+                LLVMTypeRef main_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out main_param_types[0], 0, Const.FalseBool);
+                mainFunction = LLVM.AddFunction(mod, "main", main_fun_type);
+                LLVM.AddFunctionAttr(mainFunction, LLVMAttribute.LLVMNoUnwindAttribute);
+                LLVMBasicBlockRef vars = LLVM.AppendBasicBlock(mainFunction, "vars");
+                LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(mainFunction, "entry");
+
+                var c = new ExecutionContext(mainFunction, "main", entry, vars);
+                ctx.Push(c);
+
+            }
+            {
+                LLVMTypeRef[] param_types = { LLVM.Int32Type() };
+                LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int64Type(), param_types, Const.FalseBool);
+                var fun = LLVM.AddFunction(mod, "GetStdHandle", fun_type);
+                LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
+                functions.Add("GetStdHandle", fun);
+            }
+
+            var byte_ptr_type = LLVM.PointerType(LLVM.Int8Type(), 0);
+            {
+                LLVMTypeRef[] param_types = {
+                    LLVM.Int64Type(),                      // 0
+                    byte_ptr_type,  // 1
+                    LLVM.Int32Type(),                      // 2
+                    byte_ptr_type, // 3
+                    byte_ptr_type,  // 4
+                };
+                LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int32Type(), param_types, Const.FalseBool);
+                var fun = LLVM.AddFunction(mod, "WriteFile", fun_type);
+                
+                var p1 = LLVM.GetParam(fun, 1);
+                // LLVM.AddAttribute(p1, LLVMAttribute.LLVMNoCaptureAttribute);
+                var p3 = LLVM.GetParam(fun, 3);
+                // LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
+
+                LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
+                functions.Add("WriteFile", fun);
+            }
+        }
+
         void prepareModule()
         {
             mod = LLVM.ModuleCreateWithName("WhatIsThisIDontEven");
-
-            LLVMTypeRef[] main_param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
-            LLVMTypeRef main_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out main_param_types[0], 0, Const.FalseBool);
-            mainFunction = LLVM.AddFunction(mod, "main", main_fun_type);
-
-            LLVM.AddFunctionAttr(mainFunction, LLVMAttribute.LLVMNoUnwindAttribute);
-
-            LLVMBasicBlockRef vars = LLVM.AppendBasicBlock(mainFunction, "vars");
-            LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(mainFunction, "entry");
-
-            var c = new ExecutionContext(mainFunction, "main", entry, vars);
-            ctx.Push(c);
-
-
-
+            addPreamble();
             builder = LLVM.CreateBuilder();
-            LLVM.PositionBuilderAtEnd(builder, entry);
+            
+            // HACK: 
+            LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+
+            var byte_ptr_type = LLVM.PointerType(Const.Int8Type, 0);
+            var nullptr = LLVM.BuildAlloca(builder, byte_ptr_type, "nullptr_alloca");
+            variables["nullptr"] = nullptr;
+
+            LLVM.PositionBuilderAtEnd(builder, ctx.Peek().entry);
+            LLVM.BuildStore(builder, LLVM.ConstPointerNull(byte_ptr_type), nullptr);
         }
 
         void emit(AST.Node root)

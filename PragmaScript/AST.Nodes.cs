@@ -365,14 +365,20 @@ namespace PragmaScript
             public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var fun = scope.GetFunction(functionName);
-                int idx = 0;
 
                 var args = await Task.WhenAll(argumentList.Select(arg => arg.CheckType(scope)));
-                foreach (var targ in args)
+                if (args.Length != fun.parameters.Count)
                 {
-                    if (!targ.Equals(fun.parameters[idx].type))
+                    throw new ParserError($"Function argument count mismatch! Got {args.Length} expected {fun.parameters.Count}.", token);
+                }
+
+                for (int i = 0; i < fun.parameters.Count; ++i)
+                {
+                    var arg = args[i];
+
+                    if (!arg.Equals(fun.parameters[i].type))
                     {
-                        throw new ParserExpectedArgumentType(fun.parameters[idx].type, targ, idx + 1, token);
+                        throw new ParserExpectedArgumentType(fun.parameters[i].type, arg, i + 1, token);
                     }
                 }
                 returnType = fun.returnType;

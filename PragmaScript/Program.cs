@@ -26,7 +26,7 @@ namespace PragmaScript
 
 #if DEBUG
             CompilerOptions.debug = true;
-            CompilerOptions.useOptimizations = true;
+            CompilerOptions.useOptimizations = false;
             CompilerOptions.inputFilename = @"Programs\hello.ps";
 #endif
             if (CompilerOptions.inputFilename == null)
@@ -168,6 +168,7 @@ namespace PragmaScript
                 Console.WriteLine("graphviz not found skipping rendering graph!");
             }
         }
+
 #endif
         static void run(string text)
         {
@@ -204,8 +205,8 @@ namespace PragmaScript
             renderGraph(root, text);
 #endif
             var backend = new Backend();
-
-            // backend.EmitAndRun(root, useOptimizations: CompilerOptions.useOptimizations);
+            // 
+            // backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);
             backend.EmitAndAOT(root, "output.o");
 #if DEBUG
             Console.ReadLine();

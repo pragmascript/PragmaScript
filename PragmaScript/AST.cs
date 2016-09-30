@@ -58,9 +58,11 @@ namespace PragmaScript
         {
             public static readonly FrontendType void_ = new FrontendType("void");
             public static readonly FrontendType int32 = new FrontendType("int32");
+            public static readonly FrontendType int64 = new FrontendType("int64");
+            public static readonly FrontendType int8 = new FrontendType("int8");
             public static readonly FrontendType float32 = new FrontendType("float32");
             public static readonly FrontendType bool_ = new FrontendType("bool");
-            public static readonly FrontendType string_ = new FrontendType("string");
+            public static readonly FrontendArrayType string_ = new FrontendArrayType(int8);
             public string name;
 
             protected FrontendType()
@@ -109,6 +111,7 @@ namespace PragmaScript
                 this.elementType = elementType;
                 name = "[" + elementType + "]";
                 AddField("length", FrontendType.int32);
+                AddField("ptr", new FrontendPointerType(elementType));
             }
         }
 
@@ -154,6 +157,17 @@ namespace PragmaScript
             {
                 name = "{" + string.Join(",", fields) + "}";
             }
+        }
+
+        public class FrontendPointerType : FrontendType
+        {
+            public FrontendType elementType;
+            public FrontendPointerType(FrontendType elementType)
+            {
+                this.elementType = elementType;
+                name = elementType + "*";
+            }
+
         }
 
         public class Scope
@@ -294,6 +308,15 @@ namespace PragmaScript
                     throw new RedefinedType(name, t);
                 }
                 types.Add(name, typ);
+            }
+
+            public void AddTypeAlias(FrontendType t, Token token, string alias)
+            {
+                if (types.ContainsKey(alias))
+                {
+                    throw new RedefinedType(alias, token);
+                }
+                types.Add(alias, t);
             }
 
             public void AddType(FrontendType t, Token token)
@@ -441,6 +464,65 @@ namespace PragmaScript
             }
         }
 
+        static void addBasicTypes(Scope scope, Token token)
+        {
+            scope.AddType(FrontendType.float32, token);
+            scope.AddType(FrontendType.int32, token);
+            scope.AddType(FrontendType.bool_, token);
+            scope.AddTypeAlias(FrontendType.string_, token, "string");
+        }
+
+
+        
+        static void addBasicFunctions(Scope scope)
+        {
+            var print_i32 = new Scope.FunctionDefinition { name = "print_i32", returnType = FrontendType.void_ };
+            print_i32.AddParameter("x", FrontendType.int32);
+            scope.AddFunction(print_i32);
+
+            var print_i8 = new Scope.FunctionDefinition { name = "print_i8", returnType = FrontendType.void_ };
+            print_i8.AddParameter("x", FrontendType.int8);
+            scope.AddFunction(print_i8);
+
+            var print_f32 = new Scope.FunctionDefinition { name = "print_f32", returnType = FrontendType.void_ };
+            print_f32.AddParameter("x", FrontendType.float32);
+            scope.AddFunction(print_f32);
+
+            var print = new Scope.FunctionDefinition { name = "print", returnType = FrontendType.void_ };
+            print.AddParameter("length", FrontendType.int32);
+            print.AddParameter("ptr", new FrontendPointerType(FrontendType.int8));
+            scope.AddFunction(print);
+
+            var read = new Scope.FunctionDefinition { name = "read", returnType = FrontendType.string_ };
+            scope.AddFunction(read);
+
+            var cat = new Scope.FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
+            scope.AddFunction(cat);
+
+            // TODO: avoid having to do this twice here and in the backend?
+            var get_std_handle = new Scope.FunctionDefinition { name = "GetStdHandle", returnType = FrontendType.int64 };
+            get_std_handle.AddParameter("nStdHandle", FrontendType.int32);
+            scope.AddFunction(get_std_handle);
+
+            var write_file = new Scope.FunctionDefinition { name = "WriteFile", returnType = FrontendType.bool_ };
+            write_file.AddParameter("hFile", FrontendType.int64);
+            write_file.AddParameter("lpBuffer", new FrontendPointerType(FrontendType.int8));
+            write_file.AddParameter("nNumberOfBytesToWrite", FrontendType.int32);
+            write_file.AddParameter("lpNumberOfBytesWritten", new FrontendPointerType(FrontendType.int8));
+            write_file.AddParameter("lpOverlapped", new FrontendPointerType(FrontendType.int8));
+            scope.AddFunction(write_file);
+
+        }
+
+        
+        static void addBasicConstants(Scope scope, Token token)
+        {
+            // TODO make those ACTUAL constants
+            var nullptr = scope.AddVar("nullptr", token);
+            nullptr.type = new FrontendPointerType(FrontendType.int8);
+        }
+
+
         public static Node Parse(IList<Token> tokens)
         {
             int pos = 0;
@@ -452,33 +534,15 @@ namespace PragmaScript
 #endif
             {
                 var main = new Scope.FunctionDefinition { name = "main", returnType = FrontendType.int32 };
-
                 var rootScope = new Scope(null, main);
-                rootScope.AddType(FrontendType.float32, current);
-                rootScope.AddType(FrontendType.int32, current);
-                rootScope.AddType(FrontendType.bool_, current);
-
-                var print_i32 = new Scope.FunctionDefinition { name = "print_i32", returnType = FrontendType.void_ };
-                print_i32.AddParameter("x", FrontendType.int32);
-                rootScope.AddFunction(print_i32);
-
-                var print_f32 = new Scope.FunctionDefinition { name = "print_f32", returnType = FrontendType.void_ };
-                print_f32.AddParameter("x", FrontendType.float32);
-                rootScope.AddFunction(print_f32);
-
-                var print = new Scope.FunctionDefinition { name = "print", returnType = FrontendType.void_ };
-                print.AddParameter("s", FrontendType.string_);
-                rootScope.AddFunction(print);
-
-                var read = new Scope.FunctionDefinition { name = "read", returnType = FrontendType.string_ };
-                rootScope.AddFunction(read);
-
-                var cat = new Scope.FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
-                rootScope.AddFunction(cat);
-
+                addBasicTypes(rootScope, current);
+                addBasicConstants(rootScope, current);
+                addBasicFunctions(rootScope);
+                
 
                 rootScope.AddFunction(main);
                 rootScope.function = main;
+
                 // perform AST generation pass
                 pos = skipWhitespace(tokens, pos);
                 block = parseMainBlock(tokens, ref pos, rootScope);

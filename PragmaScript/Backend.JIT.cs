@@ -31,15 +31,12 @@ namespace PragmaScript
                 return;
             }
             LLVM.DisposeMessage(error);
-
             LLVMExecutionEngineRef engine;
-
 
             LLVM.LinkInMCJIT();
             LLVM.InitializeNativeTarget();
             LLVM.InitializeNativeAsmPrinter();
             LLVM.InitializeNativeAsmParser();
-
 
             var platform = Environment.OSVersion.Platform;
             if (platform == PlatformID.Win32NT) // On Windows, LLVM currently (3.6) does not support PE/COFF
@@ -54,6 +51,7 @@ namespace PragmaScript
             var compileError = LLVM.CreateMCJITCompilerForModule(out engine, mod, out options, optionsSize, out error);
             if (compileError.Value != 0)
             {
+                LLVM.PrintModuleToFile(mod, "output.ll", out error);
                 var s = Marshal.PtrToStringAnsi(error);
                 Console.WriteLine();
                 Console.WriteLine("error: " + s);
@@ -70,7 +68,6 @@ namespace PragmaScript
             (before populating)
              the best way to figure out if your pipeline is correctly setup is to pass -debug-pass=Structure and compare to clang
               echo "" | clang -c -x c - -o /dev/null -O3 -mllvm -debug-pass=Structure  
-
             */
             if (useOptimizationPasses)
             {
@@ -87,7 +84,19 @@ namespace PragmaScript
                 LLVM.RunPassManager(pass, mod);
             }
 
-            var mainFunctionDelegate = (llvm_main)Marshal.GetDelegateForFunctionPointer(LLVM.GetPointerToGlobal(engine, mainFunction), typeof(llvm_main));
+            if (CompilerOptions.debug)
+            {
+                LLVM.DumpModule(mod);
+                IntPtr error_msg;
+                LLVM.PrintModuleToFile(mod, "output.ll", out error_msg);
+                LLVM.VerifyFunction(mainFunction, LLVMVerifierFailureAction.LLVMPrintMessageAction);
+            }
+
+
+
+
+            var main_fun_ptr = LLVM.GetPointerToGlobal(engine, mainFunction);
+            var mainFunctionDelegate = (llvm_main)Marshal.GetDelegateForFunctionPointer(main_fun_ptr, typeof(llvm_main));
 
             // **************************** RUN THE THING **************************** 
             if (CompilerOptions.debug)
@@ -108,16 +117,10 @@ namespace PragmaScript
             }
 
             // *********************************************************************** 
-
-
             // if (LLVM.WriteBitcodeToFile(mod, "main.bc") != 0)
             // {
             //     Console.WriteLine("error writing bitcode to file, skipping");
             // }
-            if (CompilerOptions.debug)
-            {
-                LLVM.DumpModule(mod);
-            }
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeExecutionEngine(engine);
 

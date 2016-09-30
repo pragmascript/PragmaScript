@@ -1,4 +1,6 @@
-﻿using System;
+﻿using LLVMSharp;
+using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -28,6 +30,13 @@ namespace PragmaScript
               .Unwrap()
               .GetAwaiter()
               .GetResult();
+        }
+
+        public static string GetTypeString(this LLVMValueRef v)
+        {
+            var t = LLVM.TypeOf(v);
+            return Marshal.PtrToStringAnsi(LLVM.PrintTypeToString(t));
+            
         }
     }
 }
