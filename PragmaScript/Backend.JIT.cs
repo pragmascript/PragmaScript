@@ -92,9 +92,6 @@ namespace PragmaScript
                 LLVM.VerifyFunction(mainFunction, LLVMVerifierFailureAction.LLVMPrintMessageAction);
             }
 
-
-
-
             var main_fun_ptr = LLVM.GetPointerToGlobal(engine, mainFunction);
             var mainFunctionDelegate = (llvm_main)Marshal.GetDelegateForFunctionPointer(main_fun_ptr, typeof(llvm_main));
 

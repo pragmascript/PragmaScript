@@ -27,7 +27,7 @@ namespace PragmaScript
 #if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.useOptimizations = false;
-            CompilerOptions.inputFilename = @"Programs\hello.ps";
+            CompilerOptions.inputFilename = @"Programs\string.ps";
 #endif
             if (CompilerOptions.inputFilename == null)
             {
@@ -206,8 +206,8 @@ namespace PragmaScript
 #endif
             var backend = new Backend();
             // 
-            // backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);
-            backend.EmitAndAOT(root, "output.o");
+            backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);
+            // backend.EmitAndAOT(root, "output.o");
 #if DEBUG
             Console.ReadLine();
 #endif

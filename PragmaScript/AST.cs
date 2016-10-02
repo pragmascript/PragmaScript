@@ -489,8 +489,9 @@ namespace PragmaScript
             scope.AddFunction(print_f32);
 
             var print = new Scope.FunctionDefinition { name = "print", returnType = FrontendType.void_ };
-            print.AddParameter("length", FrontendType.int32);
-            print.AddParameter("ptr", new FrontendPointerType(FrontendType.int8));
+            //print.AddParameter("length", FrontendType.int32);
+            //print.AddParameter("ptr", new FrontendPointerType(FrontendType.int8));
+            print.AddParameter("str", FrontendType.string_);
             scope.AddFunction(print);
 
             var read = new Scope.FunctionDefinition { name = "read", returnType = FrontendType.string_ };

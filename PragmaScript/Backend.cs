@@ -125,8 +125,15 @@ namespace PragmaScript
         public delegate void void_float_del(float x);
         public static void_float_del print_f32;
 
+        
+        public struct backend_string_type
+        {
+            public int length;
+            public IntPtr data;
+        }
+
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void void_string_del(int length, IntPtr str);
+        public delegate void void_string_del(backend_string_type str);
         public static void_string_del print;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -155,10 +162,9 @@ namespace PragmaScript
             };
 
 
-            print += (length, ptr) =>
+            print += (str) =>
             {
-                Console.Write(Marshal.PtrToStringAnsi(ptr, length));
-                             
+                Console.Write(Marshal.PtrToStringAnsi(str.data, str.length));
             };
 
             read_string += () =>
@@ -226,7 +232,7 @@ namespace PragmaScript
 
             addDelegate(print_i32, "print_i32");
             addDelegate(print_i8, "print_i8");
-            //addDelegate(print_f32, "print_f32");
+            addDelegate(print_f32, "print_f32");
             addDelegate(print, "print");
             //addDelegate(read_string, "read");
             //addDelegate(print_cat, "cat");
@@ -323,6 +329,10 @@ namespace PragmaScript
             else if (t == typeof(byte))
             {
                 return Const.Int8Type;
+            }
+            else if (t == typeof(backend_string_type))
+            {
+                return getTypeRef(AST.FrontendType.string_);
             }
             else
             {
