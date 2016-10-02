@@ -1,12 +1,18 @@
-﻿let print_string_array = (str: string) => 
+﻿
+let print = (str: string) =>
 {
+	print_string(str.length, str.data);
+}
+
+let print_string_array = (str: string) => 
+{
+  
   for (var i = 0; i < str.length; ++i)
   {
     print_i8(str[i]);
+	print(" ");
   }
 }
 
 var str = "hello world";
-print_i32(12);
-print_string(str.length, str.ptr);
 print_string_array(str);

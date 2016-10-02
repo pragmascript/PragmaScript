@@ -403,34 +403,34 @@ namespace PragmaScript
             }
 
 
-        //    {
-        //        LLVMTypeRef[] param_types = { LLVM.Int32Type() };
-        //        LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int64Type(), param_types, Const.FalseBool);
-        //        var fun = LLVM.AddFunction(mod, "GetStdHandle", fun_type);
-        //        LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
-        //        functions.Add("GetStdHandle", fun);
-        //    }
+            {
+                LLVMTypeRef[] param_types = { LLVM.Int32Type() };
+                LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int64Type(), param_types, Const.FalseBool);
+                var fun = LLVM.AddFunction(mod, "GetStdHandle", fun_type);
+                LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
+                functions.Add("GetStdHandle", fun);
+            }
 
-        //    var byte_ptr_type = LLVM.PointerType(LLVM.Int8Type(), 0);
-        //    {
-        //        LLVMTypeRef[] param_types = {
-        //            LLVM.Int64Type(),                      // 0
-        //            byte_ptr_type,  // 1
-        //            LLVM.Int32Type(),                      // 2
-        //            byte_ptr_type, // 3
-        //            byte_ptr_type,  // 4
-        //        };
-        //        LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int32Type(), param_types, Const.FalseBool);
-        //        var fun = LLVM.AddFunction(mod, "WriteFile", fun_type);
-                
-        //        var p1 = LLVM.GetParam(fun, 1);
-        //        // LLVM.AddAttribute(p1, LLVMAttribute.LLVMNoCaptureAttribute);
-        //        var p3 = LLVM.GetParam(fun, 3);
-        //        // LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
+            var byte_ptr_type = LLVM.PointerType(LLVM.Int8Type(), 0);
+            {
+                LLVMTypeRef[] param_types = {
+                    LLVM.Int64Type(),                      // 0
+                    byte_ptr_type,  // 1
+                    LLVM.Int32Type(),                      // 2
+                    byte_ptr_type, // 3
+                    byte_ptr_type,  // 4
+                };
+                LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int32Type(), param_types, Const.FalseBool);
+                var fun = LLVM.AddFunction(mod, "WriteFile", fun_type);
 
-        //        LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
-        //        functions.Add("WriteFile", fun);
-        //    }
+                var p1 = LLVM.GetParam(fun, 1);
+                // LLVM.AddAttribute(p1, LLVMAttribute.LLVMNoCaptureAttribute);
+                var p3 = LLVM.GetParam(fun, 3);
+                // LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
+
+                LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
+                functions.Add("WriteFile", fun);
+            }
         }
 
         void prepareModule()
@@ -438,12 +438,12 @@ namespace PragmaScript
             mod = LLVM.ModuleCreateWithName("WhatIsThisIDontEven");
             addPreamble();
             builder = LLVM.CreateBuilder();
-            
-            //// HACK: 
-            //LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
-            //var byte_ptr_type = LLVM.PointerType(Const.Int8Type, 0);
-            //var nullptr = LLVM.BuildAlloca(builder, byte_ptr_type, "nullptr_alloca");
-            //variables["nullptr"] = nullptr;
+
+            // HACK: 
+            LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+            var byte_ptr_type = LLVM.PointerType(Const.Int8Type, 0);
+            var nullptr = LLVM.BuildAlloca(builder, byte_ptr_type, "nullptr_alloca");
+            variables["nullptr"] = nullptr;
 
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().entry);
             //LLVM.BuildStore(builder, LLVM.ConstPointerNull(byte_ptr_type), nullptr);

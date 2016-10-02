@@ -111,7 +111,7 @@ namespace PragmaScript
                 this.elementType = elementType;
                 name = "[" + elementType + "]";
                 AddField("length", FrontendType.int32);
-                AddField("ptr", new FrontendPointerType(elementType));
+                AddField("data", new FrontendPointerType(elementType));
             }
         }
 

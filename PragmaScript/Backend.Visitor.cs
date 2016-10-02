@@ -900,7 +900,7 @@ namespace tmp
 
             LLVM.PositionBuilderAtEnd(builder, entry);
 
-            ctx.Push(new ExecutionContext(function, fun.name, vars, entry));
+            ctx.Push(new ExecutionContext(function, fun.name, entry, vars));
 
             Visit(node.body);
 
