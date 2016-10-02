@@ -13,7 +13,7 @@ namespace PragmaScript
     {
         public static bool debug = false;
         public static string inputFilename;
-        public static bool useOptimizations = true;
+        public static bool useOptimizations = false;
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
