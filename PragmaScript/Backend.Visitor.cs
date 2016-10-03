@@ -986,8 +986,8 @@ namespace tmp
                 v = variables[vd.name];
             }
 
-            var ts = typeToString(LLVM.TypeOf(v));
-            Console.WriteLine(ts);
+            //var ts = typeToString(LLVM.TypeOf(v));
+            //Console.WriteLine(ts);
 
 
             var s = node.structure.type as AST.FrontendStructType;

@@ -428,9 +428,9 @@ namespace PragmaScript
                 var fun = LLVM.AddFunction(mod, "WriteFile", fun_type);
 
                 var p1 = LLVM.GetParam(fun, 1);
-                // LLVM.AddAttribute(p1, LLVMAttribute.LLVMNoCaptureAttribute);
+                LLVM.AddAttribute(p1, LLVMAttribute.LLVMNoCaptureAttribute);
                 var p3 = LLVM.GetParam(fun, 3);
-                // LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
+                LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
 
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
                 functions.Add("WriteFile", fun);

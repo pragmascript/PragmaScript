@@ -16,15 +16,12 @@ namespace PragmaScript
     // http://denisbider.blogspot.de/2016/04/hello-world-in-llvm-ir-language-without.html
     partial class Backend
     {
-
         // NOTE: function signature is broken in LLVMSharp 3.7 so we declare it here manually
         [DllImport("libLLVM.dll", EntryPoint = "LLVMGetBufferStart", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr GetBufferStart(LLVMMemoryBufferRef @MemBuf);
 
         public void aot(string filename)
         {
-
-
             byte[] obj_data;
             {
                 var bitcode = LLVM.WriteBitcodeToMemoryBuffer(mod);
@@ -56,6 +53,7 @@ namespace PragmaScript
                     optOutput.BaseStream.CopyTo(ms);
                     obj_data = ms.ToArray();
                 }
+                optProcess.WaitForExit();
                 optProcess.Close();
             }
 
@@ -78,23 +76,24 @@ namespace PragmaScript
                 {
                     llcOutput.BaseStream.CopyTo(fs);
                 }
+                llcProcess.WaitForExit();
                 llcProcess.Close();
             }
             {
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
                 lldProcess.StartInfo.FileName = @"External\lld-link.exe";
-                lldProcess.StartInfo.Arguments = $"{filename} kernel32.lib /entry:main /subsystem:console /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
+                lldProcess.StartInfo.Arguments = $"{filename} kernel32.lib /entry:main /subsystem:console /nodefaultlib /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;
                 lldProcess.Start();
+                lldProcess.WaitForExit();
                 lldProcess.Close();
-
             }
-
 #if DEBUG
             {
+                Console.WriteLine("running...");
                 var outputProcess = new Process();
                 var fn = Path.GetFileNameWithoutExtension(filename) + ".exe";
                 outputProcess.StartInfo.FileName = fn;
@@ -103,6 +102,7 @@ namespace PragmaScript
                 outputProcess.StartInfo.RedirectStandardOutput = false;
                 outputProcess.StartInfo.UseShellExecute = false;
                 outputProcess.Start();
+                outputProcess.WaitForExit();
                 outputProcess.Close();
             }
 #endif

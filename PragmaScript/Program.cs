@@ -177,30 +177,26 @@ namespace PragmaScript
 
             if (CompilerOptions.debug)
             {
-                Console.WriteLine("input: " + text);
-                Console.WriteLine();
-                Console.WriteLine("tokens: ");
-                int pos = 0;
-                foreach (var t in tokens)
-                {
-                    if (t.type != Token.TokenType.WhiteSpace)
-                        Console.WriteLine("{0}: {1}", pos++, t);
-                }
+                //Console.WriteLine("input: " + text);
+                //Console.WriteLine();
+                //Console.WriteLine("tokens: ");
+                //int pos = 0;
+                //foreach (var t in tokens)
+                //{
+                //    if (t.type != Token.TokenType.WhiteSpace)
+                //        Console.WriteLine("{0}: {1}", pos++, t);
+                //}
 
                 // Console.ReadLine();
-
-                Console.WriteLine();
-                Console.WriteLine("PARSING...");
-                Console.WriteLine();
-
-
             }
+
+            Console.WriteLine("parsing...");
             var root = AST.Parse(tokens);
             if (root == null)
             {
                 return;
             }
-#if DEBUG
+#if false
             Console.WriteLine();
             renderGraph(root, text);
 #endif
