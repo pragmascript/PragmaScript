@@ -43,9 +43,6 @@ namespace PragmaScript
             {
                 writeError("Could not open input file!");
             }
-#if DEBUG
-            Console.ReadLine();
-#endif
         }
 
         static void writeError(string s)
@@ -101,26 +98,7 @@ namespace PragmaScript
             }
         }
 
-        static IEnumerable<Token> tokenize(string text)
-        {
-            List<Token> result = new List<Token>();
-
-            var lines = text.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
-            for (int i = 0; i < lines.Length; ++i)
-            {
-                var line = lines[i];
-                var pos = 0;
-                while (pos < line.Length)
-                {
-                    var t = Token.Parse(line, pos, i);
-                    yield return t;
-                    pos += t.length;
-                }
-                yield return Token.NewLine(pos, i);
-            }
-
-            yield return Token.EOF;
-        }
+      
 #if DEBUG
         static Graph getRenderGraph(Graph g, AST.Node node, string id)
         {
@@ -173,7 +151,7 @@ namespace PragmaScript
         static void run(string text)
         {
 
-            var tokens = tokenize(text).ToList();
+            var tokens = Token.Tokenize(text);
 
             if (CompilerOptions.debug)
             {

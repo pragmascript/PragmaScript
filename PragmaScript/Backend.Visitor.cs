@@ -68,7 +68,7 @@ namespace tmp
             var str = convertString(node.s);
             var bytes = System.Text.ASCIIEncoding.ASCII.GetBytes(str);
 
-            var type = AST.FrontendType.string_;
+            var type = FrontendType.string_;
 
             var arr_struct_type = getTypeRef(type);
 
@@ -990,7 +990,7 @@ namespace tmp
             //Console.WriteLine(ts);
 
 
-            var s = node.structure.type as AST.FrontendStructType;
+            var s = node.structure.type as FrontendStructType;
             var idx = s.GetFieldIndex(node.fieldName);
             var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
 

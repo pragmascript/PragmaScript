@@ -243,7 +243,7 @@ namespace PragmaScript
 
 
         // TODO: cache struct times at definition time
-        static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendStructType t)
+        static LLVMTypeRef getTypeRef(FrontendStructType t)
         {
             LLVMTypeRef[] ets = new LLVMTypeRef[t.fields.Count];
             for (int i = 0; i < ets.Length; ++i)
@@ -256,7 +256,7 @@ namespace PragmaScript
         }
 
         // TODO: cache struct times at definition time
-        static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendArrayType t)
+        static LLVMTypeRef getTypeRef(FrontendArrayType t)
         {
             LLVMTypeRef[] ets = new LLVMTypeRef[2];
 
@@ -267,43 +267,43 @@ namespace PragmaScript
             return LLVM.StructType(ets, true);
         }
 
-        static LLVMTypeRef getTypeRef(PragmaScript.AST.FrontendType t)
+        static LLVMTypeRef getTypeRef(FrontendType t)
         {
-            if (t.Equals(AST.FrontendType.int32))
+            if (t.Equals(FrontendType.int32))
             {
                 return Const.Int32Type;
             }
-            if (t.Equals(AST.FrontendType.int64))
+            if (t.Equals(FrontendType.int64))
             {
                 return Const.Int64Type;
             }
-            if  (t.Equals(AST.FrontendType.int8))
+            if  (t.Equals(FrontendType.int8))
             {
                 return Const.Int8Type;
             }
-            if (t.Equals(AST.FrontendType.float32))
+            if (t.Equals(FrontendType.float32))
             {
                 return Const.Float32Type;
             }
-            if (t.Equals(AST.FrontendType.bool_))
+            if (t.Equals(FrontendType.bool_))
             {
                 return Const.BoolType;
             }
-            if (t.Equals(AST.FrontendType.void_))
+            if (t.Equals(FrontendType.void_))
             {
                 return Const.VoidType;
             }
-            if (t.Equals(AST.FrontendType.string_))
+            if (t.Equals(FrontendType.string_))
             {
-                return getTypeRef(t as AST.FrontendArrayType);
+                return getTypeRef(t as FrontendArrayType);
             }
-            if (t is AST.FrontendArrayType)
+            if (t is FrontendArrayType)
             {
-                return getTypeRef(t as AST.FrontendArrayType);
+                return getTypeRef(t as FrontendArrayType);
             }
-            if (t is AST.FrontendStructType)
+            if (t is FrontendStructType)
             {
-                return getTypeRef(t as AST.FrontendStructType);
+                return getTypeRef(t as FrontendStructType);
             }
             else
             {

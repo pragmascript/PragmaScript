@@ -4,7 +4,7 @@ using System.Text;
 
 namespace PragmaScript
 {
-    class Token
+    public class Token
     {
 
         /*
@@ -355,6 +355,30 @@ namespace PragmaScript
                 return string.Format("({0}, line {1}, pos {2}, \"{3}\")", "error: " + errorMessage, lineNumber + 1, pos + 1, text);
             }
 
+        }
+
+        public static Token[] Tokenize(string text)
+        {
+            List<Token> result = new List<Token>();
+
+            var lines = text.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+            for (int i = 0; i < lines.Length; ++i)
+            {
+                var line = lines[i];
+                var pos = 0;
+                while (pos < line.Length)
+                {
+                    var t = Token.Parse(line, pos, i);
+                    result.Add(t);
+                    pos += t.length;
+                }
+                result.Add(Token.NewLine(pos, i));
+            }
+
+            result.Add(Token.EOF);
+
+            // TODO: avoid re-allocation?
+            return result.ToArray();
         }
     }
 

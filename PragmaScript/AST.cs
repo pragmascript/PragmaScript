@@ -54,282 +54,6 @@ namespace PragmaScript
             }
         }
 
-        public class FrontendType
-        {
-            public static readonly FrontendType void_ = new FrontendType("void");
-            public static readonly FrontendType int32 = new FrontendType("int32");
-            public static readonly FrontendType int64 = new FrontendType("int64");
-            public static readonly FrontendType int8 = new FrontendType("int8");
-            public static readonly FrontendType float32 = new FrontendType("float32");
-            public static readonly FrontendType bool_ = new FrontendType("bool");
-            public static readonly FrontendArrayType string_ = new FrontendArrayType(int8);
-            public string name;
-
-            protected FrontendType()
-            {
-            }
-
-            public FrontendType(string name)
-            {
-                this.name = name;
-            }
-            public override int GetHashCode()
-            {
-                return ToString().GetHashCode();
-            }
-            public override string ToString()
-            {
-                return name;
-            }
-            public override bool Equals(object obj)
-            {
-                return ToString() == obj.ToString();
-            }
-
-            // TODO: remove
-            public static bool operator ==(FrontendType t1, FrontendType t2)
-            {
-                // only compare against null not other type
-                if (!ReferenceEquals(t1, null) && !ReferenceEquals(t2, null))
-                    throw new InvalidCodePath();
-
-                return ReferenceEquals(t1, t2);
-            }
-
-            public static bool operator !=(FrontendType t1, FrontendType t2)
-            {
-                return !(t1 == t2);
-            }
-
-        }
-
-        public class FrontendArrayType : FrontendStructType
-        {
-            public FrontendType elementType;
-            public FrontendArrayType(FrontendType elementType)
-            {
-                this.elementType = elementType;
-                name = "[" + elementType + "]";
-                AddField("length", FrontendType.int32);
-                AddField("data", new FrontendPointerType(elementType));
-            }
-        }
-
-        public class FrontendStructType : FrontendType
-        {
-            public class Field
-            {
-                public string name;
-                public FrontendType type;
-                public override string ToString()
-                {
-                    return type.ToString();
-                }
-            }
-            public List<Field> fields = new List<Field>();
-
-            public void AddField(string name, FrontendType type)
-            {
-                fields.Add(new Field { name = name, type = type });
-            }
-
-            public FrontendType GetField(string name)
-            {
-                var f = fields.Where(x => x.name == name).FirstOrDefault();
-                return f != null ? f.type : null;
-            }
-
-            public int GetFieldIndex(string name)
-            {
-                int idx = 0;
-                foreach (var f in fields)
-                {
-                    if (f.name == name)
-                    {
-                        return idx;
-                    }
-                    idx++;
-                }
-                throw new InvalidCodePath();
-            }
-
-            void calcTypeName()
-            {
-                name = "{" + string.Join(",", fields) + "}";
-            }
-        }
-
-        public class FrontendPointerType : FrontendType
-        {
-            public FrontendType elementType;
-            public FrontendPointerType(FrontendType elementType)
-            {
-                this.elementType = elementType;
-                name = elementType + "*";
-            }
-
-        }
-
-        public class Scope
-        {
-            public class VariableDefinition
-            {
-                public bool isFunctionParameter;
-                public int parameterIdx = -1;
-                public string name;
-                public FrontendType type;
-            }
-
-            public struct NamedParameter
-            {
-                public string name;
-                public FrontendType type;
-            }
-
-            public class FunctionDefinition
-            {
-                public string name;
-                public FrontendType returnType;
-                public List<NamedParameter> parameters = new List<NamedParameter>();
-                public void AddParameter(string name, FrontendType type)
-                {
-                    parameters.Add(new NamedParameter { name = name, type = type });
-                }
-            }
-
-            public FunctionDefinition function;
-            public Scope parent;
-            public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
-            public Dictionary<string, FunctionDefinition> functions = new Dictionary<string, FunctionDefinition>();
-            public Dictionary<string, FrontendType> types = new Dictionary<string, FrontendType>();
-
-            public Scope(Scope parent, FunctionDefinition function)
-            {
-                this.parent = parent;
-                this.function = function;
-            }
-
-            public VariableDefinition GetVar(string name)
-            {
-                VariableDefinition result;
-
-                if (variables.TryGetValue(name, out result))
-                {
-                    return result;
-                }
-
-                if (parent != null)
-                {
-                    return parent.GetVar(name);
-                }
-                else
-                {
-                    return null;
-                }
-            }
-
-            public VariableDefinition AddVar(string name, Token t)
-            {
-                VariableDefinition v = new VariableDefinition();
-                v.name = name;
-                if (variables.ContainsKey(name))
-                {
-                    throw new RedefinedVariable(name, t);
-                }
-                variables.Add(name, v);
-                return v;
-            }
-
-            public void AddFunctionParameter(string name, FrontendType type, int idx)
-            {
-                VariableDefinition v = new VariableDefinition();
-                v.name = name;
-                v.type = type;
-                v.isFunctionParameter = true;
-                v.parameterIdx = idx;
-                variables.Add(name, v);
-            }
-
-            public FunctionDefinition GetFunction(string name)
-            {
-                FunctionDefinition result;
-                if (functions.TryGetValue(name, out result))
-                {
-                    return result;
-                }
-                if (parent != null)
-                {
-                    return parent.GetFunction(name);
-                }
-                else
-                {
-                    return null;
-                }
-            }
-
-            public void AddFunction(FunctionDefinition fun)
-            {
-                if (variables.ContainsKey(fun.name))
-                {
-                    throw new RedefinedFunction(fun.name, Token.Undefined);
-                }
-                functions.Add(fun.name, fun);
-            }
-
-            public FrontendType GetType(string typeName)
-            {
-                FrontendType result;
-
-                if (types.TryGetValue(typeName, out result))
-                {
-                    return result;
-                }
-
-                if (parent != null)
-                {
-                    return parent.GetType(typeName);
-                }
-                else
-                {
-                    return null;
-                }
-            }
-
-            public FrontendType GetArrayType(string elementType)
-            {
-                var et = GetType(elementType);
-                return new FrontendArrayType(et);
-            }
-
-            public void AddType(string name, FrontendType typ, Token t)
-            {
-                if (types.ContainsKey(name))
-                {
-                    throw new RedefinedType(name, t);
-                }
-                types.Add(name, typ);
-            }
-
-            public void AddTypeAlias(FrontendType t, Token token, string alias)
-            {
-                if (types.ContainsKey(alias))
-                {
-                    throw new RedefinedType(alias, token);
-                }
-                types.Add(alias, t);
-            }
-
-            public void AddType(FrontendType t, Token token)
-            {
-                if (types.ContainsKey(t.ToString()))
-                {
-                    throw new RedefinedType(t.ToString(), token);
-                }
-                types.Add(t.ToString(), t);
-            }
-
-        }
-
         static void expectTokenType(Token t, Token.TokenType type)
         {
             if (t.type != type)
@@ -354,6 +78,7 @@ namespace PragmaScript
             }
         }
 
+#if false
         static int skipWhitespace(IList<Token> tokens, int pos, bool requireOneWS = false)
         {
             bool foundWS = false;
@@ -418,21 +143,6 @@ namespace PragmaScript
             }
             return tokens[pos];
         }
-
-        static Token expectCurrent(IList<Token> tokens, int pos, Token.TokenType tt)
-        {
-            var t = tokens[pos];
-            expectTokenType(t, tt);
-            return t;
-        }
-
-        static Token expectNext(IList<Token> tokens, ref int pos, Token.TokenType tt)
-        {
-            var t = nextToken(tokens, ref pos);
-            expectTokenType(t, tt);
-            return t;
-        }
-
         static Token nextToken(IList<Token> tokens, ref int pos, bool skipWS = true)
         {
             pos++;
@@ -450,6 +160,22 @@ namespace PragmaScript
                 return tokens[pos];
             }
         }
+
+        static Token expectCurrent(IList<Token> tokens, int pos, Token.TokenType tt)
+        {
+            var t = tokens[pos];
+            expectTokenType(t, tt);
+            return t;
+        }
+
+        static Token expectNext(IList<Token> tokens, ref int pos, Token.TokenType tt)
+        {
+            var t = nextToken(tokens, ref pos);
+            expectTokenType(t, tt);
+            return t;
+        }
+
+#endif
 
         static async Task<FrontendType> performTypeChecking(Node main, Scope root)
         {
@@ -524,7 +250,7 @@ namespace PragmaScript
         }
 
 
-        public static Node Parse(IList<Token> tokens)
+        public static Node Parse(Token[] tokens)
         {
             int pos = 0;
             var current = tokens[pos];
@@ -539,14 +265,17 @@ namespace PragmaScript
                 addBasicTypes(rootScope, current);
                 addBasicConstants(rootScope, current);
                 addBasicFunctions(rootScope);
-                
 
                 rootScope.AddFunction(main);
                 rootScope.function = main;
 
+                ParseState ps;
+                ps.pos = 0;
+                ps.tokens = tokens;
+
                 // perform AST generation pass
-                pos = skipWhitespace(tokens, pos);
-                block = parseMainBlock(tokens, ref pos, rootScope);
+                ps.SkipWhitespace();
+                block = parseMainBlock(ref ps, rootScope);
 
                 // perform type checking pass
                 try
