@@ -23,17 +23,20 @@ namespace PragmaScript
 
         public void aot(string filename)
         {
-            var bitcode = LLVM.WriteBitcodeToMemoryBuffer(mod);
-            var bitcodeSize = LLVM.GetBufferSize(bitcode);
-            var bitcodeData = new byte[bitcodeSize];
-            var bufferStart = GetBufferStart(bitcode);
 
-            //IntPtr error_msg;
-            //LLVM.PrintModuleToFile(mod, "output.ll", out error_msg);
 
-            System.Runtime.InteropServices.Marshal.Copy(bufferStart, bitcodeData, 0, bitcodeSize);
-            byte[] obj_data = bitcodeData;
-
+            byte[] obj_data;
+            {
+                var bitcode = LLVM.WriteBitcodeToMemoryBuffer(mod);
+                var bitcodeSize = LLVM.GetBufferSize(bitcode);
+                var bufferStart = GetBufferStart(bitcode);
+                obj_data = new byte[bitcodeSize];
+                System.Runtime.InteropServices.Marshal.Copy(bufferStart, obj_data, 0, bitcodeSize);
+            }
+#if DEBUG
+            IntPtr error_msg;
+            LLVM.PrintModuleToFile(mod, "output.ll", out error_msg);
+#endif
             {
                 Console.WriteLine("optimizer...");
                 var optProcess = new Process();
@@ -46,17 +49,13 @@ namespace PragmaScript
                 var optInput = optProcess.StandardInput;
                 var optOutput = optProcess.StandardOutput;
                 var bw = new BinaryWriter(optInput.BaseStream);
-                bw.Write(bitcodeData, 0, bitcodeSize);
+                bw.Write(obj_data, 0, obj_data.Length);
                 bw.Close();
                 using (var ms = new MemoryStream())
                 {
                     optOutput.BaseStream.CopyTo(ms);
                     obj_data = ms.ToArray();
                 }
-                //using (var fs = new FileStream("output.ll", FileMode.Create))
-                //{
-                //    optOutput.BaseStream.CopyTo(fs);
-                //}
                 optProcess.Close();
             }
 
@@ -93,6 +92,21 @@ namespace PragmaScript
                 lldProcess.Close();
 
             }
+
+#if DEBUG
+            {
+                var outputProcess = new Process();
+                var fn = Path.GetFileNameWithoutExtension(filename) + ".exe";
+                outputProcess.StartInfo.FileName = fn;
+                outputProcess.StartInfo.Arguments = "";
+                outputProcess.StartInfo.RedirectStandardInput = false;
+                outputProcess.StartInfo.RedirectStandardOutput = false;
+                outputProcess.StartInfo.UseShellExecute = false;
+                outputProcess.Start();
+                outputProcess.Close();
+            }
+#endif
+
             Console.WriteLine("done.");
         }
     }
