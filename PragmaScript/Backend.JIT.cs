@@ -128,6 +128,5 @@ namespace PragmaScript
                 Console.WriteLine();
             }
         }
-
     }
 }

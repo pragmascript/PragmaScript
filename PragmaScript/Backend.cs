@@ -52,10 +52,12 @@ namespace PragmaScript
             public static readonly LLVMBool FalseBool;
             public static readonly LLVMValueRef NegativeOneInt32;
             public static readonly LLVMValueRef ZeroInt32;
+            public static readonly LLVMValueRef ZeroInt64;
             public static readonly LLVMValueRef OneInt32;
             public static readonly LLVMValueRef OneFloat32;
             public static readonly LLVMValueRef True;
             public static readonly LLVMValueRef False;
+            public static readonly LLVMValueRef NullPtr;
 
             public static readonly LLVMTypeRef Float32Type;
             public static readonly LLVMTypeRef Int32Type;
@@ -76,6 +78,10 @@ namespace PragmaScript
 
                 NegativeOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), unchecked((ulong)-1), TrueBool);
                 ZeroInt32 = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(1));
+                ZeroInt64 = LLVM.ConstInt(LLVM.Int64Type(), 0, new LLVMBool(1));
+
+                
+
                 True = LLVM.ConstInt(LLVM.Int1Type(), (ulong)1, new LLVMBool(0));
                 False = LLVM.ConstInt(LLVM.Int1Type(), (ulong)0, new LLVMBool(0));
 
@@ -85,6 +91,7 @@ namespace PragmaScript
 
                 Int8Type = LLVM.IntType(8);
                 Int8PointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
+                NullPtr = LLVM.ConstPointerNull(Int8PointerType);
 
                 BoolType = LLVM.Int1Type();
                 VoidType = LLVM.VoidType();
@@ -401,8 +408,6 @@ namespace PragmaScript
                 ctx.Push(c);
 
             }
-
-
             {
                 LLVMTypeRef[] param_types = { LLVM.Int32Type() };
                 LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int64Type(), param_types, Const.FalseBool);
@@ -410,7 +415,6 @@ namespace PragmaScript
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
                 functions.Add("GetStdHandle", fun);
             }
-
             var byte_ptr_type = LLVM.PointerType(LLVM.Int8Type(), 0);
             {
                 LLVMTypeRef[] param_types = {
@@ -443,6 +447,7 @@ namespace PragmaScript
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
             var byte_ptr_type = LLVM.PointerType(Const.Int8Type, 0);
             var nullptr = LLVM.BuildAlloca(builder, byte_ptr_type, "nullptr_alloca");
+            LLVM.BuildStore(builder, Const.NullPtr, nullptr);
             variables["nullptr"] = nullptr;
 
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().entry);

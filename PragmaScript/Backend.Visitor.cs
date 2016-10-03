@@ -112,8 +112,6 @@ namespace tmp
             // with
             // http://llvm.org/docs/LangRef.html#standard-c-library-intrinsics
 
-
-
         }
 
         public void Visit(AST.UninitializedArray node)

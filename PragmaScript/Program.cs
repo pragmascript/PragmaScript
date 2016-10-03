@@ -13,7 +13,7 @@ namespace PragmaScript
     {
         public static bool debug = false;
         public static string inputFilename;
-        public static bool useOptimizations = false;
+        public static bool useOptimizations = true;
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
@@ -27,7 +27,7 @@ namespace PragmaScript
 #if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.useOptimizations = false;
-            CompilerOptions.inputFilename = @"Programs\string.ps";
+            CompilerOptions.inputFilename = @"Programs\hello.ps";
 #endif
             if (CompilerOptions.inputFilename == null)
             {
@@ -206,8 +206,8 @@ namespace PragmaScript
 #endif
             var backend = new Backend();
             // 
-            backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);
-            // backend.EmitAndAOT(root, "output.o");
+            // backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);
+            backend.EmitAndAOT(root, "output.o");
 #if DEBUG
             Console.ReadLine();
 #endif

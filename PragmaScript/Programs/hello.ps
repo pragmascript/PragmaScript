@@ -13,6 +13,19 @@
 
 // print_string(s);
 
-var s = "Hello World! fumm fumm._:"; 
-var handle = GetStdHandle(-11);
-WriteFile(handle, s.ptr, s.length, nullptr, nullptr);
+var ch = GetStdHandle(-11);
+var s = "Hello World! fumm fumm._:\n"; 
+WriteFile(ch, s.data, s.length, nullptr, nullptr);
+
+
+var str = "FOOOOOOOOoasdoakdoks\n";
+for (var i = 0; i < 12; ++i) {
+	WriteFile(ch, str.data, str.length, nullptr, nullptr);
+}
+
+
+
+
+
+
+
