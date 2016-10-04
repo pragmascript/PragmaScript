@@ -113,33 +113,7 @@ namespace PragmaScript
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int llvm_main();
 
-        //[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        //public delegate void void_del();
-        //public static void_del print;
-
         List<Delegate> functionDelegates = new List<Delegate>();
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void void_int_del(int x);
-        public static void_int_del print_i32;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void void_byte_del(byte x);
-        public static void_byte_del print_i8;
-
-        // http://stackoverflow.com/questions/14106619/passing-delegate-to-a-unmanaged-method-which-expects-a-delegate-method-with-an-i
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void void_float_del(float x);
-        public static void_float_del print_f32;
-
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void void_string_del(int length, IntPtr data);
-        public static void_string_del print_string;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate IntPtr intptr_void_del();
-        public static intptr_void_del read_string;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void void_void_del();
@@ -149,33 +123,7 @@ namespace PragmaScript
 
         public Backend()
         {
-            print_i32 += (x) =>
-            {
-                Console.Write(x);
-            };
-
-            print_i8 += (x) =>
-            {
-                Console.Write(x);
-            };
-
-            print_f32 += (x) =>
-            {
-                Console.Write(x);
-            };
-
-
-            print_string += (length, data) =>
-            {
-                Console.Write(Marshal.PtrToStringAnsi(data, length));
-            };
-
-            read_string += () =>
-            {
-                var str = Console.ReadLine();
-                return Marshal.StringToHGlobalAnsi(str);
-            };
-
+            
             print_cat += () =>
             {
                 var str =
@@ -233,12 +181,7 @@ namespace PragmaScript
                 Console.Write(str);
             };
 
-            addDelegate(print_i32, "print_i32");
-            addDelegate(print_i8, "print_i8");
-            addDelegate(print_f32, "print_f32");
-            addDelegate(print_string, "print_string");
-            //addDelegate(read_string, "read");
-            //addDelegate(print_cat, "cat");
+         
         }
 
 
@@ -444,10 +387,11 @@ namespace PragmaScript
             builder = LLVM.CreateBuilder();
 
             // HACK: 
-            LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
-            var byte_ptr_type = LLVM.PointerType(Const.Int8Type, 0);
-            var nullptr = LLVM.BuildAlloca(builder, byte_ptr_type, "nullptr_alloca");
-            LLVM.BuildStore(builder, Const.NullPtr, nullptr);
+            //LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+            //var byte_ptr_type = LLVM.PointerType(Const.Int8Type, 0);
+            //var nullptr = LLVM.BuildAlloca(builder, byte_ptr_type, "nullptr_alloca");
+            //LLVM.BuildStore(builder, Const.NullPtr, nullptr);
+            var nullptr = LLVM.ConstPointerNull(LLVM.PointerType(LLVM.Int8Type(), 0));
             variables["nullptr"] = nullptr;
 
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().entry);

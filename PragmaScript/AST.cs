@@ -78,105 +78,6 @@ namespace PragmaScript
             }
         }
 
-#if false
-        static int skipWhitespace(IList<Token> tokens, int pos, bool requireOneWS = false)
-        {
-            bool foundWS = false;
-
-            while (pos < tokens.Count && (tokens[pos].type == Token.TokenType.WhiteSpace || tokens[pos].type == Token.TokenType.Comment))
-            {
-                foundWS = true;
-                pos++;
-                if (pos >= tokens.Count)
-                {
-                    break;
-                }
-            }
-
-            if (requireOneWS && !foundWS)
-            {
-                throw new ParserError("Expected Whitespace", tokens[pos]);
-            }
-            return pos;
-        }
-
-        static Token peekToken(IList<Token> tokens, int pos, bool tokenMustExist = false, bool skipWS = true)
-        {
-            pos++;
-            if (skipWS)
-            {
-                pos = skipWhitespace(tokens, pos);
-            }
-
-            if (pos >= tokens.Count)
-            {
-                if (tokenMustExist)
-                {
-                    throw new ParserError("Missing next token", tokens[pos - 1]);
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            return tokens[pos];
-        }
-
-        static Token peekTokenUpdatePos(IList<Token> tokens, ref int pos, bool tokenMustExist = false, bool skipWS = true)
-        {
-            pos++;
-            if (skipWS)
-            {
-                pos = skipWhitespace(tokens, pos);
-            }
-
-            if (pos >= tokens.Count)
-            {
-                if (tokenMustExist)
-                {
-                    throw new ParserError("Missing next token", tokens[pos - 1]);
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            return tokens[pos];
-        }
-        static Token nextToken(IList<Token> tokens, ref int pos, bool skipWS = true)
-        {
-            pos++;
-            if (skipWS)
-            {
-                pos = skipWhitespace(tokens, pos);
-            }
-
-            if (pos >= tokens.Count)
-            {
-                throw new ParserError("Missing next token", tokens[pos]);
-            }
-            else
-            {
-                return tokens[pos];
-            }
-        }
-
-        static Token expectCurrent(IList<Token> tokens, int pos, Token.TokenType tt)
-        {
-            var t = tokens[pos];
-            expectTokenType(t, tt);
-            return t;
-        }
-
-        static Token expectNext(IList<Token> tokens, ref int pos, Token.TokenType tt)
-        {
-            var t = nextToken(tokens, ref pos);
-            expectTokenType(t, tt);
-            return t;
-        }
-
-#endif
-
         static async Task<FrontendType> performTypeChecking(Node main, Scope root)
         {
             try
@@ -194,6 +95,7 @@ namespace PragmaScript
         {
             scope.AddType(FrontendType.float32, token);
             scope.AddType(FrontendType.int32, token);
+            scope.AddType(FrontendType.int8, token);
             scope.AddType(FrontendType.bool_, token);
             scope.AddTypeAlias(FrontendType.string_, token, "string");
         }
@@ -202,27 +104,7 @@ namespace PragmaScript
         
         static void addBasicFunctions(Scope scope)
         {
-            var print_i32 = new Scope.FunctionDefinition { name = "print_i32", returnType = FrontendType.void_ };
-            print_i32.AddParameter("x", FrontendType.int32);
-            scope.AddFunction(print_i32);
-
-            var print_i8 = new Scope.FunctionDefinition { name = "print_i8", returnType = FrontendType.void_ };
-            print_i8.AddParameter("x", FrontendType.int8);
-            scope.AddFunction(print_i8);
-
-            var print_f32 = new Scope.FunctionDefinition { name = "print_f32", returnType = FrontendType.void_ };
-            print_f32.AddParameter("x", FrontendType.float32);
-            scope.AddFunction(print_f32);
-
-            var print = new Scope.FunctionDefinition { name = "print_string", returnType = FrontendType.void_ };
-            print.AddParameter("length", FrontendType.int32);
-            print.AddParameter("str", new FrontendPointerType(FrontendType.int8));
-            // print.AddParameter("str", FrontendType.string_);
-            scope.AddFunction(print);
-
-            var read = new Scope.FunctionDefinition { name = "read", returnType = FrontendType.string_ };
-            scope.AddFunction(read);
-
+            
             var cat = new Scope.FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
             scope.AddFunction(cat);
 

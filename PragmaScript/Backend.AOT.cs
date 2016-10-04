@@ -14,6 +14,7 @@ using System.IO;
 namespace PragmaScript
 {
     // http://denisbider.blogspot.de/2016/04/hello-world-in-llvm-ir-language-without.html
+    // http://llvm.org/devmtg/2013-11/slides/Gao-LTO.pdf
     partial class Backend
     {
         // NOTE: function signature is broken in LLVMSharp 3.7 so we declare it here manually

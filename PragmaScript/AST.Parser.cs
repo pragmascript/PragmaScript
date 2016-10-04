@@ -118,29 +118,24 @@ namespace PragmaScript
             if (current.type == Token.TokenType.Identifier)
             {
                 var next = ps.PeekToken(tokenMustExist: true, skipWS: true);
-
-                // could be either a function call or an assignment
-                if (!next.isAssignmentOperator() && !(next.type == Token.TokenType.OpenBracket)
-                    && !((next.type == Token.TokenType.Increment || next.type == Token.TokenType.Decrement)))
+                switch (next.type)
                 {
-                    throw new ParserErrorExpected("assignment operator, function call, or increment/decrement", next.type.ToString(), next);
-                }
-
-                if (next.type == Token.TokenType.OpenBracket)
-                {
-                    result = parseFunctionCall(ref ps, scope);
-                }
-                else if (next.isAssignmentOperator())
-                {
-                    result = parseAssignment(ref ps, scope);
-                }
-                else if (next.type == Token.TokenType.Increment || next.type == Token.TokenType.Decrement)
-                {
-                    result = parseVariableLookup(ref ps, scope);
-                }
-                else
-                {
-                    throw new InvalidCodePath();
+                    case Token.TokenType.OpenBracket:
+                        result = parseFunctionCall(ref ps, scope);
+                        break;
+                    case Token.TokenType.Increment:
+                    case Token.TokenType.Decrement:
+                        result = parseVariableLookup(ref ps, scope);
+                        break;
+                    case Token.TokenType.OpenSquareBracket:
+                        result = parseAssignment(ref ps, scope);
+                        break;
+                    default:
+                        if (next.isAssignmentOperator())
+                            result = parseAssignment(ref ps, scope);
+                        else
+                            throw new ParserErrorExpected("assignment operator, function call, or increment/decrement", next.type.ToString(), next);
+                        break;
                 }
             }
 
@@ -465,6 +460,17 @@ namespace PragmaScript
         static Node parseAssignment(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
+            var result = new Assignment(current);
+
+            var next = ps.PeekToken();
+            if (next.type == Token.TokenType.OpenSquareBracket)
+            {
+                result.isArrayAssignment = true;
+                ps.NextToken();
+                ps.NextToken();
+                result.index = parseBinOp(ref ps, scope);
+                ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
+            }
 
             var assign = ps.NextToken();
             if (!assign.isAssignmentOperator())
@@ -473,8 +479,7 @@ namespace PragmaScript
             }
 
             var firstExpressionToken = ps.NextToken();
-
-            var result = new Assignment(current);
+            
             var variable = scope.GetVar(current.text);
             if (variable == null)
             {

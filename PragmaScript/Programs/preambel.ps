@@ -1,5 +1,4 @@
-﻿
-let print_string = (s: string) => 
+﻿let print_string = (s: string) => 
 {
  	var handle = GetStdHandle(-11);
  	WriteFile(handle, s.data, s.length, nullptr, nullptr);
@@ -7,13 +6,12 @@ let print_string = (s: string) =>
 
 let print_i32 = (value: int32) => 
 {
-	var x = value;
 	var result = "\0\0\0\0\0\0\0\0\0\0";
 	for (var i = 0; i < result.length; ++i) {
-		if (x > 0) {
-			var d = x % 10;
-			result[result.length - 1 - i] = (int8)(d + 48);
-			x = x / 10;
+		if (value > 0) {
+			var d = value % 10;
+			result[i] = d + 48;
+			value = value / 10;
 		} else {
 			continue;
 		}
@@ -23,11 +21,15 @@ let print_i32 = (value: int32) =>
 
 print_string("hello world, fumm fumm .)\n");
 
-var str = "\nFOOOOOOOOoasdoakdoks\n";
+var str = "FOOOOOOOOoasdoakdoks\n";
 for (var i = 0; i < 12; ++i) {
 	print_string(str);
 	print_i32(i);
 }
 
-// var x = [1, 2, 3, 4];
-// x[1] = 17;
+
+
+
+
+
+

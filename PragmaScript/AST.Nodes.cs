@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -403,6 +404,7 @@ namespace PragmaScript
             public override async Task<FrontendType> CheckType(Scope scope)
             {
                 var v = scope.GetVar(variableName);
+                Debug.Assert(v != null);
                 varDefinition = v;
 
                 while(v.type == null)
@@ -437,8 +439,13 @@ namespace PragmaScript
 
         public class Assignment : Node
         {
+            
             public Scope.VariableDefinition variable;
             public Node expression;
+
+            public bool isArrayAssignment;
+            public Node index;
+
 
             public Assignment(Token t)
                 : base(t)
@@ -450,12 +457,37 @@ namespace PragmaScript
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var et = await expression.CheckType(scope);
-                if (!et.Equals(variable.type))
+                if (!isArrayAssignment)
                 {
-                    throw new ParserVariableTypeMismatch(variable.type, et, token);
+                    var et = await expression.CheckType(scope);
+                    if (!et.Equals(variable.type))
+                    {
+                        throw new ParserVariableTypeMismatch(variable.type, et, token);
+                    }
+                    return variable.type;
                 }
-                return variable.type;
+                else
+                {
+                    if (!(variable.type is FrontendArrayType))
+                    {
+                        throw new ParserError("variable is not an array type", token);
+                    }
+                    var vat = variable.type as FrontendArrayType;
+
+                    var it = await index.CheckType(scope);
+                    if (!it.Equals(FrontendType.int32))
+                    {
+                        throw new ParserExpectedType(FrontendType.int32, it, index.token);
+                    }
+
+                    var et = await expression.CheckType(scope);
+                    if (!et.Equals(vat.elementType))
+                    {
+                        throw new ParserVariableTypeMismatch(vat.elementType, et, token);
+                    }
+
+                    return vat.elementType;
+                }
             }
             public override string ToString()
             {
@@ -1061,6 +1093,7 @@ namespace PragmaScript
             // TODO: handle types that are not resolved yet!
             public override async Task<FrontendType> CheckType(Scope scope)
             {
+                await expression.CheckType(scope);
                 return await Task.FromResult(type);
             }
             public override string ToString()

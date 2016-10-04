@@ -31,7 +31,7 @@ namespace PragmaScript
             var prms = new System.CodeDom.Compiler.CompilerParameters();
             prms.GenerateExecutable = false;
             prms.GenerateInMemory = true;
-            var results = provider.CompileAssemblyFromSource(prms, 
+            var results = provider.CompileAssemblyFromSource(prms,
 @"
 namespace tmp
 {
@@ -408,38 +408,78 @@ namespace tmp
             var typeName = node.type.ToString();
 
             var result = default(LLVMValueRef);
-            var resultType = getTypeRef(node.type);
+            var targetType = getTypeRef(node.type);
+
+            if (isEqualType(targetType, vtype))
+            {
+                result = v;
+                valueStack.Push(result);
+                return;
+            }
 
             // TODO: check if integral type
             // TODO: handle non integral types
-            if (isEqualType(resultType, Const.Float32Type))
+            if (LLVM.GetTypeKind(targetType) == LLVMTypeKind.LLVMIntegerTypeKind)
             {
-                result = LLVM.BuildSIToFP(builder, v, Const.Float32Type, "float32_cast");
-            }
-            else if (isEqualType(resultType, Const.Int32Type))
-            {
-                if (isEqualType(vtype, Const.Float32Type))
+                if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMIntegerTypeKind)
                 {
-                    result = LLVM.BuildFPToSI(builder, v, Const.Int32Type, "int32_cast");
+                    if (LLVM.GetIntTypeWidth(targetType) > LLVM.GetIntTypeWidth(vtype))
+                    {
+                        result = LLVM.BuildZExt(builder, v, targetType, "int_cast");
+                    }
+                    else if (LLVM.GetIntTypeWidth(targetType) < LLVM.GetIntTypeWidth(vtype))
+                    {
+                        result = LLVM.BuildTrunc(builder, v, targetType, "int_trunc");
+                    }
+                    else if (LLVM.GetIntTypeWidth(targetType) == LLVM.GetIntTypeWidth(vtype))
+                    {
+                        result = LLVM.BuildBitCast(builder, v, targetType, "int_bitcast");
+                    }
                 }
-                else if (isEqualType(vtype, Const.Int32Type))
+                // TODO: support different float widths
+                else if (isEqualType(vtype, Const.Float32Type))
                 {
-                    result = v;
+                    result = LLVM.BuildFPToSI(builder, v, Const.Int32Type, "int_cast");
                 }
                 else if (isEqualType(vtype, Const.BoolType))
                 {
-                    result = LLVM.BuildZExt(builder, v, Const.Int32Type, "int32_cast");
+                    result = LLVM.BuildZExt(builder, v, targetType, "int_cast");
                 }
                 else
                 {
                     throw new InvalidCodePath();
                 }
             }
-            else
-            {
-                throw new NotImplementedException();
-            }
             valueStack.Push(result);
+
+            //if (isEqualType(resultType, Const.Float32Type))
+            //{
+            //    result = LLVM.BuildSIToFP(builder, v, Const.Float32Type, "float32_cast");
+            //}
+            //else if (isEqualType(resultType, Const.Int32Type))
+            //{
+            //    if (isEqualType(vtype, Const.Float32Type))
+            //    {
+            //        result = LLVM.BuildFPToSI(builder, v, Const.Int32Type, "int32_cast");
+            //    }
+            //    else if (isEqualType(vtype, Const.Int32Type))
+            //    {
+            //        result = v;
+            //    }
+            //    else if (isEqualType(vtype, Const.BoolType))
+            //    {
+            //        result = LLVM.BuildZExt(builder, v, Const.Int32Type, "int32_cast");
+            //    }
+            //    else
+            //    {
+            //        throw new InvalidCodePath();
+            //    }
+            //}
+            //else
+            //{
+            //    throw new NotImplementedException();
+            //}
+
         }
 
         public void Visit(AST.VariableDefinition node)
@@ -497,7 +537,7 @@ namespace tmp
                     Visit(elem);
                     var arg = valueStack.Pop();
                     var gep_idx = new LLVMValueRef[] { LLVM.ConstInt(Const.Int32Type, (ulong)i, Const.FalseBool) };
-                    var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_"+i);
+                    var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_" + i);
 
                     LLVM.BuildStore(builder, arg, gep);
                 }
@@ -522,8 +562,6 @@ namespace tmp
             }
         }
 
-
-
         public void Visit(AST.Assignment node)
         {
             Visit(node.expression);
@@ -533,14 +571,31 @@ namespace tmp
             var v = variables[node.variable.name];
             var vtype = LLVM.TypeOf(v);
 
-
-
-            if (!isEqualType(LLVM.GetElementType(vtype), resultType))
+            if (node.isArrayAssignment)
             {
-                throw new BackendTypeMismatchException(resultType, LLVM.GetElementType(vtype));
-            }
+                Visit(node.index);
+                var idx = valueStack.Pop();
+                var arr = v;
+                // var arr_type_name = typeToString(LLVM.TypeOf(arr));
 
-            LLVM.BuildStore(builder, result, v);
+                LLVMValueRef arr_elem_ptr;
+                var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32 };
+                var gep_arr_elem_ptr = LLVM.BuildGEP(builder, arr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
+                arr_elem_ptr = LLVM.BuildLoad(builder, gep_arr_elem_ptr, "arr_elem_ptr");
+
+                var gep_idx_1 = new LLVMValueRef[] { idx };
+                var gep_arr_elem = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx_1[0], 1, "gep_arr_elem");
+
+                LLVM.BuildStore(builder, result, gep_arr_elem);
+            }
+            else
+            {
+                if (!isEqualType(LLVM.GetElementType(vtype), resultType))
+                {
+                    throw new BackendTypeMismatchException(resultType, LLVM.GetElementType(vtype));
+                }
+                LLVM.BuildStore(builder, result, v);
+            }
         }
 
         public void Visit(AST.Block node)
@@ -563,10 +618,21 @@ namespace tmp
                 return;
             }
             var v = variables[vd.name];
-            var l = LLVM.BuildLoad(builder, v, vd.name);
-            var ltype = LLVM.TypeOf(l);
 
-            LLVMValueRef result = l;
+
+            LLVMValueRef result;
+            // HACK:
+            if (LLVM.IsConstant(v))
+            {
+                result = v;
+            }
+            else
+            {
+                result = LLVM.BuildLoad(builder, v, vd.name);
+            }
+            var ltype = LLVM.TypeOf(result);
+
+
             switch (node.inc)
             {
                 case AST.VariableLookup.Incrementor.None:
@@ -575,22 +641,22 @@ namespace tmp
                 case AST.VariableLookup.Incrementor.preIncrement:
                     if (isEqualType(ltype, Const.Int32Type))
                     {
-                        result = LLVM.BuildAdd(builder, l, Const.OneInt32, "preinc");
+                        result = LLVM.BuildAdd(builder, result, Const.OneInt32, "preinc");
                     }
                     else if (isEqualType(ltype, Const.Float32Type))
                     {
-                        result = LLVM.BuildFAdd(builder, l, Const.OneFloat32, "preinc");
+                        result = LLVM.BuildFAdd(builder, result, Const.OneFloat32, "preinc");
                     }
                     LLVM.BuildStore(builder, result, v);
                     break;
                 case AST.VariableLookup.Incrementor.preDecrement:
                     if (isEqualType(ltype, Const.Int32Type))
                     {
-                        result = LLVM.BuildSub(builder, l, Const.OneInt32, "predec");
+                        result = LLVM.BuildSub(builder, result, Const.OneInt32, "predec");
                     }
                     else if (isEqualType(ltype, Const.Float32Type))
                     {
-                        result = LLVM.BuildFSub(builder, l, Const.OneFloat32, "predec");
+                        result = LLVM.BuildFSub(builder, result, Const.OneFloat32, "predec");
                     }
                     LLVM.BuildStore(builder, result, v);
                     break;
@@ -598,11 +664,11 @@ namespace tmp
                     var postinc = default(LLVMValueRef);
                     if (isEqualType(ltype, Const.Int32Type))
                     {
-                        postinc = LLVM.BuildAdd(builder, l, Const.OneInt32, "postinc");
+                        postinc = LLVM.BuildAdd(builder, result, Const.OneInt32, "postinc");
                     }
                     else if (isEqualType(ltype, Const.Float32Type))
                     {
-                        postinc = LLVM.BuildFAdd(builder, l, Const.OneFloat32, "postinc");
+                        postinc = LLVM.BuildFAdd(builder, result, Const.OneFloat32, "postinc");
                     }
                     LLVM.BuildStore(builder, postinc, v);
                     break;
@@ -610,11 +676,11 @@ namespace tmp
                     var postdec = default(LLVMValueRef);
                     if (isEqualType(ltype, Const.Int32Type))
                     {
-                        postdec = LLVM.BuildSub(builder, l, Const.OneInt32, "postdec");
+                        postdec = LLVM.BuildSub(builder, result, Const.OneInt32, "postdec");
                     }
                     else if (isEqualType(ltype, Const.Float32Type))
                     {
-                        postdec = LLVM.BuildFSub(builder, l, Const.OneFloat32, "postdec");
+                        postdec = LLVM.BuildFSub(builder, result, Const.OneFloat32, "postdec");
                     }
                     LLVM.BuildStore(builder, postdec, v);
                     break;
@@ -948,7 +1014,7 @@ namespace tmp
                 arr = variables[vd.name];
             }
 
-            var arr_type_name = typeToString(LLVM.TypeOf(arr));
+            // var arr_type_name = typeToString(LLVM.TypeOf(arr));
 
             Visit(node.index);
             var idx = valueStack.Pop();
@@ -1038,7 +1104,7 @@ namespace tmp
             var const_arr = LLVM.ConstArray(elem_type, out values[0], (uint)values.Length);
 
             var alloc_arr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_alloca");
-            var alloc_arr_typ = typeToString(LLVM.TypeOf(alloc_arr));
+            // var alloc_arr_typ = typeToString(LLVM.TypeOf(alloc_arr));
 
             var arr_ptr = LLVM.BuildBitCast(builder, alloc_arr, LLVM.PointerType(LLVM.TypeOf(const_arr), 0), "arr_ptr");
             var store_arr = LLVM.BuildStore(builder, const_arr, arr_ptr);
