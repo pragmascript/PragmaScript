@@ -1,0 +1,39 @@
+﻿// TODO: 
+// var result = i8[] { 11 }; // DEADLOCKS typechecker
+// for (var i = 0; i < result.length; ++i) {
+// 		result[i] = (int8)i;
+// }
+
+// TODO: uninitialized array has wrong format.
+// var result = int8[] { 11 };
+// if (value < 0) {
+// 	result[0] = (int8)45;
+// }
+
+// let sphere = struct
+// {
+// 	pos:    vec;
+// 	radius: float32;
+// }
+// var s = sphere{};
+// s.pos = vec{1.0,2.0,3.0};
+
+
+let vec = struct
+{
+	x: float32;
+	y: float32;
+	z: float32;
+}
+let ray = struct 
+{
+	pos: vec;
+	dir: vec;
+}
+
+// var foo = 1 + 2 + 3;
+
+var r = ray{};
+r.pos.x = 12;
+
+

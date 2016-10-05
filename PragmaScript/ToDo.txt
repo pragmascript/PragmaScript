@@ -1,0 +1,22 @@
+﻿
+
+- look at the implementation of this:
+	https://ispc.github.io/
+
+- make variable declaration call
+	parseAssignment and seperate nodes?
+
+- think about if i want to use
+	unsigned remainder for % operator
+	instead of signed as in C
+
+- the returnPointer variable access
+	scheme probably doesnt work
+	for struct access:
+		(foo.pos).y
+	it has to be activated recursively!
+	what happens in the backend???
+
+- editor support
+	https://code.visualstudio.com/docs/extensions/example-language-server
+	https://code.visualstudio.com/docs/extensions/overview

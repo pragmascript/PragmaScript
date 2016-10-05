@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace PragmaScript
@@ -127,6 +128,7 @@ namespace PragmaScript
                     case Token.TokenType.Decrement:
                         result = parseVariableLookup(ref ps, scope);
                         break;
+                    case Token.TokenType.Dot:
                     case Token.TokenType.OpenSquareBracket:
                         result = parseAssignment(ref ps, scope);
                         break;
@@ -442,7 +444,7 @@ namespace PragmaScript
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Return);
 
-            var next = ps.PeekToken(tokenMustExist:true, skipWS:true);
+            var next = ps.PeekToken(tokenMustExist: true, skipWS: true);
             if (next.type == Token.TokenType.Semicolon)
             {
                 var result = new ReturnFunction(current);
@@ -460,16 +462,25 @@ namespace PragmaScript
         static Node parseAssignment(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
-            var result = new Assignment(current);
 
-            var next = ps.PeekToken();
-            if (next.type == Token.TokenType.OpenSquareBracket)
+            var result = new Assignment(current);
+            result.target = parseBinOp(ref ps, scope);
+
+            if (result.target is VariableLookup)
             {
-                result.isArrayAssignment = true;
-                ps.NextToken();
-                ps.NextToken();
-                result.index = parseBinOp(ref ps, scope);
-                ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
+                (result.target as VariableLookup).returnPointer = true;
+            }
+            else if (result.target is StructFieldAccess)
+            {
+                (result.target as StructFieldAccess).returnPointer = true;
+            }
+            else if (result.target is ArrayElementAccess)
+            {
+                (result.target as ArrayElementAccess).returnPointer = true;
+            }
+            else
+            {
+                throw new ParserErrorExpected(result.target.GetType().Name, "variable, struct field access, array element access", result.target.token);
             }
 
             var assign = ps.NextToken();
@@ -478,25 +489,13 @@ namespace PragmaScript
                 throw new ParserErrorExpected("assignment operator", assign.type.ToString(), assign);
             }
 
-            var firstExpressionToken = ps.NextToken();
-            
-            var variable = scope.GetVar(current.text);
-            if (variable == null)
-            {
-                throw new UndefinedVariable(current.text, current);
-            }
-            result.variable = variable;
-
+            ps.NextToken();
             var exp = parseBinOp(ref ps, scope);
-
             var compound = new BinOp(assign);
-            var v = new VariableLookup(current);
-            v.variableName = current.text;
-            compound.left = v;
+            compound.left = result.target;
             compound.right = exp;
 
             result.expression = compound;
-
             switch (assign.type)
             {
                 case Token.TokenType.Assignment:
@@ -705,7 +704,7 @@ namespace PragmaScript
             }
 
             var tempState = ps;
-            var next = tempState.NextToken(tokenMustExist:false);
+            var next = tempState.NextToken(tokenMustExist: false);
 
             // TODO: DO I REALLY NEED 2 LOOKAHEAD HERE?
             var nextNext = tempState.PeekToken();
@@ -737,74 +736,78 @@ namespace PragmaScript
         {
             var current = ps.CurrentToken();
 
-            if (current.type == Token.TokenType.IntNumber)
+            switch (current.type)
             {
-                var result = new ConstInt32(current);
-                result.number = int.Parse(current.text);
-                return result;
+                case Token.TokenType.IntNumber:
+                    {
+                        var result = new ConstInt32(current);
+                        result.number = int.Parse(current.text);
+                        return result;
+                    }
+                case Token.TokenType.FloatNumber:
+                    {
+                        var result = new ConstFloat32(current);
+                        result.number = double.Parse(current.text, CultureInfo.InvariantCulture);
+                        return result;
+                    }
+                case Token.TokenType.False:
+                case Token.TokenType.True:
+                    {
+                        var result = new ConstBool(current);
+                        result.value = current.type == Token.TokenType.True;
+                        return result;
+                    }
+                case Token.TokenType.String:
+                    {
+                        var result = new ConstString(current);
+                        result.s = current.text;
+                        return result;
+                    }
+                case Token.TokenType.OpenBracket:
+                    {
+                        var exprStart = ps.NextToken();
+                        var result = parseBinOp(ref ps, scope);
+                        ps.ExpectNextToken(Token.TokenType.CloseBracket);
+                        return result;
+                    }
+                case Token.TokenType.Decrement:
+                case Token.TokenType.Increment:
+                    {
+                        return parseVariableLookup(ref ps, scope);
+                    }
+                case Token.TokenType.Identifier:
+                    {
+                        Node result = null;
+                        // bool exit = false;
+                        // while (!exit)
+                        {
+                            var peek = ps.PeekToken();
+                            switch (peek.type)
+                            {
+                                case Token.TokenType.OpenBracket:
+                                    result = parseFunctionCall(ref ps, scope);
+                                    break;
+                                case Token.TokenType.Dot:
+                                    result = parseStructFieldAccess(ref ps, scope);
+                                    break;
+                                case Token.TokenType.OpenCurly:
+                                    result = parseStructConstructor(ref ps, scope);
+                                    break;
+                                case Token.TokenType.ArrayTypeBrackets:
+                                    result = parseUninitializedArray(ref ps, scope);
+                                    break;
+                                default:
+                                    result = parseVariableLookup(ref ps, scope);
+                                    // exit = true;
+                                    break;
+                            }
+                        }
+                        Debug.Assert(result != null);
+                        return result;
+                    }
+                default:
+                    throw new ParserError("Unexpected token type: " + current.type, current);
             }
-            if (current.type == Token.TokenType.FloatNumber)
-            {
-                var result = new ConstFloat32(current);
-                result.number = double.Parse(current.text, CultureInfo.InvariantCulture);
-                return result;
-            }
-            if (current.type == Token.TokenType.True || current.type == Token.TokenType.False)
-            {
-                var result = new ConstBool(current);
-                result.value = current.type == Token.TokenType.True;
-                return result;
-            }
-            if (current.type == Token.TokenType.String)
-            {
-                var result = new ConstString(current);
-                result.s = current.text;
-                return result;
-            }
-            // '(' expr ')'
-            if (current.type == Token.TokenType.OpenBracket)
-            {
-                var exprStart = ps.NextToken();
-                var result = parseBinOp(ref ps, scope);
-                ps.ExpectNextToken(Token.TokenType.CloseBracket);
-                return result;
-            }
-            if (current.type == Token.TokenType.Identifier)
-            {
-                var peek = ps.PeekToken();
-
-                // function call
-                if (peek.type == Token.TokenType.OpenBracket)
-                {
-                    var result = parseFunctionCall(ref ps, scope);
-                    return result;
-                }
-
-                // struct field access
-                if (peek.type == Token.TokenType.Dot)
-                {
-                    return parseStructFieldAccess(ref ps, scope);
-                }
-
-                // struct defintion
-                if (peek.type == Token.TokenType.OpenCurly)
-                {
-                    return parseStructConstructor(ref ps, scope);
-                }
-
-                if (peek.type == Token.TokenType.ArrayTypeBrackets)
-                {
-                    return parseUninitializedArray(ref ps, scope);
-                }
-
-                return parseVariableLookup(ref ps, scope);
-            }
-
-            if (current.type == Token.TokenType.Increment || current.type == Token.TokenType.Decrement)
-            {
-                return parseVariableLookup(ref ps, scope);
-            }
-            throw new ParserError("Unexpected token type: " + current.type, current);
         }
 
         static Node parseStructConstructor(ref ParseState ps, Scope scope)
@@ -1018,7 +1021,7 @@ namespace PragmaScript
                     foundReturn = true;
                 }
 
-                next = ps.NextToken(); 
+                next = ps.NextToken();
             }
             return result;
         }

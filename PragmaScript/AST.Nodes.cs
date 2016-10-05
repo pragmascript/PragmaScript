@@ -8,6 +8,55 @@ namespace PragmaScript
 {
     partial class AST
     {
+
+        public abstract class Node
+        {
+            public Token token;
+
+            public Node(Token t)
+            {
+                token = t;
+            }
+
+            public virtual IEnumerable<Node> GetChilds()
+            {
+                yield break;
+            }
+
+            public abstract Task<FrontendType> CheckType(Scope scope);
+        }
+
+        public class AnnotatedNode : Node
+        {
+            Node node;
+            public string annotation;
+            public AnnotatedNode(Node n, string annotation)
+                : base(n.token)
+            {
+                node = n;
+                this.annotation = annotation;
+            }
+
+            public override IEnumerable<Node> GetChilds()
+            {
+                foreach (var n in node.GetChilds())
+                {
+                    yield return n;
+                }
+            }
+
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                return await node.CheckType(scope);
+            }
+
+            public override string ToString()
+            {
+                return node.ToString();
+            }
+        }
+
+
         public class Block : Node
         {
             public Scope scope;
@@ -397,6 +446,7 @@ namespace PragmaScript
             public Incrementor inc;
             public string variableName;
             public Scope.VariableDefinition varDefinition;
+            public bool returnPointer;
             public VariableLookup(Token t)
                 : base(t)
             {
@@ -439,11 +489,12 @@ namespace PragmaScript
 
         public class Assignment : Node
         {
-            
-            public Scope.VariableDefinition variable;
+
+            //  public Scope.VariableDefinition variable;
+            public Node target;
             public Node expression;
 
-            public bool isArrayAssignment;
+            // public bool isArrayAssignment;
             public Node index;
 
 
@@ -457,41 +508,45 @@ namespace PragmaScript
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                if (!isArrayAssignment)
+                var et = await expression.CheckType(scope);
+                var tt = await target.CheckType(scope);
+                if (!et.Equals(tt))
                 {
-                    var et = await expression.CheckType(scope);
-                    if (!et.Equals(variable.type))
-                    {
-                        throw new ParserVariableTypeMismatch(variable.type, et, token);
-                    }
-                    return variable.type;
+                    throw new ParserVariableTypeMismatch(tt, et, token);
                 }
-                else
-                {
-                    if (!(variable.type is FrontendArrayType))
-                    {
-                        throw new ParserError("variable is not an array type", token);
-                    }
-                    var vat = variable.type as FrontendArrayType;
+                return tt;
 
-                    var it = await index.CheckType(scope);
-                    if (!it.Equals(FrontendType.int32))
-                    {
-                        throw new ParserExpectedType(FrontendType.int32, it, index.token);
-                    }
+                //if (!isArrayAssignment)
+                //{
+               
+                //}
+                //else
+                //{
+                //    var tt = await target.CheckType(scope);
+                //    if (!(tt is FrontendArrayType))
+                //    {
+                //        throw new ParserError("variable is not an array type", token);
+                //    }
+                //    var vat = tt as FrontendArrayType;
 
-                    var et = await expression.CheckType(scope);
-                    if (!et.Equals(vat.elementType))
-                    {
-                        throw new ParserVariableTypeMismatch(vat.elementType, et, token);
-                    }
+                //    var it = await index.CheckType(scope);
+                //    if (!it.Equals(FrontendType.int32))
+                //    {
+                //        throw new ParserExpectedType(FrontendType.int32, it, index.token);
+                //    }
 
-                    return vat.elementType;
-                }
+                //    var et = await expression.CheckType(scope);
+                //    if (!et.Equals(vat.elementType))
+                //    {
+                //        throw new ParserVariableTypeMismatch(vat.elementType, et, token);
+                //    }
+
+                //    return vat.elementType;
+                //}
             }
             public override string ToString()
             {
-                return variable.name + " = ";
+                return " = ";
             }
         }
 
@@ -613,7 +668,7 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return type.ToString();
+                return "[]";
             }
         }
 
@@ -666,6 +721,7 @@ namespace PragmaScript
             public string structName;
             public string fieldName;
             public Scope.VariableDefinition structure;
+            public bool returnPointer;
 
             public StructFieldAccess(Token t) :
                 base(t)
@@ -712,6 +768,7 @@ namespace PragmaScript
 
             public string variableName;
             public Scope.VariableDefinition varDefinition;
+            public bool returnPointer;
 
             public ArrayElementAccess(Token t)
                 : base(t)
@@ -929,7 +986,10 @@ namespace PragmaScript
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
+                
+                // System.Console.WriteLine($"W: binop: {this.type}, {this.token}");
                 var opTypes = await Task.WhenAll(left.CheckType(scope), right.CheckType(scope));
+                // System.Console.WriteLine($"D: binop: {this.type}, {this.token}");
                 var lType = opTypes[0];
                 var rType = opTypes[1];
 

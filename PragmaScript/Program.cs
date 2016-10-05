@@ -104,6 +104,7 @@ namespace PragmaScript
         {
             var ns = NodeStatement.For(id);
             ns = ns.Set("label", node.ToString().Replace(@"\", @"\\")).Set("font", "Consolas");
+            ns = ns.Set("shape", "box");
             var result = g.Add(ns);
             foreach (var c in node.GetChilds())
             {
@@ -122,7 +123,7 @@ namespace PragmaScript
             }
             return result;
         }
-
+      
         static void renderGraph(AST.Node root, string label)
         {
             if (root == null)
@@ -131,9 +132,14 @@ namespace PragmaScript
             //g = g.Add(AttributeStatement.Graph.Set("label", label))
             //    .Add(AttributeStatement.Graph.Set("labeljust", "l"))
             //    .Add(AttributeStatement.Graph.Set("fontname", "Consolas"));
-            if (Directory.Exists(@"C:\Program Files (x86)\Graphviz2.38\bin\"))
+            // g = g.Add(AttributeStatement.Node.Set("shape", "box"));
+
+
+            var gv_path = @"C:\Users\pragma\Downloads\graphviz-2.38\release\bin\";
+
+            if (Directory.Exists(gv_path))
             {
-                var renderer = new Shields.GraphViz.Components.Renderer(@"C:\Program Files (x86)\Graphviz2.38\bin\");
+                var renderer = new Shields.GraphViz.Components.Renderer(gv_path);
                 using (Stream file = File.Create("graph.png"))
                 {
                     AsyncHelper.RunSync(() =>
@@ -169,15 +175,17 @@ namespace PragmaScript
             }
 
             Console.WriteLine("parsing...");
-            var root = AST.Parse(tokens);
+
+            var scope = AST.MakeRootScope();
+            var root = AST.Parse(tokens, scope);
             if (root == null)
             {
                 return;
             }
-#if false
-            Console.WriteLine();
+#if DEBUG
             renderGraph(root, text);
 #endif
+            AST.TypeCheck(root, scope);
             var backend = new Backend();
             // 
             // backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);

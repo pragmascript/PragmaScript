@@ -1,33 +1,67 @@
-﻿
-let print_string = (s: string) => 
+﻿let print_string = (s: string) => 
 {
  	var handle = GetStdHandle(-11);
  	WriteFile(handle, s.data, s.length, nullptr, nullptr);
 }
 
+let abs_i32 = (value: int32) => 
+{
+  if (value >= 0) {
+    return value;
+  } else {
+    return -value;
+  }
+}
+
 let print_i32 = (value: int32) => 
 {
 	var x = value;
-	var result = "\0\0\0\0\0\0\0\0\0\0";
-	for (var i = 0; i < result.length; ++i) {
-		if (x > 0) {
-			var d = x % 10;
-			result[result.length - 1 - i] = (int8)(d + 48);
+	var temp = "\0\0\0\0\0\0\0\0\0\0";
+	var count = 0;
+	for (var i = 0; i < temp.length; ++i) {
+		if (x != 0) {
+			var d = abs_i32(x % 10);
+			temp[i] = (int8)(d + 48);
 			x = x / 10;
+			count++;
 		} else {
-			continue;
+			break;
 		}
 	}
+
+	var offset = 0;
+	if (value < 0) {
+		offset = 1;
+	}
+	 
+	var result = "\0\0\0\0\0\0\0\0\0\0\0";
+	if (value < 0) {
+		result[0] = (int8)45;
+	}
+	for (var i = 0; i < count; ++i) {
+		result[i+offset] = temp[count - i - 1];
+	}
+	result.length = count + offset;
 	print_string(result);
 }
 
-print_string("hello world, fumm fumm .)\n");
-
-var str = "\nFOOOOOOOOoasdoakdoks\n";
-for (var i = 0; i < 12; ++i) {
-	print_string(str);
-	print_i32(i);
+let vec = struct
+{
+	x: float32;
+	y: float32;
+	z: float32;
 }
 
-// var x = [1, 2, 3, 4];
-// x[1] = 17;
+
+
+var a = [1, 2, 3];
+a[1] = 7;
+
+print_i32(a[1]);
+print_string("\n");
+
+var v = vec { 1.0, 2.0, 3.0 };
+v.z = -5.0;
+
+print_i32((int32)v.z);
+print_string("\n");

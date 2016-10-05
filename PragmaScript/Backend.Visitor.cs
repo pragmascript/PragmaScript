@@ -1,6 +1,7 @@
 ﻿using LLVMSharp;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace PragmaScript
@@ -121,10 +122,10 @@ namespace tmp
             var values = new LLVMValueRef[l];
             var et = getTypeRef(node.elementType);
 
-            // TODO: do we want to have a default "zero" value for every type here?
+            
             for (int i = 0; i < values.Length; ++i)
             {
-                values[i] = LLVM.ConstBitCast(Const.ZeroInt32, et);
+                values[i] = LLVM.ConstNull(et);
             }
 
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)l, Const.FalseBool);
@@ -565,36 +566,43 @@ namespace tmp
         public void Visit(AST.Assignment node)
         {
             Visit(node.expression);
-
             var result = valueStack.Pop();
             var resultType = LLVM.TypeOf(result);
-            var v = variables[node.variable.name];
-            var vtype = LLVM.TypeOf(v);
+            var resultTypeName = typeToString(resultType);
 
-            if (node.isArrayAssignment)
+            Visit(node.target);
+            var target = valueStack.Pop();
+            var targetType = LLVM.TypeOf(target);
+            var targetTypeName = typeToString(targetType);
+
+
+            //var v = variables[node.variable.name];
+
+
+            //if (node.isArrayAssignment)
+            //{
+            //    Visit(node.index);
+            //    var idx = valueStack.Pop();
+            //    var arr = v;
+            //    var arr_type_name = typeToString(LLVM.TypeOf(arr));
+
+            //    LLVMValueRef arr_elem_ptr;
+            //    var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32 };
+            //    var gep_arr_elem_ptr = LLVM.BuildGEP(builder, arr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
+            //    arr_elem_ptr = LLVM.BuildLoad(builder, gep_arr_elem_ptr, "arr_elem_ptr");
+
+            //    var gep_idx_1 = new LLVMValueRef[] { idx };
+            //    var gep_arr_elem = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx_1[0], 1, "gep_arr_elem");
+
+            //    LLVM.BuildStore(builder, result, gep_arr_elem);
+            //}
+            //else
             {
-                Visit(node.index);
-                var idx = valueStack.Pop();
-                var arr = v;
-                // var arr_type_name = typeToString(LLVM.TypeOf(arr));
-
-                LLVMValueRef arr_elem_ptr;
-                var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32 };
-                var gep_arr_elem_ptr = LLVM.BuildGEP(builder, arr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
-                arr_elem_ptr = LLVM.BuildLoad(builder, gep_arr_elem_ptr, "arr_elem_ptr");
-
-                var gep_idx_1 = new LLVMValueRef[] { idx };
-                var gep_arr_elem = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx_1[0], 1, "gep_arr_elem");
-
-                LLVM.BuildStore(builder, result, gep_arr_elem);
-            }
-            else
-            {
-                if (!isEqualType(LLVM.GetElementType(vtype), resultType))
+                if (!isEqualType(LLVM.GetElementType(targetType), resultType))
                 {
-                    throw new BackendTypeMismatchException(resultType, LLVM.GetElementType(vtype));
+                    throw new BackendTypeMismatchException(resultType, LLVM.GetElementType(targetType));
                 }
-                LLVM.BuildStore(builder, result, v);
+                LLVM.BuildStore(builder, result, target);
             }
         }
 
@@ -628,7 +636,13 @@ namespace tmp
             }
             else
             {
-                result = LLVM.BuildLoad(builder, v, vd.name);
+                var load = LLVM.BuildLoad(builder, v, vd.name);
+                result = load;
+                if (node.returnPointer)
+                {
+                    result = v;
+                    Debug.Assert(node.inc == AST.VariableLookup.Incrementor.None);
+                }
             }
             var ltype = LLVM.TypeOf(result);
 
@@ -1035,7 +1049,13 @@ namespace tmp
             var gep_idx_1 = new LLVMValueRef[] { idx };
             var gep_arr_elem = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx_1[0], 1, "gep_arr_elem");
             var load = LLVM.BuildLoad(builder, gep_arr_elem, "arr_elem");
-            valueStack.Push(load);
+
+            var result = load;
+            if (node.returnPointer)
+            {
+                result = gep_arr_elem;
+            }
+            valueStack.Push(result);
         }
 
         public void Visit(AST.StructFieldAccess node)
@@ -1065,13 +1085,23 @@ namespace tmp
             {
                 gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
                 var load = LLVM.BuildLoad(builder, gep, "struct_field");
-                valueStack.Push(load);
+                var result = load;
+                if (node.returnPointer)
+                {
+                    result = gep;
+                }
+                valueStack.Push(result);
                 return;
             }
             else
             {
                 uint[] uindices = { (uint)idx };
-                var result = LLVM.BuildExtractValue(builder, v, (uint)idx, "struct_field_extract");
+                var load = LLVM.BuildExtractValue(builder, v, (uint)idx, "struct_field_extract");
+                var result = load;
+                if (node.returnPointer)
+                {
+                    throw new NotImplementedException();
+                }
                 valueStack.Push(result);
                 return;
             }
@@ -1081,13 +1111,13 @@ namespace tmp
 
         public void Visit(AST.StructConstructor node)
         {
-            throw new InvalidCodePath();
+            throw new NotImplementedException();
         }
 
         public void Visit(AST.ArrayConstructor node)
         {
 
-            throw new InvalidCodePath();
+            throw new NotImplementedException();
 
             LLVMValueRef[] values = new LLVMValueRef[node.elements.Count];
 
@@ -1122,7 +1152,7 @@ namespace tmp
 
         public void Visit(AST.StructDefinition node)
         {
-
+            // throw new NotImplementedException();
         }
 
 

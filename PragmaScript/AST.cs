@@ -7,52 +7,6 @@ namespace PragmaScript
 {
     partial class AST
     {
-        public abstract class Node
-        {
-            public Token token;
-
-            public Node(Token t)
-            {
-                token = t;
-            }
-
-            public virtual IEnumerable<Node> GetChilds()
-            {
-                yield break;
-            }
-
-            public abstract Task<FrontendType> CheckType(Scope scope);
-        }
-
-        public class AnnotatedNode : Node
-        {
-            Node node;
-            public string annotation;
-            public AnnotatedNode(Node n, string annotation)
-                : base(n.token)
-            {
-                node = n;
-                this.annotation = annotation;
-            }
-
-            public override IEnumerable<Node> GetChilds()
-            {
-                foreach (var n in node.GetChilds())
-                {
-                    yield return n;
-                }
-            }
-
-            public override async Task<FrontendType> CheckType(Scope scope)
-            {
-                return await node.CheckType(scope);
-            }
-
-            public override string ToString()
-            {
-                return node.ToString();
-            }
-        }
 
         static void expectTokenType(Token t, Token.TokenType type)
         {
@@ -101,10 +55,10 @@ namespace PragmaScript
         }
 
 
-        
+
         static void addBasicFunctions(Scope scope)
         {
-            
+
             var cat = new Scope.FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
             scope.AddFunction(cat);
 
@@ -123,7 +77,7 @@ namespace PragmaScript
 
         }
 
-        
+
         static void addBasicConstants(Scope scope, Token token)
         {
             // TODO make those ACTUAL constants
@@ -132,7 +86,33 @@ namespace PragmaScript
         }
 
 
-        public static Node Parse(Token[] tokens)
+        public static void TypeCheck(Node node, Scope scope)
+        {
+            try
+            {
+                performTypeChecking(node, scope).Wait();
+            }
+            catch (System.AggregateException e)
+            {
+                throw e.InnerException;
+            }
+        }
+
+        public static Scope MakeRootScope()
+        {
+            var main = new Scope.FunctionDefinition { name = "main", returnType = FrontendType.int32 };
+            var rootScope = new Scope(null, main);
+            addBasicTypes(rootScope, Token.Undefined);
+            addBasicConstants(rootScope, Token.Undefined);
+            addBasicFunctions(rootScope);
+
+            rootScope.AddFunction(main);
+            rootScope.function = main;
+
+            return rootScope;
+        }
+
+        public static Node Parse(Token[] tokens, Scope scope)
         {
             int pos = 0;
             var current = tokens[pos];
@@ -142,32 +122,13 @@ namespace PragmaScript
             try
 #endif
             {
-                var main = new Scope.FunctionDefinition { name = "main", returnType = FrontendType.int32 };
-                var rootScope = new Scope(null, main);
-                addBasicTypes(rootScope, current);
-                addBasicConstants(rootScope, current);
-                addBasicFunctions(rootScope);
-
-                rootScope.AddFunction(main);
-                rootScope.function = main;
-
                 ParseState ps;
                 ps.pos = 0;
                 ps.tokens = tokens;
-
                 // perform AST generation pass
                 ps.SkipWhitespace();
-                block = parseMainBlock(ref ps, rootScope);
-
-                // perform type checking pass
-                try
-                {
-                    performTypeChecking(block, rootScope).Wait();
-                }
-                catch (System.AggregateException e)
-                {
-                    throw e.InnerException;
-                }
+                block = parseMainBlock(ref ps, scope);
+             
             }
 #if !DEBUG
             catch (ParserError error)
