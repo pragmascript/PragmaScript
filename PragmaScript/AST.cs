@@ -54,8 +54,6 @@ namespace PragmaScript
             scope.AddTypeAlias(FrontendType.string_, token, "string");
         }
 
-
-
         static void addBasicFunctions(Scope scope)
         {
 
@@ -77,14 +75,12 @@ namespace PragmaScript
 
         }
 
-
         static void addBasicConstants(Scope scope, Token token)
         {
             // TODO make those ACTUAL constants
             var nullptr = scope.AddVar("nullptr", token);
             nullptr.type = new FrontendPointerType(FrontendType.int8);
         }
-
 
         public static void TypeCheck(Node node, Scope scope)
         {

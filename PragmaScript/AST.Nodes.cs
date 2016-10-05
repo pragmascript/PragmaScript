@@ -485,8 +485,6 @@ namespace PragmaScript
             }
         }
 
-       
-
         public class Assignment : Node
         {
 
@@ -783,7 +781,6 @@ namespace PragmaScript
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                
                 var v = scope.GetVar(variableName);
                 varDefinition = v;
 
@@ -796,8 +793,6 @@ namespace PragmaScript
                 {
                     throw new ParserError("variable is not an array type", token);
                 }
-     
-                
 
                 var idxType = await index.CheckType(scope);
                 if (!idxType.Equals(FrontendType.int32))
