@@ -459,29 +459,45 @@ namespace PragmaScript
             }
         }
 
+        static bool activatePointers_rec(Node node)
+        {
+            if (node is VariableLookup)
+            {
+                (node as VariableLookup).returnPointer = true;
+            }
+            else if (node is StructFieldAccess)
+            {
+                var sfa = node as StructFieldAccess;
+                sfa.returnPointer = true;
+                activatePointers_rec(sfa.left);
+            }
+            else if (node is ArrayElementAccess)
+            {
+                var aea = node as ArrayElementAccess;
+                aea.returnPointer = true;
+                // TODO:
+                // call rec
+            }
+            else
+            {
+                return false;
+            }
+            return true;
+        }
+
         static Node parseAssignment(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
 
             var result = new Assignment(current);
             result.target = parseBinOp(ref ps, scope);
-
-            if (result.target is VariableLookup)
-            {
-                (result.target as VariableLookup).returnPointer = true;
-            }
-            else if (result.target is StructFieldAccess)
-            {
-                (result.target as StructFieldAccess).returnPointer = true;
-            }
-            else if (result.target is ArrayElementAccess)
-            {
-                (result.target as ArrayElementAccess).returnPointer = true;
-            }
-            else
+            if (!activatePointers_rec(result.target))
             {
                 throw new ParserErrorExpected(result.target.GetType().Name, "variable, struct field access, array element access", result.target.token);
             }
+
+
+
 
             var assign = ps.NextToken();
             if (!assign.isAssignmentOperator())
@@ -772,42 +788,73 @@ namespace PragmaScript
                     }
                 case Token.TokenType.Decrement:
                 case Token.TokenType.Increment:
-                    {
-                        return parseVariableLookup(ref ps, scope);
-                    }
+                    return parseVariableLookup(ref ps, scope);
+
                 case Token.TokenType.Identifier:
-                    {
-                        Node result = null;
-                        // bool exit = false;
-                        // while (!exit)
-                        {
-                            var peek = ps.PeekToken();
-                            switch (peek.type)
-                            {
-                                case Token.TokenType.OpenBracket:
-                                    result = parseFunctionCall(ref ps, scope);
-                                    break;
-                                case Token.TokenType.Dot:
-                                    result = parseStructFieldAccess(ref ps, scope);
-                                    break;
-                                case Token.TokenType.OpenCurly:
-                                    result = parseStructConstructor(ref ps, scope);
-                                    break;
-                                case Token.TokenType.ArrayTypeBrackets:
-                                    result = parseUninitializedArray(ref ps, scope);
-                                    break;
-                                default:
-                                    result = parseVariableLookup(ref ps, scope);
-                                    // exit = true;
-                                    break;
-                            }
-                        }
-                        Debug.Assert(result != null);
-                        return result;
-                    }
+                    return parsePrimaryIdent(ref ps, scope);
                 default:
                     throw new ParserError("Unexpected token type: " + current.type, current);
             }
+        }
+
+        static Node parsePrimaryIdent(ref ParseState ps, Scope scope)
+        {
+            var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
+
+            bool exit = false;
+            Node result = null;
+            while (!exit)
+            {
+                var peek = ps.PeekToken();
+                Node next = null;
+                switch (peek.type)
+                {
+                    case Token.TokenType.OpenBracket:
+                        next = parseFunctionCall(ref ps, scope);
+                        break;
+                    case Token.TokenType.Dot:
+                        if (result == null)
+                        {
+                            result = parseVariableLookup(ref ps, scope, true);
+                        }
+                        else
+                        {
+                            if (result is StructFieldAccess)
+                            {
+                                (result as StructFieldAccess).returnPointer = true;
+                            }
+                            else if (result is ArrayElementAccess)
+                            {
+                                (result as ArrayElementAccess).returnPointer = true;
+                            }
+                        }
+                        ps.NextToken();
+                        next = parseStructFieldAccess(ref ps, scope, result, false);
+                        break;
+                    case Token.TokenType.OpenCurly:
+                        next = parseStructConstructor(ref ps, scope);
+                        break;
+                    case Token.TokenType.ArrayTypeBrackets:
+                        next = parseUninitializedArray(ref ps, scope);
+                        break;
+                    case Token.TokenType.OpenSquareBracket:
+                        next = parseVariableLookup(ref ps, scope);
+                        break;
+                    default:
+                        if (result == null)
+                        {
+                            result = parseVariableLookup(ref ps, scope, false);
+                        }
+                        exit = true;
+                        break;
+                }
+                if (next != null)
+                {
+                    result = next;
+                }
+            }
+            Debug.Assert(result != null);
+            return result;
         }
 
         static Node parseStructConstructor(ref ParseState ps, Scope scope)
@@ -848,32 +895,29 @@ namespace PragmaScript
             return result;
         }
 
-        static Node parseStructFieldAccess(ref ParseState ps, Scope scope)
+        static Node parseStructFieldAccess(ref ParseState ps, Scope scope, Node left, bool returnPointer=false)
         {
-            var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
-            ps.ExpectNextToken(Token.TokenType.Dot);
+            var current = ps.ExpectCurrentToken(Token.TokenType.Dot);
 
             var fieldName = ps.NextToken();
             expectTokenType(fieldName, Token.TokenType.Identifier);
 
-            if (scope.GetVar(current.text) == null)
-            {
-                throw new UndefinedVariable(current.text, current);
-            }
             var result = new StructFieldAccess(current);
-            result.structName = current.text;
+            result.returnPointer = returnPointer;
+            result.left = left;
             result.fieldName = fieldName.text;
 
             // TODO: what happens if the field is an array? [ ] no idea
             return result;
         }
 
-        static Node parseVariableLookup(ref ParseState ps, Scope scope)
+        static Node parseVariableLookup(ref ParseState ps, Scope scope, bool returnPointer = false)
         {
             var current = ps.CurrentToken();
             expectTokenType(current, Token.TokenType.Identifier, Token.TokenType.Increment, Token.TokenType.Decrement);
 
             VariableLookup result = new VariableLookup(current);
+            result.returnPointer = returnPointer;
             result.inc = VariableLookup.Incrementor.None;
 
             if (current.type == Token.TokenType.Increment || current.type == Token.TokenType.Decrement)

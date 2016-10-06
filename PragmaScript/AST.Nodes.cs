@@ -710,16 +710,19 @@ namespace PragmaScript
 
             public override string ToString()
             {
-                return elementType.ToString() + $"[{length}]";
+                return elementTypeName + $"[{length}]";
             }
         }
 
         public class StructFieldAccess : Node
         {
-            public string structName;
+            public Node left;
             public string fieldName;
-            public Scope.VariableDefinition structure;
+
+            // public Scope.VariableDefinition structure;
             public bool returnPointer;
+
+            public FrontendStructType structType;
 
             public StructFieldAccess(Token t) :
                 base(t)
@@ -729,22 +732,15 @@ namespace PragmaScript
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var v = scope.GetVar(structName);
-                structure = v;
 
-                while (v.type == null)
+                var t = await (left.CheckType(scope));
+                var st = t as FrontendStructType;
+                if (t == null)
                 {
-                    await Task.Yield();
+                    throw new ParserError("left side is not a struct type", token);
                 }
-
-                if (!(v.type is FrontendStructType))
-                {
-                    throw new ParserError("variable is not a struct type", token);
-                }
-                var str = v.type as FrontendStructType;
-
-                // TODO: what happens if the type of field is not already resolved?
-                var field = str.GetField(fieldName);
+                structType = st;
+                var field = st.GetField(fieldName);
                 if (field == null)
                 {
                     throw new ParserError(
@@ -753,9 +749,15 @@ namespace PragmaScript
                 return field;
             }
 
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return left;
+
+            }
+
             public override string ToString()
             {
-                return structName + "." + fieldName;
+                return  "." + fieldName;
             }
         }
 

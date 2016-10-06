@@ -152,10 +152,10 @@ namespace tmp
             }
 
             Visit(node.left);
-            Visit(node.right);
-
-            var right = valueStack.Pop();
             var left = valueStack.Pop();
+            Visit(node.right);
+            var right = valueStack.Pop();
+            
 
             var leftType = LLVM.TypeOf(left);
             var rightType = LLVM.TypeOf(right);
@@ -451,6 +451,21 @@ namespace tmp
                     throw new InvalidCodePath();
                 }
             }
+            else if (LLVM.GetTypeKind(targetType) == LLVMTypeKind.LLVMFloatTypeKind)
+            {
+                if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMIntegerTypeKind)
+                {
+                    result = LLVM.BuildSIToFP(builder, v, targetType, "int_to_float_cast");
+                }
+                else
+                {
+                    throw new NotImplementedException();
+                }
+            }
+            else
+            {
+                throw new InvalidCodePath();
+            }
             valueStack.Push(result);
 
             //if (isEqualType(resultType, Const.Float32Type))
@@ -523,6 +538,7 @@ namespace tmp
 
 
                 // set array length in struct
+
                 var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.ZeroInt32 };
                 var gep_arr_length = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
                 LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int32Type, (ulong)ac.elements.Count, true), gep_arr_length);
@@ -542,8 +558,6 @@ namespace tmp
 
                     LLVM.BuildStore(builder, arg, gep);
                 }
-
-
                 variables[node.variable.name] = arr_struct_ptr;
             }
             else
@@ -715,7 +729,8 @@ namespace tmp
             {
                 Visit(node.argumentList[i]);
                 parameters[i] = valueStack.Pop();
-                var pn = parameters[i].GetTypeString();
+                //var pn = parameters[i].GetTypeString();
+                //Console.WriteLine(pn);
             }
 
             var ftn = f.GetTypeString();
@@ -729,7 +744,7 @@ namespace tmp
             }
             else
             {
-                var v = LLVM.BuildCall(builder, f, parameters, node.functionName);
+                var v = LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, node.functionName);
                 valueStack.Push(v);
             }
         }
@@ -1060,28 +1075,35 @@ namespace tmp
 
         public void Visit(AST.StructFieldAccess node)
         {
-            var vd = node.structure;
+            //var vd = node.structure;
 
-            LLVMValueRef v;
-            if (vd.isFunctionParameter)
-            {
-                v = LLVM.GetParam(ctx.Peek().function, (uint)vd.parameterIdx);
-            }
-            else
-            {
-                v = variables[vd.name];
-            }
+            //LLVMValueRef v;
+            //if (vd.isFunctionParameter)
+            //{
+            //    v = LLVM.GetParam(ctx.Peek().function, (uint)vd.parameterIdx);
+            //}
+            //else
+            //{
+            //    v = variables[vd.name];
+            //}
 
             //var ts = typeToString(LLVM.TypeOf(v));
             //Console.WriteLine(ts);
 
 
-            var s = node.structure.type as FrontendStructType;
+            Visit(node.left);
+            var v = valueStack.Pop();
+
+            var v_type = typeToString(LLVM.TypeOf(v));
+
+            var s = node.structType;
             var idx = s.GetFieldIndex(node.fieldName);
             var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
 
             LLVMValueRef gep;
-            if (!vd.isFunctionParameter)
+            
+            // is not function argument?
+            if (LLVM.IsAArgument(v).Pointer == IntPtr.Zero)
             {
                 gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
                 var load = LLVM.BuildLoad(builder, gep, "struct_field");
@@ -1111,7 +1133,7 @@ namespace tmp
 
         public void Visit(AST.StructConstructor node)
         {
-            throw new NotImplementedException();
+            // throw new NotImplementedException();
         }
 
         public void Visit(AST.ArrayConstructor node)

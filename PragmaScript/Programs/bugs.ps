@@ -18,6 +18,67 @@
 // var s = sphere{};
 // s.pos = vec{1.0,2.0,3.0};
 
+let print_string = (s: string) => 
+{
+ 	var handle = GetStdHandle(-11);
+ 	WriteFile(handle, s.data, s.length, nullptr, nullptr);
+}
+
+
+let abs_i32 = (value: int32) => 
+{
+  if (value >= 0) {
+    return value;
+  } else {
+    return -value;
+  }
+}
+
+let print_i32 = (value: int32) => 
+{
+	if (value == 0) {
+		print_string("0");
+		return;
+	}
+	var x = value;
+	var temp = "\0\0\0\0\0\0\0\0\0\0";
+	var count = 0;
+	for (var i = 0; i < temp.length; ++i) {
+		if (x != 0) {
+			var d = abs_i32(x % 10);
+			temp[i] = (int8)(d + 48);
+			x = x / 10;
+			count++;
+		} else {
+			break;
+		}
+	}
+
+	var offset = 0;
+	if (value < 0) {
+		offset = 1;
+	}
+	 
+	var result = "\0\0\0\0\0\0\0\0\0\0\0";
+	if (value < 0) {
+		result[0] = (int8)45;
+	}
+	for (var i = 0; i < count; ++i) {
+		result[i+offset] = temp[count - i - 1];
+	}
+	result.length = count + offset;
+	print_string(result);
+}
+
+
+let print_f32 = (value: float32) => 
+{
+	var int_part = (int32)value;
+	var float_part = (int32)((value - (float32)int_part) * 1000.0);
+	print_i32(int_part);
+	print_string(".");
+	print_i32(float_part);
+}
 
 let vec = struct
 {
@@ -25,15 +86,58 @@ let vec = struct
 	y: float32;
 	z: float32;
 }
+
+let print_vec = (v: vec) => 
+{
+	print_string("(");
+	print_f32(v.x);
+	print_string(", ");
+	print_f32(v.y);
+	print_string(", ");
+	print_f32(v.z);
+	print_string(")");
+}
+
+let vec_zero = () => 
+{
+	var result = vec { 0.0, 0.0, 0.0 };
+	return result;
+}
+let vec_right = () => 
+{
+	var result = vec { 1.0, 0.0, 0.0 };
+	return result;
+}
+let vec_up = () => 
+{
+	var result = vec { 0.0, 1.0, 0.0 };
+	return result;
+}
+let vec_forward = () => 
+{
+	var result = vec { 0.0, 0.0, 1.0 };
+	return result;
+}
+
+var vecs = [vec_right(), vec_up(), vec_forward()];
+var xx = vecs[1].y;
+print_f32(xx);
+print_string(" <->\n");
+print_vec(vecs[0]);
+print_vec(vecs[1]);
+print_vec(vecs[2]);
+print_string(" <->\n");
+
 let ray = struct 
 {
 	pos: vec;
 	dir: vec;
 }
 
-// var foo = 1 + 2 + 3;
+// // var foo = 1 + 2 + 3;
 
 var r = ray{};
-r.pos.x = 12;
-
+r.pos.x = 12.0;
+print_f32(r.pos.x);
+print_string(" <->\n");
 
