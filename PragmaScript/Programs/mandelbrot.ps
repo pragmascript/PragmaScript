@@ -1,4 +1,20 @@
 ﻿
+let print_string = (s: string) => 
+{
+ 	var handle = GetStdHandle(-11);
+ 	WriteFile(handle, s.data, s.length, nullptr, nullptr);
+}
+
+
+let wait_for_key = () => 
+{
+	print_string("Press enter to continue...");
+	var handle = GetStdHandle(-10);
+	var s = "123456789012345678901234567890xx";
+	ReadFile(handle, s.data, s.length, nullptr, nullptr);
+}
+
+
 var ra = -2.0;
 var rb = 1.0;
 var ia = -1.0;
@@ -36,18 +52,18 @@ for (var cy = ia; cy < ib; cy += deltay)
 		}
 		if (iter < 25)
 		{
-			print(empt);
+			print_string(empt);
 		}
 		elif (iter < 200)
 		{
-			print(half);
+			print_string(half);
 		}
 		else
 		{
-			print(full);
+			print_string(full);
 		}
 
 	}
-	print("\n");
+	print_string("\n");
 }
-
+wait_for_key();

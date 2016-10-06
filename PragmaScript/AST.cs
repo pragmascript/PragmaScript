@@ -57,21 +57,29 @@ namespace PragmaScript
         static void addBasicFunctions(Scope scope)
         {
 
-            var cat = new Scope.FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
-            scope.AddFunction(cat);
+            //var cat = new Scope.FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
+            //scope.AddFunction(cat);
 
             // TODO: avoid having to do this twice here and in the backend?
-            var get_std_handle = new Scope.FunctionDefinition { name = "GetStdHandle", returnType = FrontendType.int64 };
+            var get_std_handle = new Scope.FunctionDefinition { external = true, name = "GetStdHandle", returnType = FrontendType.int64 };
             get_std_handle.AddParameter("nStdHandle", FrontendType.int32);
             scope.AddFunction(get_std_handle);
 
-            var write_file = new Scope.FunctionDefinition { name = "WriteFile", returnType = FrontendType.bool_ };
+            var write_file = new Scope.FunctionDefinition { external = true, name = "WriteFile", returnType = FrontendType.bool_ };
             write_file.AddParameter("hFile", FrontendType.int64);
             write_file.AddParameter("lpBuffer", new FrontendPointerType(FrontendType.int8));
             write_file.AddParameter("nNumberOfBytesToWrite", FrontendType.int32);
             write_file.AddParameter("lpNumberOfBytesWritten", new FrontendPointerType(FrontendType.int8));
             write_file.AddParameter("lpOverlapped", new FrontendPointerType(FrontendType.int8));
             scope.AddFunction(write_file);
+
+            var read_file = new Scope.FunctionDefinition { external = true, name = "ReadFile", returnType = FrontendType.bool_ };
+            read_file.AddParameter("hFile", FrontendType.int64);
+            read_file.AddParameter("lpBuffer", new FrontendPointerType(FrontendType.int8));
+            read_file.AddParameter("nNumberOfBytesToRead", FrontendType.int32);
+            read_file.AddParameter("lpNumberOfBytesRead", new FrontendPointerType(FrontendType.int8));
+            read_file.AddParameter("lpOverlapped", new FrontendPointerType(FrontendType.int8));
+            scope.AddFunction(read_file);
 
         }
 

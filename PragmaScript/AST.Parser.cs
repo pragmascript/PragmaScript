@@ -182,7 +182,7 @@ namespace PragmaScript
                     ignoreSemicolon = true;
                 }
             }
-            // TODO: check if inside loop
+            // TODO: check if inside loo
             if (current.type == Token.TokenType.Continue)
             {
                 result = new ContinueLoop(current);
@@ -490,12 +490,14 @@ namespace PragmaScript
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
 
             var result = new Assignment(current);
+
+            var temp_ps = ps;
+
             result.target = parseBinOp(ref ps, scope);
             if (!activatePointers_rec(result.target))
             {
                 throw new ParserErrorExpected(result.target.GetType().Name, "variable, struct field access, array element access", result.target.token);
             }
-
 
 
 
@@ -507,11 +509,12 @@ namespace PragmaScript
 
             ps.NextToken();
             var exp = parseBinOp(ref ps, scope);
-            var compound = new BinOp(assign);
-            compound.left = result.target;
-            compound.right = exp;
 
+            var compound = new BinOp(assign);
+            compound.left = parseBinOp(ref temp_ps, scope);
+            compound.right = exp;
             result.expression = compound;
+
             switch (assign.type)
             {
                 case Token.TokenType.Assignment:

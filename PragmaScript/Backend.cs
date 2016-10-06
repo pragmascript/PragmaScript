@@ -1,6 +1,7 @@
 ﻿using LLVMSharp;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace PragmaScript
@@ -358,14 +359,15 @@ namespace PragmaScript
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
                 functions.Add("GetStdHandle", fun);
             }
+
             var byte_ptr_type = LLVM.PointerType(LLVM.Int8Type(), 0);
             {
                 LLVMTypeRef[] param_types = {
-                    LLVM.Int64Type(),                      // 0
-                    byte_ptr_type,  // 1
-                    LLVM.Int32Type(),                      // 2
-                    byte_ptr_type, // 3
-                    byte_ptr_type,  // 4
+                    LLVM.Int64Type(),    // 0
+                    byte_ptr_type,       // 1
+                    LLVM.Int32Type(),    // 2
+                    byte_ptr_type,       // 3
+                    byte_ptr_type,       // 4
                 };
                 LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int32Type(), param_types, Const.FalseBool);
                 var fun = LLVM.AddFunction(mod, "WriteFile", fun_type);
@@ -377,6 +379,25 @@ namespace PragmaScript
 
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
                 functions.Add("WriteFile", fun);
+            }
+            {
+                LLVMTypeRef[] param_types = {
+                    LLVM.Int64Type(),   // 0
+                    byte_ptr_type,      // 1
+                    LLVM.Int32Type(),   // 2
+                    byte_ptr_type,      // 3
+                    byte_ptr_type,      // 4
+                };
+                LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int32Type(), param_types, Const.FalseBool);
+                var fun = LLVM.AddFunction(mod, "ReadFile", fun_type);
+
+                var p1 = LLVM.GetParam(fun, 1);
+                LLVM.AddAttribute(p1, LLVMAttribute.LLVMNoCaptureAttribute);
+                var p3 = LLVM.GetParam(fun, 3);
+                LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
+
+                LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
+                functions.Add("ReadFile", fun);
             }
         }
 
@@ -419,6 +440,7 @@ namespace PragmaScript
             aot(filename);
         }
 
+        
 
    }
 

@@ -149,6 +149,9 @@
     <None Include="packages.config">
       <SubType>Designer</SubType>
     </None>
+    <None Include="Programs\intrinsics.ps">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Programs\bugs.ps">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

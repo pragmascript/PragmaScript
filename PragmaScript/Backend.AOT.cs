@@ -58,6 +58,7 @@ namespace PragmaScript
                 optProcess.Close();
             }
 
+
             {
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();

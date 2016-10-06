@@ -25,6 +25,7 @@ namespace PragmaScript
 
         public class FunctionDefinition
         {
+            public bool external;
             public string name;
             public FrontendType returnType;
             public List<NamedParameter> parameters = new List<NamedParameter>();
