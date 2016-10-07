@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 
 namespace PragmaScript
 {
@@ -26,34 +27,52 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        public static string ParseString(string txt)
+
+
+        public static string ParseString(string txt, Token t)
         {
-            var provider = new Microsoft.CSharp.CSharpCodeProvider();
-            var prms = new System.CodeDom.Compiler.CompilerParameters();
-            prms.GenerateExecutable = false;
-            prms.GenerateInMemory = true;
-            var results = provider.CompileAssemblyFromSource(prms,
-@"
-namespace tmp
-{
-    public class tmpClass
-    {
-        public static string GetValue()
-        {
-             return " + "\"" + txt + "\"" + @";
-        }
-    }
-}"
-                );
-            System.Reflection.Assembly ass = results.CompiledAssembly;
-            var method = ass.GetType("tmp.tmpClass").GetMethod("GetValue");
-            return method.Invoke(null, null) as string;
+            StringBuilder result = new StringBuilder(txt.Length);
+            int idx = 0;
+            while (idx < txt.Length)
+            {
+                if (txt[idx] != '\\')
+                {
+                    result.Append(txt[idx]);
+                }
+                else
+                {
+                    idx++;
+                    Debug.Assert(idx < txt.Length);
+                    // TODO: finish escape sequences
+                    // https://msdn.microsoft.com/en-us/library/h21280bw.aspx
+                    switch (txt[idx])
+                    {
+                        case '\\':
+                            result.Append('\\');
+                            break;
+                        case 'n':
+                            result.Append('\n');
+                            break;
+                        case 't':
+                            result.Append('\t');
+                            break;
+                        case '"':
+                            result.Append('"');
+                            break;
+                        case '0':
+                            result.Append('\0');
+                            break;
+                    }
+                }
+                idx++;
+            }
+            return result.ToString();
         }
 
-        string convertString(string s)
+        string convertString(string s, Token t)
         {
             var tmp = s.Substring(1, s.Length - 2);
-            return ParseString(tmp);
+            return ParseString(tmp, t);
         }
 
         //public void Visit(AST.ConstString node)
@@ -66,7 +85,7 @@ namespace tmp
 
         public void Visit(AST.ConstString node)
         {
-            var str = convertString(node.s);
+            var str = convertString(node.s, node.token);
             var bytes = System.Text.ASCIIEncoding.ASCII.GetBytes(str);
 
             var type = FrontendType.string_;
@@ -122,7 +141,7 @@ namespace tmp
             var values = new LLVMValueRef[l];
             var et = getTypeRef(node.elementType);
 
-            
+
             for (int i = 0; i < values.Length; ++i)
             {
                 values[i] = LLVM.ConstNull(et);
@@ -155,7 +174,7 @@ namespace tmp
             var left = valueStack.Pop();
             Visit(node.right);
             var right = valueStack.Pop();
-            
+
 
             var leftType = LLVM.TypeOf(left);
             var rightType = LLVM.TypeOf(right);
@@ -1101,7 +1120,7 @@ namespace tmp
             var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
 
             LLVMValueRef gep;
-            
+
             // is not function argument?
             if (LLVM.IsAArgument(v).Pointer == IntPtr.Zero)
             {

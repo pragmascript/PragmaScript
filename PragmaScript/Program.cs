@@ -27,7 +27,7 @@ namespace PragmaScript
 #if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.useOptimizations = false;
-            CompilerOptions.inputFilename = @"Programs\mandelbrot.ps";
+            CompilerOptions.inputFilename = @"Programs\hello.ps";
 #endif
             if (CompilerOptions.inputFilename == null)
             {
