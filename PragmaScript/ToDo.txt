@@ -1,7 +1,9 @@
-﻿
+﻿- get rid of implicit main function and make
+  it explicit
 
-- look at the implementation of this:
-	https://ispc.github.io/
+- global variables
+
+- decide how constants are gonna work
 
 - make variable declaration call
 	parseAssignment and seperate nodes?
@@ -14,3 +16,7 @@
 - editor support
 	https://code.visualstudio.com/docs/extensions/example-language-server
 	https://code.visualstudio.com/docs/extensions/overview
+
+
+- look at the implementation of this:
+	https://ispc.github.io/

@@ -13,7 +13,7 @@ namespace PragmaScript
     {
         public static bool debug = false;
         public static string inputFilename;
-        public static bool useOptimizations = true;
+        public static int optimizationLevel;
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
@@ -26,8 +26,8 @@ namespace PragmaScript
 
 #if DEBUG
             CompilerOptions.debug = true;
-            CompilerOptions.useOptimizations = false;
-            CompilerOptions.inputFilename = @"Programs\hello.ps";
+            CompilerOptions.optimizationLevel = 0;
+            CompilerOptions.inputFilename = @"Programs\mandelbrot.ps";
 #endif
             if (CompilerOptions.inputFilename == null)
             {
@@ -74,12 +74,16 @@ namespace PragmaScript
                             CompilerOptions.debug = true;
                             break;
                         case "O0":
-                            CompilerOptions.useOptimizations = false;
+                            CompilerOptions.optimizationLevel = 0;
                             break;
                         case "O1":
+                            CompilerOptions.optimizationLevel = 1;
+                            break;
                         case "O2":
+                            CompilerOptions.optimizationLevel = 2;
+                            break;
                         case "O3":
-                            CompilerOptions.useOptimizations = true;
+                            CompilerOptions.optimizationLevel = 3;
                             break;
                         case "HELP":
                         case "-HELP":
@@ -183,6 +187,7 @@ namespace PragmaScript
                 return;
             }
 #if DEBUG
+            Console.WriteLine("rendering graph...");
             renderGraph(root, text);
 #endif
             AST.TypeCheck(root, scope);

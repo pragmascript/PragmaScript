@@ -21,8 +21,10 @@ namespace PragmaScript
         [DllImport("libLLVM.dll", EntryPoint = "LLVMGetBufferStart", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr GetBufferStart(LLVMMemoryBufferRef @MemBuf);
 
-        public void aot(string filename)
+        public void aot(string filename, int optLevel)
         {
+            Debug.Assert(optLevel >= 0 && optLevel <= 3);
+
             byte[] obj_data;
             {
                 var bitcode = LLVM.WriteBitcodeToMemoryBuffer(mod);
@@ -35,11 +37,13 @@ namespace PragmaScript
             IntPtr error_msg;
             LLVM.PrintModuleToFile(mod, "output.ll", out error_msg);
 #endif
+
+            if (optLevel > 0)
             {
                 Console.WriteLine("optimizer...");
                 var optProcess = new Process();
                 optProcess.StartInfo.FileName = @"External\opt.exe";
-                optProcess.StartInfo.Arguments = $"-O3 -f";
+                optProcess.StartInfo.Arguments = $"-O{optLevel} -f";
                 optProcess.StartInfo.RedirectStandardInput = true;
                 optProcess.StartInfo.RedirectStandardOutput = true;
                 optProcess.StartInfo.UseShellExecute = false;
@@ -63,7 +67,7 @@ namespace PragmaScript
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = @"External\llc.exe";
-                llcProcess.StartInfo.Arguments = $"-O3 -filetype obj";
+                llcProcess.StartInfo.Arguments = $"-O{optLevel} -filetype obj";
                 llcProcess.StartInfo.RedirectStandardInput = true;
                 llcProcess.StartInfo.RedirectStandardOutput = true;
                 llcProcess.StartInfo.UseShellExecute = false;

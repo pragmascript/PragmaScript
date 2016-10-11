@@ -437,7 +437,7 @@ namespace PragmaScript
         public void EmitAndAOT(AST.Node root, string filename)
         {
             emit(root);
-            aot(filename);
+            aot(filename, CompilerOptions.optimizationLevel);
         }
 
         
