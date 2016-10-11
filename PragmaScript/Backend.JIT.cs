@@ -11,7 +11,7 @@ namespace PragmaScript
     partial class Backend
     {
         const int OptAggressiveThreshold = 275;
-        void executeModule(bool useOptimizationPasses = true)
+        void jitModule(bool useOptimizationPasses = true)
         {
             IntPtr error;
 

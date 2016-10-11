@@ -9,6 +9,15 @@ namespace PragmaScript
 {
     partial class Backend
     {
+
+        public void Visit(AST.Root node)
+        {
+            foreach (var decl in node.declarations)
+            {
+                Visit(decl);
+            }
+        }
+
         public void Visit(AST.ConstInt32 node)
         {
             var result = LLVM.ConstInt(Const.Int32Type, (ulong)node.number, Const.TrueBool);
@@ -1199,7 +1208,11 @@ namespace PragmaScript
 
         public void Visit(AST.Node node)
         {
-            if (node is AST.ConstInt32)
+            if (node is AST.Root)
+            {
+                Visit(node as AST.Root);
+            }
+            else if (node is AST.ConstInt32)
             {
                 Visit(node as AST.ConstInt32);
             }

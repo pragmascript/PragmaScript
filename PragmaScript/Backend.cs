@@ -340,19 +340,7 @@ namespace PragmaScript
 
         void addPreamble()
         {
-            {
-                LLVMTypeRef[] main_param_types = { LLVM.Int32Type(), LLVM.Int32Type() };
-                LLVMTypeRef main_fun_type = LLVM.FunctionType(LLVM.Int32Type(), out main_param_types[0], 0, Const.FalseBool);
-                mainFunction = LLVM.AddFunction(mod, "main", main_fun_type);
-                LLVM.AddFunctionAttr(mainFunction, LLVMAttribute.LLVMNoUnwindAttribute);
-                LLVMBasicBlockRef vars = LLVM.AppendBasicBlock(mainFunction, "vars");
-                LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(mainFunction, "entry");
-
-                var c = new ExecutionContext(mainFunction, "main", entry, vars);
-                ctx.Push(c);
-
-            }
-            {
+           {
                 LLVMTypeRef[] param_types = { LLVM.Int32Type() };
                 LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int64Type(), param_types, Const.FalseBool);
                 var fun = LLVM.AddFunction(mod, "GetStdHandle", fun_type);
@@ -408,14 +396,10 @@ namespace PragmaScript
             builder = LLVM.CreateBuilder();
 
             // HACK: 
-            //LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
-            //var byte_ptr_type = LLVM.PointerType(Const.Int8Type, 0);
-            //var nullptr = LLVM.BuildAlloca(builder, byte_ptr_type, "nullptr_alloca");
-            //LLVM.BuildStore(builder, Const.NullPtr, nullptr);
             var nullptr = LLVM.ConstPointerNull(LLVM.PointerType(LLVM.Int8Type(), 0));
             variables["nullptr"] = nullptr;
 
-            LLVM.PositionBuilderAtEnd(builder, ctx.Peek().entry);
+            // LLVM.PositionBuilderAtEnd(builder, ctx.Peek().entry);
             //LLVM.BuildStore(builder, LLVM.ConstPointerNull(byte_ptr_type), nullptr);
         }
 
@@ -423,21 +407,21 @@ namespace PragmaScript
         {
             prepareModule();
             Visit(root);
-            insertMissingReturn(Const.Int32Type);
-            LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
-            LLVM.BuildBr(builder, ctx.Peek().entry);
+            // insertMissingReturn(Const.Int32Type);
+            //LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+            //LLVM.BuildBr(builder, ctx.Peek().entry);
         }
 
-        public void EmitAndJIT(AST.Node root, bool useOptimizations)
+        public void EmitAndJIT(AST.Node root)
         {
             emit(root);
-            executeModule(useOptimizations);
+            jitModule(CompilerOptions.optimizationLevel > 0);
         }
 
         public void EmitAndAOT(AST.Node root, string filename)
         {
             emit(root);
-            aot(filename, CompilerOptions.optimizationLevel);
+            aotModule(filename, CompilerOptions.optimizationLevel);
         }
 
         

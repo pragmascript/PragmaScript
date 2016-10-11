@@ -52,20 +52,9 @@ let vec = struct
 	z: float32;
 }
 
+let main = () =>
+{
+	print_string("hello world!");
+	return 0;
+}
 
-
-var a = [1, 2, 3];
-a[1] = 7;
-
-print_i32(123456);
-print_string("\n");
-
-
-print_i32(a[1]);
-print_string("\n");
-
-var v = vec { 1.0, 2.0, 3.0 };
-v.z = -5.0;
-
-print_i32((int32)v.z);
-print_string("\n");

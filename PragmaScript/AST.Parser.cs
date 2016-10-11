@@ -103,6 +103,14 @@ namespace PragmaScript
             }
         }
 
+        static Node parseRootDeclarations(ref ParseState ps, Scope scope)
+        {
+            var result = default(Node);
+
+           
+            return result;
+        }
+
         static Node parseStatement(ref ParseState ps, Scope scope)
         {
             var result = default(Node);
@@ -1046,27 +1054,57 @@ namespace PragmaScript
             return result;
         }
 
-        public static Node parseMainBlock(ref ParseState ps, Scope rootScope)
+        public static Node parseRoot(ref ParseState ps, Scope scope)
         {
             var current = ps.CurrentToken();
-            var result = new Block(current);
-            result.scope = rootScope;
+            var result = new Root(current);
+            result.scope = scope;
 
             var next = current;
 
-            bool foundReturn = false;
             while (next.type != Token.TokenType.EOF)
             {
-                var s = parseStatement(ref ps, result.scope);
-                // ignore statements after the return so that return is the last statement in the block
-                if (!foundReturn)
+                Node decl= null;
+                current = ps.CurrentToken();
+                if (current.type == Token.TokenType.Var)
                 {
-                    result.statements.Add(s);
+                    decl = parseVariableDeclaration(ref ps, scope);
                 }
-                if (s is ReturnFunction)
+
+                bool ignoreSemicolon = false;
+
+                // TODO: make this LET thing work for variables as well
+                if (current.type == Token.TokenType.Let)
                 {
-                    foundReturn = true;
+                    var tempState = ps;
+
+                    // TODO: do i really need 3 lookahead?
+                    tempState.ExpectNextToken(Token.TokenType.Identifier);
+                    tempState.ExpectNextToken(Token.TokenType.Assignment);
+                    next = tempState.NextToken(tokenMustExist: false);
+
+                    // TODO: distinguish between constant variables and function definition
+                    if (next.type == Token.TokenType.Struct)
+                    {
+                        decl = parseStructDefinition(ref ps, scope);
+                        ignoreSemicolon = true;
+                    }
+                    else
+                    {
+                        decl = parseFunctionDefinition(ref ps, scope);
+                        ignoreSemicolon = true;
+                    }
                 }
+                if (!ignoreSemicolon)
+                {
+                    ps.NextToken(skipWS: true);
+                    ps.ExpectCurrentToken(Token.TokenType.Semicolon);
+                }
+                if (decl== null)
+                {
+                    throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
+                }
+                result.declarations.Add(decl);
 
                 next = ps.NextToken();
             }

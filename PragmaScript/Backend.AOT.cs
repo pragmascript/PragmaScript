@@ -21,7 +21,7 @@ namespace PragmaScript
         [DllImport("libLLVM.dll", EntryPoint = "LLVMGetBufferStart", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr GetBufferStart(LLVMMemoryBufferRef @MemBuf);
 
-        public void aot(string filename, int optLevel)
+        public void aotModule(string filename, int optLevel)
         {
             Debug.Assert(optLevel >= 0 && optLevel <= 3);
 

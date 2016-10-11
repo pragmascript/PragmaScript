@@ -104,14 +104,16 @@ namespace PragmaScript
 
         public static Scope MakeRootScope()
         {
-            var main = new Scope.FunctionDefinition { name = "main", returnType = FrontendType.int32 };
-            var rootScope = new Scope(null, main);
+            
+            var rootScope = new Scope(null, null);
             addBasicTypes(rootScope, Token.Undefined);
             addBasicConstants(rootScope, Token.Undefined);
             addBasicFunctions(rootScope);
 
-            rootScope.AddFunction(main);
-            rootScope.function = main;
+
+            //var main = new Scope.FunctionDefinition { name = "main", returnType = FrontendType.int32 };
+            //rootScope.AddFunction(main);
+            //rootScope.function = main;
 
             return rootScope;
         }
@@ -121,7 +123,7 @@ namespace PragmaScript
             int pos = 0;
             var current = tokens[pos];
 
-            Node block = null;
+            Node root = null;
 #if !DEBUG
             try
 #endif
@@ -131,7 +133,7 @@ namespace PragmaScript
                 ps.tokens = tokens;
                 // perform AST generation pass
                 ps.SkipWhitespace();
-                block = parseMainBlock(ref ps, scope);
+                root = parseRoot(ref ps, scope);
              
             }
 #if !DEBUG
@@ -144,7 +146,7 @@ namespace PragmaScript
             }
 #endif
 
-            return block;
+            return root;
         }
     }
 }

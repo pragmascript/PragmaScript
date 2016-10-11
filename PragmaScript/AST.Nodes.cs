@@ -57,6 +57,31 @@ namespace PragmaScript
         }
 
 
+        public class Root : Node
+        {
+            public Scope scope;
+            public List<Node> declarations = new List<Node>();
+            public Root(Token t)
+                : base(t)
+            {
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                foreach (var s in declarations)
+                    yield return s;
+            }
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                var types = await Task.WhenAll(declarations.Select(s => s.CheckType(this.scope)));
+                return null;
+            }
+
+            public override string ToString()
+            {
+                return "Root";
+            }
+        }
+
         public class Block : Node
         {
             public Scope scope;
