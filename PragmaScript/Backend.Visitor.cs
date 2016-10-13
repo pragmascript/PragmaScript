@@ -12,10 +12,45 @@ namespace PragmaScript
 
         public void Visit(AST.Root node)
         {
+
+            var par_t = new LLVMTypeRef[1];
+            var returnType = LLVM.VoidType();
+
+            var funType = LLVM.FunctionType(returnType, out par_t[0], (uint)0, Const.FalseBool);
+            var function = LLVM.AddFunction(mod, "__init", funType);
+
+            var vars = LLVM.AppendBasicBlock(function, "vars");
+            var entry = LLVM.AppendBasicBlock(function, "entry");
+
+            var blockTemp = LLVM.GetInsertBlock(builder);
+
+            LLVM.PositionBuilderAtEnd(builder, entry);
+
+            ctx.Push(new ExecutionContext(function, "__init", entry, vars, global: true));
+
+            // TODO: call main:
             foreach (var decl in node.declarations)
             {
                 Visit(decl);
             }
+
+
+
+            LLVM.PositionBuilderAtEnd(builder, entry);
+            Debug.Assert(functions.ContainsKey("main"));
+            var mf = functions["main"];
+            var par = new LLVMValueRef[1];
+            LLVM.BuildCall(builder, mf, out par[0], 0, "");
+
+            insertMissingReturn(returnType);
+
+            LLVM.PositionBuilderAtEnd(builder, vars);
+            LLVM.BuildBr(builder, entry);
+
+            LLVM.PositionBuilderAtEnd(builder, blockTemp);
+            LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
+
+            ctx.Pop();
         }
 
         public void Visit(AST.ConstInt32 node)
@@ -528,80 +563,114 @@ namespace PragmaScript
 
         public void Visit(AST.VariableDefinition node)
         {
-            // TODO simplify this so you dont have to dynamicly dispatch here
-            if (node.expression is AST.StructConstructor)
+            if (!ctx.Peek().global)
             {
-                var sc = node.expression as AST.StructConstructor;
-
-                var structType = getTypeRef(sc.structType);
-
-                var insert = LLVM.GetInsertBlock(builder);
-                LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
-                var struct_ptr = LLVM.BuildAlloca(builder, structType, node.variable.name);
-                variables[node.variable.name] = struct_ptr;
-                LLVM.PositionBuilderAtEnd(builder, insert);
-
-                for (int i = 0; i < sc.argumentList.Count; ++i)
+                // TODO simplify this so you dont have to dynamicly dispatch here
+                if (node.expression is AST.StructConstructor)
                 {
-                    Visit(sc.argumentList[i]);
-                    var arg = valueStack.Pop();
-                    var arg_ptr = LLVM.BuildStructGEP(builder, struct_ptr, (uint)i, "struct_arg_" + i);
-                    LLVM.BuildStore(builder, arg, arg_ptr);
+                    var sc = node.expression as AST.StructConstructor;
+
+                    var structType = getTypeRef(sc.structType);
+
+                    var insert = LLVM.GetInsertBlock(builder);
+                    LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+                    var struct_ptr = LLVM.BuildAlloca(builder, structType, node.variable.name);
+                    variables[node.variable.name] = struct_ptr;
+                    LLVM.PositionBuilderAtEnd(builder, insert);
+
+                    for (int i = 0; i < sc.argumentList.Count; ++i)
+                    {
+                        Visit(sc.argumentList[i]);
+                        var arg = valueStack.Pop();
+                        var arg_ptr = LLVM.BuildStructGEP(builder, struct_ptr, (uint)i, "struct_arg_" + i);
+                        LLVM.BuildStore(builder, arg, arg_ptr);
+                    }
                 }
-            }
-            // TODO simplify this so you dont have to dynamicly dispatch here
-            else if (node.expression is AST.ArrayConstructor)
-            {
-                var ac = node.expression as AST.ArrayConstructor;
-
-                var arr_struct_type = getTypeRef(ac.type);
-
-                var insert = LLVM.GetInsertBlock(builder);
-                LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
-                var arr_struct_ptr = LLVM.BuildAlloca(builder, arr_struct_type, "arr_struct_alloca");
-                var elem_type = getTypeRef(ac.type.elementType);
-                var size = LLVM.ConstInt(Const.Int32Type, (ulong)ac.elements.Count, Const.FalseBool);
-                var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
-                LLVM.PositionBuilderAtEnd(builder, insert);
-
-
-                // set array length in struct
-
-                var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.ZeroInt32 };
-                var gep_arr_length = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
-                LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int32Type, (ulong)ac.elements.Count, true), gep_arr_length);
-
-                // set array elem pointer in struct
-                var gep_idx_1 = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32 };
-                var gep_arr_elem_ptr = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_1[0], 2, "gep_arr_elem_ptr");
-                LLVM.BuildStore(builder, arr_elem_ptr, gep_arr_elem_ptr);
-
-                for (int i = 0; i < ac.elements.Count; ++i)
+                // TODO simplify this so you dont have to dynamicly dispatch here
+                else if (node.expression is AST.ArrayConstructor)
                 {
-                    var elem = ac.elements[i];
-                    Visit(elem);
-                    var arg = valueStack.Pop();
-                    var gep_idx = new LLVMValueRef[] { LLVM.ConstInt(Const.Int32Type, (ulong)i, Const.FalseBool) };
-                    var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_" + i);
+                    var ac = node.expression as AST.ArrayConstructor;
 
-                    LLVM.BuildStore(builder, arg, gep);
+                    var arr_struct_type = getTypeRef(ac.type);
+
+                    var insert = LLVM.GetInsertBlock(builder);
+                    LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+                    var arr_struct_ptr = LLVM.BuildAlloca(builder, arr_struct_type, "arr_struct_alloca");
+                    var elem_type = getTypeRef(ac.type.elementType);
+                    var size = LLVM.ConstInt(Const.Int32Type, (ulong)ac.elements.Count, Const.FalseBool);
+                    var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
+                    LLVM.PositionBuilderAtEnd(builder, insert);
+
+
+                    // set array length in struct
+
+                    var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.ZeroInt32 };
+                    var gep_arr_length = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
+                    LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int32Type, (ulong)ac.elements.Count, true), gep_arr_length);
+
+                    // set array elem pointer in struct
+                    var gep_idx_1 = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32 };
+                    var gep_arr_elem_ptr = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_1[0], 2, "gep_arr_elem_ptr");
+                    LLVM.BuildStore(builder, arr_elem_ptr, gep_arr_elem_ptr);
+
+                    for (int i = 0; i < ac.elements.Count; ++i)
+                    {
+                        var elem = ac.elements[i];
+                        Visit(elem);
+                        var arg = valueStack.Pop();
+                        var gep_idx = new LLVMValueRef[] { LLVM.ConstInt(Const.Int32Type, (ulong)i, Const.FalseBool) };
+                        var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_" + i);
+
+                        LLVM.BuildStore(builder, arg, gep);
+                    }
+                    variables[node.variable.name] = arr_struct_ptr;
                 }
-                variables[node.variable.name] = arr_struct_ptr;
+                else
+                {
+                    Visit(node.expression);
+                    var result = valueStack.Pop();
+                    var resultType = LLVM.TypeOf(result);
+                    LLVMValueRef v;
+
+                    var insert = LLVM.GetInsertBlock(builder);
+                    LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+                    v = LLVM.BuildAlloca(builder, resultType, node.variable.name);
+                    variables[node.variable.name] = v;
+                    LLVM.PositionBuilderAtEnd(builder, insert);
+                    LLVM.BuildStore(builder, result, v);
+
+
+                }
             }
             else
             {
-                Visit(node.expression);
-                var result = valueStack.Pop();
-                var resultType = LLVM.TypeOf(result);
-                LLVMValueRef v;
+                if (node.expression is AST.StructConstructor)
+                {
+                }
+                else if (node.expression is AST.ArrayConstructor)
+                {
+                }
+                else
+                {
+                    Visit(node.expression);
+                    var result = valueStack.Pop();
+                    var resultType = LLVM.TypeOf(result);
+                    var v = LLVM.AddGlobal(mod, resultType, node.variable.name);
 
-                var insert = LLVM.GetInsertBlock(builder);
-                LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
-                v = LLVM.BuildAlloca(builder, resultType, node.variable.name);
-                variables[node.variable.name] = v;
-                LLVM.PositionBuilderAtEnd(builder, insert);
-
-                LLVM.BuildStore(builder, result, v);
+                    if (LLVM.IsConstant(result))
+                    {
+                        LLVM.SetInitializer(v, result);
+                    }
+                    else
+                    {
+                        LLVM.SetInitializer(v, LLVM.ConstNull(resultType));
+                        // var insert = LLVM.GetInsertBlock(builder);
+                        // LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+                        LLVM.BuildStore(builder, result, v);
+                        // LLVM.PositionBuilderAtEnd(builder, insert);
+                    }
+                    variables[node.variable.name] = v;
+                }
             }
         }
 
@@ -671,8 +740,11 @@ namespace PragmaScript
 
 
             LLVMValueRef result;
+
+            bool is_global = LLVM.IsAGlobalVariable(v).Pointer != IntPtr.Zero;
+
             // HACK:
-            if (LLVM.IsConstant(v))
+            if (LLVM.IsConstant(v) && !is_global)
             {
                 result = v;
             }
@@ -757,8 +829,8 @@ namespace PragmaScript
             {
                 Visit(node.argumentList[i]);
                 parameters[i] = valueStack.Pop();
-                //var pn = parameters[i].GetTypeString();
-                //Console.WriteLine(pn);
+                var pn = parameters[i].GetTypeString();
+                Console.WriteLine(pn);
             }
 
             var ftn = f.GetTypeString();
@@ -768,6 +840,7 @@ namespace PragmaScript
             var rt = LLVM.GetReturnType(LLVM.GetElementType(ft));
             if (isEqualType(rt, Const.VoidType))
             {
+
                 LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, "");
             }
             else
@@ -1024,8 +1097,6 @@ namespace PragmaScript
             ctx.Push(new ExecutionContext(function, fun.name, entry, vars));
 
             Visit(node.body);
-
-
 
             insertMissingReturn(returnType);
 

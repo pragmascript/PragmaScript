@@ -1,6 +1,4 @@
-﻿- get rid of implicit main function and make
-  it explicit
-
+﻿
 - global variables
 
 - decide how constants are gonna work

@@ -25,6 +25,11 @@ namespace PragmaScript
         {
             Debug.Assert(optLevel >= 0 && optLevel <= 3);
 
+#if DEBUG
+            IntPtr error_msg;
+            LLVM.PrintModuleToFile(mod, "output.ll", out error_msg);
+#endif
+
             byte[] obj_data;
             {
                 var bitcode = LLVM.WriteBitcodeToMemoryBuffer(mod);
@@ -33,10 +38,7 @@ namespace PragmaScript
                 obj_data = new byte[bitcodeSize];
                 System.Runtime.InteropServices.Marshal.Copy(bufferStart, obj_data, 0, bitcodeSize);
             }
-#if DEBUG
-            IntPtr error_msg;
-            LLVM.PrintModuleToFile(mod, "output.ll", out error_msg);
-#endif
+
 
             if (optLevel > 0)
             {
@@ -89,7 +91,7 @@ namespace PragmaScript
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
                 lldProcess.StartInfo.FileName = @"External\lld-link.exe";
-                lldProcess.StartInfo.Arguments = $"{filename} kernel32.lib /entry:main /subsystem:console /nodefaultlib /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
+                lldProcess.StartInfo.Arguments = $"{filename} kernel32.lib /entry:__init /subsystem:console /nodefaultlib /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;

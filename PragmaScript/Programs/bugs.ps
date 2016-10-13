@@ -18,10 +18,13 @@
 // var s = sphere{};
 // s.pos = vec{1.0,2.0,3.0};
 
+
+var console_output_handle = GetStdHandle(-11);
+var console_input_handle = GetStdHandle(-10);
+
 let print_string = (s: string) => 
 {
- 	var handle = GetStdHandle(-11);
- 	WriteFile(handle, s.data, s.length, nullptr, nullptr);
+ 	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
 }
 
 
@@ -132,10 +135,11 @@ let print_i32 = (value: int32) =>
 // 	dir: vec;
 // }
 
+var x = 12;
+
 let main = () => 
 {
-	var a = 12;
-	a += 5;
-	print_i32(a);
-	print_string("fumm fumm");
+	// init_print();
+	x += 3;
+	print_i32(x);
 }

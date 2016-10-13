@@ -49,6 +49,7 @@ namespace PragmaScript
         {
             scope.AddType(FrontendType.float32, token);
             scope.AddType(FrontendType.int32, token);
+            scope.AddType(FrontendType.int64, token);
             scope.AddType(FrontendType.int8, token);
             scope.AddType(FrontendType.bool_, token);
             scope.AddTypeAlias(FrontendType.string_, token, "string");

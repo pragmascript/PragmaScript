@@ -13,6 +13,7 @@ namespace PragmaScript
 
         public class ExecutionContext
         {
+            public bool global = false;
             public LLVMValueRef function;
             public string functionName;
             public LLVMBasicBlockRef entry;
@@ -22,8 +23,9 @@ namespace PragmaScript
             public LLVMBasicBlockRef loopNext;
             public LLVMBasicBlockRef loopEnd;
 
-            public ExecutionContext(LLVMValueRef function, string functionName, LLVMBasicBlockRef entry, LLVMBasicBlockRef vars)
+            public ExecutionContext(LLVMValueRef function, string functionName, LLVMBasicBlockRef entry, LLVMBasicBlockRef vars, bool global = false)
             {
+                this.global = global;
                 this.function = function;
                 this.functionName = functionName;
                 this.entry = entry;
@@ -35,6 +37,7 @@ namespace PragmaScript
 
             public ExecutionContext(ExecutionContext other)
             {
+                global = false;
                 function = other.function;
                 functionName = other.functionName;
                 entry = other.entry;
@@ -368,6 +371,7 @@ namespace PragmaScript
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
                 functions.Add("WriteFile", fun);
             }
+
             {
                 LLVMTypeRef[] param_types = {
                     LLVM.Int64Type(),   // 0
@@ -398,18 +402,18 @@ namespace PragmaScript
             // HACK: 
             var nullptr = LLVM.ConstPointerNull(LLVM.PointerType(LLVM.Int8Type(), 0));
             variables["nullptr"] = nullptr;
+        }
 
-            // LLVM.PositionBuilderAtEnd(builder, ctx.Peek().entry);
-            //LLVM.BuildStore(builder, LLVM.ConstPointerNull(byte_ptr_type), nullptr);
+        void insertCallToMain()
+        {
+            
         }
 
         void emit(AST.Node root)
         {
             prepareModule();
             Visit(root);
-            // insertMissingReturn(Const.Int32Type);
-            //LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
-            //LLVM.BuildBr(builder, ctx.Peek().entry);
+            insertCallToMain();
         }
 
         public void EmitAndJIT(AST.Node root)
