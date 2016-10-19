@@ -340,10 +340,22 @@ namespace PragmaScript
             }
         }
 
+        // http://stackoverflow.com/questions/11985247/llvm-insert-intrinsic-function-cos
+        // http://stackoverflow.com/questions/27681500/generate-call-to-intrinsic-using-llvm-c-api
+        void addIntrinsics()
+        {
+            LLVMTypeRef[] param_types = { Const.Float32Type };
+            LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
+            LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.cos.f32", fn_type);
+            functions.Add("cos", fn);
+        }
+
 
         void addPreamble()
         {
-           {
+            addIntrinsics();
+
+            {
                 LLVMTypeRef[] param_types = { LLVM.Int32Type() };
                 LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int64Type(), param_types, Const.FalseBool);
                 var fun = LLVM.AddFunction(mod, "GetStdHandle", fun_type);
@@ -391,6 +403,8 @@ namespace PragmaScript
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
                 functions.Add("ReadFile", fun);
             }
+
+            
         }
 
         void prepareModule()
@@ -404,16 +418,11 @@ namespace PragmaScript
             variables["nullptr"] = nullptr;
         }
 
-        void insertCallToMain()
-        {
-            
-        }
 
         void emit(AST.Node root)
         {
             prepareModule();
             Visit(root);
-            insertCallToMain();
         }
 
         public void EmitAndJIT(AST.Node root)
@@ -427,9 +436,5 @@ namespace PragmaScript
             emit(root);
             aotModule(filename, CompilerOptions.optimizationLevel);
         }
-
-        
-
    }
-
 }

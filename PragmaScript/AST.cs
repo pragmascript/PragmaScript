@@ -82,6 +82,14 @@ namespace PragmaScript
             read_file.AddParameter("lpOverlapped", new FrontendPointerType(FrontendType.int8));
             scope.AddFunction(read_file);
 
+            addIntrinsics(scope);
+        }
+
+        static void addIntrinsics(Scope scope)
+        {
+            var cos = new Scope.FunctionDefinition { external = true, name = "cos", returnType = FrontendType.float32 };
+            cos.AddParameter("x", FrontendType.float32);
+            scope.AddFunction(cos);
         }
 
         static void addBasicConstants(Scope scope, Token token)

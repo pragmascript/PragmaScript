@@ -1,7 +1,7 @@
-﻿let print_string = (s: string) => 
+﻿var console_output_handle = GetStdHandle(-11);
+let print_string = (s: string) => 
 {
- 	var handle = GetStdHandle(-11);
- 	WriteFile(handle, s.data, s.length, nullptr, nullptr);
+ 	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
 }
 
 let abs_i32 = (value: int32) => 
@@ -28,12 +28,10 @@ let print_i32 = (value: int32) =>
 			break;
 		}
 	}
-
 	var offset = 0;
 	if (value < 0) {
 		offset = 1;
 	}
-	 
 	var result = "\0\0\0\0\0\0\0\0\0\0\0";
 	if (value < 0) {
 		result[0] = (int8)45;
@@ -45,16 +43,28 @@ let print_i32 = (value: int32) =>
 	print_string(result);
 }
 
-let vec = struct
+let print_f32 = (value: float32) => 
 {
-	x: float32;
-	y: float32;
-	z: float32;
+	var int_part = (int32)value;
+	var float_part = (int32)((value - (float32)int_part) * 1000.0);
+	print_i32(int_part);
+	print_string(".");
+	print_i32(float_part);
 }
+
 
 let main = () =>
 {
-	print_string("hello world!");
+	print_string("hello world!\n");
+
+	for (var i = 0; i < 32; ++i)
+	{
+		var t = (float32)i / 31.0;
+		print_f32(cos(2.0*3.141592654 * t));
+		print_string("\n");
+	}
+	
+	print_string("\n");
 	return 0;
 }
 

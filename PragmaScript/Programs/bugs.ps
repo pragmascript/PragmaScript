@@ -71,75 +71,39 @@ let print_i32 = (value: int32) =>
 	print_string(result);
 }
 
+let print_f32 = (value: float32) => 
+{
+	var int_part = (int32)value;
+	var float_part = (int32)((value - (float32)int_part) * 1000.0);
+	print_i32(int_part);
+	print_string(".");
+	print_i32(float_part);
+}
 
-// let print_f32 = (value: float32) => 
-// {
-// 	var int_part = (int32)value;
-// 	var float_part = (int32)((value - (float32)int_part) * 1000.0);
-// 	print_i32(int_part);
-// 	print_string(".");
-// 	print_i32(float_part);
-// }
+let vec = struct
+{
+	x: float32;
+	y: float32;
+	z: float32;
+}
 
-// let vec = struct
-// {
-// 	x: float32;
-// 	y: float32;
-// 	z: float32;
-// }
-
-// let print_vec = (v: vec) => 
-// {
-// 	print_string("(");
-// 	print_f32(v.x);
-// 	print_string(", ");
-// 	print_f32(v.y);
-// 	print_string(", ");
-// 	print_f32(v.z);
-// 	print_string(")");
-// }
-
-// let vec_zero = () => 
-// {
-// 	var result = vec { 0.0, 0.0, 0.0 };
-// 	return result;
-// }
-// let vec_right = () => 
-// {
-// 	var result = vec { 1.0, 0.0, 0.0 };
-// 	return result;
-// }
-// let vec_up = () => 
-// {
-// 	var result = vec { 0.0, 1.0, 0.0 };
-// 	return result;
-// }
-// let vec_forward = () => 
-// {
-// 	var result = vec { 0.0, 0.0, 1.0 };
-// 	return result;
-// }
-
-// var vecs = [vec_right(), vec_up(), vec_forward()];
-// var xx = vecs[1].y;
-// print_f32(xx);
-// print_string(" <->\n");
-// print_vec(vecs[0]);
-// print_vec(vecs[1]);
-// print_vec(vecs[2]);
-// print_string(" <->\n");
-
-// let ray = struct 
-// {
-// 	pos: vec;
-// 	dir: vec;
-// }
+let print_vec = (v: vec) => 
+{
+	print_string("(");
+	print_f32(v.x);
+	print_string(", ");
+	print_f32(v.y);
+	print_string(", ");
+	print_f32(v.z);
+	print_string(")");
+}
 
 var x = 12;
+var v = vec { 1.0, 2.0, 3.0 };
 
 let main = () => 
 {
-	// init_print();
-	x += 3;
-	print_i32(x);
+	print_string("v: ");
+	print_vec(v);
+	print_string("\n");
 }

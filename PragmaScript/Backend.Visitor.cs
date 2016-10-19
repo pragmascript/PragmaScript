@@ -144,10 +144,7 @@ namespace PragmaScript
 
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)bytes.Length, Const.FalseBool);
             var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
-
-
-            LLVM.PositionBuilderAtEnd(builder, insert);
-
+            
             // set array length in struct
             var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.ZeroInt32 };
             var gep_arr_length = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
@@ -171,6 +168,9 @@ namespace PragmaScript
             var arr_struct = LLVM.BuildLoad(builder, arr_struct_ptr, "arr_struct_load");
 
             valueStack.Push(arr_struct);
+
+            LLVM.PositionBuilderAtEnd(builder, insert);
+
             // TODO: use memcopy intrinsic here use
             // http://stackoverflow.com/questions/27681500/generate-call-to-intrinsic-using-llvm-c-api
             // with
@@ -530,35 +530,6 @@ namespace PragmaScript
                 throw new InvalidCodePath();
             }
             valueStack.Push(result);
-
-            //if (isEqualType(resultType, Const.Float32Type))
-            //{
-            //    result = LLVM.BuildSIToFP(builder, v, Const.Float32Type, "float32_cast");
-            //}
-            //else if (isEqualType(resultType, Const.Int32Type))
-            //{
-            //    if (isEqualType(vtype, Const.Float32Type))
-            //    {
-            //        result = LLVM.BuildFPToSI(builder, v, Const.Int32Type, "int32_cast");
-            //    }
-            //    else if (isEqualType(vtype, Const.Int32Type))
-            //    {
-            //        result = v;
-            //    }
-            //    else if (isEqualType(vtype, Const.BoolType))
-            //    {
-            //        result = LLVM.BuildZExt(builder, v, Const.Int32Type, "int32_cast");
-            //    }
-            //    else
-            //    {
-            //        throw new InvalidCodePath();
-            //    }
-            //}
-            //else
-            //{
-            //    throw new NotImplementedException();
-            //}
-
         }
 
         public void Visit(AST.VariableDefinition node)
@@ -569,7 +540,6 @@ namespace PragmaScript
                 if (node.expression is AST.StructConstructor)
                 {
                     var sc = node.expression as AST.StructConstructor;
-
                     var structType = getTypeRef(sc.structType);
 
                     var insert = LLVM.GetInsertBlock(builder);
@@ -638,17 +608,30 @@ namespace PragmaScript
                     variables[node.variable.name] = v;
                     LLVM.PositionBuilderAtEnd(builder, insert);
                     LLVM.BuildStore(builder, result, v);
-
-
                 }
             }
-            else
+            else // is global
             {
                 if (node.expression is AST.StructConstructor)
                 {
+                    var sc = node.expression as AST.StructConstructor;
+                    var structType = getTypeRef(sc.structType);
+
+                    var v = LLVM.AddGlobal(mod, structType, node.variable.name);
+                    variables[node.variable.name] = v;
+                    LLVM.SetInitializer(v, LLVM.ConstNull(structType));
+
+                    for (int i = 0; i < sc.argumentList.Count; ++i)
+                    {
+                        Visit(sc.argumentList[i]);
+                        var arg = valueStack.Pop();
+                        var arg_ptr = LLVM.BuildStructGEP(builder, v, (uint)i, "struct_arg_" + i);
+                        LLVM.BuildStore(builder, arg, arg_ptr);
+                    }
                 }
                 else if (node.expression is AST.ArrayConstructor)
                 {
+                    throw new NotImplementedException();
                 }
                 else
                 {
@@ -664,10 +647,7 @@ namespace PragmaScript
                     else
                     {
                         LLVM.SetInitializer(v, LLVM.ConstNull(resultType));
-                        // var insert = LLVM.GetInsertBlock(builder);
-                        // LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
                         LLVM.BuildStore(builder, result, v);
-                        // LLVM.PositionBuilderAtEnd(builder, insert);
                     }
                     variables[node.variable.name] = v;
                 }
@@ -687,8 +667,11 @@ namespace PragmaScript
             var targetTypeName = typeToString(targetType);
 
 
+            
+
             //var v = variables[node.variable.name];
 
+            // TODO: array assignment
 
             //if (node.isArrayAssignment)
             //{
@@ -830,7 +813,7 @@ namespace PragmaScript
                 Visit(node.argumentList[i]);
                 parameters[i] = valueStack.Pop();
                 var pn = parameters[i].GetTypeString();
-                Console.WriteLine(pn);
+                // Console.WriteLine(pn);
             }
 
             var ftn = f.GetTypeString();

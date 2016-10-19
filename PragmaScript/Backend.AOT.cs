@@ -26,8 +26,10 @@ namespace PragmaScript
             Debug.Assert(optLevel >= 0 && optLevel <= 3);
 
 #if DEBUG
-            IntPtr error_msg;
-            LLVM.PrintModuleToFile(mod, "output.ll", out error_msg);
+            {
+                IntPtr error_msg;
+                LLVM.PrintModuleToFile(mod, "output.ll", out error_msg);
+            }
 #endif
 
             byte[] obj_data;
@@ -62,6 +64,26 @@ namespace PragmaScript
                 }
                 optProcess.WaitForExit();
                 optProcess.Close();
+
+#if DEBUG
+                {
+                    optProcess = new Process();
+                    optProcess.StartInfo.FileName = @"External\opt.exe";
+                    optProcess.StartInfo.Arguments = $"-disable-opt -S -o output_opt.ll";
+                    optProcess.StartInfo.RedirectStandardInput = true;
+                    optProcess.StartInfo.RedirectStandardOutput = false;
+                    optProcess.StartInfo.UseShellExecute = false;
+                    optProcess.Start();
+                    optInput = optProcess.StandardInput;
+                    bw = new BinaryWriter(optInput.BaseStream);
+                    bw.Write(obj_data, 0, obj_data.Length);
+                    bw.Close();
+
+                    optProcess.WaitForExit();
+                    optProcess.Close();
+                }
+#endif
+
             }
 
 
@@ -86,12 +108,30 @@ namespace PragmaScript
                 }
                 llcProcess.WaitForExit();
                 llcProcess.Close();
+#if DEBUG
+                {
+                    //Console.WriteLine("assembler...");
+                    llcProcess = new Process();
+                    llcProcess.StartInfo.FileName = @"External\llc.exe";
+                    llcProcess.StartInfo.Arguments = $"-O{optLevel} --x86-asm-syntax=intel -filetype asm -o output.asm";
+                    llcProcess.StartInfo.RedirectStandardInput = true;
+                    llcProcess.StartInfo.RedirectStandardOutput = false;
+                    llcProcess.StartInfo.UseShellExecute = false;
+                    llcProcess.Start();
+                    llcInput = llcProcess.StandardInput;
+                    bw = new BinaryWriter(llcInput.BaseStream);
+                    bw.Write(obj_data, 0, obj_data.Length);
+                    bw.Close();
+                    llcProcess.WaitForExit();
+                    llcProcess.Close();
+                }
+#endif
             }
             {
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
                 lldProcess.StartInfo.FileName = @"External\lld-link.exe";
-                lldProcess.StartInfo.Arguments = $"{filename} kernel32.lib /entry:__init /subsystem:console /nodefaultlib /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
+                lldProcess.StartInfo.Arguments = $"kernel32.lib {filename} /entry:__init /subsystem:console  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.10240.0\\ucrt\\x64\" /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;
