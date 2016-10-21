@@ -464,7 +464,7 @@ namespace PragmaScript
             }
         }
 
-        public class VariableLookup : Node
+        public class VariableReference : Node
         {
             public enum Incrementor { None, preIncrement, preDecrement, postIncrement, postDecrement }
             public Incrementor inc;
@@ -473,7 +473,7 @@ namespace PragmaScript
 
             // HACK: returnPointer is a HACK remove this?????
             public bool returnPointer;
-            public VariableLookup(Token t)
+            public VariableReference(Token t)
                 : base(t)
             {
             }
@@ -511,16 +511,34 @@ namespace PragmaScript
             }
         }
 
-        public class Assignment : Node
+        public class Load : Node
         {
-
-            //  public Scope.VariableDefinition variable;
-            public Node target;
             public Node expression;
 
-            // public bool isArrayAssignment;
-            public Node index;
+            public Load(Token t)
+                : base(t)
+            {
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return expression;
+            }
+            public override async Task<FrontendType> CheckType(Scope scope)
+            {
+                var et = await expression.CheckType(scope);
+                return et;
+            }
+            public override string ToString()
+            {
+                return " = ";
+            }
+        }
 
+        public class Assignment : Node
+        {
+            public Node target;
+            public Node expression;
+            public Node index;
 
             public Assignment(Token t)
                 : base(t)
@@ -540,34 +558,6 @@ namespace PragmaScript
                     throw new ParserVariableTypeMismatch(tt, et, token);
                 }
                 return tt;
-
-                //if (!isArrayAssignment)
-                //{
-               
-                //}
-                //else
-                //{
-                //    var tt = await target.CheckType(scope);
-                //    if (!(tt is FrontendArrayType))
-                //    {
-                //        throw new ParserError("variable is not an array type", token);
-                //    }
-                //    var vat = tt as FrontendArrayType;
-
-                //    var it = await index.CheckType(scope);
-                //    if (!it.Equals(FrontendType.int32))
-                //    {
-                //        throw new ParserExpectedType(FrontendType.int32, it, index.token);
-                //    }
-
-                //    var et = await expression.CheckType(scope);
-                //    if (!et.Equals(vat.elementType))
-                //    {
-                //        throw new ParserVariableTypeMismatch(vat.elementType, et, token);
-                //    }
-
-                //    return vat.elementType;
-                //}
             }
             public override string ToString()
             {

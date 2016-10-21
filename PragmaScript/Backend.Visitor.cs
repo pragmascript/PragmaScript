@@ -700,40 +700,15 @@ namespace PragmaScript
             var resultType = LLVM.TypeOf(result);
             var resultTypeName = typeToString(resultType);
 
+
             Visit(node.target);
+
             var target = valueStack.Pop();
             var targetType = LLVM.TypeOf(target);
             var targetTypeName = typeToString(targetType);
 
-            //var v = variables[node.variable.name];
-
-            // TODO: array assignment
-
-            //if (node.isArrayAssignment)
-            //{
-            //    Visit(node.index);
-            //    var idx = valueStack.Pop();
-            //    var arr = v;
-            //    var arr_type_name = typeToString(LLVM.TypeOf(arr));
-
-            //    LLVMValueRef arr_elem_ptr;
-            //    var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32 };
-            //    var gep_arr_elem_ptr = LLVM.BuildGEP(builder, arr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
-            //    arr_elem_ptr = LLVM.BuildLoad(builder, gep_arr_elem_ptr, "arr_elem_ptr");
-
-            //    var gep_idx_1 = new LLVMValueRef[] { idx };
-            //    var gep_arr_elem = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx_1[0], 1, "gep_arr_elem");
-
-            //    LLVM.BuildStore(builder, result, gep_arr_elem);
-            //}
-            //else
-            {
-                if (!isEqualType(LLVM.GetElementType(targetType), resultType))
-                {
-                    throw new BackendTypeMismatchException(resultType, LLVM.GetElementType(targetType));
-                }
-                LLVM.BuildStore(builder, result, target);
-            }
+            Debug.Assert(isEqualType(LLVM.GetElementType(targetType), resultType));
+            LLVM.BuildStore(builder, result, target);
         }
 
         public void Visit(AST.Block node)
@@ -745,7 +720,7 @@ namespace PragmaScript
         }
 
 
-        public void Visit(AST.VariableLookup node)
+        public void Visit(AST.VariableReference node)
         {
             var vd = node.varDefinition;
             // if variable is function paramter just return it immediately
@@ -756,7 +731,7 @@ namespace PragmaScript
                 return;
             }
             var v = variables[vd.name];
-            var v_type = typeToString(LLVM.TypeOf(v)); 
+            var v_type = typeToString(LLVM.TypeOf(v));
 
 
             LLVMValueRef result;
@@ -770,12 +745,14 @@ namespace PragmaScript
             }
             else
             {
-                var load = LLVM.BuildLoad(builder, v, vd.name);
-                result = load;
+                result = v;
                 if (node.returnPointer)
                 {
-                    result = v;
-                    Debug.Assert(node.inc == AST.VariableLookup.Incrementor.None);
+                    Debug.Assert(node.inc == AST.VariableReference.Incrementor.None);
+                }
+                else
+                {
+                    result = LLVM.BuildLoad(builder, v, vd.name);
                 }
             }
             var ltype = LLVM.TypeOf(result);
@@ -783,10 +760,10 @@ namespace PragmaScript
 
             switch (node.inc)
             {
-                case AST.VariableLookup.Incrementor.None:
+                case AST.VariableReference.Incrementor.None:
                     break;
 
-                case AST.VariableLookup.Incrementor.preIncrement:
+                case AST.VariableReference.Incrementor.preIncrement:
                     if (isEqualType(ltype, Const.Int32Type))
                     {
                         result = LLVM.BuildAdd(builder, result, Const.OneInt32, "preinc");
@@ -797,7 +774,7 @@ namespace PragmaScript
                     }
                     LLVM.BuildStore(builder, result, v);
                     break;
-                case AST.VariableLookup.Incrementor.preDecrement:
+                case AST.VariableReference.Incrementor.preDecrement:
                     if (isEqualType(ltype, Const.Int32Type))
                     {
                         result = LLVM.BuildSub(builder, result, Const.OneInt32, "predec");
@@ -808,7 +785,7 @@ namespace PragmaScript
                     }
                     LLVM.BuildStore(builder, result, v);
                     break;
-                case AST.VariableLookup.Incrementor.postIncrement:
+                case AST.VariableReference.Incrementor.postIncrement:
                     var postinc = default(LLVMValueRef);
                     if (isEqualType(ltype, Const.Int32Type))
                     {
@@ -820,7 +797,7 @@ namespace PragmaScript
                     }
                     LLVM.BuildStore(builder, postinc, v);
                     break;
-                case AST.VariableLookup.Incrementor.postDecrement:
+                case AST.VariableReference.Incrementor.postDecrement:
                     var postdec = default(LLVMValueRef);
                     if (isEqualType(ltype, Const.Int32Type))
                     {
@@ -1154,7 +1131,7 @@ namespace PragmaScript
             Visit(node.left);
             var arr = valueStack.Pop();
             var arr_type = typeToString(LLVM.TypeOf(arr));
-            
+
             Visit(node.index);
             var idx = valueStack.Pop();
 
@@ -1174,19 +1151,21 @@ namespace PragmaScript
 
             var gep_idx_1 = new LLVMValueRef[] { idx };
             var gep_arr_elem = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx_1[0], 1, "gep_arr_elem");
-            var load = LLVM.BuildLoad(builder, gep_arr_elem, "arr_elem");
 
-            var result = load;
-            if (node.returnPointer)
+
+            var result = gep_arr_elem;
+            if (!node.returnPointer)
             {
-                result = gep_arr_elem;
+                result = LLVM.BuildLoad(builder, gep_arr_elem, "arr_elem");
             }
             valueStack.Push(result);
         }
 
         public void Visit(AST.StructFieldAccess node)
         {
+
             Visit(node.left);
+
             var v = valueStack.Pop();
             var v_type = typeToString(LLVM.TypeOf(v));
 
@@ -1200,11 +1179,11 @@ namespace PragmaScript
             if (LLVM.IsAArgument(v).Pointer == IntPtr.Zero)
             {
                 gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
-                var load = LLVM.BuildLoad(builder, gep, "struct_field");
-                var result = load;
-                if (node.returnPointer)
+
+                var result = gep;
+                if (!node.returnPointer)
                 {
-                    result = gep;
+                    result = LLVM.BuildLoad(builder, gep, "struct_field");
                 }
                 valueStack.Push(result);
                 return;
@@ -1214,7 +1193,7 @@ namespace PragmaScript
                 uint[] uindices = { (uint)idx };
                 var load = LLVM.BuildExtractValue(builder, v, (uint)idx, "struct_field_extract");
                 var result = load;
-                
+
                 // TODO: what happens here???
                 if (node.returnPointer)
                 {
@@ -1284,9 +1263,9 @@ namespace PragmaScript
             {
                 Visit(node as AST.Block);
             }
-            else if (node is AST.VariableLookup)
+            else if (node is AST.VariableReference)
             {
-                Visit(node as AST.VariableLookup);
+                Visit(node as AST.VariableReference);
             }
             else if (node is AST.ArrayElementAccess)
             {

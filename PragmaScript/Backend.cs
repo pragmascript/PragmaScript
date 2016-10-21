@@ -23,8 +23,6 @@ namespace PragmaScript
             public LLVMBasicBlockRef loopNext;
             public LLVMBasicBlockRef loopEnd;
 
-            public bool wantLoad = false;
-
 
             public ExecutionContext(LLVMValueRef function, string functionName, LLVMBasicBlockRef entry, LLVMBasicBlockRef vars, bool global = false)
             {

@@ -119,6 +119,19 @@ let print_vec_ptr = (v: vec*) =>
 
 let main = () => 
 {
-	var vecs = [vec { 1.0, 2.0, 3.0 }, vec {0.1, 0.2, 0.3}];
+	// print_string("hello world!\n");
+
+	// var arr = [-1, 3, 11];
+	// var x = arr[1];
+	// print_i32(x);
+	// print_string("\n");
+
+	// var v = vec {-1.0, 12.0, 88.0 };
+	// var vx = v.x;
+	// print_f32(vx);
+	
+	// print_string("\n");
+
+	var vecs = [make_vec(1.0, 2.0, 3.0), make_vec(0.1, 0.2, 0.3)];
 	print_vec_ptr(vecs.data + 1);
 }
