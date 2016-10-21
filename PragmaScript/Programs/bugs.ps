@@ -98,12 +98,27 @@ let print_vec = (v: vec) =>
 	print_string(")");
 }
 
-var x = 12;
-var v = vec { 1.0, 2.0, 3.0 };
+let circle = struct
+{
+	pos: vec;
+	radius : float32;
+}
+
+// WHY TF DOES THIS DO THIS???
+let make_vec = (x: float32, y: float32, z: float32) => 
+{
+	var result = vec {x, y, z};
+	return result;
+	// return vec {x, y, z};
+}
+
+let print_vec_ptr = (v: vec*) =>
+{
+	print_vec(*v);
+}
 
 let main = () => 
 {
-	print_string("v: ");
-	print_vec(v);
-	print_string("\n");
+	var vecs = [vec { 1.0, 2.0, 3.0 }, vec {0.1, 0.2, 0.3}];
+	print_vec_ptr(vecs.data + 1);
 }

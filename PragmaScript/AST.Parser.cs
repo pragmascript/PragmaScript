@@ -720,22 +720,36 @@ namespace PragmaScript
             var current = ps.CurrentToken();
 
             // handle unary plus and minus, ! and ~
-            if (current.type == Token.TokenType.Add || current.type == Token.TokenType.Subtract
-                || current.type == Token.TokenType.LogicalNOT || current.type == Token.TokenType.Complement)
+            if (UnaryOp.IsUnaryToken(current))
             {
                 var result = new UnaryOp(current);
                 result.SetTypeFromToken(current);
                 ps.NextToken();
                 result.expression = parsePrimary(ref ps, scope);
+                if (result.type == UnaryOp.UnaryOpType.AddressOf)
+                {
+                    if (result.expression is VariableLookup)
+                    {
+                        (result.expression as VariableLookup).returnPointer = true;
+                    }
+                    else if (result.expression is StructFieldAccess)
+                    {
+                        (result.expression as StructFieldAccess).returnPointer = true;
+                    }
+                    else if (result.expression is ArrayElementAccess)
+                    {
+                        (result.expression as ArrayElementAccess).returnPointer = true;
+                    }
+                    else
+                        throw new ParserError($"Cannot take address of expression \"{ result.expression }\"", ps.CurrentToken());
+                }
                 return result;
             }
 
             var tempState = ps;
             var next = tempState.NextToken(tokenMustExist: false);
-
             // TODO: DO I REALLY NEED 2 LOOKAHEAD HERE?
             var nextNext = tempState.PeekToken();
-
             // handle type cast operator (T)x
             if (current.type == Token.TokenType.OpenBracket
                 && next.type == Token.TokenType.Identifier
@@ -842,15 +856,33 @@ namespace PragmaScript
                         ps.NextToken();
                         next = parseStructFieldAccess(ref ps, scope, result, false);
                         break;
+                    case Token.TokenType.OpenSquareBracket:
+                        if (result == null)
+                        {
+                            result = parseVariableLookup(ref ps, scope, true);
+                        }
+                        else
+                        {
+                            if (result is StructFieldAccess)
+                            {
+                                (result as StructFieldAccess).returnPointer = true;
+                            }
+                            else if (result is ArrayElementAccess)
+                            {
+                                (result as ArrayElementAccess).returnPointer = true;
+                            }
+                        }
+                        ps.NextToken();
+                        next = parseArrayElementAccess(ref ps, scope, result, false);
+                        break;
+
                     case Token.TokenType.OpenCurly:
                         next = parseStructConstructor(ref ps, scope);
                         break;
                     case Token.TokenType.ArrayTypeBrackets:
                         next = parseUninitializedArray(ref ps, scope);
                         break;
-                    case Token.TokenType.OpenSquareBracket:
-                        next = parseVariableLookup(ref ps, scope);
-                        break;
+                   
                     default:
                         if (result == null)
                         {
@@ -922,6 +954,23 @@ namespace PragmaScript
             return result;
         }
 
+
+        // TODO: handle multi dimensional arrays
+        static Node parseArrayElementAccess(ref ParseState ps, Scope scope, Node left, bool returnPointer = false)
+        {
+            var current = ps.ExpectCurrentToken(Token.TokenType.OpenSquareBracket);
+            ps.NextToken();
+
+            var result = new ArrayElementAccess(current);
+            result.left = left;
+            result.returnPointer = returnPointer;
+            result.index = parseBinOp(ref ps, scope);
+
+            ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
+
+            return result;
+        }
+
         static Node parseVariableLookup(ref ParseState ps, Scope scope, bool returnPointer = false)
         {
             var current = ps.CurrentToken();
@@ -960,20 +1009,7 @@ namespace PragmaScript
                     VariableLookup.Incrementor.postIncrement : VariableLookup.Incrementor.postDecrement;
             }
 
-            // TODO: handle multi dimensional arrays
-            if (peek.type == Token.TokenType.OpenSquareBracket)
-            {
-                // skip [ token
-                ps.NextToken();
-                ps.NextToken();
-
-                var arrayElem = new ArrayElementAccess(peek);
-                arrayElem.variableName = current.text;
-                arrayElem.index = parseBinOp(ref ps, scope);
-
-                ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
-                return arrayElem;
-            }
+           
             return result;
         }
 
@@ -1170,6 +1206,15 @@ namespace PragmaScript
             {
                 result = scope.GetArrayType(current.text);
                 ps.NextToken();
+            }
+            else if (next.type == Token.TokenType.Multiply)
+            {
+                result = scope.GetType(current.text);
+                while (ps.PeekToken().type == Token.TokenType.Multiply)
+                {
+                    result = new FrontendPointerType(result);
+                    ps.NextToken();
+                }
             }
             else
             {

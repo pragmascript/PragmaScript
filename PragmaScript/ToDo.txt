@@ -18,3 +18,11 @@
 
 - look at the implementation of this:
 	https://ispc.github.io/
+
+
+	(sizeof)
+	http://stackoverflow.com/questions/14608250/how-can-i-find-the-size-of-a-type
+
+	
+    // http://denisbider.blogspot.de/2016/04/hello-world-in-llvm-ir-language-without.html
+    // http://llvm.org/devmtg/2013-11/slides/Gao-LTO.pdf

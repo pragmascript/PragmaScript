@@ -130,6 +130,7 @@
     <Compile Include="AST.cs" />
     <Compile Include="AST.Nodes.cs" />
     <Compile Include="AST.Parser.cs" />
+    <Compile Include="Backend.AST.cs" />
     <Compile Include="Backend.cs" />
     <Compile Include="Backend.JIT.cs" />
     <Compile Include="Backend.Visitor.cs" />

@@ -15,6 +15,8 @@ namespace PragmaScript
         public static readonly FrontendType float32 = new FrontendType("float32");
         public static readonly FrontendType bool_ = new FrontendType("bool");
         public static readonly FrontendArrayType string_ = new FrontendArrayType(int8);
+
+
         public string name;
 
         protected FrontendType()

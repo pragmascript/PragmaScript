@@ -350,7 +350,6 @@ namespace PragmaScript
         {
             public string structName;
             public List<Node> argumentList = new List<Node>();
-
             public FrontendStructType structType;
 
             public StructConstructor(Token t)
@@ -471,6 +470,8 @@ namespace PragmaScript
             public Incrementor inc;
             public string variableName;
             public Scope.VariableDefinition varDefinition;
+
+            // HACK: returnPointer is a HACK remove this?????
             public bool returnPointer;
             public VariableLookup(Token t)
                 : base(t)
@@ -495,7 +496,7 @@ namespace PragmaScript
                 switch (inc)
                 {
                     case Incrementor.None:
-                        return variableName;
+                        return variableName + (returnPointer ? " (p)" : "");
                     case Incrementor.preIncrement:
                         return "++" + variableName;
                     case Incrementor.preDecrement:
@@ -527,7 +528,8 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return expression;
+                yield return new AnnotatedNode(target, "target");
+                yield return new AnnotatedNode(expression, "expression");
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
@@ -782,41 +784,35 @@ namespace PragmaScript
 
             public override string ToString()
             {
-                return  "." + fieldName;
+                return  "." + fieldName + (returnPointer ? " (p)": "");
             }
         }
 
         public class ArrayElementAccess : Node
         {
-            
+            public Node left;
             public Node index;
 
-            public string variableName;
-            public Scope.VariableDefinition varDefinition;
+            //public string variableName;
+            //public Scope.VariableDefinition varDefinition;
             public bool returnPointer;
 
             public ArrayElementAccess(Token t)
                 : base(t)
             {
-
             }
+
             public override IEnumerable<Node> GetChilds()
             {
-                yield return index;
-              
+                yield return new AnnotatedNode(left, "array");
+                yield return new AnnotatedNode(index, "index");
             }
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var v = scope.GetVar(variableName);
-                varDefinition = v;
+                var vt = await (left.CheckType(scope));
 
-                while(v.type == null)
-                {
-                    await Task.Yield();
-                }
-
-                if (!(v.type is FrontendArrayType))
+                if (!(vt is FrontendArrayType))
                 {
                     throw new ParserError("variable is not an array type", token);
                 }
@@ -827,16 +823,14 @@ namespace PragmaScript
                     throw new ParserExpectedType(FrontendType.int32, idxType, index.token);
                 }
 
-                var atype = v.type as FrontendArrayType;
+                var atype = vt as FrontendArrayType;
                 return atype.elementType;
             }
             public override string ToString()
             {
-                return variableName + "[]";
+                return "[]" + (returnPointer ? " (p)" : "");
             }
         }
-
-      
 
         public class BreakLoop : Node
         {
@@ -1024,7 +1018,18 @@ namespace PragmaScript
                     }
                 }
 
-                if (!lType.Equals(rType))
+                if (lType is FrontendPointerType)
+                {
+                    if (!isEither(BinOpType.Add, BinOpType.Subract))
+                    {
+                        throw new ParserError("Only add and subtract are valid pointer arithmetic operations.", token);
+                    }
+                    if (!(rType.Equals(FrontendType.int32) || rType.Equals(FrontendType.int64) || rType.Equals(FrontendType.int8)))
+                    {
+                        throw new ParserError($"Right side of pointer arithmetic operation must be of integer type not \"{rType}\".", token);
+                    }
+                }
+                else if (!lType.Equals(rType))
                 {
                     throw new ParserTypeMismatch(lType, rType, token);
                 }
@@ -1096,7 +1101,7 @@ namespace PragmaScript
 
         public class UnaryOp : Node
         {
-            public enum UnaryOpType { Add, Subract, LogicalNOT, Complement }
+            public enum UnaryOpType { Add, Subract, LogicalNOT, Complement, AddressOf, Dereference }
             public UnaryOpType type;
 
             public Node expression;
@@ -1104,6 +1109,27 @@ namespace PragmaScript
             public UnaryOp(Token t)
                 : base(t)
             {
+            }
+
+            public static bool IsUnaryToken(Token t)
+            {
+                switch (t.type)
+                {
+                    case Token.TokenType.Add:
+                        return true;
+                    case Token.TokenType.Subtract:
+                        return true;
+                    case Token.TokenType.LogicalNOT:
+                        return true;
+                    case Token.TokenType.Complement:
+                        return true;
+                    case Token.TokenType.LogicalAND:
+                        return true;
+                    case Token.TokenType.Multiply:
+                        return true;
+                    default:
+                        return false;
+                }
             }
 
             public void SetTypeFromToken(Token next)
@@ -1122,6 +1148,12 @@ namespace PragmaScript
                     case Token.TokenType.Complement:
                         type = UnaryOpType.Complement;
                         break;
+                    case Token.TokenType.LogicalAND:
+                        type = UnaryOpType.AddressOf;
+                        break;
+                    case Token.TokenType.Multiply:
+                        type = UnaryOpType.Dereference;
+                        break;
                     default:
                         throw new ParserError("Invalid token type for unary operator", next);
                 }
@@ -1129,7 +1161,26 @@ namespace PragmaScript
 
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return await expression.CheckType(scope);
+                switch (type)
+                {
+                    case UnaryOpType.AddressOf:
+                        {
+                            var et = await expression.CheckType(scope);
+                            return new FrontendPointerType(et);
+                        }
+                    case UnaryOpType.Dereference:
+                        {
+                            var et = await expression.CheckType(scope);
+                            var pet = et as FrontendPointerType;
+                            if (pet == null)
+                            {
+                                throw new ParserErrorExpected("Pointer type", et.ToString(), this.token);
+                            }
+                            return pet.elementType;
+                        }
+                    default:
+                        return await expression.CheckType(scope);
+                }
             }
 
             public override IEnumerable<Node> GetChilds()
@@ -1149,6 +1200,10 @@ namespace PragmaScript
                         return "!";
                     case UnaryOpType.Complement:
                         return "~";
+                    case UnaryOpType.AddressOf:
+                        return "address of &";
+                    case UnaryOpType.Dereference:
+                        return "dereference *";
                     default:
                         throw new InvalidCodePath();
                 }

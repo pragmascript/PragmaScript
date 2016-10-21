@@ -23,6 +23,9 @@ namespace PragmaScript
             public LLVMBasicBlockRef loopNext;
             public LLVMBasicBlockRef loopEnd;
 
+            public bool wantLoad = false;
+
+
             public ExecutionContext(LLVMValueRef function, string functionName, LLVMBasicBlockRef entry, LLVMBasicBlockRef vars, bool global = false)
             {
                 this.global = global;
@@ -214,6 +217,12 @@ namespace PragmaScript
             return LLVM.StructType(ets, true);
         }
 
+        static LLVMTypeRef getTypeRef(FrontendPointerType t)
+        {
+            var et = getTypeRef(t.elementType);
+            return LLVM.PointerType(et, 0);
+        }
+
         static LLVMTypeRef getTypeRef(FrontendType t)
         {
             if (t.Equals(FrontendType.int32))
@@ -251,6 +260,10 @@ namespace PragmaScript
             if (t is FrontendStructType)
             {
                 return getTypeRef(t as FrontendStructType);
+            }
+            if (t is FrontendPointerType)
+            {
+                return getTypeRef(t as FrontendPointerType);
             }
             else
             {
