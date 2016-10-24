@@ -784,7 +784,18 @@ namespace PragmaScript
                 valueStack.Push(pr);
                 return;
             }
-            var v = variables[vd.name];
+
+            LLVMValueRef v;
+            if (node.varDefinition.type is FrontendFunctionType)
+            {
+                v = functions[vd.name];
+            }
+            else
+            {
+                v = variables[vd.name];
+            }
+            
+            
             var v_type = typeToString(LLVM.TypeOf(v));
 
 
@@ -1119,7 +1130,7 @@ namespace PragmaScript
             if (proto)
             {
                 var fun = node.fun;
-                Debug.Assert(!functions.ContainsKey(fun.name));
+                Debug.Assert(!functions.ContainsKey(node.funName));
                 var cnt = Math.Max(1, fun.parameters.Count);
                 var par = new LLVMTypeRef[cnt];
 
@@ -1131,7 +1142,7 @@ namespace PragmaScript
                 var returnType = getTypeRef(fun.returnType);
 
                 var funType = LLVM.FunctionType(returnType, out par[0], (uint)fun.parameters.Count, Const.FalseBool);
-                var function = LLVM.AddFunction(mod, fun.name, funType);
+                var function = LLVM.AddFunction(mod, node.funName, funType);
                 LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i)
                 {
@@ -1139,7 +1150,7 @@ namespace PragmaScript
                     LLVM.SetValueName(param, fun.parameters[i].name);
                     // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
                 }
-                functions.Add(fun.name, function);
+                functions.Add(node.funName, function);
             }
             else
             {
@@ -1147,7 +1158,7 @@ namespace PragmaScript
                 {
                     return;
                 }
-                var function = functions[node.fun.name];
+                var function = functions[node.funName];
                 var vars = LLVM.AppendBasicBlock(function, "vars");
                 var entry = LLVM.AppendBasicBlock(function, "entry");
 
@@ -1155,7 +1166,7 @@ namespace PragmaScript
 
                 LLVM.PositionBuilderAtEnd(builder, entry);
 
-                ctx.Push(new ExecutionContext(function, node.fun.name, entry, vars));
+                ctx.Push(new ExecutionContext(function, node.funName, entry, vars));
 
                 Visit(node.body);
 

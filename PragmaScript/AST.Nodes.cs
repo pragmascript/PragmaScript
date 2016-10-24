@@ -317,8 +317,9 @@ namespace PragmaScript
 
         public class FunctionDefinition : Node
         {
-            public Scope.FunctionDefinition fun;
             public Node body;
+            public FrontendFunctionType fun;
+            public string funName;
             public bool external;
 
             public FunctionDefinition(Token t)
@@ -353,15 +354,8 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                string result = (external ? "extern " : "") + fun.name + "(";
-                for (int i = 0; i < fun.parameters.Count; ++i)
-                {
-                    var p = fun.parameters[i];
-                    result += p.name + ": " + p.type;
-                    if (i != fun.parameters.Count - 1)
-                        result += ", ";
-                }
-                return result + ")";
+                string result = (external ? "extern " : "") + funName + fun.ToString();
+                return result;
             }
         }
 
@@ -457,7 +451,17 @@ namespace PragmaScript
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                var fun = scope.GetFunction(functionName);
+                var fun_var = scope.GetVar(functionName);
+                if (fun_var == null)
+                {
+                    throw new ParserError($"Unknown function of name: \"{functionName}\"", token);
+                }
+
+                var fun = fun_var.type as FrontendFunctionType;
+                if (fun == null)
+                {
+                    throw new ParserError($"Variable \"{fun_var.name}\" is not a function and cannot be called.", token);
+                }
 
                 var args = await Task.WhenAll(argumentList.Select(arg => arg.CheckType(scope)));
                 if (args.Length != fun.parameters.Count)
@@ -877,6 +881,7 @@ namespace PragmaScript
                 {
                     result = FrontendType.void_;
                 }
+
                 if (scope.function.returnType != null)
                 {
                     if (!result.Equals(scope.function.returnType))

@@ -10,9 +10,11 @@ namespace PragmaScript
     {
         public static readonly FrontendType void_ = new FrontendType("void");
         public static readonly FrontendType i8 = new FrontendType("i8");
+        public static readonly FrontendType i16 = new FrontendType("i16");
         public static readonly FrontendType i32 = new FrontendType("i32");
         public static readonly FrontendType i64 = new FrontendType("i64");
         public static readonly FrontendType u8 = new FrontendType("u8");
+        public static readonly FrontendType u16 = new FrontendType("u16");
         public static readonly FrontendType u32 = new FrontendType("u32");
         public static readonly FrontendType u64 = new FrontendType("u64");
         
@@ -128,7 +130,51 @@ namespace PragmaScript
             this.elementType = elementType;
             name = elementType + "*";
         }
+    }
 
+    public class FrontendFunctionType: FrontendType
+    {
+        public class Param
+        {
+            public string name;
+            public FrontendType type;
+            public override string ToString()
+            {
+                return type.ToString();
+            }
+        }
+        public List<Param> parameters = new List<Param>();
+        public FrontendType returnType;
+
+        public void AddParam(string name, FrontendType type)
+        {
+            parameters.Add(new Param { name = name, type = type });
+        }
+
+        public FrontendType GetParam(string name)
+        {
+            var f = parameters.Where(x => x.name == name).FirstOrDefault();
+            return f != null ? f.type : null;
+        }
+
+        public int GetParamIndex(string name)
+        {
+            int idx = 0;
+            foreach (var f in parameters)
+            {
+                if (f.name == name)
+                {
+                    return idx;
+                }
+                idx++;
+            }
+            throw new InvalidCodePath();
+        }
+
+        void calcTypeName()
+        {
+            name = $"({string.Join(",", parameters)}) => {returnType}";
+        }
     }
 
 }

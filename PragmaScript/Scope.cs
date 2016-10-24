@@ -18,31 +18,12 @@ namespace PragmaScript
             public FrontendType type;
         }
 
-        public struct NamedParameter
-        {
-            public string name;
-            public FrontendType type;
-        }
-
-        public class FunctionDefinition
-        {
-            public bool external;
-            public string name;
-            public FrontendType returnType;
-            public List<NamedParameter> parameters = new List<NamedParameter>();
-            public void AddParameter(string name, FrontendType type)
-            {
-                parameters.Add(new NamedParameter { name = name, type = type });
-            }
-        }
-
-        public FunctionDefinition function;
         public Scope parent;
+        public FrontendFunctionType function;
         public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
-        public Dictionary<string, FunctionDefinition> functions = new Dictionary<string, FunctionDefinition>();
         public Dictionary<string, FrontendType> types = new Dictionary<string, FrontendType>();
 
-        public Scope(Scope parent, FunctionDefinition function)
+        public Scope(Scope parent, FrontendFunctionType function)
         {
             this.parent = parent;
             this.function = function;
@@ -79,6 +60,21 @@ namespace PragmaScript
             return v;
         }
 
+        public VariableDefinition AddVar(string name, FrontendType @type, Token t, bool isConst = false)
+        {
+            VariableDefinition v = new VariableDefinition();
+            v.name = name;
+            v.type = @type;
+            v.isConstant = isConst;
+            if (variables.ContainsKey(name))
+            {
+                throw new RedefinedVariable(name, t);
+            }
+            variables.Add(name, v);
+            return v;
+        }
+
+
         public void AddFunctionParameter(string name, FrontendType type, int idx)
         {
             VariableDefinition v = new VariableDefinition();
@@ -87,32 +83,6 @@ namespace PragmaScript
             v.isFunctionParameter = true;
             v.parameterIdx = idx;
             variables.Add(name, v);
-        }
-
-        public FunctionDefinition GetFunction(string name)
-        {
-            FunctionDefinition result;
-            if (functions.TryGetValue(name, out result))
-            {
-                return result;
-            }
-            if (parent != null)
-            {
-                return parent.GetFunction(name);
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        public void AddFunction(FunctionDefinition fun)
-        {
-            if (variables.ContainsKey(fun.name))
-            {
-                throw new RedefinedFunction(fun.name, Token.Undefined);
-            }
-            functions.Add(fun.name, fun);
         }
 
         public FrontendType GetType(string typeName)

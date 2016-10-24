@@ -49,8 +49,9 @@ let print_i32 = fun (value: i32) =>
 	print_string(result);
 }
 
-let WNDCLASS = struct 
+let WNDCLASSEX = struct 
 {
+	cbSize: u32;
     style: u32;
     lpfnWndProc: i8*;
     cbClsExtra: i32;
@@ -61,42 +62,136 @@ let WNDCLASS = struct
     hbrBackground: umm;
     lpszMenuName: i8*;
     lpszClassName: i8*;
+	hIconSm: umm;
+}
+
+let POINT = struct
+{
+	x: i32;
+	y: i32;
+}
+
+let MSG = struct
+{
+	hwnd: umm;
+	message: u32;
+	wParam: umm;
+	lParam: umm;
+	time: i32;
+	pt: POINT;
 }
 
 let null = (umm)0;
 let GetModuleHandleA = fun (lpModuleName: umm) => umm;
+let RegisterClassExA = fun (window_class: WNDCLASSEX*) => u16;
+let DefWindowProcA = fun (window: umm, message: u32, w_param: umm, l_param: umm) => umm;
+let ExitProcess = fun(signal: u32) => void;
 
-let main_window_callback = 
-fun (window: u64, message: u32, w_param: u64, l_param: u64) => u64 
+let main_window_callback =
+fun (window: umm, message: u32, w_param: umm, l_param: umm) => umm 
 {
-	return (u64)0;
+	print_string("msg: ");
+	print_i32((i32)message);
+	print_string("\n");
+	return DefWindowProcA(window, message, w_param, l_param);
 }
+
+let CreateWindowExA = fun
+(
+     dwExStyle: i32,     
+     lpClassName: i8*,
+     lpWindowName: i8*,
+     dwStyle: i32,
+     x: i32,
+     y: i32,
+     nWidth: i32,
+     nHeight: i32,
+     hWndParent: umm,
+     hMenu: umm,
+     hInstance: umm,
+     lpParam: umm
+) => umm;
+
+let GetMessageA = fun
+(
+	message: MSG*,
+	hWnd: umm,
+	wMsgFilterMin: u32,
+	wMsgFilterMax: u32
+) => i32;
+let TranslateMessage = fun (message: MSG*) => i32;
+let DispatchMessageA = fun (message: MSG*) => umm;
 
 let init_window = fun () =>  
 {
-    var window_class = WNDCLASS {};
-	
-	var name = "HandmadeHeroWindowClass";
-	
+	var class_name = "PragmaScriptWindowClass\0";
+	var window_name = "PragmaScript\0";
 	let CS_OWNDC   = 0x0020;
 	let CS_HREDRAW = 0x0002;
 	let CS_VREDRAW = 0x0001;
 
+	var instance = GetModuleHandleA(null);
+	// print_i32((i32)instance);
+	// print_string(" GetModuleHandleA\n");
+
+	var window_class = WNDCLASSEX {};
+	window_class.cbSize = (u32)80;
 	window_class.style = (u32)(CS_OWNDC|CS_HREDRAW|CS_VREDRAW);
 	window_class.lpfnWndProc = (i8*)main_window_callback;
-	window_class.hInstance = GetModuleHandleA(null);
-	window_class.lpszClassName = name.data;
+	window_class.cbClsExtra = 0;
+	window_class.cbWndExtra = 0;
+	window_class.hInstance = instance;
+	window_class.hIcon = null;
+	window_class.hCursor = null;
+	window_class.hbrBackground = null;
+	window_class.lpszMenuName = nullptr;
+	window_class.lpszClassName = class_name.data;
+	window_class.hIconSm = null;
+
+	RegisterClassExA(&window_class);
+	// var result = RegisterClassExA(&window_class);
+	// print_i32((i32)result);
+	// print_string(" :RegisterClassA\n");
+	
+
+	let WS_OVERLAPPEDWINDOW = 13565952;
+	let WS_VISIBLE    = 0x10000000; 
+	let CW_USEDEFAULT = 0x80000000;
+	var window_handle = CreateWindowExA(
+		0,
+		class_name.data,
+		window_name.data,
+		WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		null,
+		null,
+		instance,
+		null
+	);
+	// print_i32((i32)window_handle);
+	// print_string(" :CreateWindowExA\n");
+
+	for (;;) {
+		var message = MSG {};
+		var message_result = GetMessageA(&message, null, (u32)0, (u32)0);
+		if (message_result > 0) {
+			TranslateMessage(&message);
+			DispatchMessageA(&message);
+		}
+		else {
+			break;
+		}
+	}
 }
 
 let main = fun () => 
 {
-    print_string("hello world!\nhandle: ");
-    // print_string("fumm fumm");
+   	print_string("hello world\n");
+	init_window();
 
-	print_i32(0x00FF);
-    
-    
-    print_string("\n");
-    return 0;
+    ExitProcess((u32)0);
 }
 

@@ -50,59 +50,65 @@ namespace PragmaScript
             scope.AddType(FrontendType.f32, token);
             scope.AddType(FrontendType.f64, token);
 
+            scope.AddType(FrontendType.i16, token);
             scope.AddType(FrontendType.i32, token);
             scope.AddType(FrontendType.i64, token);
             scope.AddType(FrontendType.i8, token);
-            
+
+            scope.AddType(FrontendType.u16, token);
             scope.AddType(FrontendType.u32, token);
             scope.AddType(FrontendType.u64, token);
             scope.AddType(FrontendType.u8, token);
             scope.AddType(FrontendType.umm, token);
 
+
             scope.AddType(FrontendType.bool_, token);
             scope.AddTypeAlias(FrontendType.string_, token, "string");
+            scope.AddType(FrontendType.void_, token);
         }
 
         static void addBasicFunctions(Scope scope)
         {
-
-            //var cat = new Scope.FunctionDefinition { name = "cat", returnType = FrontendType.void_ };
-            //scope.AddFunction(cat);
-
             // TODO: avoid having to do this twice here and in the backend?
-            var get_std_handle = new Scope.FunctionDefinition { external = true, name = "GetStdHandle", returnType = FrontendType.i64 };
-            get_std_handle.AddParameter("nStdHandle", FrontendType.i32);
-            scope.AddFunction(get_std_handle);
+            var get_std_handle = new FrontendFunctionType();
+            get_std_handle.AddParam("nStdHandle", FrontendType.i32);
+            get_std_handle.returnType = FrontendType.i64;
+            scope.AddVar("GetStdHandle", get_std_handle, Token.Undefined, isConst: true);
 
-            var write_file = new Scope.FunctionDefinition { external = true, name = "WriteFile", returnType = FrontendType.bool_ };
-            write_file.AddParameter("hFile", FrontendType.i64);
-            write_file.AddParameter("lpBuffer", new FrontendPointerType(FrontendType.i8));
-            write_file.AddParameter("nNumberOfBytesToWrite", FrontendType.i32);
-            write_file.AddParameter("lpNumberOfBytesWritten", new FrontendPointerType(FrontendType.i8));
-            write_file.AddParameter("lpOverlapped", new FrontendPointerType(FrontendType.i8));
-            scope.AddFunction(write_file);
 
-            var read_file = new Scope.FunctionDefinition { external = true, name = "ReadFile", returnType = FrontendType.bool_ };
-            read_file.AddParameter("hFile", FrontendType.i64);
-            read_file.AddParameter("lpBuffer", new FrontendPointerType(FrontendType.i8));
-            read_file.AddParameter("nNumberOfBytesToRead", FrontendType.i32);
-            read_file.AddParameter("lpNumberOfBytesRead", new FrontendPointerType(FrontendType.i8));
-            read_file.AddParameter("lpOverlapped", new FrontendPointerType(FrontendType.i8));
-            scope.AddFunction(read_file);
+            var write_file = new FrontendFunctionType();
+            write_file.returnType = FrontendType.bool_;
+            write_file.AddParam("hFile", FrontendType.i64);
+            write_file.AddParam("lpBuffer", new FrontendPointerType(FrontendType.i8));
+            write_file.AddParam("nNumberOfBytesToWrite", FrontendType.i32);
+            write_file.AddParam("lpNumberOfBytesWritten", new FrontendPointerType(FrontendType.i8));
+            write_file.AddParam("lpOverlapped", new FrontendPointerType(FrontendType.i8));
+            scope.AddVar("WriteFile", write_file, Token.Undefined, isConst: true);
+
+
+            var read_file = new FrontendFunctionType();
+            read_file.returnType = FrontendType.bool_;
+            read_file.returnType = FrontendType.bool_;
+            read_file.AddParam("hFile", FrontendType.i64);
+            read_file.AddParam("lpBuffer", new FrontendPointerType(FrontendType.i8));
+            read_file.AddParam("nNumberOfBytesToRead", FrontendType.i32);
+            read_file.AddParam("lpNumberOfBytesRead", new FrontendPointerType(FrontendType.i8));
+            read_file.AddParam("lpOverlapped", new FrontendPointerType(FrontendType.i8));
+            scope.AddVar("ReadFile", read_file, Token.Undefined, isConst: true);
 
             addIntrinsics(scope);
         }
 
         static void addIntrinsics(Scope scope)
         {
-            var cos = new Scope.FunctionDefinition { external = true, name = "cos", returnType = FrontendType.f32 };
-            cos.AddParameter("x", FrontendType.f32);
-            scope.AddFunction(cos);
+            var cos = new FrontendFunctionType();
+            cos.returnType = FrontendType.f32;
+            cos.AddParam("x", FrontendType.f32);
+            scope.AddVar("cos", cos, Token.Undefined, isConst: true);
         }
 
         static void addBasicConstants(Scope scope, Token token)
         {
-            // TODO make those ACTUAL constants
             var nullptr = scope.AddVar("nullptr", token);
             nullptr.isConstant = true;
             nullptr.type = new FrontendPointerType(FrontendType.i8);

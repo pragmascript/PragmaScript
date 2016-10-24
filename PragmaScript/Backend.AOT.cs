@@ -86,7 +86,7 @@ namespace PragmaScript
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
                 lldProcess.StartInfo.FileName = @"External\lld-link.exe";
-                lldProcess.StartInfo.Arguments = $"kernel32.lib output.o /entry:__init /subsystem:console  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
+                lldProcess.StartInfo.Arguments = $"kernel32.lib user32.lib output.o /entry:__init /subsystem:console  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;

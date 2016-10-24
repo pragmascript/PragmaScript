@@ -1,4 +1,13 @@
-﻿ - global variables
+﻿ - sizeof!!!!
+ 
+ - switch!
+ 
+ - setup a compilation task
+ - - http://code.visualstudio.com/docs/editor/tasks
+
+ - make structs zero initialize?
+
+ - global variables
  - - strings
  - - structs
 
@@ -7,6 +16,9 @@
  - constant arrays?
 
  - type aliases
+
+ FUNCTION TYPE ALIASES SHOULD WORK LIKE STRUCTS
+ How to handle "extern" then????
 
 - decide how constants are gonna work
 
@@ -43,4 +55,19 @@ http://llvm.org/devmtg/2013-11/slides/Gao-LTO.pdf
   http://stackoverflow.com/questions/32455985/how-to-asynchronously-wait-on-a-certain-condition-in-c-sharp-async-task
 
 
-  
+???
+	replace
+	let vec = struct 
+	{
+		x: f32;
+		y: f32;
+		z: f32;
+	}
+	with
+	type vec = struct 
+	{
+		x: f32;
+		y: f32;
+		z: f32;
+	}
+????

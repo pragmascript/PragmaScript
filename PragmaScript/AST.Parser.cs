@@ -750,10 +750,9 @@ namespace PragmaScript
                 result.SetTypeFromToken(current);
                 ps.NextToken();
 
-                bool wantsLoad = true;
+                result.expression = parsePrimary(ref ps, scope);
                 if (result.type == UnaryOp.UnaryOpType.AddressOf)
                 {
-                    wantsLoad = false;
                     if (result.expression is ICanReturnPointer)
                     {
                         (result.expression as ICanReturnPointer).returnPointer = true;
@@ -761,8 +760,6 @@ namespace PragmaScript
                     else
                         throw new ParserError($"Cannot take address of expression \"{ result.expression }\"", ps.CurrentToken());
                 }
-                result.expression = parsePrimary(ref ps, scope, wantsLoad);
-
                 return result;
             }
 
@@ -781,7 +778,7 @@ namespace PragmaScript
                 ps.ExpectNextToken(Token.TokenType.CloseBracket);
 
                 ps.NextToken();
-                var exp = parsePrimary(ref ps, scope, true);
+                var exp = parsePrimary(ref ps, scope);
 
                 var result = new TypeCastOp(current);
 
@@ -792,11 +789,11 @@ namespace PragmaScript
                 return result;
             }
 
-            return parsePrimary(ref ps, scope, true);
+            return parsePrimary(ref ps, scope);
         }
 
         // operator precedence 0
-        private static Node parsePrimary(ref ParseState ps, Scope scope, bool wantsLoad)
+        private static Node parsePrimary(ref ParseState ps, Scope scope)
         {
             var current = ps.CurrentToken();
 
@@ -994,6 +991,7 @@ namespace PragmaScript
             result.index = parseBinOp(ref ps, scope);
 
             ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
+
 
             return result;
         }
@@ -1243,13 +1241,11 @@ namespace PragmaScript
             if (scope.parent != null)
                 throw new ParserError("functions can only be defined in the primary block for now!", current);
 
-            var fun = new Scope.FunctionDefinition();
-
-
+            var fun = new FrontendFunctionType();
+            
             // let foo
             var id = ps.ExpectNextToken(Token.TokenType.Identifier);
-            fun.name = id.text;
-
+            
             // let foo = 
             ps.ExpectNextToken(Token.TokenType.Assignment);
 
@@ -1277,7 +1273,7 @@ namespace PragmaScript
                     {
                         throw new ParserError($"Could not resolve type in function parameter list: {type}", ptyp);
                     }
-                    fun.AddParameter(pid.text, type);
+                    fun.AddParam(pid.text, type);
 
                     // let foo = fun (x: int32
                     next = ps.NextToken();
@@ -1312,10 +1308,12 @@ namespace PragmaScript
             ps.NextToken();
             // let foo = fun (x: int32) => { ... }
 
-            scope.AddFunction(fun);
+            scope.AddVar(id.text, fun, current, isConst: true);
+
             var result = new FunctionDefinition(current);
             result.fun = fun;
-            result.external = fun.external;
+            result.funName = id.text;
+            result.external = false;
             var funScope = new Scope(scope, fun);
             var idx = 0;
             foreach (var pd in fun.parameters)
@@ -1334,7 +1332,6 @@ namespace PragmaScript
                 if (ppt.type == Token.TokenType.Semicolon)
                 {
                     result.body = null;
-                    fun.external = true;
                     result.external = true;
                 }
                 else
@@ -1342,16 +1339,12 @@ namespace PragmaScript
                     ps.NextToken();
                     result.body = parseBlock(ref ps, null, funScope);
                 }
-                
             }
             else
             {
                 result.body = parseBlock(ref ps, null, funScope);
             }
-
             return result;
         }
-
-
     }
 }

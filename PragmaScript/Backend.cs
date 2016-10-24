@@ -69,9 +69,11 @@ namespace PragmaScript
 
             public static readonly LLVMTypeRef Float32Type;
             public static readonly LLVMTypeRef Float64Type;
+            public static readonly LLVMTypeRef Int16Type;
             public static readonly LLVMTypeRef Int32Type;
             public static readonly LLVMTypeRef Int64Type;
             public static readonly LLVMTypeRef Int8Type;
+            public static readonly LLVMTypeRef UInt16Type;
             public static readonly LLVMTypeRef UInt32Type;
             public static readonly LLVMTypeRef UInt64Type;
             public static readonly LLVMTypeRef UInt8Type;
@@ -99,10 +101,12 @@ namespace PragmaScript
                 Float32Type = LLVM.FloatType();
                 Float64Type = LLVM.DoubleType();
 
+                Int16Type = LLVM.Int16Type();
                 Int32Type = LLVM.Int32Type();
                 Int64Type = LLVM.Int64Type();
                 Int8Type = LLVM.IntType(8);
 
+                UInt16Type = LLVM.Int16Type();
                 UInt32Type = LLVM.Int32Type();
                 UInt64Type = LLVM.Int64Type();
                 UInt8Type = LLVM.IntType(8);
@@ -110,7 +114,7 @@ namespace PragmaScript
 
                 Int8PointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
 
-                
+
 
                 NullPtr = LLVM.ConstPointerNull(Int8PointerType);
 
@@ -142,7 +146,7 @@ namespace PragmaScript
 
         LLVMModuleRef mod;
         LLVMBuilderRef builder;
-       //  LLVMValueRef mainFunction;
+        //  LLVMValueRef mainFunction;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int llvm_main();
@@ -158,7 +162,7 @@ namespace PragmaScript
         public Backend(TargetPlatform platform)
         {
             this.platform = platform;
-            
+
             print_cat += () =>
             {
                 var str =
@@ -254,6 +258,10 @@ namespace PragmaScript
 
         static LLVMTypeRef getTypeRef(FrontendType t)
         {
+            if (t.Equals(FrontendType.i16))
+            {
+                return Const.Int16Type;
+            }
             if (t.Equals(FrontendType.i32))
             {
                 return Const.Int32Type;
@@ -265,6 +273,10 @@ namespace PragmaScript
             if (t.Equals(FrontendType.i8))
             {
                 return Const.Int8Type;
+            }
+            if (t.Equals(FrontendType.u16))
+            {
+                return Const.UInt16Type;
             }
             if (t.Equals(FrontendType.u32))
             {
@@ -482,11 +494,11 @@ namespace PragmaScript
             Visit(root);
         }
 
-    
+
         public void EmitAndAOT(AST.Node root, string filename)
         {
             emit(root);
             aotModule(filename, CompilerOptions.optimizationLevel);
         }
-   }
+    }
 }
