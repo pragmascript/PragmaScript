@@ -26,6 +26,11 @@ namespace PragmaScript
             public abstract Task<FrontendType> CheckType(Scope scope);
         }
 
+        public interface ICanReturnPointer
+        {
+            bool returnPointer { get; set; }
+        }
+
         public class AnnotatedNode : Node
         {
             Node node;
@@ -304,7 +309,9 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return "var " + variable.name + " = ";
+                return (variable.isConstant ? "var " : "let ")
+                    + variable.name + " = ";
+
             }
         }
 
@@ -312,6 +319,7 @@ namespace PragmaScript
         {
             public Scope.FunctionDefinition fun;
             public Node body;
+            public bool external;
 
             public FunctionDefinition(Token t)
                 : base(t)
@@ -320,21 +328,32 @@ namespace PragmaScript
 
             public override IEnumerable<Node> GetChilds()
             {
-                yield return body;
+                if (!external)
+                {
+                    yield return body;
+                }
+                else
+                {
+                    yield break;
+                }
+                
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
+                if (external)
+                {
+                    return await Task.FromResult<FrontendType>(null);
+                }
                 await body.CheckType(scope);
-
                 if (fun.returnType == null)
                 {
                     fun.returnType = FrontendType.void_;
                 }
-                return null;
+                return await Task.FromResult<FrontendType>(null);
             }
             public override string ToString()
             {
-                string result = fun.name + "(";
+                string result = (external ? "extern " : "") + fun.name + "(";
                 for (int i = 0; i < fun.parameters.Count; ++i)
                 {
                     var p = fun.parameters[i];
@@ -464,7 +483,7 @@ namespace PragmaScript
             }
         }
 
-        public class VariableReference : Node
+        public class VariableReference : Node, ICanReturnPointer
         {
             public enum Incrementor { None, preIncrement, preDecrement, postIncrement, postDecrement }
             public Incrementor inc;
@@ -472,7 +491,7 @@ namespace PragmaScript
             public Scope.VariableDefinition varDefinition;
 
             // HACK: returnPointer is a HACK remove this?????
-            public bool returnPointer;
+            public bool returnPointer { get; set; }
             public VariableReference(Token t)
                 : base(t)
             {
@@ -511,29 +530,6 @@ namespace PragmaScript
             }
         }
 
-        public class Load : Node
-        {
-            public Node expression;
-
-            public Load(Token t)
-                : base(t)
-            {
-            }
-            public override IEnumerable<Node> GetChilds()
-            {
-                yield return expression;
-            }
-            public override async Task<FrontendType> CheckType(Scope scope)
-            {
-                var et = await expression.CheckType(scope);
-                return et;
-            }
-            public override string ToString()
-            {
-                return " = ";
-            }
-        }
-
         public class Assignment : Node
         {
             public Node target;
@@ -565,17 +561,17 @@ namespace PragmaScript
             }
         }
 
-        public class ConstInt32 : Node
+        public class ConstInt : Node
         {
             public int number;
 
-            public ConstInt32(Token t)
+            public ConstInt(Token t)
                 : base(t)
             {
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return await Task.FromResult(FrontendType.int32);
+                return await Task.FromResult(FrontendType.i32);
             }
             public override string ToString()
             {
@@ -583,16 +579,16 @@ namespace PragmaScript
             }
         }
 
-        public class ConstFloat32 : Node
+        public class ConstFloat : Node
         {
             public double number;
-            public ConstFloat32(Token t)
+            public ConstFloat(Token t)
                 : base(t)
             {
             }
             public override async Task<FrontendType> CheckType(Scope scope)
             {
-                return await Task.FromResult(FrontendType.float32);
+                return await Task.FromResult(FrontendType.f32);
             }
             public override string ToString()
             {
@@ -731,13 +727,12 @@ namespace PragmaScript
             }
         }
 
-        public class StructFieldAccess : Node
+        public class StructFieldAccess : Node, ICanReturnPointer
         {
             public Node left;
             public string fieldName;
 
-            // public Scope.VariableDefinition structure;
-            public bool returnPointer;
+            public bool returnPointer { get; set; }
 
             public FrontendStructType structType;
 
@@ -778,14 +773,12 @@ namespace PragmaScript
             }
         }
 
-        public class ArrayElementAccess : Node
+        public class ArrayElementAccess : Node, ICanReturnPointer
         {
             public Node left;
             public Node index;
 
-            //public string variableName;
-            //public Scope.VariableDefinition varDefinition;
-            public bool returnPointer;
+            public bool returnPointer { get; set; }
 
             public ArrayElementAccess(Token t)
                 : base(t)
@@ -808,9 +801,9 @@ namespace PragmaScript
                 }
 
                 var idxType = await index.CheckType(scope);
-                if (!idxType.Equals(FrontendType.int32))
+                if (!idxType.Equals(FrontendType.i32))
                 {
-                    throw new ParserExpectedType(FrontendType.int32, idxType, index.token);
+                    throw new ParserExpectedType(FrontendType.i32, idxType, index.token);
                 }
 
                 var atype = vt as FrontendArrayType;
@@ -1002,7 +995,7 @@ namespace PragmaScript
                 if (isEither(BinOpType.LeftShift, BinOpType.RightShift))
                 {
                     // TODO: suppport all integer types here.
-                    if (!lType.Equals(FrontendType.int32) || !rType.Equals(FrontendType.int32))
+                    if (!lType.Equals(FrontendType.i32) || !rType.Equals(FrontendType.i32))
                     {
                         throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lType, rType), token);
                     }
@@ -1014,7 +1007,7 @@ namespace PragmaScript
                     {
                         throw new ParserError("Only add and subtract are valid pointer arithmetic operations.", token);
                     }
-                    if (!(rType.Equals(FrontendType.int32) || rType.Equals(FrontendType.int64) || rType.Equals(FrontendType.int8)))
+                    if (!(rType.Equals(FrontendType.i32) || rType.Equals(FrontendType.i64) || rType.Equals(FrontendType.i8)))
                     {
                         throw new ParserError($"Right side of pointer arithmetic operation must be of integer type not \"{rType}\".", token);
                     }
@@ -1222,6 +1215,7 @@ namespace PragmaScript
             {
                 await expression.CheckType(scope);
                 return await Task.FromResult(type);
+
             }
             public override string ToString()
             {

@@ -11,6 +11,9 @@ namespace PragmaScript
     partial class Backend
     {
 
+        public enum TargetPlatform { x86, x64 }
+        TargetPlatform platform;
+
         public class ExecutionContext
         {
             public bool global = false;
@@ -65,9 +68,14 @@ namespace PragmaScript
             public static readonly LLVMValueRef NullPtr;
 
             public static readonly LLVMTypeRef Float32Type;
+            public static readonly LLVMTypeRef Float64Type;
             public static readonly LLVMTypeRef Int32Type;
             public static readonly LLVMTypeRef Int64Type;
             public static readonly LLVMTypeRef Int8Type;
+            public static readonly LLVMTypeRef UInt32Type;
+            public static readonly LLVMTypeRef UInt64Type;
+            public static readonly LLVMTypeRef UInt8Type;
+            public static LLVMTypeRef Umm;
             public static readonly LLVMTypeRef Int8PointerType;
             public static readonly LLVMTypeRef BoolType;
             public static readonly LLVMTypeRef VoidType;
@@ -85,21 +93,42 @@ namespace PragmaScript
                 ZeroInt32 = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(1));
                 ZeroInt64 = LLVM.ConstInt(LLVM.Int64Type(), 0, new LLVMBool(1));
 
-                
-
                 True = LLVM.ConstInt(LLVM.Int1Type(), (ulong)1, new LLVMBool(0));
                 False = LLVM.ConstInt(LLVM.Int1Type(), (ulong)0, new LLVMBool(0));
 
                 Float32Type = LLVM.FloatType();
+                Float64Type = LLVM.DoubleType();
+
                 Int32Type = LLVM.Int32Type();
                 Int64Type = LLVM.Int64Type();
-
                 Int8Type = LLVM.IntType(8);
+
+                UInt32Type = LLVM.Int32Type();
+                UInt64Type = LLVM.Int64Type();
+                UInt8Type = LLVM.IntType(8);
+
+
                 Int8PointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
+
+                
+
                 NullPtr = LLVM.ConstPointerNull(Int8PointerType);
 
                 BoolType = LLVM.Int1Type();
                 VoidType = LLVM.VoidType();
+            }
+
+            public static void Init(TargetPlatform platform)
+            {
+                switch (platform)
+                {
+                    case TargetPlatform.x86:
+                        Umm = LLVM.Int32Type();
+                        break;
+                    case TargetPlatform.x64:
+                        Umm = LLVM.Int64Type();
+                        break;
+                }
             }
         }
 
@@ -113,7 +142,7 @@ namespace PragmaScript
 
         LLVMModuleRef mod;
         LLVMBuilderRef builder;
-        LLVMValueRef mainFunction;
+       //  LLVMValueRef mainFunction;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int llvm_main();
@@ -126,8 +155,9 @@ namespace PragmaScript
 
 
 
-        public Backend()
+        public Backend(TargetPlatform platform)
         {
+            this.platform = platform;
             
             print_cat += () =>
             {
@@ -186,7 +216,8 @@ namespace PragmaScript
                 Console.Write(str);
             };
 
-         
+
+            Const.Init(platform);
         }
 
 
@@ -223,21 +254,41 @@ namespace PragmaScript
 
         static LLVMTypeRef getTypeRef(FrontendType t)
         {
-            if (t.Equals(FrontendType.int32))
+            if (t.Equals(FrontendType.i32))
             {
                 return Const.Int32Type;
             }
-            if (t.Equals(FrontendType.int64))
+            if (t.Equals(FrontendType.i64))
             {
                 return Const.Int64Type;
             }
-            if  (t.Equals(FrontendType.int8))
+            if (t.Equals(FrontendType.i8))
             {
                 return Const.Int8Type;
             }
-            if (t.Equals(FrontendType.float32))
+            if (t.Equals(FrontendType.u32))
+            {
+                return Const.UInt32Type;
+            }
+            if (t.Equals(FrontendType.u64))
+            {
+                return Const.UInt64Type;
+            }
+            if (t.Equals(FrontendType.u8))
+            {
+                return Const.UInt8Type;
+            }
+            if (t.Equals(FrontendType.umm))
+            {
+                return Const.Umm;
+            }
+            if (t.Equals(FrontendType.f32))
             {
                 return Const.Float32Type;
+            }
+            if (t.Equals(FrontendType.f64))
+            {
+                return Const.Float64Type;
             }
             if (t.Equals(FrontendType.bool_))
             {
@@ -263,10 +314,7 @@ namespace PragmaScript
             {
                 return getTypeRef(t as FrontendPointerType);
             }
-            else
-            {
-                throw new InvalidCodePath();
-            }
+            throw new InvalidCodePath();
         }
 
         static LLVMTypeRef getTypeRef(Type t)
@@ -365,7 +413,6 @@ namespace PragmaScript
         void addPreamble()
         {
             addIntrinsics();
-
             {
                 LLVMTypeRef[] param_types = { LLVM.Int32Type() };
                 LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int64Type(), param_types, Const.FalseBool);
@@ -414,13 +461,12 @@ namespace PragmaScript
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
                 functions.Add("ReadFile", fun);
             }
-
-            
         }
 
         void prepareModule()
         {
             mod = LLVM.ModuleCreateWithName("WhatIsThisIDontEven");
+
             addPreamble();
             builder = LLVM.CreateBuilder();
 
@@ -436,12 +482,7 @@ namespace PragmaScript
             Visit(root);
         }
 
-        public void EmitAndJIT(AST.Node root)
-        {
-            emit(root);
-            jitModule(CompilerOptions.optimizationLevel > 0);
-        }
-
+    
         public void EmitAndAOT(AST.Node root, string filename)
         {
             emit(root);

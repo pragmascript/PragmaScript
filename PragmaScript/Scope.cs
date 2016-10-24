@@ -11,6 +11,7 @@ namespace PragmaScript
     {
         public class VariableDefinition
         {
+            public bool isConstant = false;
             public bool isFunctionParameter;
             public int parameterIdx = -1;
             public string name;

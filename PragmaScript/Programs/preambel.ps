@@ -1,10 +1,13 @@
-﻿let print_string = (s: string) => 
+﻿var console_output_handle = GetStdHandle(-11);
+var console_input_handle = GetStdHandle(-10);
+
+let print_string = (s: string) => 
 {
- 	var handle = GetStdHandle(-11);
- 	WriteFile(handle, s.data, s.length, nullptr, nullptr);
+ 	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
 }
 
-let abs_i32 = (value: int32) => 
+
+let abs_i32 = (value: i32) => 
 {
   if (value >= 0) {
     return value;
@@ -13,30 +16,32 @@ let abs_i32 = (value: int32) =>
   }
 }
 
-let print_i32 = (value: int32) => 
+let print_i32 = (value: i32) => 
 {
+	if (value == 0) {
+		print_string("0");
+		return;
+	}
 	var x = value;
 	var temp = "\0\0\0\0\0\0\0\0\0\0";
 	var count = 0;
 	for (var i = 0; i < temp.length; ++i) {
 		if (x != 0) {
 			var d = abs_i32(x % 10);
-			temp[i] = (int8)(d + 48);
+			temp[i] = (i8)(d + 48);
 			x = x / 10;
 			count++;
 		} else {
 			break;
 		}
 	}
-
 	var offset = 0;
 	if (value < 0) {
 		offset = 1;
 	}
-	 
 	var result = "\0\0\0\0\0\0\0\0\0\0\0";
 	if (value < 0) {
-		result[0] = (int8)45;
+		result[0] = (i8)45;
 	}
 	for (var i = 0; i < count; ++i) {
 		result[i+offset] = temp[count - i - 1];
@@ -44,6 +49,7 @@ let print_i32 = (value: int32) =>
 	result.length = count + offset;
 	print_string(result);
 }
+
 
 let vec = struct
 {

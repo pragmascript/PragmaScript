@@ -12,6 +12,15 @@ namespace PragmaScript
 
         public void Visit(AST.Root node)
         {
+            // visit function definitions make prototypes
+            foreach (var decl in node.declarations)
+            {
+
+                if (decl is AST.FunctionDefinition)
+                {
+                    Visit(decl as AST.FunctionDefinition, proto: true);
+                }
+            }
 
             var par_t = new LLVMTypeRef[1];
             var returnType = LLVM.VoidType();
@@ -31,6 +40,13 @@ namespace PragmaScript
             // TODO: call main:
             foreach (var decl in node.declarations)
             {
+                if (decl is AST.FunctionDefinition)
+                {
+                    if ((decl as AST.FunctionDefinition).external)
+                    {
+                        continue;
+                    }
+                }
                 Visit(decl);
             }
 
@@ -51,13 +67,13 @@ namespace PragmaScript
             ctx.Pop();
         }
 
-        public void Visit(AST.ConstInt32 node)
+        public void Visit(AST.ConstInt node)
         {
             var result = LLVM.ConstInt(Const.Int32Type, (ulong)node.number, Const.TrueBool);
             valueStack.Push(result);
         }
 
-        public void Visit(AST.ConstFloat32 node)
+        public void Visit(AST.ConstFloat node)
         {
             var result = LLVM.ConstReal(Const.Float32Type, node.number);
             valueStack.Push(result);
@@ -134,6 +150,7 @@ namespace PragmaScript
 
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)bytes.Length, Const.FalseBool);
             var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
+            // LLVM.SetAlignment(arr_elem_ptr, 4);
 
             // set array length in struct
             var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.ZeroInt32 };
@@ -152,7 +169,9 @@ namespace PragmaScript
                 var gep_idx = new LLVMValueRef[] { LLVM.ConstInt(Const.Int32Type, (ulong)i, Const.FalseBool) };
                 var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_" + i);
 
-                LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int8Type, (ulong)c, true), gep);
+                var store = LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int8Type, (ulong)c, true), gep);
+
+                // LLVM.SetAlignment(store, 4);
             }
 
             var arr_struct = LLVM.BuildLoad(builder, arr_struct_ptr, "arr_struct_load");
@@ -216,11 +235,6 @@ namespace PragmaScript
             var rightType = LLVM.TypeOf(right);
 
 
-            //if (!isEqualType(leftType, rightType))
-            //{
-            //    throw new BackendTypeMismatchException(leftType, rightType);
-            //}
-
             LLVMValueRef result;
             if (isEqualType(leftType, Const.BoolType))
             {
@@ -240,7 +254,6 @@ namespace PragmaScript
                         throw new InvalidCodePath();
                 }
             }
-            // isEqualType(leftType, Const.Int32Type)
             else if (LLVM.GetTypeKind(leftType) == LLVMTypeKind.LLVMIntegerTypeKind)
             {
                 switch (node.type)
@@ -283,6 +296,15 @@ namespace PragmaScript
                         break;
                     case AST.BinOp.BinOpType.LessEqual:
                         result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLE, left, right, "icmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LogicalAND:
+                        result = LLVM.BuildAnd(builder, left, right, "and_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LogicalOR:
+                        result = LLVM.BuildOr(builder, left, right, "or_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LogicalXOR:
+                        result = LLVM.BuildXor(builder, left, right, "xor_tmp");
                         break;
                     default:
                         throw new InvalidCodePath();
@@ -472,8 +494,13 @@ namespace PragmaScript
                     result = LLVM.BuildXor(builder, v, Const.NegativeOneInt32, "complement_tmp");
                     break;
                 case AST.UnaryOp.UnaryOpType.AddressOf:
-                    // for NOW this happens via returnPointer nonsense
+                    // HACK: for NOW this happens via returnPointer nonsense
                     result = v;
+                    if (LLVM.IsAFunction(v).Pointer != IntPtr.Zero)
+                    {
+                        LLVM.BuildBitCast(builder, v, Const.Int8PointerType, "func_pointer");
+                    }
+
                     break;
                 case AST.UnaryOp.UnaryOpType.Dereference:
                     result = LLVM.BuildLoad(builder, v, "deref");
@@ -551,6 +578,24 @@ namespace PragmaScript
                     throw new NotImplementedException();
                 }
             }
+            else if (LLVM.GetTypeKind(targetType) == LLVMTypeKind.LLVMPointerTypeKind)
+            {
+                var targetTypeName = typeToString(targetType);
+                var sourceTypeName = typeToString(vtype);
+                if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMIntegerTypeKind)
+                {
+                    result = LLVM.BuildIntToPtr(builder, v, targetType, "int_to_ptr");
+                }
+                else if(LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMPointerTypeKind)
+                {
+                    result = LLVM.BuildBitCast(builder, v, targetType, "pointer_bit_cast");
+                }
+                else
+                {
+                    throw new InvalidCodePath();
+                }
+
+            }
             else
             {
                 throw new InvalidCodePath();
@@ -623,6 +668,15 @@ namespace PragmaScript
 
         public void Visit(AST.VariableDefinition node)
         {
+            if (node.variable.isConstant)
+            {
+                Visit(node.expression);
+                var v = valueStack.Pop();
+                Debug.Assert(LLVM.IsConstant(v));
+                variables[node.variable.name] = v;
+                return;
+            }
+
             if (!ctx.Peek().global)
             {
                 Visit(node.expression);
@@ -738,10 +792,10 @@ namespace PragmaScript
 
             bool is_global = LLVM.IsAGlobalVariable(v).Pointer != IntPtr.Zero;
 
-            // HACK:
-            if (LLVM.IsConstant(v) && !is_global)
+            if (node.varDefinition.isConstant)
             {
                 result = v;
+                Debug.Assert(LLVM.IsConstant(v));
             }
             else
             {
@@ -837,7 +891,6 @@ namespace PragmaScript
             var rt = LLVM.GetReturnType(LLVM.GetElementType(ft));
             if (isEqualType(rt, Const.VoidType))
             {
-
                 LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, "");
             }
             else
@@ -1055,57 +1108,69 @@ namespace PragmaScript
             LLVM.PositionBuilderAtEnd(builder, loopEnd);
         }
 
-        public void Visit(AST.FunctionDefinition node)
+        public void Visit(AST.FunctionDefinition node, bool proto = false)
         {
-            var fun = node.fun;
-
-            if (functions.ContainsKey(fun.name))
-                throw new Exception("function redefinition");
-
-            var cnt = Math.Max(1, fun.parameters.Count);
-            var par = new LLVMTypeRef[cnt];
-
-            for (int i = 0; i < fun.parameters.Count; ++i)
+            // for external prototype is enough
+            if (node.external && !proto)
             {
-                par[i] = getTypeRef(fun.parameters[i].type);
+                return;
             }
 
-            var returnType = getTypeRef((fun.returnType));
-
-            var funType = LLVM.FunctionType(returnType, out par[0], (uint)fun.parameters.Count, Const.FalseBool);
-            var function = LLVM.AddFunction(mod, fun.name, funType);
-
-            functions.Add(fun.name, function);
-
-            for (int i = 0; i < fun.parameters.Count; ++i)
+            if (proto)
             {
-                LLVMValueRef param = LLVM.GetParam(function, (uint)i);
-                LLVM.SetValueName(param, fun.parameters[i].name);
-                // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
+                var fun = node.fun;
+                Debug.Assert(!functions.ContainsKey(fun.name));
+                var cnt = Math.Max(1, fun.parameters.Count);
+                var par = new LLVMTypeRef[cnt];
+
+                for (int i = 0; i < fun.parameters.Count; ++i)
+                {
+                    par[i] = getTypeRef(fun.parameters[i].type);
+                }
+
+                var returnType = getTypeRef(fun.returnType);
+
+                var funType = LLVM.FunctionType(returnType, out par[0], (uint)fun.parameters.Count, Const.FalseBool);
+                var function = LLVM.AddFunction(mod, fun.name, funType);
+                LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
+                for (int i = 0; i < fun.parameters.Count; ++i)
+                {
+                    LLVMValueRef param = LLVM.GetParam(function, (uint)i);
+                    LLVM.SetValueName(param, fun.parameters[i].name);
+                    // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
+                }
+                functions.Add(fun.name, function);
             }
+            else
+            {
+                if (node.external)
+                {
+                    return;
+                }
+                var function = functions[node.fun.name];
+                var vars = LLVM.AppendBasicBlock(function, "vars");
+                var entry = LLVM.AppendBasicBlock(function, "entry");
 
-            var vars = LLVM.AppendBasicBlock(function, "vars");
-            var entry = LLVM.AppendBasicBlock(function, "entry");
+                var blockTemp = LLVM.GetInsertBlock(builder);
 
-            var blockTemp = LLVM.GetInsertBlock(builder);
+                LLVM.PositionBuilderAtEnd(builder, entry);
 
-            LLVM.PositionBuilderAtEnd(builder, entry);
+                ctx.Push(new ExecutionContext(function, node.fun.name, entry, vars));
 
-            ctx.Push(new ExecutionContext(function, fun.name, entry, vars));
+                Visit(node.body);
 
-            Visit(node.body);
+                var returnType = getTypeRef(node.fun.returnType);
+                insertMissingReturn(returnType);
 
-            insertMissingReturn(returnType);
+                LLVM.PositionBuilderAtEnd(builder, vars);
+                LLVM.BuildBr(builder, entry);
 
-            LLVM.PositionBuilderAtEnd(builder, vars);
-            LLVM.BuildBr(builder, entry);
+                LLVM.PositionBuilderAtEnd(builder, blockTemp);
 
-            LLVM.PositionBuilderAtEnd(builder, blockTemp);
+                LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
 
-            LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
-
-            ctx.Pop();
-
+                ctx.Pop();
+            }
         }
 
         public void Visit(AST.BreakLoop node)
@@ -1202,8 +1267,6 @@ namespace PragmaScript
                 valueStack.Push(result);
                 return;
             }
-
-
         }
 
 
@@ -1219,13 +1282,13 @@ namespace PragmaScript
             {
                 Visit(node as AST.Root);
             }
-            else if (node is AST.ConstInt32)
+            else if (node is AST.ConstInt)
             {
-                Visit(node as AST.ConstInt32);
+                Visit(node as AST.ConstInt);
             }
-            else if (node is AST.ConstFloat32)
+            else if (node is AST.ConstFloat)
             {
-                Visit(node as AST.ConstFloat32);
+                Visit(node as AST.ConstFloat);
             }
             else if (node is AST.ConstBool)
             {

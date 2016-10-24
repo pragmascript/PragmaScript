@@ -1,5 +1,12 @@
-﻿
-- global variables
+﻿ - global variables
+ - - strings
+ - - structs
+
+ - constant strings
+ - constant structs
+ - constant arrays?
+
+ - type aliases
 
 - decide how constants are gonna work
 
@@ -20,9 +27,20 @@
 	https://ispc.github.io/
 
 
-	(sizeof)
-	http://stackoverflow.com/questions/14608250/how-can-i-find-the-size-of-a-type
+- (sizeof)
+  http://stackoverflow.com/questions/14608250/how-can-i-find-the-size-of-a-type
 
 	
-    // http://denisbider.blogspot.de/2016/04/hello-world-in-llvm-ir-language-without.html
-    // http://llvm.org/devmtg/2013-11/slides/Gao-LTO.pdf
+http://denisbider.blogspot.de/2016/04/hello-world-in-llvm-ir-language-without.html
+http://llvm.org/devmtg/2013-11/slides/Gao-LTO.pdf
+
+- online clang
+  https://gcc.godbolt.org/#g:!((g:!((g:!((h:codeEditor,i:(j:1,options:(compileOnChange:'0'),source:'void+f(char+*+__restrict__)%3B%0A%0Aint+main()%0A%7B%0A++char+x%5B10%5D%3B%0A++x%5B0%5D+%3D+1%3B%0A++x%5B1%5D+%3D+2%3B%0A++x%5B2%5D+%3D+3%3B%0A++x%5B3%5D+%3D+4%3B%0A++x%5B4%5D+%3D+5%3B%0A++x%5B5%5D+%3D+6%3B%0A++x%5B6%5D+%3D+7%3B%0A++x%5B7%5D+%3D+8%3B%0A++f(x)%3B%0A%7D%0A'),l:'5',n:'1',o:'C%2B%2B+source+%231',t:'0')),k:48.22834645669291,l:'4',n:'0',o:'',s:0,t:'0'),(g:!((h:compiler,i:(compiler:clang390,filters:(b:'0',commentOnly:'0',directives:'0',intel:'0'),fontScale:0.9,options:'-O+-emit-llvm'),l:'5',n:'0',o:'%231+with+x86-64+clang+3.9.0',t:'0')),k:51.771653543307075,l:'4',n:'0',o:'',s:0,t:'0')),l:'2',n:'0',o:'',t:'0')),version:4
+
+
+
+- wait on condition
+  http://stackoverflow.com/questions/32455985/how-to-asynchronously-wait-on-a-certain-condition-in-c-sharp-async-task
+
+
+  

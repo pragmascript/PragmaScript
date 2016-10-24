@@ -1,0 +1,102 @@
+﻿var console_output_handle = GetStdHandle(-11);
+var console_input_handle = GetStdHandle(-10);
+
+let print_string = fun (s: string) => 
+{
+ 	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
+}
+
+let abs_i32 = fun (value: i32) => 
+{
+  if (value >= 0) {
+    return value;
+  } else {
+    return -value;
+  }
+}
+
+let print_i32 = fun (value: i32) => 
+{
+	if (value == 0) {
+		print_string("0");
+		return;
+	}
+	var x = value;
+	var temp = "\0\0\0\0\0\0\0\0\0\0";
+	var count = 0;
+	for (var i = 0; i < temp.length; ++i) {
+		if (x != 0) {
+			var d = abs_i32(x % 10);
+			temp[i] = (i8)(d + 48);
+			x = x / 10;
+			count++;
+		} else {
+			break;
+		}
+	}
+	var offset = 0;
+	if (value < 0) {
+		offset = 1;
+	}
+	var result = "\0\0\0\0\0\0\0\0\0\0\0";
+	if (value < 0) {
+		result[0] = (i8)45;
+	}
+	for (var i = 0; i < count; ++i) {
+		result[i+offset] = temp[count - i - 1];
+	}
+	result.length = count + offset;
+	print_string(result);
+}
+
+let WNDCLASS = struct 
+{
+    style: u32;
+    lpfnWndProc: i8*;
+    cbClsExtra: i32;
+    cbWndExtra: i32;
+    hInstance: umm;
+    hIcon: umm;
+    hCursor: umm;
+    hbrBackground: umm;
+    lpszMenuName: i8*;
+    lpszClassName: i8*;
+}
+
+let null = (umm)0;
+let GetModuleHandleA = fun (lpModuleName: umm) => umm;
+
+let main_window_callback = 
+fun (window: u64, message: u32, w_param: u64, l_param: u64) => u64 
+{
+	return (u64)0;
+}
+
+let init_window = fun () =>  
+{
+    var window_class = WNDCLASS {};
+	
+	var name = "HandmadeHeroWindowClass";
+	
+	let CS_OWNDC   = 0x0020;
+	let CS_HREDRAW = 0x0002;
+	let CS_VREDRAW = 0x0001;
+
+	window_class.style = (u32)(CS_OWNDC|CS_HREDRAW|CS_VREDRAW);
+	window_class.lpfnWndProc = (i8*)main_window_callback;
+	window_class.hInstance = GetModuleHandleA(null);
+	window_class.lpszClassName = name.data;
+}
+
+let main = fun () => 
+{
+    print_string("hello world!\nhandle: ");
+    // print_string("fumm fumm");
+
+	print_i32(0x00FF);
+    
+    
+    print_string("\n");
+    return 0;
+}
+

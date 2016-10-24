@@ -9,12 +9,19 @@ namespace PragmaScript
     public class FrontendType
     {
         public static readonly FrontendType void_ = new FrontendType("void");
-        public static readonly FrontendType int32 = new FrontendType("int32");
-        public static readonly FrontendType int64 = new FrontendType("int64");
-        public static readonly FrontendType int8 = new FrontendType("int8");
-        public static readonly FrontendType float32 = new FrontendType("float32");
+        public static readonly FrontendType i8 = new FrontendType("i8");
+        public static readonly FrontendType i32 = new FrontendType("i32");
+        public static readonly FrontendType i64 = new FrontendType("i64");
+        public static readonly FrontendType u8 = new FrontendType("u8");
+        public static readonly FrontendType u32 = new FrontendType("u32");
+        public static readonly FrontendType u64 = new FrontendType("u64");
+        
+        public static readonly FrontendType f32 = new FrontendType("f32");
+        public static readonly FrontendType f64 = new FrontendType("f64");
         public static readonly FrontendType bool_ = new FrontendType("bool");
-        public static readonly FrontendArrayType string_ = new FrontendArrayType(int8);
+        public static readonly FrontendType umm = new FrontendType("umm");
+
+        public static readonly FrontendArrayType string_ = new FrontendArrayType(i8);
 
 
         public string name;
@@ -64,7 +71,7 @@ namespace PragmaScript
         {
             this.elementType = elementType;
             name = "[" + elementType + "]";
-            AddField("length", FrontendType.int32);
+            AddField("length", FrontendType.i32);
             AddField("data", new FrontendPointerType(elementType));
         }
     }

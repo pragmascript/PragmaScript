@@ -132,7 +132,6 @@
     <Compile Include="AST.Parser.cs" />
     <Compile Include="Backend.AST.cs" />
     <Compile Include="Backend.cs" />
-    <Compile Include="Backend.JIT.cs" />
     <Compile Include="Backend.Visitor.cs" />
     <Compile Include="Exceptions.cs" />
     <Compile Include="FrontendTypes.cs" />
@@ -150,7 +149,7 @@
     <None Include="packages.config">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Programs\intrinsics.ps">
+    <None Include="Programs\handmade.ps">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Programs\bugs.ps">

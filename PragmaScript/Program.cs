@@ -26,8 +26,8 @@ namespace PragmaScript
 
 #if DEBUG
             CompilerOptions.debug = true;
-            CompilerOptions.optimizationLevel = 0;
-            CompilerOptions.inputFilename = @"Programs\bugs.ps";
+            CompilerOptions.optimizationLevel = 3;
+            CompilerOptions.inputFilename = @"Programs\handmade.ps";
 #endif
             if (CompilerOptions.inputFilename == null)
             {
@@ -191,7 +191,7 @@ namespace PragmaScript
             renderGraph(root, text);
 #endif
             AST.TypeCheck(root, scope);
-            var backend = new Backend();
+            var backend = new Backend(Backend.TargetPlatform.x64);
             // 
             // backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);
             backend.EmitAndAOT(root, "output.o");

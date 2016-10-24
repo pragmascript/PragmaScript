@@ -19,106 +19,114 @@
 // s.pos = vec{1.0,2.0,3.0};
 
 
-var console_output_handle = GetStdHandle(-11);
-var console_input_handle = GetStdHandle(-10);
+// var console_output_handle = GetStdHandle(-11);
+// var console_input_handle = GetStdHandle(-10);
 
-let print_string = (s: string) => 
+// let print_string = (s: string) => 
+// {
+//  	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
+// }
+
+
+// let abs_i32 = (value: i32) => 
+// {
+//   if (value >= 0) {
+//     return value;
+//   } else {
+//     return -value;
+//   }
+// }
+
+// let print_i32 = (value: i32) => 
+// {
+// 	if (value == 0) {
+// 		print_string("0");
+// 		return;
+// 	}
+// 	var x = value;
+// 	var temp = "\0\0\0\0\0\0\0\0\0\0";
+// 	var count = 0;
+// 	for (var i = 0; i < temp.length; ++i) {
+// 		if (x != 0) {
+// 			var d = abs_i32(x % 10);
+// 			temp[i] = (i8)(d + 48);
+// 			x = x / 10;
+// 			count++;
+// 		} else {
+// 			break;
+// 		}
+// 	}
+// 	var offset = 0;
+// 	if (value < 0) {
+// 		offset = 1;
+// 	}
+// 	var result = "\0\0\0\0\0\0\0\0\0\0\0";
+// 	if (value < 0) {
+// 		result[0] = (i8)45;
+// 	}
+// 	for (var i = 0; i < count; ++i) {
+// 		result[i+offset] = temp[count - i - 1];
+// 	}
+// 	result.length = count + offset;
+// 	print_string(result);
+// }
+
+// let print_f32 = (value: f32) => 
+// {
+// 	var int_part = (i32)value;
+// 	var float_part = (i32)((value - (f32)int_part) * 1000.0);
+// 	print_i32(int_part);
+// 	print_string(".");
+// 	print_i32(float_part);
+// }
+
+// let vec = struct
+// {
+// 	x: f32;
+// 	y: f32;
+// 	z: f32;
+// }
+
+// let print_vec = (v: vec) => 
+// {
+// 	print_string("(");
+// 	print_f32(v.x);
+// 	print_string(", ");
+// 	print_f32(v.y);
+// 	print_string(", ");
+// 	print_f32(v.z);
+// 	print_string(")");
+// }
+
+// let circle = struct
+// {
+// 	pos: vec;
+// 	radius : f32;
+// }
+
+// let make_vec = (x: f32, y: f32, z: f32) => 
+// {
+// 	var result = vec {x, y, z};
+// 	return result;
+
+// 	// WHY TF DOES THIS DO THIS???
+// 	// return vec {x, y, z};
+// }
+
+// let print_vec_ptr = (v: vec*) =>
+// {
+// 	print_vec(*v);
+// }
+
+let foo = struct 
 {
- 	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
-}
-
-
-let abs_i32 = (value: int32) => 
-{
-  if (value >= 0) {
-    return value;
-  } else {
-    return -value;
-  }
-}
-
-let print_i32 = (value: int32) => 
-{
-	if (value == 0) {
-		print_string("0");
-		return;
-	}
-	var x = value;
-	var temp = "\0\0\0\0\0\0\0\0\0\0";
-	var count = 0;
-	for (var i = 0; i < temp.length; ++i) {
-		if (x != 0) {
-			var d = abs_i32(x % 10);
-			temp[i] = (int8)(d + 48);
-			x = x / 10;
-			count++;
-		} else {
-			break;
-		}
-	}
-	var offset = 0;
-	if (value < 0) {
-		offset = 1;
-	}
-	var result = "\0\0\0\0\0\0\0\0\0\0\0";
-	if (value < 0) {
-		result[0] = (int8)45;
-	}
-	for (var i = 0; i < count; ++i) {
-		result[i+offset] = temp[count - i - 1];
-	}
-	result.length = count + offset;
-	print_string(result);
-}
-
-let print_f32 = (value: float32) => 
-{
-	var int_part = (int32)value;
-	var float_part = (int32)((value - (float32)int_part) * 1000.0);
-	print_i32(int_part);
-	print_string(".");
-	print_i32(float_part);
-}
-
-let vec = struct
-{
-	x: float32;
-	y: float32;
-	z: float32;
-}
-
-let print_vec = (v: vec) => 
-{
-	print_string("(");
-	print_f32(v.x);
-	print_string(", ");
-	print_f32(v.y);
-	print_string(", ");
-	print_f32(v.z);
-	print_string(")");
-}
-
-let circle = struct
-{
-	pos: vec;
-	radius : float32;
-}
-
-// WHY TF DOES THIS DO THIS???
-let make_vec = (x: float32, y: float32, z: float32) => 
-{
-	var result = vec {x, y, z};
-	return result;
-	// return vec {x, y, z};
-}
-
-let print_vec_ptr = (v: vec*) =>
-{
-	print_vec(*v);
+	bar : i32;
 }
 
 let main = () => 
 {
+	var f = foo{};
+	var y = f.bar;
 	// print_string("hello world!\n");
 
 	// var arr = [-1, 3, 11];
@@ -132,6 +140,8 @@ let main = () =>
 	
 	// print_string("\n");
 
-	var vecs = [make_vec(1.0, 2.0, 3.0), make_vec(0.1, 0.2, 0.3)];
-	print_vec_ptr(vecs.data + 1);
+	// var vecs = [make_vec(1.0, 2.0, 3.0), make_vec(0.1, 0.2, 0.3)];
+	// print_f32(vecs[1].x);
+	// print_string("\n");
+	// print_vec_ptr(vecs.data + 0);
 }

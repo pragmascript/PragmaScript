@@ -74,7 +74,8 @@ namespace PragmaScript
             CloseSquareBracket,
             Dot,
             Struct,
-            ArrayTypeBrackets
+            ArrayTypeBrackets,
+            Alias
         }
 
         public TokenType type { get; private set; }
@@ -94,6 +95,8 @@ namespace PragmaScript
             keywords.Add("let", TokenType.Let);
             keywords.Add("var", TokenType.Var);
             keywords.Add("struct", TokenType.Struct);
+            keywords.Add("fun", TokenType.Fun);
+            keywords.Add("alias", TokenType.Alias);
             keywords.Add("return", TokenType.Return);
             keywords.Add("true", TokenType.True);
             keywords.Add("false", TokenType.False);
@@ -265,7 +268,28 @@ namespace PragmaScript
             if (char.IsDigit(current))
             {
                 bool containsDecimalSeperator = false;
-                while (char.IsDigit(current) || current == '.')
+                bool isHexadecimal = false;
+                if (pos + 1 < line.Length)
+                {
+                    if (line[pos + 1] == 'x')
+                    {
+                        isHexadecimal = true;
+                        pos += 2;
+                        t.length += 2;
+                    }
+                }
+                if (pos >= line.Length)
+                {
+                    current = '\0';
+                }
+                else
+                {
+                    current = line[pos];
+                }
+
+
+                while (char.IsDigit(current) || current == '.'
+                    || (isHexadecimal && (current >= 'A' && current <= 'F')))
                 {
                     // only one decimal seperator is allowed
                     if (current == '.' && containsDecimalSeperator)

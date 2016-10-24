@@ -1,10 +1,13 @@
 ﻿var console_output_handle = GetStdHandle(-11);
+var console_input_handle = GetStdHandle(-10);
+
 let print_string = (s: string) => 
 {
  	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
 }
 
-let abs_i32 = (value: int32) => 
+
+let abs_i32 = (value: i32) => 
 {
   if (value >= 0) {
     return value;
@@ -13,15 +16,19 @@ let abs_i32 = (value: int32) =>
   }
 }
 
-let print_i32 = (value: int32) => 
+let print_i32 = (value: i32) => 
 {
+	if (value == 0) {
+		print_string("0");
+		return;
+	}
 	var x = value;
 	var temp = "\0\0\0\0\0\0\0\0\0\0";
 	var count = 0;
 	for (var i = 0; i < temp.length; ++i) {
 		if (x != 0) {
 			var d = abs_i32(x % 10);
-			temp[i] = (int8)(d + 48);
+			temp[i] = (i8)(d + 48);
 			x = x / 10;
 			count++;
 		} else {
@@ -34,7 +41,7 @@ let print_i32 = (value: int32) =>
 	}
 	var result = "\0\0\0\0\0\0\0\0\0\0\0";
 	if (value < 0) {
-		result[0] = (int8)45;
+		result[0] = (i8)45;
 	}
 	for (var i = 0; i < count; ++i) {
 		result[i+offset] = temp[count - i - 1];
@@ -43,10 +50,11 @@ let print_i32 = (value: int32) =>
 	print_string(result);
 }
 
+
 let print_f32 = (value: float32) => 
 {
-	var int_part = (int32)value;
-	var float_part = (int32)((value - (float32)int_part) * 1000.0);
+	var int_part = (i32)value;
+	var float_part = (i32)((value - (f32)int_part) * 1000.0);
 	print_i32(int_part);
 	print_string(".");
 	print_i32(float_part);
