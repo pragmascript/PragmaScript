@@ -2,8 +2,21 @@
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
     "version": "0.1.0",
-    "command": "echo",
+    "command": "..\\bin\\x64\\Release\\pragma.exe",
     "isShellCommand": true,
-    "args": ["Hello World"],
-    "showOutput": "always"
+    "args": ["${workspaceRoot}\\preamble.ps", "${workspaceRoot}\\windows.ps", "${workspaceRoot}\\win32_handmade.ps", "-O3"],
+    "showOutput": "always",
+    "problemMatcher": {
+        "owner": "ps",
+        "fileLocation":  ["relative", "${workspaceRoot}"],
+        "pattern":{
+            "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
+            "message": 1,
+            "file": 2,
+            "line": 3,
+            "column": 4
+        }
+
+    }
+    
 }

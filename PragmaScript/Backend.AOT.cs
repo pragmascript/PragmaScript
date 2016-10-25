@@ -28,9 +28,12 @@ namespace PragmaScript
             {
                 case TargetPlatform.x86:
                     arch = "x86";
+                    throw new NotImplementedException();
                     break;
                 case TargetPlatform.x64:
                     var target = Marshal.PtrToStringAnsi(LLVM.GetDefaultTargetTriple());
+                    LLVM.SetDataLayout(mod, "e-m:w-i64:64-f80:128-n8:16:32:64-S128");
+                    // LLVM.SetDataLayout()
                     LLVM.SetTarget(mod, target);
                     arch = "x86-64";
                     break;
@@ -56,7 +59,7 @@ namespace PragmaScript
                 optProcess.Close();
 
             }
-#if DEBUG
+#if false
             {
                 Console.WriteLine("assembler...(debug)");
                 var llcProcess = new Process();
@@ -74,7 +77,12 @@ namespace PragmaScript
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = @"External\llc.exe";
-                llcProcess.StartInfo.Arguments = $"output_opt.ll -O{optLevel} -march={arch} -filetype=obj -o output.o";
+                var inp = "output_opt.ll";
+                if (optLevel == 0)
+                {
+                    inp = "output.ll";
+                }
+                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -filetype=obj -o output.o";
                 llcProcess.StartInfo.RedirectStandardInput = false;
                 llcProcess.StartInfo.RedirectStandardOutput = false;
                 llcProcess.StartInfo.UseShellExecute = false;
@@ -86,7 +94,7 @@ namespace PragmaScript
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
                 lldProcess.StartInfo.FileName = @"External\lld-link.exe";
-                lldProcess.StartInfo.Arguments = $"kernel32.lib user32.lib output.o /entry:__init /subsystem:console  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
+                lldProcess.StartInfo.Arguments = $"kernel32.lib user32.lib gdi32.lib output.o /entry:__init /subsystem:console  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;

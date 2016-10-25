@@ -7,6 +7,10 @@ namespace PragmaScript
     public class Token
     {
 
+        public Token(string filename)
+        {
+            this.filename = filename;
+        }
         /*
         * primary = 0;
         * Unary = 1;
@@ -24,12 +28,12 @@ namespace PragmaScript
         * Assignment = 13
         */
 
-        public static readonly Token Undefined = new Token { type = TokenType.Undefined, text = "undefined" };
-        public static Token NewLine(int pos, int line)
+        public static readonly Token Undefined = new Token("undefined") { type = TokenType.Undefined, text = "undefined" };
+        public static Token NewLine(int pos, int line, string filename)
         {
-            return new Token { type = TokenType.WhiteSpace, text = Environment.NewLine, length = 1, pos = pos, lineNumber = line };
+            return new Token(filename) { type = TokenType.WhiteSpace, text = Environment.NewLine, length = 1, pos = pos, lineNumber = line };
         }
-        public static readonly Token EOF = new Token { type = TokenType.EOF };
+        // public static readonly Token EOF = new Token { type = TokenType.EOF };
         public enum TokenType
         {
             WhiteSpace, Let, Var, Fun, Identifier,
@@ -84,6 +88,7 @@ namespace PragmaScript
         public int lineNumber { get; private set; }
         public int pos { get; private set; }
         public int length { get; private set; }
+        public string filename { get; private set; }
 
         static Dictionary<string, TokenType> keywords;
         static Dictionary<string, TokenType> operators;
@@ -201,9 +206,9 @@ namespace PragmaScript
             }
         }
 
-        public static Token Parse(string line, int pos, int lineNumber)
+        public static Token Parse(string line, int pos, int lineNumber, string filename)
         {
-            var t = new Token();
+            var t = new Token(filename);
             t.type = TokenType.Undefined;
             t.pos = pos;
             t.lineNumber = lineNumber;
@@ -365,26 +370,24 @@ namespace PragmaScript
 
             t.length = 1;
             t.text = line.Substring(t.pos, t.length);
-            throw new LexerError("Syntax error!");
+            throw new LexerError("Syntax error!", t);
         }
 
         public override string ToString()
         {
             if (type != TokenType.Error)
             {
-                return string.Format("({0}, line {1}, pos {2}, \"{3}\")", type.ToString(), lineNumber + 1, pos + 1, text);
+                return string.Format("({0}, file \"{1}\", line {2}, pos {3}, \"{4}\")", type.ToString(), filename, lineNumber + 1, pos + 1, text);
             }
             else
             {
-                return string.Format("({0}, line {1}, pos {2}, \"{3}\")", "error: " + errorMessage, lineNumber + 1, pos + 1, text);
+                return string.Format("({0}, file {1}, line {2}, pos {3}, \"{4}\")", "error: " + errorMessage, filename, lineNumber + 1, pos + 1, text);
             }
 
         }
 
-        public static Token[] Tokenize(string text)
+        public static void Tokenize(List<Token> result, string text, string filename, bool last)
         {
-            List<Token> result = new List<Token>();
-
             var lines = text.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
             for (int i = 0; i < lines.Length; ++i)
             {
@@ -392,17 +395,23 @@ namespace PragmaScript
                 var pos = 0;
                 while (pos < line.Length)
                 {
-                    var t = Token.Parse(line, pos, i);
+                    var t = Token.Parse(line, pos, i, filename);
+                    t.filename = filename;
                     result.Add(t);
                     pos += t.length;
                 }
-                result.Add(Token.NewLine(pos, i));
+                var tnl = Token.NewLine(pos, i, filename);
+                tnl.filename = filename;
+                result.Add(tnl);
             }
 
-            result.Add(Token.EOF);
-
-            // TODO: avoid re-allocation?
-            return result.ToArray();
+            if (last)
+            {
+                var teof = new Token(filename);
+                teof.type = TokenType.EOF;
+                teof.lineNumber = lines.Length;
+                result.Add(teof);
+            }
         }
     }
 

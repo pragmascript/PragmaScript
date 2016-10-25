@@ -5,6 +5,7 @@ using System.Linq;
 
 using Shields.GraphViz.Models;
 using System.Threading;
+using System.Text;
 
 namespace PragmaScript
 {
@@ -12,7 +13,7 @@ namespace PragmaScript
     static class CompilerOptions
     {
         public static bool debug = false;
-        public static string inputFilename;
+        public static List<string> inputFilenames = new List<string>(); 
         public static int optimizationLevel;
     }
 
@@ -24,25 +25,42 @@ namespace PragmaScript
             parseARGS(args);
 
 
-#if DEBUG
+#if false
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 3;
-            CompilerOptions.inputFilename = @"Programs\handmade.ps";
+            CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
 #endif
-            if (CompilerOptions.inputFilename == null)
+            if (CompilerOptions.inputFilenames.Count == 0)
             {
                 Console.WriteLine("Input file name missing!");
                 return;
             }
             try
             {
-                var text = File.ReadAllText(CompilerOptions.inputFilename);
-                run(text);
+                
+                var tokens = new List<Token>();
+                for (int i = 0; i <  CompilerOptions.inputFilenames.Count; ++i)
+                {
+                    var f = CompilerOptions.inputFilenames[i];
+                    var text = File.ReadAllText(f);
+                    var filename = Path.GetFileName(f);
+                    bool last = (i >= CompilerOptions.inputFilenames.Count - 1);
+                    try
+                    {
+                        Token.Tokenize(tokens, text, filename, last);
+                    }
+                    catch(LexerError e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
+                }
+                compile(tokens);
             }
             catch (FileNotFoundException)
             {
                 writeError("Could not open input file!");
             }
+           
         }
 
         static void writeError(string s)
@@ -97,7 +115,7 @@ namespace PragmaScript
                 }
                 else
                 {
-                    CompilerOptions.inputFilename = arg;
+                    CompilerOptions.inputFilenames.Add(arg);
                 }
             }
         }
@@ -158,39 +176,26 @@ namespace PragmaScript
         }
 
 #endif
-        static void run(string text)
+        static void compile(List<Token> tokens)
         {
 
-            var tokens = Token.Tokenize(text);
-
-            if (CompilerOptions.debug)
-            {
-                //Console.WriteLine("input: " + text);
-                //Console.WriteLine();
-                //Console.WriteLine("tokens: ");
-                //int pos = 0;
-                //foreach (var t in tokens)
-                //{
-                //    if (t.type != Token.TokenType.WhiteSpace)
-                //        Console.WriteLine("{0}: {1}", pos++, t);
-                //}
-
-                // Console.ReadLine();
-            }
-
+            
             Console.WriteLine("parsing...");
 
             var scope = AST.MakeRootScope();
-            var root = AST.Parse(tokens, scope);
+            var root = AST.Parse(tokens.ToArray(), scope);
             if (root == null)
             {
                 return;
             }
-#if DEBUG
+#if false
             Console.WriteLine("rendering graph...");
             renderGraph(root, text);
 #endif
+            Console.WriteLine("type checking...");
             AST.TypeCheck(root, scope);
+
+            Console.WriteLine("backend...");
             var backend = new Backend(Backend.TargetPlatform.x64);
             // 
             // backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);

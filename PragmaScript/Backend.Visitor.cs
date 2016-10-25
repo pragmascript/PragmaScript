@@ -711,6 +711,8 @@ namespace PragmaScript
                     var structType = getTypeRef(sc.structType);
 
                     var v = LLVM.AddGlobal(mod, structType, node.variable.name);
+                    LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
+
                     variables[node.variable.name] = v;
                     LLVM.SetInitializer(v, LLVM.ConstNull(structType));
 
@@ -732,6 +734,7 @@ namespace PragmaScript
                     var result = valueStack.Pop();
                     var resultType = LLVM.TypeOf(result);
                     var v = LLVM.AddGlobal(mod, resultType, node.variable.name);
+                    LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
 
                     if (LLVM.IsConstant(result))
                     {
@@ -1143,6 +1146,7 @@ namespace PragmaScript
 
                 var funType = LLVM.FunctionType(returnType, out par[0], (uint)fun.parameters.Count, Const.FalseBool);
                 var function = LLVM.AddFunction(mod, node.funName, funType);
+                
                 LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i)
                 {
@@ -1159,6 +1163,7 @@ namespace PragmaScript
                     return;
                 }
                 var function = functions[node.funName];
+                LLVM.SetLinkage(function, LLVMLinkage.LLVMInternalLinkage);
                 var vars = LLVM.AppendBasicBlock(function, "vars");
                 var entry = LLVM.AppendBasicBlock(function, "entry");
 

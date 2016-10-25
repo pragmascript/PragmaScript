@@ -12,8 +12,8 @@ namespace PragmaScript
 
     class LexerError : Exception
     {
-        public LexerError(string s, Token t = null)
-            : base(s + t != null ? ("at (" + t + ")") : "")
+        public LexerError(string message, Token t)
+            : base(String.Format("error: {0} at {1}", message, t))
         {
 
         }

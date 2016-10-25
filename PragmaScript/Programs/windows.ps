@@ -1,0 +1,160 @@
+﻿let WS_OVERLAPPEDWINDOW = 13565952;
+let WS_VISIBLE    = 0x10000000; 
+let CW_USEDEFAULT = 0x80000000;
+let CS_OWNDC   = 0x0020;
+let CS_HREDRAW = 0x0002;
+let CS_VREDRAW = 0x0001;
+let WM_PAINT = (u32)15;
+let WM_CLOSE = (u32)16;
+let WM_DESTROY = (u32)2;
+let WM_SIZE = (u32)5;
+let WHITENESS = (u32)16711778;
+let BLACKNESS = (u32)66;
+let SRCCOPY = (u32)13369376;
+let DIB_RGB_COLORS = (u32)0;
+let BI_RGB = (u32)0;
+
+
+let WNDCLASSEX = struct {
+	cbSize: u32;
+    style: u32;
+    lpfnWndProc: i8*;
+    cbClsExtra: i32;
+    cbWndExtra: i32;
+    hInstance: umm;
+    hIcon: umm;
+    hCursor: umm;
+    hbrBackground: umm;
+    lpszMenuName: i8*;
+    lpszClassName: i8*;
+	hIconSm: umm;
+}
+let POINT = struct {
+	x: i32;
+	y: i32;
+}
+let MSG = struct {
+	hwnd: umm;
+	message: u32;
+	wParam: umm;
+	lParam: umm;
+	time: i32;
+	pt: POINT;
+}
+let RECT = struct {
+	left: i32;
+	top: i32;
+	right: i32;
+	bottom: i32;
+}
+let PAINTSTRUCT = struct {
+	hdc: umm;
+	fErase: i32;
+	rcPaint: RECT;
+	fRestore: i32;
+	fIncUpdate: i32;
+	reserved0: umm;
+	reserved1: umm;
+	reserved2: umm;
+	reserved3: umm;
+}
+
+let BITMAPINFOHEADER = struct {
+  biSize: u32;
+  biWidth: i32;
+  biHeight: i32;
+  biPlanes: u16;
+  biBitCount: u16;
+  biCompression: u32;
+  biSizeImage: u32;
+  biXPelsPerMeter: i32;
+  biYPelsPerMeter: i32;
+  biClrUsed: u32;
+  biClrImportant: u32;
+}
+
+let RGBQUAD = struct {
+  blue: u8;
+  green: u8;
+  red: u8;
+  reserved: u8;
+}
+
+let BITMAPINFO = struct 
+{
+	header: BITMAPINFOHEADER;
+	rgb: RGBQUAD;
+}
+
+let GetModuleHandleA = fun (lpModuleName: umm) => umm;
+let RegisterClassExA = fun (window_class: WNDCLASSEX*) => u16;
+let DefWindowProcA = fun (window: umm, message: u32, w_param: umm, l_param: umm) => umm;
+let ExitProcess = fun(signal: u32) => void;
+let CreateWindowExA = fun
+(
+     dwExStyle: i32,     
+     lpClassName: i8*,
+     lpWindowName: i8*,
+     dwStyle: i32,
+     x: i32,
+     y: i32,
+     nWidth: i32,
+     nHeight: i32,
+     hWndParent: umm,
+     hMenu: umm,
+     hInstance: umm,
+     lpParam: umm
+) => umm;
+let GetMessageA = fun
+(
+	message: MSG*,
+	hWnd: umm,
+	wMsgFilterMin: u32,
+	wMsgFilterMax: u32
+) => i32;
+let TranslateMessage = fun (message: MSG*) => i32;
+let DispatchMessageA = fun (message: MSG*) => umm;
+let BeginPaint = fun (hwnd: umm, lpPaint: PAINTSTRUCT*) => umm;
+let EndPaint = fun (hwnd: umm, lpPaint: PAINTSTRUCT*) => i32;
+let PostQuitMessage = fun (nExitCode: i32) => void;
+let GetClientRect = fun (hWnd: umm, rect: RECT*) => i32;
+let CreateDIBSection = fun 
+(
+	hdc: umm,
+	bitmap: BITMAPINFO*,
+	iUsage: u32,
+	ppvBits: i8**,
+	hSection: umm, 
+	dwOffset: u32
+) => umm;
+
+let StretchDIBits = fun (
+  hdc: umm,
+  xDest: i32,
+  yDest: i32,
+  nDestWidth: i32,
+  nDestHeight: i32,
+  XSrc: i32,
+  YSrc: i32,
+  nSrcWidth: i32,
+  nSrcHeight: i32,
+  lpBits: i8*,
+  lpBitsInfo: BITMAPINFO*,
+  iUsage: u32,
+  dwRop: u32
+) => i32;
+
+// gdi32.lib
+let PatBlt = fun 
+(
+	hdc: umm,
+	nXLeft: i32,
+	nYLeft: i32,
+	nWidth: i32,
+	nHeight: i32,
+	dwRop: u32
+) => i32;
+
+let DeleteObject = fun (obj: umm) => i32;
+let CreateCompatibleDC = fun (hdc: umm) => umm;
+let ReleaseDC = fun (hWnd: umm, hdc: umm) => i32;
