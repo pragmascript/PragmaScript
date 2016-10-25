@@ -538,7 +538,6 @@ namespace PragmaScript
         {
             public Node target;
             public Node expression;
-            public Node index;
 
             public Assignment(Token t)
                 : base(t)

@@ -1,12 +1,5 @@
 ﻿let null = (umm)0;
 
-var console_output_handle = GetStdHandle(-11);
-var console_input_handle = GetStdHandle(-10);
-let print_string = fun (s: string) => 
-{
- 	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
-}
-
 let abs_i32 = fun (value: i32) => 
 {
   if (value >= 0) {
