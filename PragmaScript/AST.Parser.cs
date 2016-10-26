@@ -187,12 +187,12 @@ namespace PragmaScript
             // TODO: check if inside loo
             if (current.type == Token.TokenType.Continue)
             {
-                result = new ContinueLoop(current);
+                result = new ContinueLoop(current, scope);
             }
             // TODO: check if inside loop
             if (current.type == Token.TokenType.Break)
             {
-                result = new BreakLoop(current);
+                result = new BreakLoop(current, scope);
             }
 
             if (!ignoreSemicolon)
@@ -250,7 +250,8 @@ namespace PragmaScript
             // while (
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
-            var result = new WhileLoop(current);
+            var result = new WhileLoop(current, scope);
+
             var loopBodyScope = new Scope(scope);
 
             // while (i < 10
@@ -277,7 +278,7 @@ namespace PragmaScript
             var ob = ps.NextToken();
             expectTokenType(ob, Token.TokenType.OpenBracket);
 
-            var result = new ForLoop(current);
+            var result = new ForLoop(current, scope);
             var loopBodyScope = new Scope(scope);
 
             // for(int i = 0
@@ -304,7 +305,7 @@ namespace PragmaScript
             }
             else
             {
-                result.condition = new ConstBool(next, true);
+                result.condition = new ConstBool(next, loopBodyScope, true);
             }
 
             // for(int i = 0; i < 10;
@@ -418,7 +419,7 @@ namespace PragmaScript
             // if (
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
-            var result = new IfCondition(current);
+            var result = new IfCondition(current, scope);
 
             // if(i < 10
             ps.NextToken();
@@ -459,7 +460,7 @@ namespace PragmaScript
             // elif (
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
-            var result = new Elif(current);
+            var result = new Elif(current, scope);
 
             // elif(i < 10
             ps.NextToken();
@@ -482,12 +483,12 @@ namespace PragmaScript
             var next = ps.PeekToken(tokenMustExist: true, skipWS: true);
             if (next.type == Token.TokenType.Semicolon)
             {
-                var result = new ReturnFunction(current);
+                var result = new ReturnFunction(current, scope);
                 return result;
             }
             else
             {
-                var result = new ReturnFunction(current);
+                var result = new ReturnFunction(current, scope);
                 ps.NextToken();
                 result.expression = parseBinOp(ref ps, scope);
                 return result;
@@ -515,7 +516,7 @@ namespace PragmaScript
         static Node parseAssignment(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
-            var result = new Assignment(current);
+            var result = new Assignment(current, scope);
             var temp_ps = ps;
 
             result.target = parseBinOp(ref ps, scope);
@@ -534,7 +535,7 @@ namespace PragmaScript
             ps.NextToken();
             var exp = parseBinOp(ref ps, scope);
 
-            var compound = new BinOp(assign);
+            var compound = new BinOp(assign, scope);
             compound.left = parseBinOp(ref temp_ps, scope);
             compound.right = exp;
             result.expression = compound;
@@ -618,7 +619,7 @@ namespace PragmaScript
             var current = ps.ExpectCurrentToken(Token.TokenType.OpenSquareBracket);
             var next = ps.PeekToken();
 
-            var result = new ArrayConstructor(current);
+            var result = new ArrayConstructor(current, scope);
             while (next.type != Token.TokenType.CloseSquareBracket)
             {
                 current = ps.NextToken();
@@ -652,7 +653,7 @@ namespace PragmaScript
 
             bool isConstant = current.type == Token.TokenType.Let;
 
-            var result = new VariableDefinition(current);
+            var result = new VariableDefinition(current, scope);
 
             var v = ps.ExpectNextToken(Token.TokenType.Identifier);
             var variableName = v.text;
@@ -727,7 +728,7 @@ namespace PragmaScript
                 ps.NextToken();
 
                 otherFactor = parseBinOp(ref ps, scope, precedence - 1);
-                var bo = new BinOp(next);
+                var bo = new BinOp(next, scope);
                 bo.left = result;
                 bo.right = otherFactor;
                 bo.SetTypeFromToken(next);
@@ -745,7 +746,7 @@ namespace PragmaScript
             // handle unary plus and minus, ! and ~
             if (UnaryOp.IsUnaryToken(current))
             {
-                var result = new UnaryOp(current);
+                var result = new UnaryOp(current, scope);
                 result.SetTypeFromToken(current);
                 ps.NextToken();
 
@@ -779,7 +780,7 @@ namespace PragmaScript
                 ps.NextToken();
                 var exp = parsePrimary(ref ps, scope);
 
-                var result = new TypeCastOp(current);
+                var result = new TypeCastOp(current, scope);
                 // TODO: check if valid type (in type check phase?)
                 result.typeString = type;
                 result.expression = exp;
@@ -798,7 +799,7 @@ namespace PragmaScript
             {
                 case Token.TokenType.IntNumber:
                     {
-                        var result = new ConstInt(current);
+                        var result = new ConstInt(current, scope);
                         bool isHex = current.text.Length > 1 && current.text[1] == 'x';
                         if (isHex)
                         {
@@ -813,20 +814,20 @@ namespace PragmaScript
                     }
                 case Token.TokenType.FloatNumber:
                     {
-                        var result = new ConstFloat(current);
+                        var result = new ConstFloat(current, scope);
                         result.number = double.Parse(current.text, CultureInfo.InvariantCulture);
                         return result;
                     }
                 case Token.TokenType.False:
                 case Token.TokenType.True:
                     {
-                        var result = new ConstBool(current);
+                        var result = new ConstBool(current, scope);
                         result.value = current.type == Token.TokenType.True;
                         return result;
                     }
                 case Token.TokenType.String:
                     {
-                        var result = new ConstString(current);
+                        var result = new ConstString(current, scope);
                         result.s = current.text;
                         return result;
                     }
@@ -926,7 +927,7 @@ namespace PragmaScript
             // var x = vec3_i32
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
 
-            var result = new StructConstructor(current);
+            var result = new StructConstructor(current, scope);
 
             result.structName = current.text;
 
@@ -967,7 +968,7 @@ namespace PragmaScript
             var fieldName = ps.NextToken();
             expectTokenType(fieldName, Token.TokenType.Identifier);
 
-            var result = new StructFieldAccess(current);
+            var result = new StructFieldAccess(current, scope);
             result.returnPointer = returnPointer;
             result.left = left;
             result.fieldName = fieldName.text;
@@ -983,7 +984,7 @@ namespace PragmaScript
             var current = ps.ExpectCurrentToken(Token.TokenType.OpenSquareBracket);
             ps.NextToken();
 
-            var result = new ArrayElementAccess(current);
+            var result = new ArrayElementAccess(current, scope);
             result.left = left;
             result.returnPointer = returnPointer;
             result.index = parseBinOp(ref ps, scope);
@@ -998,7 +999,7 @@ namespace PragmaScript
             var current = ps.CurrentToken();
             expectTokenType(current, Token.TokenType.Identifier, Token.TokenType.Increment, Token.TokenType.Decrement);
 
-            VariableReference result = new VariableReference(current);
+            VariableReference result = new VariableReference(current, scope);
             result.returnPointer = returnPointer;
             result.inc = VariableReference.Incrementor.None;
 
@@ -1012,7 +1013,15 @@ namespace PragmaScript
                 current = id;
             }
 
-            result.variableName = current.text;
+            var vd = scope.GetVar(current.text);
+            if (scope.GetVar(current.text) != null)
+            {
+                result.vd = vd;
+            }
+            else
+            {
+                result.variableName = current.text;
+            }
 
             var peek = ps.PeekToken();
             if (peek.type == Token.TokenType.Increment || peek.type == Token.TokenType.Decrement)
@@ -1032,7 +1041,7 @@ namespace PragmaScript
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
 
-            var result = new FunctionCall(current);
+            var result = new FunctionCall(current, scope);
             result.functionName = current.text;
 
 
@@ -1073,12 +1082,11 @@ namespace PragmaScript
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.OpenCurly);
 
-            var result = new Block(current);
             if (newScope == null)
             {
                 newScope = new Scope(parentScope);
             }
-            result.scope = newScope;
+            var result = new Block(current, newScope);
 
             var next = ps.PeekToken();
 
@@ -1110,8 +1118,7 @@ namespace PragmaScript
         public static Node parseRoot(ref ParseState ps, Scope scope)
         {
             var current = ps.CurrentToken();
-            var result = new Root(current);
-            result.scope = scope;
+            var result = new Root(current, scope);
 
             var next = current;
 
@@ -1164,7 +1171,7 @@ namespace PragmaScript
             // let foo = stuct { 
             ps.ExpectNextToken(Token.TokenType.OpenCurly);
 
-            var result = new StructDefinition(current);
+            var result = new StructDefinition(current, scope);
             result.name = id.text;
 
 
@@ -1203,7 +1210,7 @@ namespace PragmaScript
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
             var next = ps.PeekToken();
 
-            TypeString result = new TypeString(current);
+            TypeString result = new TypeString(current, scope);
 
             result.typeString = current.text;
             if (next.type == Token.TokenType.ArrayTypeBrackets)
@@ -1227,7 +1234,7 @@ namespace PragmaScript
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Let);
 
-            var result = new FunctionDefinition(current);
+            var result = new FunctionDefinition(current, scope);
 
             if (scope.parent != null)
                 throw new ParserError("functions can only be defined in the primary block for now!", current);

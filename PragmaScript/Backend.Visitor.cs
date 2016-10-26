@@ -793,13 +793,23 @@ namespace PragmaScript
 
             LLVMValueRef v;
             var nt = typeChecker.GetNodeType(node);
-            if (nt is FrontendFunctionType)
+            string varName;
+            if (node.variableName != null)
             {
-                v = functions[node.variableName];
+                varName = node.variableName;
             }
             else
             {
-                v = variables[node.variableName];
+                varName = node.vd.name;
+            }
+
+            if (nt is FrontendFunctionType)
+            {
+                v = functions[varName];
+            }
+            else
+            {
+                v = variables[varName];
             }
             
             
@@ -1254,7 +1264,7 @@ namespace PragmaScript
             var v = valueStack.Pop();
             var v_type = typeToString(LLVM.TypeOf(v));
 
-            var s = node.structType;
+            var s = typeChecker.GetNodeType(node.left) as FrontendStructType;
             var idx = s.GetFieldIndex(node.fieldName);
             var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
 

@@ -13,13 +13,11 @@ namespace PragmaScript
         public List<UnresolvedType> waitingFor;
         public List<UnresolvedType> blocking;
         public AST.Node node;
-        public Scope scope;
 
 
-        public UnresolvedType(AST.Node node, Scope scope)
+        public UnresolvedType(AST.Node node)
         {
             this.node = node;
-            this.scope = scope;
             waitingFor = new List<UnresolvedType>();
             blocking = new List<UnresolvedType>();
         }
@@ -54,19 +52,24 @@ namespace PragmaScript
             }
         }
 
-        void addUnresolved(AST.Node from, AST.Node to, Scope fromScope)
+        void addUnresolved(AST.Node from, AST.Node to)
         {
             Debug.Assert(from != null);
             Debug.Assert(to != null);
-            Debug.Assert(fromScope != null);
 
             UnresolvedType u;
             if (!unresolved.TryGetValue(from, out u))
             {
-                u = new UnresolvedType(from, fromScope);
+                u = new UnresolvedType(from);
                 unresolved.Add(from, u);
             }
-            var cu = unresolved[to];
+
+            UnresolvedType cu;
+            if (!unresolved.TryGetValue(to, out cu))
+            {
+                cu = new UnresolvedType(to);
+                unresolved.Add(to, cu);
+            }
             u.waitingFor.Add(cu);
             cu.blocking.Add(u);
         }
@@ -88,7 +91,7 @@ namespace PragmaScript
                         b.waitingFor.Remove(u);
                         if (b.waitingFor.Count == 0)
                         {
-                            checkTypeDynamic(b.node, b.scope);
+                            checkTypeDynamic(b.node);
                         }
                     }
                 }
@@ -99,31 +102,31 @@ namespace PragmaScript
         {
             foreach (var n in root.declarations)
             {
-                checkTypeDynamic(n, root.scope);
+                checkTypeDynamic(n);
             }
         }
 
-        void checkType(AST.Block node, Scope scope)
+        void checkType(AST.Block node)
         {
             foreach (var n in node.statements)
             {
-                checkTypeDynamic(n, scope);
+                checkTypeDynamic(n);
             }
         }
 
-        void checkTypeDynamic(AST.Node node, Scope scope)
+        void checkTypeDynamic(AST.Node node)
         {
             if (knownTypes.ContainsKey(node))
             {
                 return;
             }
             dynamic dn = node;
-            checkType(dn, scope);
+            checkType(dn);
         }
 
-        void checkType(AST.Elif node, Scope scope)
+        void checkType(AST.Elif node)
         {
-            checkTypeDynamic(node.condition, scope);
+            checkTypeDynamic(node.condition);
             var ct = getType(node.condition);
             if (ct != null)
             {
@@ -132,18 +135,18 @@ namespace PragmaScript
             }
             else
             {
-                var u = new UnresolvedType(node, scope);
+                var u = new UnresolvedType(node);
                 var cu = unresolved[node.condition];
                 u.waitingFor.Add(cu);
                 cu.blocking.Add(u);
             }
 
-            checkTypeDynamic(node.thenBlock, scope);
+            checkTypeDynamic(node.thenBlock);
         }
 
-        void checkType(AST.IfCondition node, Scope scope)
+        void checkType(AST.IfCondition node)
         {
-            checkTypeDynamic(node.condition, scope);
+            checkTypeDynamic(node.condition);
             var ct = getType(node.condition);
             if (ct != null)
             {
@@ -152,30 +155,29 @@ namespace PragmaScript
             }
             else
             {
-                addUnresolved(node, node.condition, scope);
+                addUnresolved(node, node.condition);
             }
 
-            checkTypeDynamic(node.thenBlock, scope);
+            checkTypeDynamic(node.thenBlock);
 
             foreach (var elif in node.elifs)
             {
-                checkTypeDynamic(elif, scope);
+                checkTypeDynamic(elif);
             }
 
             if (node.elseBlock != null)
             {
-                checkTypeDynamic(node.elseBlock, scope);
+                checkTypeDynamic(node.elseBlock);
             }
         }
 
-        void checkType(AST.ForLoop node, Scope scope)
+        void checkType(AST.ForLoop node)
         {
-            var loopBodyScope = (node.loopBody as AST.Block).scope;
             foreach (var init in node.initializer)
             {
-                checkTypeDynamic(init, loopBodyScope);
+                checkTypeDynamic(init);
             }
-            checkTypeDynamic(node.condition, loopBodyScope);
+            checkTypeDynamic(node.condition);
             var ct = getType(node.condition);
             if (ct != null)
             {
@@ -184,19 +186,18 @@ namespace PragmaScript
             }
             else
             {
-                addUnresolved(node, node.condition, scope);
+                addUnresolved(node, node.condition);
             }
             foreach (var iter in node.iterator)
             {
-                checkTypeDynamic(iter, loopBodyScope);
+                checkTypeDynamic(iter);
             }
-            checkTypeDynamic(node.loopBody, scope);
+            checkTypeDynamic(node.loopBody);
         }
 
-        void checkType(AST.WhileLoop node, Scope scope)
+        void checkType(AST.WhileLoop node)
         {
-            var loopBodyScope = (node.loopBody as AST.Block).scope;
-            checkTypeDynamic(node.condition, loopBodyScope);
+            checkTypeDynamic(node.condition);
             var ct = getType(node.condition);
             if (ct != null)
             {
@@ -205,14 +206,14 @@ namespace PragmaScript
             }
             else
             {
-                addUnresolved(node, node.condition, scope);
+                addUnresolved(node, node.condition);
             }
-            checkTypeDynamic(node.loopBody, scope);
+            checkTypeDynamic(node.loopBody);
         }
 
-        void checkType(AST.VariableDefinition node, Scope scope)
+        void checkType(AST.VariableDefinition node)
         {
-            checkTypeDynamic(node.expression, scope);
+            checkTypeDynamic(node.expression);
             var et = getType(node.expression);
             if (et != null)
             {
@@ -220,16 +221,16 @@ namespace PragmaScript
             }
             else
             {
-                addUnresolved(node, node.expression, scope);
+                addUnresolved(node, node.expression);
             }
         }
 
-        void checkType(AST.FunctionDefinition node, Scope scope)
+        void checkType(AST.FunctionDefinition node)
         {
             List<FrontendType> parameterTypes = new List<FrontendType>();
             foreach (var p in node.parameters)
             {
-                checkTypeDynamic(p.typeString, scope);
+                checkTypeDynamic(p.typeString);
                 var pt = getType(p.typeString);
                 if (pt != null)
                 {
@@ -237,24 +238,18 @@ namespace PragmaScript
                 }
                 else
                 {
-                    addUnresolved(node, p.typeString, scope);
+                    addUnresolved(node, p.typeString);
                 }
             }
 
             bool all_ps = parameterTypes.Count == node.parameters.Count;
 
-            checkTypeDynamic(node.returnType, scope);
+            checkTypeDynamic(node.returnType);
             var returnType = getType(node.returnType);
             if (returnType == null)
             {
-                addUnresolved(node, node.returnType, scope);
+                addUnresolved(node, node.returnType);
             }
-
-            if (!node.external)
-            {
-                checkTypeDynamic(node.body, scope);
-            }
-
             if (returnType != null && all_ps)
             {
                 var result = new FrontendFunctionType();
@@ -266,11 +261,15 @@ namespace PragmaScript
                 result.name = node.funName;
                 resolve(node, result);
             }
+            if (!node.external)
+            {
+                checkTypeDynamic(node.body);
+            }
         }
 
-        void checkType(AST.StructConstructor node, Scope scope)
+        void checkType(AST.StructConstructor node)
         {
-            var td = scope.GetType(node.structName);
+            var td = node.scope.GetType(node.structName);
 
             FrontendStructType structType;
             if (td.type == null)
@@ -283,7 +282,7 @@ namespace PragmaScript
                 structType = t as FrontendStructType;
                 if (t == null)
                 {
-                    addUnresolved(node, td.node, scope);
+                    addUnresolved(node, td.node);
                 }
             }
             else
@@ -295,7 +294,7 @@ namespace PragmaScript
             List<FrontendType> argTypes = new List<FrontendType>();
             foreach (var arg in node.argumentList)
             {
-                checkTypeDynamic(arg, scope);
+                checkTypeDynamic(arg);
                 var argt = getType(arg);
                 if (argt != null)
                 {
@@ -303,7 +302,7 @@ namespace PragmaScript
                 }
                 else
                 {
-                    addUnresolved(node, arg, scope);
+                    addUnresolved(node, arg);
                 }
             }
 
@@ -320,12 +319,12 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.StructDefinition node, Scope scope)
+        void checkType(AST.StructDefinition node)
         {
             List<FrontendType> fieldTypes = new List<FrontendType>();
             foreach (var p in node.fields)
             {
-                checkTypeDynamic(p.typeString, scope);
+                checkTypeDynamic(p.typeString);
                 var pt = getType(p.typeString);
                 if (pt != null)
                 {
@@ -333,7 +332,7 @@ namespace PragmaScript
                 }
                 else
                 {
-                    addUnresolved(node, p.typeString, scope);
+                    addUnresolved(node, p.typeString);
                 }
             }
 
@@ -351,15 +350,19 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.FunctionCall node, Scope scope)
+        void checkType(AST.FunctionCall node)
         {
-            var fun_vd = scope.GetVar(node.functionName);
+            if (node.functionName == "DeleteObject")
+            {
+                int breakHere = 42;
+            }
+            var fun_vd = node.scope.GetVar(node.functionName);
             if (fun_vd == null)
             {
                 throw new ParserError($"Unknown function of name: \"{node.functionName}\"", node.token);
             }
 
-            FrontendFunctionType f_type;
+            FrontendFunctionType f_type = null;
             if (fun_vd.type != null)
             {
                 Debug.Assert(fun_vd.type is FrontendFunctionType);
@@ -368,26 +371,25 @@ namespace PragmaScript
             else
             {
                 var t = getType(fun_vd.node);
-                if (!(t is FrontendFunctionType))
-                {
-                    throw new ParserErrorExpected("funciton type", t.name, node.token);
-                }
-                f_type = t as FrontendFunctionType;
                 if (t == null)
                 {
-                    addUnresolved(node, fun_vd.node, scope);
+                    addUnresolved(node, fun_vd.node);
+                }
+                else
+                {
+                    if (!(t is FrontendFunctionType))
+                    {
+                        throw new ParserErrorExpected("funciton type", t.name, node.token);
+                    }
+                    f_type = t as FrontendFunctionType;
                 }
             }
 
-            if (node.argumentList.Count != f_type.parameters.Count)
-            {
-                throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
-            }
 
             List<FrontendType> argumentTypes = new List<FrontendType>();
             foreach (var arg in node.argumentList)
             {
-                checkTypeDynamic(arg, scope);
+                checkTypeDynamic(arg);
                 var pt = getType(arg);
                 if (pt != null)
                 {
@@ -395,39 +397,52 @@ namespace PragmaScript
                 }
                 else
                 {
-                    addUnresolved(node, arg, scope);
+                    addUnresolved(node, arg);
                 }
             }
-
-            if (argumentTypes.Count == f_type.parameters.Count)
+            if (f_type != null)
             {
-                for (int idx = 0; idx < argumentTypes.Count; ++idx)
+                if (node.argumentList.Count != f_type.parameters.Count)
                 {
-                    var arg = argumentTypes[idx];
-                    if (!arg.Equals(f_type.parameters[idx].type))
-                    {
-                        throw new ParserExpectedArgumentType(f_type.parameters[idx].type, arg, idx + 1, node.argumentList[idx].token);
-                    }
+                    throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
                 }
-                resolve(node, f_type.returnType);
+                if (argumentTypes.Count == f_type.parameters.Count)
+                {
+                    for (int idx = 0; idx < argumentTypes.Count; ++idx)
+                    {
+                        var arg = argumentTypes[idx];
+                        if (!arg.Equals(f_type.parameters[idx].type))
+                        {
+                            throw new ParserExpectedArgumentType(f_type.parameters[idx].type, arg, idx + 1, node.argumentList[idx].token);
+                        }
+                    }
+                    resolve(node, f_type.returnType);
+                }
             }
         }
 
-        void checkType(AST.VariableReference node, Scope scope)
+        void checkType(AST.VariableReference node)
         {
-            var vd = scope.GetVar(node.variableName);
-
-            if (node.variableName == "value")
+            Scope.VariableDefinition vd;
+            if (node.vd == null)
             {
-                int breakHere = 42;
+                Debug.Assert(node.variableName != null);
+                vd = node.scope.GetVar(node.variableName);
+                if (!vd.isConstant)
+                {
+                    throw new ParserError("Non constant variables can't be accessesd prior to declaration", node.token);
+                }
+                node.vd = vd;
             }
-                
-
+            else
+            {
+                vd = node.vd;
+            }
+            
             Debug.Assert(vd != null);
 
             if (vd.type != null)
             {
-                node.vd = vd;
                 resolve(node, vd.type);
             }
             else
@@ -435,29 +450,38 @@ namespace PragmaScript
                 var vt = getType(vd.node);
                 if (vt != null)
                 {
-                    resolve(node, vt);
+                    if (vd.isFunctionParameter)
+                    {
+                        var ft = vt as FrontendFunctionType;
+                        var pt = ft.parameters[vd.parameterIdx].type;
+                        resolve(node, pt);
+                    }
+                    else
+                    {
+                        resolve(node, vt);
+                    }
                 }
                 else
                 {
-                    addUnresolved(node, vd.node, scope);
+                    addUnresolved(node, vd.node);
                 }
             }
         }
 
-        void checkType(AST.Assignment node, Scope scope)
+        void checkType(AST.Assignment node)
         {
-            checkTypeDynamic(node.target, scope);
+            checkTypeDynamic(node.target);
             var tt = getType(node.target);
             if (tt == null)
             {
-                addUnresolved(node, node.target, scope);
+                addUnresolved(node, node.target);
             }
 
-            checkTypeDynamic(node.expression, scope);
+            checkTypeDynamic(node.expression);
             var et = getType(node.expression);
             if (et == null)
             {
-                addUnresolved(node, node.expression, scope);
+                addUnresolved(node, node.expression);
             }
 
             if (tt != null && et != null)
@@ -470,27 +494,27 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.ConstInt node, Scope scope)
+        void checkType(AST.ConstInt node)
         {
             resolve(node, FrontendType.i32);
         }
 
-        void checkType(AST.ConstFloat node, Scope scope)
+        void checkType(AST.ConstFloat node)
         {
             resolve(node, FrontendType.f32);
         }
 
-        void checkType(AST.ConstBool node, Scope scope)
+        void checkType(AST.ConstBool node)
         {
             resolve(node, FrontendType.bool_);
         }
 
-        void checkType(AST.ConstString node, Scope scope)
+        void checkType(AST.ConstString node)
         {
             resolve(node, FrontendType.string_);
         }
 
-        void checkType(AST.ArrayConstructor node, Scope scope)
+        void checkType(AST.ArrayConstructor node)
         {
             if (node.elements.Count == 0)
             {
@@ -499,7 +523,7 @@ namespace PragmaScript
             List<FrontendType> elementTypes = new List<FrontendType>();
             foreach (var e in node.elements)
             {
-                checkTypeDynamic(e, scope);
+                checkTypeDynamic(e);
                 var et = getType(e);
                 if (et != null)
                 {
@@ -507,7 +531,7 @@ namespace PragmaScript
                 }
                 else
                 {
-                    addUnresolved(node, e, scope);
+                    addUnresolved(node, e);
                 }
             }
             if (elementTypes.Count == node.elements.Count)
@@ -530,18 +554,18 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.UninitializedArray node, Scope scope)
+        void checkType(AST.UninitializedArray node)
         {
             throw new NotImplementedException();
         }
 
-        void checkType(AST.StructFieldAccess node, Scope scope)
+        void checkType(AST.StructFieldAccess node)
         {
-            checkTypeDynamic(node.left, scope);
+            checkTypeDynamic(node.left);
             var lt = getType(node.left);
             if (lt == null)
             {
-                addUnresolved(node, node.left, scope);
+                addUnresolved(node, node.left);
             }
             else
             {
@@ -559,14 +583,14 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.ArrayElementAccess node, Scope scope)
+        void checkType(AST.ArrayElementAccess node)
         {
-            checkTypeDynamic(node.left, scope);
+            checkTypeDynamic(node.left);
             var lt = getType(node.left);
             FrontendArrayType at;
             if (lt == null)
             {
-                addUnresolved(node, node.left, scope);
+                addUnresolved(node, node.left);
                 at = null;
             }
             else
@@ -578,11 +602,11 @@ namespace PragmaScript
                 }
             }
 
-            checkTypeDynamic(node.index, scope);
+            checkTypeDynamic(node.index);
             var idx_t = getType(node.index);
             if (idx_t == null)
             {
-                addUnresolved(node, node.index, scope);
+                addUnresolved(node, node.index);
             }
             else
             {
@@ -597,20 +621,20 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.BreakLoop node, Scope scope)
+        void checkType(AST.BreakLoop node)
         {
         }
 
-        void checkType(AST.ContinueLoop node, Scope scope)
+        void checkType(AST.ContinueLoop node)
         {
         }
 
-        void checkType(AST.ReturnFunction node, Scope scope)
+        void checkType(AST.ReturnFunction node)
         {
             FrontendType returnType = null;
             if (node.expression != null)
             {
-                checkTypeDynamic(node.expression, scope);
+                checkTypeDynamic(node.expression);
                 var rt = getType(node.expression);
                 if (rt != null)
                 {
@@ -629,19 +653,19 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.BinOp node, Scope scope)
+        void checkType(AST.BinOp node)
         {
-            checkTypeDynamic(node.left, scope);
+            checkTypeDynamic(node.left);
             var lt = getType(node.left);
             if (lt == null)
             {
-                addUnresolved(node, node.left, scope);
+                addUnresolved(node, node.left);
             }
-            checkTypeDynamic(node.right, scope);
+            checkTypeDynamic(node.right);
             var rt = getType(node.right);
             if (rt == null)
             {
-                addUnresolved(node, node.right, scope);
+                addUnresolved(node, node.right);
             }
             if (lt != null && rt != null)
             {
@@ -683,13 +707,13 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.UnaryOp node, Scope scope)
+        void checkType(AST.UnaryOp node)
         {
-            checkTypeDynamic(node.expression, scope);
+            checkTypeDynamic(node.expression);
             var et = getType(node.expression);
             if (et == null)
             {
-                addUnresolved(node, node.expression, scope);
+                addUnresolved(node, node.expression);
             }
             else
             {
@@ -714,20 +738,20 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.TypeCastOp node, Scope scope)
+        void checkType(AST.TypeCastOp node)
         {
-            checkTypeDynamic(node.expression, scope);
+            checkTypeDynamic(node.expression);
             var et = getType(node.expression);
             if (et == null)
             {
-                addUnresolved(node, node.expression, scope);
+                addUnresolved(node, node.expression);
             }
 
-            checkTypeDynamic(node.typeString, scope);
+            checkTypeDynamic(node.typeString);
             var tt = getType(node.typeString);
             if (tt == null)
             {
-                addUnresolved(node, node.typeString, scope);
+                addUnresolved(node, node.typeString);
             }
 
             if (et != null && tt != null)
@@ -737,9 +761,9 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.TypeString node, Scope scope)
+        void checkType(AST.TypeString node)
         {
-            var base_t_def = scope.GetType(node.typeString);
+            var base_t_def = node.scope.GetType(node.typeString);
             FrontendType base_t = null;
             if (base_t_def.type != null)
             {
@@ -750,7 +774,7 @@ namespace PragmaScript
                 var nt = getType(base_t_def.node);
                 if (nt == null)
                 {
-                    addUnresolved(node, base_t_def.node, scope);
+                    addUnresolved(node, base_t_def.node);
                 }
                 else
                 {
@@ -777,7 +801,7 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.Node node, Scope scope)
+        void checkType(AST.Node node)
         {
             throw new InvalidCodePath();
         }

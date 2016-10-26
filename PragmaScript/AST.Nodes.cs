@@ -13,10 +13,11 @@ namespace PragmaScript
         public abstract class Node
         {
             public Token token;
-
-            public Node(Token t)
+            public Scope scope;
+            public Node(Token t, Scope s)
             {
                 token = t;
+                scope = s;
             }
 
             public virtual IEnumerable<Node> GetChilds()
@@ -34,8 +35,8 @@ namespace PragmaScript
         {
             Node node;
             public string annotation;
-            public AnnotatedNode(Node n, string annotation)
-                : base(n.token)
+            public AnnotatedNode(Node n, Scope s, string annotation)
+                : base(n.token, s)
             {
                 node = n;
                 this.annotation = annotation;
@@ -57,10 +58,9 @@ namespace PragmaScript
 
         public class Root : Node
         {
-            public Scope scope;
             public List<Node> declarations = new List<Node>();
-            public Root(Token t)
-                : base(t)
+            public Root(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override IEnumerable<Node> GetChilds()
@@ -76,10 +76,9 @@ namespace PragmaScript
 
         public class Block : Node
         {
-            public Scope scope;
             public List<Node> statements = new List<Node>();
-            public Block(Token t)
-                : base(t)
+            public Block(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override IEnumerable<Node> GetChilds()
@@ -98,14 +97,14 @@ namespace PragmaScript
             public Node condition;
             public Node thenBlock;
 
-            public Elif(Token t)
-                : base(t)
+            public Elif(Token t, Scope s)
+                : base(t, s)
             {
             }
 
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(condition, "condition");
+                yield return new AnnotatedNode(condition, scope, "condition");
                 yield return thenBlock;
             }
             public override string ToString()
@@ -120,21 +119,21 @@ namespace PragmaScript
             public Node thenBlock;
             public List<Node> elifs = new List<Node>();
             public Node elseBlock;
-            public IfCondition(Token t)
-                : base(t)
+            public IfCondition(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(condition, "condition");
-                yield return new AnnotatedNode(thenBlock, "then"); 
+                yield return new AnnotatedNode(condition, scope, "condition");
+                yield return new AnnotatedNode(thenBlock, scope, "then"); 
                 foreach (var elif in elifs)
                 {
-                    yield return new AnnotatedNode(elif, "elif");
+                    yield return new AnnotatedNode(elif, scope, "elif");
                 }
                 if (elseBlock != null)
                 {
-                    yield return new AnnotatedNode(elseBlock, "else");
+                    yield return new AnnotatedNode(elseBlock, scope, "else");
                 }
             }
             public override string ToString()
@@ -151,8 +150,8 @@ namespace PragmaScript
 
             public Node loopBody;
 
-            public ForLoop(Token t)
-                : base(t)
+            public ForLoop(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override IEnumerable<Node> GetChilds()
@@ -160,20 +159,20 @@ namespace PragmaScript
                 int idx = 1;
                 foreach (var init in initializer)
                 {
-                    yield return new AnnotatedNode(init, "init_" + idx);
+                    yield return new AnnotatedNode(init, scope, "init_" + idx);
                     idx++;
                 }
                 
-                yield return new AnnotatedNode(condition, "condition");
+                yield return new AnnotatedNode(condition, scope, "condition");
 
                 idx = 1;
                 foreach (var it in iterator)
                 {
-                    yield return new AnnotatedNode(it, "iter_" + idx);
+                    yield return new AnnotatedNode(it, scope, "iter_" + idx);
                     idx++;
                 }
                 
-                yield return new AnnotatedNode(loopBody, "body");
+                yield return new AnnotatedNode(loopBody, scope, "body");
             }
             public override string ToString()
             {
@@ -186,14 +185,14 @@ namespace PragmaScript
             public Node condition;
             public Node loopBody;
 
-            public WhileLoop(Token t)
-                : base(t)
+            public WhileLoop(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(condition, "condition");
-                yield return new AnnotatedNode(loopBody, "body");
+                yield return new AnnotatedNode(condition, scope, "condition");
+                yield return new AnnotatedNode(loopBody, scope, "body");
             }
             public override string ToString()
             {
@@ -208,8 +207,8 @@ namespace PragmaScript
             public Scope.VariableDefinition variable;
             public Node expression;
 
-            public VariableDefinition(Token t)
-                : base(t)
+            public VariableDefinition(Token t, Scope s)
+                : base(t, s)
             {
             }
 
@@ -239,8 +238,8 @@ namespace PragmaScript
 
             public bool external;
 
-            public FunctionDefinition(Token t)
-                : base(t)
+            public FunctionDefinition(Token t, Scope s)
+                : base(t, s)
             {
             }
 
@@ -256,11 +255,11 @@ namespace PragmaScript
                 }
                 foreach (var p in parameters)
                 {
-                    yield return new AnnotatedNode(p.typeString, p.name);
+                    yield return new AnnotatedNode(p.typeString, scope, p.name);
                 }
                 if (returnType != null)
                 {
-                    yield return new AnnotatedNode(returnType, "return");
+                    yield return new AnnotatedNode(returnType, scope, "return");
                 }
                 else
                 {
@@ -280,8 +279,8 @@ namespace PragmaScript
             public List<Node> argumentList = new List<Node>();
             
 
-            public StructConstructor(Token t)
-                : base(t)
+            public StructConstructor(Token t, Scope s)
+                : base(t, s)
             {
             }
 
@@ -308,8 +307,8 @@ namespace PragmaScript
             }
             public List<StructField> fields = new List<StructField>();
 
-            public StructDefinition(Token t)
-                : base(t)
+            public StructDefinition(Token t, Scope s)
+                : base(t, s)
             {
 
             }
@@ -317,7 +316,7 @@ namespace PragmaScript
             {
                 foreach (var f in fields)
                 {
-                    yield return new AnnotatedNode(f.typeString, f.name);
+                    yield return new AnnotatedNode(f.typeString, scope, f.name);
                 }
             }
             public override string ToString()
@@ -332,8 +331,8 @@ namespace PragmaScript
             public string functionName;
             public List<Node> argumentList = new List<Node>();
 
-            public FunctionCall(Token t)
-                : base(t)
+            public FunctionCall(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override IEnumerable<Node> GetChilds()
@@ -353,14 +352,14 @@ namespace PragmaScript
         {
             public enum Incrementor { None, preIncrement, preDecrement, postIncrement, postDecrement }
             public Incrementor inc;
-            public string variableName;
 
+            public string variableName;
             public Scope.VariableDefinition vd;
 
             // HACK: returnPointer is a HACK remove this?????
             public bool returnPointer { get; set; }
-            public VariableReference(Token t)
-                : base(t)
+            public VariableReference(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override string ToString()
@@ -388,14 +387,14 @@ namespace PragmaScript
             public Node target;
             public Node expression;
 
-            public Assignment(Token t)
-                : base(t)
+            public Assignment(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(target, "target");
-                yield return new AnnotatedNode(expression, "expression");
+                yield return new AnnotatedNode(target, scope, "target");
+                yield return new AnnotatedNode(expression, scope, "expression");
             }
             public override string ToString()
             {
@@ -407,8 +406,8 @@ namespace PragmaScript
         {
             public int number;
 
-            public ConstInt(Token t)
-                : base(t)
+            public ConstInt(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override string ToString()
@@ -420,8 +419,8 @@ namespace PragmaScript
         public class ConstFloat : Node
         {
             public double number;
-            public ConstFloat(Token t)
-                : base(t)
+            public ConstFloat(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override string ToString()
@@ -433,13 +432,13 @@ namespace PragmaScript
         public class ConstBool : Node
         {
             public bool value;
-            public ConstBool(Token t)
-                : base(t)
+            public ConstBool(Token t, Scope s)
+                : base(t, s)
             {
             }
 
-            public ConstBool(Token t, bool b)
-                : base(t)
+            public ConstBool(Token t, Scope s, bool b)
+                : base(t, s)
             {
                 // TODO: Complete member initialization
                 this.value = b;
@@ -454,8 +453,8 @@ namespace PragmaScript
         {
             public string s;
 
-            public ConstString(Token t)
-                : base(t)
+            public ConstString(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override string ToString()
@@ -468,8 +467,8 @@ namespace PragmaScript
         {
             public List<Node> elements = new List<Node>();
 
-            public ArrayConstructor(Token t)
-                : base(t)
+            public ArrayConstructor(Token t, Scope s)
+                : base(t, s)
             {
 
             }
@@ -478,7 +477,7 @@ namespace PragmaScript
                 var idx = 0;
                 foreach (var x in elements)
                 {
-                    yield return new AnnotatedNode(x, "elem_" + idx++);
+                    yield return new AnnotatedNode(x, scope, "elem_" + idx++);
                 }
             }
             public override string ToString()
@@ -494,8 +493,8 @@ namespace PragmaScript
             public int length;
             public TypeString typeString;
 
-            public UninitializedArray(Token t)
-                : base(t)
+            public UninitializedArray(Token t, Scope s)
+                : base(t, s)
             {
 
             }
@@ -517,10 +516,8 @@ namespace PragmaScript
 
             public bool returnPointer { get; set; }
 
-            public FrontendStructType structType;
-
-            public StructFieldAccess(Token t) :
-                base(t)
+            public StructFieldAccess(Token t, Scope s) :
+                base(t, s)
             {
 
             }
@@ -542,15 +539,15 @@ namespace PragmaScript
 
             public bool returnPointer { get; set; }
 
-            public ArrayElementAccess(Token t)
-                : base(t)
+            public ArrayElementAccess(Token t, Scope s)
+                : base(t, s)
             {
             }
 
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(left, "array");
-                yield return new AnnotatedNode(index, "index");
+                yield return new AnnotatedNode(left, scope, "array");
+                yield return new AnnotatedNode(index, scope, "index");
             }
             public override string ToString()
             {
@@ -560,8 +557,8 @@ namespace PragmaScript
 
         public class BreakLoop : Node
         {
-            public BreakLoop(Token t)
-                : base(t)
+            public BreakLoop(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override string ToString()
@@ -572,8 +569,8 @@ namespace PragmaScript
 
         public class ContinueLoop : Node
         {
-            public ContinueLoop(Token t)
-                : base(t)
+            public ContinueLoop(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override string ToString()
@@ -586,8 +583,8 @@ namespace PragmaScript
         {
             public Node expression;
 
-            public ReturnFunction(Token t)
-                : base(t)
+            public ReturnFunction(Token t, Scope s)
+                : base(t, s)
             {
             }
             public override IEnumerable<Node> GetChilds()
@@ -612,8 +609,8 @@ namespace PragmaScript
             public Node left;
             public Node right;
 
-            public BinOp(Token t)
-                : base(t)
+            public BinOp(Token t, Scope s)
+                : base(t, s)
             {
             }
             public void SetTypeFromToken(Token next)
@@ -748,8 +745,8 @@ namespace PragmaScript
 
             public Node expression;
 
-            public UnaryOp(Token t)
-                : base(t)
+            public UnaryOp(Token t, Scope s)
+                : base(t, s)
             {
             }
 
@@ -833,8 +830,8 @@ namespace PragmaScript
             public Node expression;
             public TypeString typeString;
 
-            public TypeCastOp(Token t)
-                : base(t)
+            public TypeCastOp(Token t, Scope s)
+                : base(t, s)
             {
             }
 
@@ -855,7 +852,7 @@ namespace PragmaScript
             public bool isArrayType = false;
             public bool isPointerType = false;
             public int pointerLevel = 0;
-            public TypeString(Token t) : base(t)
+            public TypeString(Token t, Scope s) : base(t, s)
             {
             }
             public override string ToString()
