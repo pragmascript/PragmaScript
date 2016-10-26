@@ -1,6 +1,6 @@
 ﻿let null = (umm)0;
 
-let abs_i32 = fun (value: i32) => 
+let abs_i32 = fun (value: i32) => i32
 {
   if (value >= 0) {
     return value;
@@ -9,7 +9,7 @@ let abs_i32 = fun (value: i32) =>
   }
 }
 
-let print_i32 = fun (value: i32) => 
+let print_i32 = fun (value: i32) => void
 {
 	if (value == 0) {
 		print_string("0");

@@ -8,16 +8,6 @@ namespace PragmaScript
 {
     partial class Backend
     {
-        class Load : AST.Node
-        {
-            public Load(Token t) : base(t)
-            {
-            }
-            public override Task<FrontendType> CheckType(Scope scope)
-            {
-                throw new NotImplementedException();
-            }
-        }
 
         public void TransformAST(AST.Root root)
         {

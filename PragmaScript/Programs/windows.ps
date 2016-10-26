@@ -1,6 +1,6 @@
 ﻿var console_output_handle = GetStdHandle(-11);
 var console_input_handle = GetStdHandle(-10);
-let print_string = fun (s: string) => 
+let print_string = fun (s: string) => void
 {
  	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
 }

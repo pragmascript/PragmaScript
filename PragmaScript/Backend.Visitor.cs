@@ -191,25 +191,25 @@ namespace PragmaScript
         {
             throw new NotImplementedException();
 
-            var l = node.length;
+            //var l = node.length;
 
-            var values = new LLVMValueRef[l];
-            var et = getTypeRef(node.elementType);
-
-
-            for (int i = 0; i < values.Length; ++i)
-            {
-                values[i] = LLVM.ConstNull(et);
-            }
-
-            var size = LLVM.ConstInt(Const.Int32Type, (ulong)l, Const.FalseBool);
-            var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
+            //var values = new LLVMValueRef[l];
+            //var et = getTypeRef(node.elementType);
 
 
-            var sp = new LLVMValueRef[] { size, arr };
-            // TODO: does this need to be packed?
-            var structure = LLVM.ConstStruct(out sp[0], 2, Const.FalseBool);
-            valueStack.Push(structure);
+            //for (int i = 0; i < values.Length; ++i)
+            //{
+            //    values[i] = LLVM.ConstNull(et);
+            //}
+
+            //var size = LLVM.ConstInt(Const.Int32Type, (ulong)l, Const.FalseBool);
+            //var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
+
+
+            //var sp = new LLVMValueRef[] { size, arr };
+            //// TODO: does this need to be packed?
+            //var structure = LLVM.ConstStruct(out sp[0], 2, Const.FalseBool);
+            //valueStack.Push(structure);
         }
 
         public void Visit(AST.BinOp node)
@@ -518,10 +518,10 @@ namespace PragmaScript
             var v = valueStack.Pop();
             var vtype = LLVM.TypeOf(v);
 
-            var typeName = node.type.ToString();
+            var typeName = node.typeString.ToString(); // node.type.ToString();
 
             var result = default(LLVMValueRef);
-            var targetType = getTypeRef(node.type);
+            var targetType = getTypeRef(typeChecker.GetNodeType(node));
 
             if (isEqualType(targetType, vtype))
             {
@@ -607,7 +607,7 @@ namespace PragmaScript
         public void Visit(AST.StructConstructor node)
         {
             var sc = node;
-            var structType = getTypeRef(sc.structType);
+            var structType = getTypeRef(typeChecker.GetNodeType(node));
 
             var insert = LLVM.GetInsertBlock(builder);
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
@@ -627,13 +627,14 @@ namespace PragmaScript
         public void Visit(AST.ArrayConstructor node)
         {
             var ac = node;
+            var ac_type = typeChecker.GetNodeType(node) as FrontendArrayType;
 
-            var arr_struct_type = getTypeRef(ac.type);
+            var arr_struct_type = getTypeRef(ac_type);
 
             var insert = LLVM.GetInsertBlock(builder);
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
             var arr_struct_ptr = LLVM.BuildAlloca(builder, arr_struct_type, "arr_struct_alloca");
-            var elem_type = getTypeRef(ac.type.elementType);
+            var elem_type = getTypeRef(ac_type.elementType);
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)ac.elements.Count, Const.FalseBool);
             var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
             LLVM.PositionBuilderAtEnd(builder, insert);
@@ -708,7 +709,8 @@ namespace PragmaScript
                 if (node.expression is AST.StructConstructor)
                 {
                     var sc = node.expression as AST.StructConstructor;
-                    var structType = getTypeRef(sc.structType);
+                    
+                    var structType = getTypeRef(typeChecker.GetNodeType(sc));
 
                     var v = LLVM.AddGlobal(mod, structType, node.variable.name);
                     LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
@@ -1132,7 +1134,7 @@ namespace PragmaScript
 
             if (proto)
             {
-                var fun = node.fun;
+                var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
                 Debug.Assert(!functions.ContainsKey(node.funName));
                 var cnt = Math.Max(1, fun.parameters.Count);
                 var par = new LLVMTypeRef[cnt];
@@ -1175,7 +1177,7 @@ namespace PragmaScript
 
                 Visit(node.body);
 
-                var returnType = getTypeRef(node.fun.returnType);
+                var returnType = getTypeRef(typeChecker.GetNodeType(node.returnType));
                 insertMissingReturn(returnType);
 
                 LLVM.PositionBuilderAtEnd(builder, vars);

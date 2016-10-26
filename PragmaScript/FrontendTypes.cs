@@ -94,6 +94,7 @@ namespace PragmaScript
         public void AddField(string name, FrontendType type)
         {
             fields.Add(new Field { name = name, type = type });
+            calcTypeName();
         }
 
         public FrontendType GetField(string name)
@@ -149,6 +150,7 @@ namespace PragmaScript
         public void AddParam(string name, FrontendType type)
         {
             parameters.Add(new Param { name = name, type = type });
+            calcTypeName();
         }
 
         public FrontendType GetParam(string name)
@@ -177,4 +179,5 @@ namespace PragmaScript
         }
     }
 
+    
 }

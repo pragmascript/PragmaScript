@@ -25,7 +25,7 @@ namespace PragmaScript
             parseARGS(args);
 
 
-#if false
+#if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 3;
             CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
@@ -188,15 +188,23 @@ namespace PragmaScript
             {
                 return;
             }
-#if false
+#if true
             Console.WriteLine("rendering graph...");
-            renderGraph(root, text);
+            renderGraph(root, "");
 #endif
+
             Console.WriteLine("type checking...");
-            AST.TypeCheck(root, scope);
+
+            var tc = new TypeChecker();
+            tc.CheckTypes(root as AST.Root);
+
+            // AST.TypeCheck(root, scope);
+
+
+            
 
             Console.WriteLine("backend...");
-            var backend = new Backend(Backend.TargetPlatform.x64);
+            var backend = new Backend(Backend.TargetPlatform.x64, tc);
             // 
             // backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);
             backend.EmitAndAOT(root, "output.o");

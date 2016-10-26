@@ -32,19 +32,7 @@ namespace PragmaScript
             }
         }
 
-        static async Task<FrontendType> performTypeChecking(Node main, Scope root)
-        {
-            try
-            {
-                var result = await main.CheckType(root);
-                return result;
-            }
-            catch (Exception e)
-            {
-                throw e;
-            }
-        }
-
+        
         static void addBasicTypes(Scope scope, Token token)
         {
             scope.AddType(FrontendType.f32, token);
@@ -109,27 +97,13 @@ namespace PragmaScript
 
         static void addBasicConstants(Scope scope, Token token)
         {
-            var nullptr = scope.AddVar("nullptr", token);
-            nullptr.isConstant = true;
-            nullptr.type = new FrontendPointerType(FrontendType.i8);
-        }
-
-        public static void TypeCheck(Node node, Scope scope)
-        {
-            try
-            {
-                performTypeChecking(node, scope).Wait();
-            }
-            catch (System.AggregateException e)
-            {
-                throw e.InnerException;
-            }
+            var nullptr = scope.AddVar("nullptr", new FrontendPointerType(FrontendType.i8), token, isConst: true);
         }
 
         public static Scope MakeRootScope()
         {
             
-            var rootScope = new Scope(null, null);
+            var rootScope = new Scope(null);
             addBasicTypes(rootScope, Token.Undefined);
             addBasicConstants(rootScope, Token.Undefined);
             addBasicFunctions(rootScope);

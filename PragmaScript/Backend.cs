@@ -158,9 +158,10 @@ namespace PragmaScript
         public static void_void_del print_cat;
 
 
-
-        public Backend(TargetPlatform platform)
+        public TypeChecker typeChecker;
+        public Backend(TargetPlatform platform, TypeChecker typeChecker)
         {
+            this.typeChecker = typeChecker;
             this.platform = platform;
 
             print_cat += () =>

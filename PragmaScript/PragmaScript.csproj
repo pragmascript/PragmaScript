@@ -140,6 +140,7 @@
     <Compile Include="Scope.cs" />
     <Compile Include="Token.cs" />
     <Compile Include="Tools.cs" />
+    <Compile Include="TypeChecker.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config">

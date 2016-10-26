@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace PragmaScript
 {
 
-    public class Scope
+    class Scope
     {
         public class VariableDefinition
         {
@@ -15,18 +15,25 @@ namespace PragmaScript
             public bool isFunctionParameter;
             public int parameterIdx = -1;
             public string name;
+            public AST.Node node;
+            public FrontendType type;
+        }
+
+        public class TypeDefinition
+        {
+            public string name;
+            public AST.Node node;
             public FrontendType type;
         }
 
         public Scope parent;
-        public FrontendFunctionType function;
-        public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
-        public Dictionary<string, FrontendType> types = new Dictionary<string, FrontendType>();
 
-        public Scope(Scope parent, FrontendFunctionType function)
+        public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
+        public Dictionary<string, TypeDefinition> types = new Dictionary<string, TypeDefinition>();
+
+        public Scope(Scope parent)
         {
             this.parent = parent;
-            this.function = function;
         }
 
         public VariableDefinition GetVar(string name)
@@ -48,10 +55,11 @@ namespace PragmaScript
             }
         }
 
-        public VariableDefinition AddVar(string name, Token t)
+        public VariableDefinition AddVar(string name, AST.Node node, Token t, bool isConst = false)
         {
             VariableDefinition v = new VariableDefinition();
             v.name = name;
+            v.isConstant = isConst;
             if (variables.ContainsKey(name))
             {
                 throw new RedefinedVariable(name, t);
@@ -75,19 +83,32 @@ namespace PragmaScript
         }
 
 
-        public void AddFunctionParameter(string name, FrontendType type, int idx)
+        public void AddFunctionParameter(string name, AST.FunctionDefinition node, int idx)
         {
             VariableDefinition v = new VariableDefinition();
             v.name = name;
-            v.type = type;
+            v.node = node;
             v.isFunctionParameter = true;
             v.parameterIdx = idx;
             variables.Add(name, v);
         }
 
-        public FrontendType GetType(string typeName)
+        public TypeDefinition GetType(string typeName)
         {
-            FrontendType result;
+            var result = this.getTypeRec(typeName);
+            if (result == null)
+            {
+                throw new NotImplementedException();
+            }
+            else
+            {
+                return result;
+            }
+        }
+
+        TypeDefinition getTypeRec(string typeName)
+        {
+            TypeDefinition result;
 
             if (types.TryGetValue(typeName, out result))
             {
@@ -96,7 +117,7 @@ namespace PragmaScript
 
             if (parent != null)
             {
-                return parent.GetType(typeName);
+                return parent.getTypeRec(typeName);
             }
             else
             {
@@ -104,19 +125,17 @@ namespace PragmaScript
             }
         }
 
-        public FrontendType GetArrayType(string elementType)
-        {
-            var et = GetType(elementType);
-            return new FrontendArrayType(et);
-        }
 
-        public void AddType(string name, FrontendType typ, Token t)
+        public void AddType(string name, AST.Node node, Token t)
         {
             if (types.ContainsKey(name))
             {
                 throw new RedefinedType(name, t);
             }
-            types.Add(name, typ);
+            var td = new TypeDefinition();
+            td.name = name;
+            td.node = node;
+            types.Add(td.name, td);
         }
 
         public void AddTypeAlias(FrontendType t, Token token, string alias)
@@ -125,7 +144,12 @@ namespace PragmaScript
             {
                 throw new RedefinedType(alias, token);
             }
-            types.Add(alias, t);
+            var td = new TypeDefinition();
+            td.name = alias;
+            td.type = t;
+            td.node = null;
+
+            types.Add(td.name, td);
         }
 
         public void AddType(FrontendType t, Token token)
@@ -134,7 +158,11 @@ namespace PragmaScript
             {
                 throw new RedefinedType(t.ToString(), token);
             }
-            types.Add(t.ToString(), t);
+            var td = new TypeDefinition();
+            td.name = t.ToString();
+            td.type = t;
+            td.node = null;
+            types.Add(td.name, td);
         }
 
     }

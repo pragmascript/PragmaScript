@@ -5,7 +5,7 @@ var bitmap_memory = nullptr;
 var bitmap_handle = null;
 var bitmap_device_context = null;
 
-let resize_dib_section = fun (window: umm) => {
+let resize_dib_section = fun (window: umm) => void {
 	var rect = RECT {};
 	GetClientRect(window, &rect); 
 	var width = rect.right - rect.left;
@@ -43,7 +43,7 @@ let resize_dib_section = fun (window: umm) => {
 }
 
 let update_window = 
-fun (context: umm, x: i32, y: i32, width: i32, height: i32) => {
+fun (context: umm, x: i32, y: i32, width: i32, height: i32) => void {
 	StretchDIBits(context,
 		x, y, width, height,
 		x, y, width, height,
@@ -83,7 +83,7 @@ fun (window: umm, message: u32, w_param: umm, l_param: umm) => umm {
 	return result;
 }
 
-let init_window = fun () => {
+let init_window = fun () => void {
 	var class_name = "PragmaScriptWindowClass\0";
 	var window_name = "PragmaScript\0";
 	
@@ -119,7 +119,7 @@ let init_window = fun () => {
 	);
 }
 
-let main = fun () => {
+let main = fun () => void {
 	init_window();
 	running = true;
 	while (running) {

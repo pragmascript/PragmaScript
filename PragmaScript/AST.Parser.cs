@@ -208,7 +208,6 @@ namespace PragmaScript
             return result;
         }
 
-        // TODO: make this LET thing work for variables as well
         static Node parseLet(ref ParseState ps, Scope scope, ref bool ignoreSemicolon)
         {
             ps.ExpectCurrentToken(Token.TokenType.Let);
@@ -252,7 +251,7 @@ namespace PragmaScript
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
             var result = new WhileLoop(current);
-            var loopBodyScope = new Scope(scope, scope.function);
+            var loopBodyScope = new Scope(scope);
 
             // while (i < 10
             ps.NextToken();
@@ -279,7 +278,7 @@ namespace PragmaScript
             expectTokenType(ob, Token.TokenType.OpenBracket);
 
             var result = new ForLoop(current);
-            var loopBodyScope = new Scope(scope, scope.function);
+            var loopBodyScope = new Scope(scope);
 
             // for(int i = 0
             var next = ps.PeekToken();
@@ -583,33 +582,35 @@ namespace PragmaScript
 
         static Node parseUninitializedArray(ref ParseState ps, Scope scope)
         {
-            // var x = int32
-            var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
 
-            var result = new UninitializedArray(current);
-            result.elementTypeName = current.text;
+            throw new System.NotImplementedException();
+            //// var x = int32
+            //var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
 
-            // var x = int32[]
-            ps.ExpectNextToken(Token.TokenType.ArrayTypeBrackets);
+            //var result = new UninitializedArray(current);
+            //result.elementTypeName = current.text;
 
-            // var x = int32[] { 
-            ps.ExpectNextToken(Token.TokenType.OpenCurly);
+            //// var x = int32[]
+            //ps.ExpectNextToken(Token.TokenType.ArrayTypeBrackets);
 
-            // var x = int32[] { 12
-            var cnt = ps.NextToken();
-            try
-            {
-                result.length = int.Parse(cnt.text);
-            }
-            catch
-            {
-                throw new ParserErrorExpected("compile time constant integer array length", cnt.text, cnt);
-            }
+            //// var x = int32[] { 
+            //ps.ExpectNextToken(Token.TokenType.OpenCurly);
 
-            var cc = ps.NextToken();
-            expectTokenType(cc, Token.TokenType.CloseCurly);
+            //// var x = int32[] { 12
+            //var cnt = ps.NextToken();
+            //try
+            //{
+            //    result.length = int.Parse(cnt.text);
+            //}
+            //catch
+            //{
+            //    throw new ParserErrorExpected("compile time constant integer array length", cnt.text, cnt);
+            //}
 
-            return result;
+            //var cc = ps.NextToken();
+            //expectTokenType(cc, Token.TokenType.CloseCurly);
+
+            //return result;
         }
 
         static Node parseArrayConstructor(ref ParseState ps, Scope scope)
@@ -641,7 +642,6 @@ namespace PragmaScript
         static Node parseVar(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Var);
-
             return parseVariableDefinition(ref ps, scope);
         }
 
@@ -656,7 +656,7 @@ namespace PragmaScript
 
             var v = ps.ExpectNextToken(Token.TokenType.Identifier);
             var variableName = v.text;
-            result.variable = scope.AddVar(variableName, v);
+            result.variable = scope.AddVar(variableName, result, v);
             result.variable.isConstant = isConstant;
 
             ps.ExpectNextToken(Token.TokenType.Assignment);
@@ -665,7 +665,6 @@ namespace PragmaScript
             result.expression = parseBinOp(ref ps, scope);
 
             return result;
-
         }
 
         static bool isBinOp(Token t, int precedence)
@@ -781,10 +780,8 @@ namespace PragmaScript
                 var exp = parsePrimary(ref ps, scope);
 
                 var result = new TypeCastOp(current);
-
-
                 // TODO: check if valid type (in type check phase?)
-                result.type = type;
+                result.typeString = type;
                 result.expression = exp;
                 return result;
             }
@@ -930,6 +927,7 @@ namespace PragmaScript
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
 
             var result = new StructConstructor(current);
+
             result.structName = current.text;
 
             // var x = vec3_i32 {
@@ -992,7 +990,6 @@ namespace PragmaScript
 
             ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
 
-
             return result;
         }
 
@@ -1017,10 +1014,6 @@ namespace PragmaScript
 
             result.variableName = current.text;
 
-            if (scope.GetVar(current.text) == null)
-            {
-                throw new UndefinedVariable(current.text, current);
-            }
 
             var peek = ps.PeekToken();
             if (peek.type == Token.TokenType.Increment || peek.type == Token.TokenType.Decrement)
@@ -1084,7 +1077,7 @@ namespace PragmaScript
             var result = new Block(current);
             if (newScope == null)
             {
-                newScope = new Scope(parentScope, parentScope.function);
+                newScope = new Scope(parentScope);
             }
             result.scope = newScope;
 
@@ -1173,11 +1166,11 @@ namespace PragmaScript
             ps.ExpectNextToken(Token.TokenType.OpenCurly);
 
             var result = new StructDefinition(current);
-            result.type = new FrontendStructType();
-            result.type.name = id.text;
+            result.name = id.text;
+
 
             // add struct type to scope here to allow recursive structs
-            scope.AddType(result.type.name, result.type, current);
+            scope.AddType(result.name, result, current);
 
             var next = ps.PeekToken();
             while (next.type != Token.TokenType.CloseCurly)
@@ -1190,11 +1183,12 @@ namespace PragmaScript
 
                 // let foo = struct { x: int32
                 ps.NextToken();
-                var typ = parseTypeString(ref ps, scope);
+                var ts = parseTypeString(ref ps, scope);
 
-                // TODO: what if type cannot be resolved here?
-                // insert type proxy to be resolved later?
-                result.type.AddField(ident.text, typ);
+                var f = new StructDefinition.StructField();
+                f.name = ident.text;
+                f.typeString = ts;
+                result.fields.Add(f);
 
                 // let foo = struct { x: int32, ... 
                 ps.ExpectNextToken(Token.TokenType.Semicolon);
@@ -1205,44 +1199,40 @@ namespace PragmaScript
             return result;
         }
 
-        public static FrontendType parseTypeString(ref ParseState ps, Scope scope)
+        public static TypeString parseTypeString(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
             var next = ps.PeekToken();
 
-            FrontendType result = null;
+            TypeString result = new TypeString(current);
+
+            result.typeString = current.text;
             if (next.type == Token.TokenType.ArrayTypeBrackets)
             {
-                result = scope.GetArrayType(current.text);
+                result.isArrayType = true;
                 ps.NextToken();
             }
             else if (next.type == Token.TokenType.Multiply)
             {
-                result = scope.GetType(current.text);
+                result.isPointerType = true;
                 while (ps.PeekToken().type == Token.TokenType.Multiply)
                 {
-                    result = new FrontendPointerType(result);
+                    result.pointerLevel++;
                     ps.NextToken();
                 }
-            }
-            else
-            {
-                result = scope.GetType(current.text);
             }
             return result;
         }
 
         public static Node parseFunctionDefinition(ref ParseState ps, Scope scope)
         {
-
-            // let
             var current = ps.ExpectCurrentToken(Token.TokenType.Let);
+
+            var result = new FunctionDefinition(current);
 
             if (scope.parent != null)
                 throw new ParserError("functions can only be defined in the primary block for now!", current);
 
-            var fun = new FrontendFunctionType();
-            
             // let foo
             var id = ps.ExpectNextToken(Token.TokenType.Identifier);
             
@@ -1268,12 +1258,11 @@ namespace PragmaScript
 
                     // let foo = fun (x: int32
                     var ptyp = ps.ExpectNextToken(Token.TokenType.Identifier);
-                    var type = parseTypeString(ref ps, scope);
-                    if (type == null)
-                    {
-                        throw new ParserError($"Could not resolve type in function parameter list: {type}", ptyp);
-                    }
-                    fun.AddParam(pid.text, type);
+                    var typeString = parseTypeString(ref ps, scope);
+                    var p = new FunctionDefinition.FunctionParameter();
+                    p.name = pid.text;
+                    p.typeString = typeString;
+                    result.parameters.Add(p);
 
                     // let foo = fun (x: int32
                     next = ps.NextToken();
@@ -1308,26 +1297,23 @@ namespace PragmaScript
             ps.NextToken();
             // let foo = fun (x: int32) => { ... }
 
-            scope.AddVar(id.text, fun, current, isConst: true);
 
-            var result = new FunctionDefinition(current);
-            result.fun = fun;
+            scope.AddVar(id.text, result, current, isConst: true);
             result.funName = id.text;
             result.external = false;
-            var funScope = new Scope(scope, fun);
+            var funScope = new Scope(scope);
             var idx = 0;
-            foreach (var pd in fun.parameters)
+            foreach (var pd in result.parameters)
             {
-                funScope.AddFunctionParameter(pd.name, pd.type, idx);
+                funScope.AddFunctionParameter(pd.name, result, idx);
                 idx++;
             }
-
-
+            
             if (ps.CurrentToken().type == Token.TokenType.Identifier)
             {
                 var return_type = parseTypeString(ref ps, scope);
-                result.fun.returnType = return_type;
-                fun.returnType = return_type;
+
+                result.returnType = return_type;
                 var ppt = ps.PeekToken(true);
                 if (ppt.type == Token.TokenType.Semicolon)
                 {
