@@ -1014,7 +1014,6 @@ namespace PragmaScript
 
             result.variableName = current.text;
 
-
             var peek = ps.PeekToken();
             if (peek.type == Token.TokenType.Increment || peek.type == Token.TokenType.Decrement)
             {

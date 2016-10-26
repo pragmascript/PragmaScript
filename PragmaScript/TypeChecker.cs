@@ -56,6 +56,10 @@ namespace PragmaScript
 
         void addUnresolved(AST.Node from, AST.Node to, Scope fromScope)
         {
+            Debug.Assert(from != null);
+            Debug.Assert(to != null);
+            Debug.Assert(fromScope != null);
+
             UnresolvedType u;
             if (!unresolved.TryGetValue(from, out u))
             {
@@ -69,6 +73,9 @@ namespace PragmaScript
 
         void resolve(AST.Node node, FrontendType type)
         {
+            Debug.Assert(node != null);
+            Debug.Assert(type != null);
+
             knownTypes.Add(node, type);
             UnresolvedType u;
             if (unresolved.TryGetValue(node, out u))
@@ -154,6 +161,11 @@ namespace PragmaScript
             {
                 checkTypeDynamic(elif, scope);
             }
+
+            if (node.elseBlock != null)
+            {
+                checkTypeDynamic(node.elseBlock, scope);
+            }
         }
 
         void checkType(AST.ForLoop node, Scope scope)
@@ -236,6 +248,11 @@ namespace PragmaScript
             if (returnType == null)
             {
                 addUnresolved(node, node.returnType, scope);
+            }
+
+            if (!node.external)
+            {
+                checkTypeDynamic(node.body, scope);
             }
 
             if (returnType != null && all_ps)
@@ -399,10 +416,18 @@ namespace PragmaScript
         void checkType(AST.VariableReference node, Scope scope)
         {
             var vd = scope.GetVar(node.variableName);
+
+            if (node.variableName == "value")
+            {
+                int breakHere = 42;
+            }
+                
+
             Debug.Assert(vd != null);
 
             if (vd.type != null)
             {
+                node.vd = vd;
                 resolve(node, vd.type);
             }
             else
@@ -734,7 +759,7 @@ namespace PragmaScript
             }
             if (base_t != null)
             {
-                FrontendType result = null;
+                FrontendType result = base_t;
                 if (node.isArrayType)
                 {
                     Debug.Assert(!node.isPointerType);

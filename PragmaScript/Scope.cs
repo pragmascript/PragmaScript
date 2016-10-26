@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -57,8 +58,10 @@ namespace PragmaScript
 
         public VariableDefinition AddVar(string name, AST.Node node, Token t, bool isConst = false)
         {
+            Debug.Assert(node != null);
             VariableDefinition v = new VariableDefinition();
             v.name = name;
+            v.node = node;
             v.isConstant = isConst;
             if (variables.ContainsKey(name))
             {
@@ -70,6 +73,7 @@ namespace PragmaScript
 
         public VariableDefinition AddVar(string name, FrontendType @type, Token t, bool isConst = false)
         {
+            Debug.Assert(@type != null);
             VariableDefinition v = new VariableDefinition();
             v.name = name;
             v.type = @type;
@@ -128,6 +132,7 @@ namespace PragmaScript
 
         public void AddType(string name, AST.Node node, Token t)
         {
+            Debug.Assert(node != null);
             if (types.ContainsKey(name))
             {
                 throw new RedefinedType(name, t);

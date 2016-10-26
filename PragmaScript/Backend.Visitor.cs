@@ -781,7 +781,8 @@ namespace PragmaScript
 
         public void Visit(AST.VariableReference node)
         {
-            var vd = node.varDefinition;
+
+            var vd = node.vd;
             // if variable is function paramter just return it immediately
             if (vd.isFunctionParameter)
             {
@@ -791,13 +792,14 @@ namespace PragmaScript
             }
 
             LLVMValueRef v;
-            if (node.varDefinition.type is FrontendFunctionType)
+            var nt = typeChecker.GetNodeType(node);
+            if (nt is FrontendFunctionType)
             {
-                v = functions[vd.name];
+                v = functions[node.variableName];
             }
             else
             {
-                v = variables[vd.name];
+                v = variables[node.variableName];
             }
             
             
@@ -808,7 +810,7 @@ namespace PragmaScript
 
             bool is_global = LLVM.IsAGlobalVariable(v).Pointer != IntPtr.Zero;
 
-            if (node.varDefinition.isConstant)
+            if (vd.isConstant)
             {
                 result = v;
                 Debug.Assert(LLVM.IsConstant(v));
