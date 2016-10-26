@@ -8,6 +8,7 @@ namespace PragmaScript
 {
     public class FrontendType
     {
+        public static readonly FrontendType none = new FrontendType("$$__none__$$");
         public static readonly FrontendType void_ = new FrontendType("void");
         public static readonly FrontendType i8 = new FrontendType("i8");
         public static readonly FrontendType i16 = new FrontendType("i16");

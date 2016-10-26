@@ -1,4 +1,6 @@
-﻿ - sizeof!!!!
+﻿ - backend should emit constant variables first
+ 
+ - sizeof!!!!
  
  - switch!
  

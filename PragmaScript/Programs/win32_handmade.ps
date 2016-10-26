@@ -32,8 +32,8 @@ let resize_dib_section = fun (window: umm) => void {
 	// bitmap_info.header.biYPelsPermeter = 0;
 	// bitmap_info.header.biCrlUsed = (u32)0;
 	// bitmap_info.header.biCrlImportant = (u32)0;
- 
-	var bitmap_handle = CreateDIBSection(
+
+	bitmap_handle = CreateDIBSection(
 		bitmap_device_context, &bitmap_info,
 		DIB_RGB_COLORS,
 		&bitmap_memory,
@@ -41,6 +41,7 @@ let resize_dib_section = fun (window: umm) => void {
 		(u32)0
 	);
 }
+
 
 let update_window = 
 fun (context: umm, x: i32, y: i32, width: i32, height: i32) => void {
@@ -66,7 +67,6 @@ fun (window: umm, message: u32, w_param: umm, l_param: umm) => umm {
 		running = false;
 	}
 	elif (message == WM_PAINT) {
-		
 		var paint = PAINTSTRUCT {};
 		var context = BeginPaint(window, &paint);
 		var height = paint.rcPaint.bottom - paint.rcPaint.top;

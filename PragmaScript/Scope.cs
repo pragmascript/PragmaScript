@@ -100,14 +100,7 @@ namespace PragmaScript
         public TypeDefinition GetType(string typeName)
         {
             var result = this.getTypeRec(typeName);
-            if (result == null)
-            {
-                throw new NotImplementedException();
-            }
-            else
-            {
-                return result;
-            }
+            return result;
         }
 
         TypeDefinition getTypeRec(string typeName)

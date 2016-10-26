@@ -28,7 +28,7 @@ namespace PragmaScript
 #if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 3;
-            CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
+            CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\win32_handmade.ps", @"Programs\windows.ps", @"Programs\preamble.ps" });
 #endif
             if (CompilerOptions.inputFilenames.Count == 0)
             {
@@ -188,7 +188,7 @@ namespace PragmaScript
             {
                 return;
             }
-#if true
+#if FALSE
             Console.WriteLine("rendering graph...");
             renderGraph(root, "");
 #endif
@@ -196,12 +196,25 @@ namespace PragmaScript
             Console.WriteLine("type checking...");
 
             var tc = new TypeChecker();
+
+            bool success = true;
+#if DEBUG
             tc.CheckTypes(root as AST.Root);
-
-            // AST.TypeCheck(root, scope);
-
-
-            
+#else
+            try
+            {
+                tc.CheckTypes(root as AST.Root);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                success = false;
+            }
+#endif
+            if (!success)
+            {
+                return;
+            }
 
             Console.WriteLine("backend...");
             var backend = new Backend(Backend.TargetPlatform.x64, tc);

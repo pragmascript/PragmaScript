@@ -98,19 +98,22 @@ namespace PragmaScript
             }
         }
 
-        public void CheckTypes(AST.Root root)
-        {
-            foreach (var n in root.declarations)
-            {
-                checkTypeDynamic(n);
-            }
-        }
 
-        void checkType(AST.Block node)
+        void getRootBlocker(UnresolvedType t, HashSet<AST.Node> blocker)
         {
-            foreach (var n in node.statements)
+            if (t.waitingFor.Count > 0)
             {
-                checkTypeDynamic(n);
+                foreach (var wt in t.waitingFor)
+                {
+                    if (!blocker.Contains(wt.node))
+                    {
+                        getRootBlocker(wt, blocker);
+                    }
+                }
+            }
+            else
+            {
+                blocker.Add(t.node);
             }
         }
 
@@ -124,6 +127,38 @@ namespace PragmaScript
             checkType(dn);
         }
 
+
+        public void CheckTypes(AST.Root root)
+        {
+            foreach (var n in root.declarations)
+            {
+                checkTypeDynamic(n);
+            }
+
+            HashSet<AST.Node> blocker = new HashSet<AST.Node>();
+            foreach (var v in unresolved.Values)
+            {
+                getRootBlocker(v, blocker);
+            }
+
+            foreach (var n in blocker)
+            {
+                throw new ParserError($"Cannot resolve type of \"{n}\"", n.token);
+            }
+
+        }
+
+        void checkType(AST.Block node)
+        {
+            foreach (var n in node.statements)
+            {
+                checkTypeDynamic(n);
+            }
+            resolve(node, FrontendType.none);
+        }
+
+        
+
         void checkType(AST.Elif node)
         {
             checkTypeDynamic(node.condition);
@@ -132,6 +167,7 @@ namespace PragmaScript
             {
                 if (!ct.Equals(FrontendType.bool_))
                     throw new ParserExpectedType(FrontendType.bool_, ct, node.condition.token);
+                resolve(node, FrontendType.none);
             }
             else
             {
@@ -142,6 +178,7 @@ namespace PragmaScript
             }
 
             checkTypeDynamic(node.thenBlock);
+
         }
 
         void checkType(AST.IfCondition node)
@@ -152,6 +189,7 @@ namespace PragmaScript
             {
                 if (!ct.Equals(FrontendType.bool_))
                     throw new ParserExpectedType(FrontendType.bool_, ct, node.condition.token);
+                resolve(node, FrontendType.none);
             }
             else
             {
@@ -183,6 +221,7 @@ namespace PragmaScript
             {
                 if (!ct.Equals(FrontendType.bool_))
                     throw new ParserExpectedType(FrontendType.bool_, ct, node.condition.token);
+                resolve(node, FrontendType.none);
             }
             else
             {
@@ -203,6 +242,7 @@ namespace PragmaScript
             {
                 if (!ct.Equals(FrontendType.bool_))
                     throw new ParserExpectedType(FrontendType.bool_, ct, node.condition.token);
+                resolve(node, FrontendType.none);
             }
             else
             {
@@ -271,18 +311,26 @@ namespace PragmaScript
         {
             var td = node.scope.GetType(node.structName);
 
-            FrontendStructType structType;
+            if (td == null)
+            {
+                throw new ParserError($"Unknown type: \"{node.structName}\"", node.token);
+            }
+
+            FrontendStructType structType = null;
             if (td.type == null)
             {
                 var t = getType(td.node);
-                if (!(t is FrontendStructType))
-                {
-                    throw new ParserErrorExpected("struct type", t.name, node.token);
-                }
-                structType = t as FrontendStructType;
                 if (t == null)
                 {
                     addUnresolved(node, td.node);
+                }
+                else
+                {
+                    if (!(t is FrontendStructType))
+                    {
+                        throw new ParserErrorExpected("struct type", t.name, node.token);
+                    }
+                    structType = t as FrontendStructType;
                 }
             }
             else
@@ -352,10 +400,6 @@ namespace PragmaScript
 
         void checkType(AST.FunctionCall node)
         {
-            if (node.functionName == "DeleteObject")
-            {
-                int breakHere = 42;
-            }
             var fun_vd = node.scope.GetVar(node.functionName);
             if (fun_vd == null)
             {
@@ -384,8 +428,6 @@ namespace PragmaScript
                     f_type = t as FrontendFunctionType;
                 }
             }
-
-
             List<FrontendType> argumentTypes = new List<FrontendType>();
             foreach (var arg in node.argumentList)
             {
@@ -601,7 +643,6 @@ namespace PragmaScript
                     throw new ParserError("left side is not a struct type", node.token);
                 }
             }
-
             checkTypeDynamic(node.index);
             var idx_t = getType(node.index);
             if (idx_t == null)
@@ -623,10 +664,12 @@ namespace PragmaScript
 
         void checkType(AST.BreakLoop node)
         {
+            resolve(node, FrontendType.none);
         }
 
         void checkType(AST.ContinueLoop node)
         {
+            resolve(node, FrontendType.none);
         }
 
         void checkType(AST.ReturnFunction node)
@@ -640,7 +683,10 @@ namespace PragmaScript
                 {
                     returnType = rt;
                     // TODO check if right type? get from scope?
-
+                }
+                else
+                {
+                    addUnresolved(node, node.expression);
                 }
             }
             else
