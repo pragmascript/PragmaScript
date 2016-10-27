@@ -60,6 +60,7 @@ namespace PragmaScript
             String,
             Comment,
             EOF,
+            EOP,
             Elif,
             PlusEquals,
             RightShiftEquals,
@@ -386,7 +387,7 @@ namespace PragmaScript
 
         }
 
-        public static void Tokenize(List<Token> result, string text, string filename, bool last)
+        public static void Tokenize(List<Token> result, string text, string filename)
         {
             var lines = text.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
             for (int i = 0; i < lines.Length; ++i)
@@ -405,13 +406,10 @@ namespace PragmaScript
                 result.Add(tnl);
             }
 
-            if (last)
-            {
-                var teof = new Token(filename);
-                teof.type = TokenType.EOF;
-                teof.lineNumber = lines.Length;
-                result.Add(teof);
-            }
+            var teof = new Token(filename);
+            teof.type = TokenType.EOF;
+            teof.lineNumber = lines.Length;
+            result.Add(teof);
         }
     }
 

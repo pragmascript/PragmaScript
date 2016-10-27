@@ -9,12 +9,12 @@ namespace PragmaScript
     partial class Backend
     {
 
-        public void TransformAST(AST.Root root)
+        public void TransformAST(AST.FileRoot root)
         {
             transform(root);
         }
 
-        void transform(AST.Root node)
+        void transform(AST.FileRoot node)
         {
             foreach (var decl in node.declarations)
             {

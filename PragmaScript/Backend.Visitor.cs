@@ -23,7 +23,21 @@ namespace PragmaScript
             return false;
         }
 
-        public void Visit(AST.Root node)
+
+        public void Visit(AST.ProgramRoot node)
+        {
+            AST.FileRoot merge = new AST.FileRoot(Token.Undefined, node.scope);
+            foreach (var fr in node.files)
+            {
+                foreach (var decl in fr.declarations)
+                {
+                    merge.declarations.Add(decl);
+                }
+            }
+            Visit(merge);
+        }
+
+        public void Visit(AST.FileRoot node)
         {
             // visit function definitions make prototypes
             foreach (var decl in node.declarations)
@@ -1368,114 +1382,121 @@ namespace PragmaScript
 
         public void Visit(AST.Node node)
         {
-            if (node is AST.Root)
-            {
-                Visit(node as AST.Root);
-            }
-            else if (node is AST.ConstInt)
-            {
-                Visit(node as AST.ConstInt);
-            }
-            else if (node is AST.ConstFloat)
-            {
-                Visit(node as AST.ConstFloat);
-            }
-            else if (node is AST.ConstBool)
-            {
-                Visit(node as AST.ConstBool);
-            }
-            else if (node is AST.ConstString)
-            {
-                Visit(node as AST.ConstString);
-            }
-            else if (node is AST.ArrayConstructor)
-            {
-                Visit(node as AST.ArrayConstructor);
-            }
-            else if (node is AST.BinOp)
-            {
-                Visit(node as AST.BinOp);
-            }
-            else if (node is AST.UnaryOp)
-            {
-                Visit(node as AST.UnaryOp);
-            }
-            else if (node is AST.TypeCastOp)
-            {
-                Visit(node as AST.TypeCastOp);
-            }
-            else if (node is AST.VariableDefinition)
-            {
-                Visit(node as AST.VariableDefinition);
-            }
-            else if (node is AST.Assignment)
-            {
-                Visit(node as AST.Assignment);
-            }
-            else if (node is AST.Block)
-            {
-                Visit(node as AST.Block);
-            }
-            else if (node is AST.VariableReference)
-            {
-                Visit(node as AST.VariableReference);
-            }
-            else if (node is AST.ArrayElementAccess)
-            {
-                Visit(node as AST.ArrayElementAccess);
-            }
-            else if (node is AST.StructFieldAccess)
-            {
-                Visit(node as AST.StructFieldAccess);
-            }
-            else if (node is AST.StructConstructor)
-            {
-                Visit(node as AST.StructConstructor);
-            }
-            else if (node is AST.UninitializedArray)
-            {
-                Visit(node as AST.UninitializedArray);
-            }
-            else if (node is AST.FunctionCall)
-            {
-                Visit(node as AST.FunctionCall);
-            }
-            else if (node is AST.IfCondition)
-            {
-                Visit(node as AST.IfCondition);
-            }
-            else if (node is AST.ForLoop)
-            {
-                Visit(node as AST.ForLoop);
-            }
-            else if (node is AST.WhileLoop)
-            {
-                Visit(node as AST.WhileLoop);
-            }
-            else if (node is AST.BreakLoop)
-            {
-                Visit(node as AST.BreakLoop);
-            }
-            else if (node is AST.ContinueLoop)
-            {
-                Visit(node as AST.ContinueLoop);
-            }
-            else if (node is AST.ReturnFunction)
-            {
-                Visit(node as AST.ReturnFunction);
-            }
-            else if (node is AST.FunctionDefinition)
-            {
-                Visit(node as AST.FunctionDefinition);
-            }
-            else if (node is AST.StructDefinition)
-            {
-                Visit(node as AST.StructDefinition);
-            }
-            else
-            {
-                throw new InvalidCodePath();
-            }
+            dynamic dn = node;
+            Visit(dn);
         }
+
+
+        //public void Visit(AST.Node node)
+        //{
+        //    if (node is AST.FileRoot)
+        //    {
+        //        Visit(node as AST.FileRoot);
+        //    }
+        //    else if (node is AST.ConstInt)
+        //    {
+        //        Visit(node as AST.ConstInt);
+        //    }
+        //    else if (node is AST.ConstFloat)
+        //    {
+        //        Visit(node as AST.ConstFloat);
+        //    }
+        //    else if (node is AST.ConstBool)
+        //    {
+        //        Visit(node as AST.ConstBool);
+        //    }
+        //    else if (node is AST.ConstString)
+        //    {
+        //        Visit(node as AST.ConstString);
+        //    }
+        //    else if (node is AST.ArrayConstructor)
+        //    {
+        //        Visit(node as AST.ArrayConstructor);
+        //    }
+        //    else if (node is AST.BinOp)
+        //    {
+        //        Visit(node as AST.BinOp);
+        //    }
+        //    else if (node is AST.UnaryOp)
+        //    {
+        //        Visit(node as AST.UnaryOp);
+        //    }
+        //    else if (node is AST.TypeCastOp)
+        //    {
+        //        Visit(node as AST.TypeCastOp);
+        //    }
+        //    else if (node is AST.VariableDefinition)
+        //    {
+        //        Visit(node as AST.VariableDefinition);
+        //    }
+        //    else if (node is AST.Assignment)
+        //    {
+        //        Visit(node as AST.Assignment);
+        //    }
+        //    else if (node is AST.Block)
+        //    {
+        //        Visit(node as AST.Block);
+        //    }
+        //    else if (node is AST.VariableReference)
+        //    {
+        //        Visit(node as AST.VariableReference);
+        //    }
+        //    else if (node is AST.ArrayElementAccess)
+        //    {
+        //        Visit(node as AST.ArrayElementAccess);
+        //    }
+        //    else if (node is AST.StructFieldAccess)
+        //    {
+        //        Visit(node as AST.StructFieldAccess);
+        //    }
+        //    else if (node is AST.StructConstructor)
+        //    {
+        //        Visit(node as AST.StructConstructor);
+        //    }
+        //    else if (node is AST.UninitializedArray)
+        //    {
+        //        Visit(node as AST.UninitializedArray);
+        //    }
+        //    else if (node is AST.FunctionCall)
+        //    {
+        //        Visit(node as AST.FunctionCall);
+        //    }
+        //    else if (node is AST.IfCondition)
+        //    {
+        //        Visit(node as AST.IfCondition);
+        //    }
+        //    else if (node is AST.ForLoop)
+        //    {
+        //        Visit(node as AST.ForLoop);
+        //    }
+        //    else if (node is AST.WhileLoop)
+        //    {
+        //        Visit(node as AST.WhileLoop);
+        //    }
+        //    else if (node is AST.BreakLoop)
+        //    {
+        //        Visit(node as AST.BreakLoop);
+        //    }
+        //    else if (node is AST.ContinueLoop)
+        //    {
+        //        Visit(node as AST.ContinueLoop);
+        //    }
+        //    else if (node is AST.ReturnFunction)
+        //    {
+        //        Visit(node as AST.ReturnFunction);
+        //    }
+        //    else if (node is AST.FunctionDefinition)
+        //    {
+        //        Visit(node as AST.FunctionDefinition);
+        //    }
+        //    else if (node is AST.StructDefinition)
+        //    {
+        //        Visit(node as AST.StructDefinition);
+        //    }
+        //    else
+        //    {
+        //        throw new InvalidCodePath();
+        //    }
+        //}
     }
 }

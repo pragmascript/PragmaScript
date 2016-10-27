@@ -1115,10 +1115,10 @@ namespace PragmaScript
             return result;
         }
 
-        public static Node parseRoot(ref ParseState ps, Scope scope)
+        public static Node parseFileRoot(ref ParseState ps, Scope scope)
         {
             var current = ps.CurrentToken();
-            var result = new Root(current, scope);
+            var result = new FileRoot(current, scope);
 
             var next = current;
 

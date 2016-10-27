@@ -56,10 +56,27 @@ namespace PragmaScript
         }
 
 
-        public class Root : Node
+        public class ProgramRoot : Node
+        {
+            public List<FileRoot> files = new List<FileRoot>();
+            public ProgramRoot(Token t, Scope s) : base(t, s)
+            {
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                foreach (var f in files)
+                    yield return f;
+            }
+            public override string ToString()
+            {
+                return "ProgramRoot";
+            }
+        }
+
+        public class FileRoot : Node
         {
             public List<Node> declarations = new List<Node>();
-            public Root(Token t, Scope s)
+            public FileRoot(Token t, Scope s)
                 : base(t, s)
             {
             }
@@ -70,7 +87,7 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return "Root";
+                return "FileRoot";
             }
         }
 

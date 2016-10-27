@@ -32,7 +32,7 @@ namespace PragmaScript
             }
         }
 
-        
+
         static void addBasicTypes(Scope scope, Token token)
         {
             scope.AddType(FrontendType.f32, token);
@@ -102,7 +102,7 @@ namespace PragmaScript
 
         public static Scope MakeRootScope()
         {
-            
+
             var rootScope = new Scope(null);
             addBasicTypes(rootScope, Token.Undefined);
             addBasicConstants(rootScope, Token.Undefined);
@@ -116,33 +116,17 @@ namespace PragmaScript
             return rootScope;
         }
 
-        public static Node Parse(Token[] tokens, Scope scope)
+        public static FileRoot ParseFile(Token[] tokens, Scope scope)
         {
             int pos = 0;
             var current = tokens[pos];
 
-            Node root = null;
-#if !DEBUG
-            try
-#endif
-            {
-                ParseState ps;
-                ps.pos = 0;
-                ps.tokens = tokens;
-                // perform AST generation pass
-                ps.SkipWhitespace();
-                root = parseRoot(ref ps, scope);
-             
-            }
-#if !DEBUG
-            catch (ParserError error)
-            {
-                Console.WriteLine();
-                Console.Error.WriteLine(error.Message);
-                Console.WriteLine();
-                return null;
-            }
-#endif
+            ParseState ps;
+            ps.pos = 0;
+            ps.tokens = tokens;
+            // perform AST generation pass
+            ps.SkipWhitespace();
+            var root = parseFileRoot(ref ps, scope) as FileRoot;
 
             return root;
         }

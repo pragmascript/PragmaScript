@@ -29,8 +29,8 @@ namespace PragmaScript
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 3;
 
-            CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
-            // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
+            // CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
+            CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
 #endif
             if (CompilerOptions.inputFilenames.Count == 0)
             {
@@ -40,16 +40,16 @@ namespace PragmaScript
             try
             {
                 
-                var tokens = new List<Token>();
-                for (int i = 0; i <  CompilerOptions.inputFilenames.Count; ++i)
+                var tokens = new List<Token[]>();
+                foreach (var fn in CompilerOptions.inputFilenames)
                 {
-                    var f = CompilerOptions.inputFilenames[i];
-                    var text = File.ReadAllText(f);
-                    var filename = Path.GetFileName(f);
-                    bool last = (i >= CompilerOptions.inputFilenames.Count - 1);
+                    var text = File.ReadAllText(fn);
+                    var filename = Path.GetFileName(fn);
                     try
                     {
-                        Token.Tokenize(tokens, text, filename, last);
+                        List<Token> ts = new List<Token>(); ;
+                        Token.Tokenize(ts, text, filename);
+                        tokens.Add(ts.ToArray());
                     }
                     catch(LexerError e)
                     {
@@ -178,18 +178,36 @@ namespace PragmaScript
         }
 
 #endif
-        static void compile(List<Token> tokens)
+        static void compile(List<Token[]> tokens)
         {
 
             
             Console.WriteLine("parsing...");
 
             var scope = AST.MakeRootScope();
-            var root = AST.Parse(tokens.ToArray(), scope);
-            if (root == null)
+            var root = new AST.ProgramRoot(Token.Undefined, scope);
+            foreach (var pt in tokens)
             {
-                return;
+                AST.FileRoot fr = null;
+#if !DEBUG
+                try
+#endif
+                {
+                    fr = AST.ParseFile(pt, scope);
+                }
+#if !DEBUG
+                catch (ParserError error)
+                {
+                    Console.Error.WriteLine(error.Message);
+                }
+#endif
+                if (fr == null)
+                {
+                    return;
+                }
+                root.files.Add(fr);
             }
+            
 #if false
             Console.WriteLine("rendering graph...");
             renderGraph(root, "");
@@ -205,7 +223,7 @@ namespace PragmaScript
 #else
             try
             {
-                tc.CheckTypes(root as AST.Root);
+                tc.CheckTypes(root);
             }
             catch (Exception e)
             {

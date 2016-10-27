@@ -128,11 +128,11 @@ namespace PragmaScript
         }
 
 
-        public void CheckTypes(AST.Root root)
+        public void CheckTypes(AST.ProgramRoot root)
         {
-            foreach (var n in root.declarations)
+            foreach (var fr in root.files)
             {
-                checkTypeDynamic(n);
+                checkTypeDynamic(fr);
             }
 
             HashSet<AST.Node> blocker = new HashSet<AST.Node>();
@@ -146,6 +146,15 @@ namespace PragmaScript
                 throw new ParserError($"Cannot resolve type of \"{n}\"", n.token);
             }
 
+        }
+
+        public void checkType(AST.FileRoot node)
+        {
+            foreach (var n in node.declarations)
+            {
+                checkTypeDynamic(n);
+            }
+            resolve(node, FrontendType.none);
         }
 
         void checkType(AST.Block node)
@@ -822,6 +831,11 @@ namespace PragmaScript
         void checkType(AST.TypeString node)
         {
             var base_t_def = node.scope.GetType(node.typeString);
+            if (base_t_def == null)
+            {
+                throw new ParserError($"Unknown type: \"{node.typeString}\"", node.token);
+            }
+
             FrontendType base_t = null;
             if (base_t_def.type != null)
             {

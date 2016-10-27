@@ -16,7 +16,7 @@ let resize_dib_section = fun (window: umm) => void {
 
 	bitmap_info.header.biSize = (u32)40;
 	bitmap_info.header.biWidth = width;
-	bitmap_info.header.biHeight = height;
+	bitmap_info.header.biHeight = -height;
 	bitmap_info.header.biPlanes = (u16)1;
 	bitmap_info.header.biBitCount = (u16)32;
 	bitmap_info.header.biCompression = (u32)BI_RGB;
@@ -24,12 +24,26 @@ let resize_dib_section = fun (window: umm) => void {
 	if ((umm)bitmap_memory != (umm)nullptr) {
 		VirtualFree(bitmap_memory, null, MEM_RELEASE);
 	}
-
-	
 	
 	var bitmap_size = 4 * width * height;
 	bitmap_memory = VirtualAlloc(nullptr, (umm)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
 
+	var row = bitmap_memory;
+	var pitch = width * 4;
+	for (var y = 0; y < bitmap_height; ++y) {
+		var pixel = (u8*)row;
+		for (var x = 0; x < bitmap_width; ++x) {
+			*pixel = (u8)255;
+			++pixel;
+			*pixel = (u8)0;
+			++pixel;
+			*pixel = (u8)0;
+			++pixel;
+			*pixel = (u8)0;
+			++pixel;
+		}
+		row += pitch;
+	}
 }
 
 let update_window = 
@@ -42,25 +56,16 @@ fun (device_context: umm, window_rect: RECT*, x: i32, y: i32, width: i32, height
 	// 	DIB_RGB_COLORS, SRCCOPY
 	// 	);
 
+	
 
 	var window_width = window_rect.right - window_rect.left;
 	var window_height = window_rect.bottom - window_rect.top;
-
-	print_string("\nwindow_width: ");
-	print_i32(window_width);
-	print_string("\nwindow_height: ");
-	print_i32(window_height);
-
-
-    // StretchDIBits(device_context,
-	// 	0, 0, bitmap_width, bitmap_height,
-	// 	0, 0, window_width, window_height,
-	// 	bitmap_memory, &bitmap_info,
-	// 	DIB_RGB_COLORS, SRCCOPY
-	// 	);
-
-
-
+    StretchDIBits(device_context,
+		0, 0, bitmap_width, bitmap_height,
+		0, 0, window_width, window_height,
+		bitmap_memory, &bitmap_info,
+		DIB_RGB_COLORS, SRCCOPY
+		);
 }
 
 let main_window_callback =
