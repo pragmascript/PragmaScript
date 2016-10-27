@@ -2,23 +2,18 @@
 
 var bitmap_info = BITMAPINFO { };
 var bitmap_memory = nullptr;
-var bitmap_handle = null;
-var bitmap_device_context = null;
+
+var bitmap_width = 0;
+var bitmap_height = 0;
 
 let resize_dib_section = fun (window: umm) => void {
 	var rect = RECT {};
 	GetClientRect(window, &rect); 
 	var width = rect.right - rect.left;
 	var height = rect.bottom - rect.top;
+	bitmap_width = width;
+	bitmap_height = height;
 
-	// TODO: free our DIBSection
-	if (bitmap_handle != null)
-	{
-		DeleteObject(bitmap_handle);
-	} else {
-		bitmap_device_context = CreateCompatibleDC((umm)0); 	
-	}
-	 
 	bitmap_info.header.biSize = (u32)40;
 	bitmap_info.header.biWidth = width;
 	bitmap_info.header.biHeight = height;
@@ -26,32 +21,46 @@ let resize_dib_section = fun (window: umm) => void {
 	bitmap_info.header.biBitCount = (u16)32;
 	bitmap_info.header.biCompression = (u32)BI_RGB;
 
-	// NOTE: should get auto set to zero since its a global variable 
-	// bitmap_info.header.biSizeImage = (u32)0;
-	// bitmap_info.header.biXPelsPerMeter = 0;
-	// bitmap_info.header.biYPelsPermeter = 0;
-	// bitmap_info.header.biCrlUsed = (u32)0;
-	// bitmap_info.header.biCrlImportant = (u32)0;
+	if ((umm)bitmap_memory != (umm)nullptr) {
+		VirtualFree(bitmap_memory, null, MEM_RELEASE);
+	}
 
-	bitmap_handle = CreateDIBSection(
-		bitmap_device_context, &bitmap_info,
-		DIB_RGB_COLORS,
-		&bitmap_memory,
-		null,
-		(u32)0
-	);
+	
+	
+	var bitmap_size = 4 * width * height;
+	bitmap_memory = VirtualAlloc(nullptr, (umm)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
+
 }
 
-
 let update_window = 
-fun (context: umm, x: i32, y: i32, width: i32, height: i32) => void {
-	StretchDIBits(context,
-		x, y, width, height,
-		x, y, width, height,
-		bitmap_memory, &bitmap_info,
-		DIB_RGB_COLORS,
-		(u32)0
-		);
+fun (device_context: umm, window_rect: RECT*, x: i32, y: i32, width: i32, height: i32) => void {
+
+	// StretchDIBits(device_context,
+	// 	x, y, width, height,
+	// 	x, y, width, height,
+	// 	bitmap_memory, &bitmap_info,
+	// 	DIB_RGB_COLORS, SRCCOPY
+	// 	);
+
+
+	var window_width = window_rect.right - window_rect.left;
+	var window_height = window_rect.bottom - window_rect.top;
+
+	print_string("\nwindow_width: ");
+	print_i32(window_width);
+	print_string("\nwindow_height: ");
+	print_i32(window_height);
+
+
+    // StretchDIBits(device_context,
+	// 	0, 0, bitmap_width, bitmap_height,
+	// 	0, 0, window_width, window_height,
+	// 	bitmap_memory, &bitmap_info,
+	// 	DIB_RGB_COLORS, SRCCOPY
+	// 	);
+
+
+
 }
 
 let main_window_callback =
@@ -74,7 +83,7 @@ fun (window: umm, message: u32, w_param: umm, l_param: umm) => umm {
 		var x = paint.rcPaint.left;
 		var y = paint.rcPaint.top;
 
-		update_window(context, x, y, width, height);
+		update_window(context, &paint.rcPaint, x, y, width, height);
 
 		EndPaint(window, &paint);
 	} else {
@@ -135,4 +144,3 @@ let main = fun () => void {
 	}
     ExitProcess((u32)0);
 }
-

@@ -10,12 +10,29 @@ namespace PragmaScript
     partial class Backend
     {
 
+        static bool isConstantVariableDefinition(AST.Node node)
+        {
+
+            if (node is AST.VariableDefinition)
+            {
+                if ((node as AST.VariableDefinition).variable.isConstant)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public void Visit(AST.Root node)
         {
             // visit function definitions make prototypes
             foreach (var decl in node.declarations)
             {
 
+                if (isConstantVariableDefinition(decl))
+                {
+                    Visit(decl);
+                }
                 if (decl is AST.FunctionDefinition)
                 {
                     Visit(decl as AST.FunctionDefinition, proto: true);
@@ -40,12 +57,18 @@ namespace PragmaScript
             // TODO: call main:
             foreach (var decl in node.declarations)
             {
+
+                // HACK: DO a prepass with sorting
                 if (decl is AST.FunctionDefinition)
                 {
                     if ((decl as AST.FunctionDefinition).external)
                     {
                         continue;
                     }
+                }
+                if (isConstantVariableDefinition(decl))
+                {
+                    continue;
                 }
                 Visit(decl);
             }
@@ -84,8 +107,6 @@ namespace PragmaScript
             var result = node.value ? Const.True : Const.False;
             valueStack.Push(result);
         }
-
-
 
         public static string ParseString(string txt, Token t)
         {
@@ -586,7 +607,7 @@ namespace PragmaScript
                 {
                     result = LLVM.BuildIntToPtr(builder, v, targetType, "int_to_ptr");
                 }
-                else if(LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMPointerTypeKind)
+                else if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMPointerTypeKind)
                 {
                     result = LLVM.BuildBitCast(builder, v, targetType, "pointer_bit_cast");
                 }
@@ -709,7 +730,7 @@ namespace PragmaScript
                 if (node.expression is AST.StructConstructor)
                 {
                     var sc = node.expression as AST.StructConstructor;
-                    
+
                     var structType = getTypeRef(typeChecker.GetNodeType(sc));
 
                     var v = LLVM.AddGlobal(mod, structType, node.variable.name);
@@ -770,11 +791,23 @@ namespace PragmaScript
             LLVM.BuildStore(builder, result, target);
         }
 
+
         public void Visit(AST.Block node)
         {
+            // HACK: DO a prepass with sorting
             foreach (var s in node.statements)
             {
-                Visit(s);
+                if (isConstantVariableDefinition(s))
+                {
+                    Visit(s);
+                }
+            }
+            foreach (var s in node.statements)
+            {
+                if (!isConstantVariableDefinition(s))
+                {
+                    Visit(s);
+                }
             }
         }
 
@@ -803,6 +836,7 @@ namespace PragmaScript
                 varName = node.vd.name;
             }
 
+
             if (nt is FrontendFunctionType)
             {
                 v = functions[varName];
@@ -811,8 +845,8 @@ namespace PragmaScript
             {
                 v = variables[varName];
             }
-            
-            
+
+
             var v_type = typeToString(LLVM.TypeOf(v));
 
 
@@ -839,6 +873,7 @@ namespace PragmaScript
             }
             var ltype = LLVM.TypeOf(result);
 
+            var ltype_string = typeToString(ltype);
 
             switch (node.inc)
             {
@@ -1160,7 +1195,7 @@ namespace PragmaScript
 
                 var funType = LLVM.FunctionType(returnType, out par[0], (uint)fun.parameters.Count, Const.FalseBool);
                 var function = LLVM.AddFunction(mod, node.funName, funType);
-                
+
                 LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i)
                 {
@@ -1264,36 +1299,58 @@ namespace PragmaScript
             var v = valueStack.Pop();
             var v_type = typeToString(LLVM.TypeOf(v));
 
-            var s = typeChecker.GetNodeType(node.left) as FrontendStructType;
+            FrontendStructType s;
+            if (node.IsArrow)
+            {
+                v = LLVM.BuildLoad(builder, v, "struct_arrow_load");
+                s = (typeChecker.GetNodeType(node.left) as FrontendPointerType).elementType
+                    as FrontendStructType;
+            }
+            else
+            {
+                s = typeChecker.GetNodeType(node.left) as FrontendStructType;
+            }
             var idx = s.GetFieldIndex(node.fieldName);
-            var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
-
             LLVMValueRef gep;
 
+
+
             // is not function argument?
-            if (LLVM.IsAArgument(v).Pointer == IntPtr.Zero)
+            // assume that when its _NOT_ a pointer then it will be a function argument
+            if (LLVM.IsAArgument(v).Pointer == IntPtr.Zero && LLVM.GetTypeKind(LLVM.TypeOf(v)) == LLVMTypeKind.LLVMPointerTypeKind)
             {
+                LLVMValueRef result;
+                var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
                 gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
 
-                var result = gep;
+                result = gep;
                 if (!node.returnPointer)
                 {
                     result = LLVM.BuildLoad(builder, gep, "struct_field");
                 }
                 valueStack.Push(result);
+
                 return;
             }
             else
             {
-                uint[] uindices = { (uint)idx };
-                var load = LLVM.BuildExtractValue(builder, v, (uint)idx, "struct_field_extract");
-                var result = load;
-
-                // TODO: what happens here???
-                if (node.returnPointer)
+                LLVMValueRef result;
+                if (node.IsArrow)
                 {
-                    throw new NotImplementedException();
+                    var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
+                    result = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
+                    if (!node.returnPointer)
+                    {
+                        result = LLVM.BuildLoad(builder, result, "struct_arrow");
+                    }
+                    var result_type_name = typeToString(LLVM.TypeOf(result));
                 }
+                else
+                {
+                    uint[] uindices = { (uint)idx };
+                    result = LLVM.BuildExtractValue(builder, v, (uint)idx, "struct_field_extract");
+                }
+
                 valueStack.Push(result);
                 return;
             }

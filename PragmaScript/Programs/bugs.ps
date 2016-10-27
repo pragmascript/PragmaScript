@@ -1,16 +1,4 @@
-﻿// TODO: 
-// var result = i8[] { 11 }; // DEADLOCKS typechecker
-// for (var i = 0; i < result.length; ++i) {
-// 		result[i] = (int8)i;
-// }
-
-// TODO: uninitialized array has wrong format.
-// var result = int8[] { 11 };
-// if (value < 0) {
-// 	result[0] = (int8)45;
-// }
-
-// let sphere = struct
+﻿// let sphere = struct
 // {
 // 	pos:    vec;
 // 	radius: float32;
@@ -18,130 +6,26 @@
 // var s = sphere{};
 // s.pos = vec{1.0,2.0,3.0};
 
-
-// var console_output_handle = GetStdHandle(-11);
-// var console_input_handle = GetStdHandle(-10);
-
-// let print_string = (s: string) => 
-// {
-//  	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
-// }
-
-
-// let abs_i32 = (value: i32) => 
-// {
-//   if (value >= 0) {
-//     return value;
-//   } else {
-//     return -value;
-//   }
-// }
-
-// let print_i32 = (value: i32) => 
-// {
-// 	if (value == 0) {
-// 		print_string("0");
-// 		return;
-// 	}
-// 	var x = value;
-// 	var temp = "\0\0\0\0\0\0\0\0\0\0";
-// 	var count = 0;
-// 	for (var i = 0; i < temp.length; ++i) {
-// 		if (x != 0) {
-// 			var d = abs_i32(x % 10);
-// 			temp[i] = (i8)(d + 48);
-// 			x = x / 10;
-// 			count++;
-// 		} else {
-// 			break;
-// 		}
-// 	}
-// 	var offset = 0;
-// 	if (value < 0) {
-// 		offset = 1;
-// 	}
-// 	var result = "\0\0\0\0\0\0\0\0\0\0\0";
-// 	if (value < 0) {
-// 		result[0] = (i8)45;
-// 	}
-// 	for (var i = 0; i < count; ++i) {
-// 		result[i+offset] = temp[count - i - 1];
-// 	}
-// 	result.length = count + offset;
-// 	print_string(result);
-// }
-
-// let print_f32 = (value: f32) => 
-// {
-// 	var int_part = (i32)value;
-// 	var float_part = (i32)((value - (f32)int_part) * 1000.0);
-// 	print_i32(int_part);
-// 	print_string(".");
-// 	print_i32(float_part);
-// }
-
-// let vec = struct
-// {
-// 	x: f32;
-// 	y: f32;
-// 	z: f32;
-// }
-
-// let print_vec = (v: vec) => 
-// {
-// 	print_string("(");
-// 	print_f32(v.x);
-// 	print_string(", ");
-// 	print_f32(v.y);
-// 	print_string(", ");
-// 	print_f32(v.z);
-// 	print_string(")");
-// }
-
-// let circle = struct
-// {
-// 	pos: vec;
-// 	radius : f32;
-// }
-
-// let make_vec = (x: f32, y: f32, z: f32) => 
-// {
-// 	var result = vec {x, y, z};
-// 	return result;
-
-// 	// WHY TF DOES THIS DO THIS???
-// 	// return vec {x, y, z};
-// }
-
-// let print_vec_ptr = (v: vec*) =>
-// {
-// 	print_vec(*v);
-// }
-
-let foo = struct 
+let vec = struct 
 {
-	bar : i32;
+	x: f32;
+	y: f32;
+	z: f32;
 }
 
-let main = () => 
+let sphere = struct
 {
-	var f = foo{};
-	var y = f.bar;
-	// print_string("hello world!\n");
+	point: vec;
+	radius: f32;
+}
 
-	// var arr = [-1, 3, 11];
-	// var x = arr[1];
-	// print_i32(x);
-	// print_string("\n");
+let main = fun () => void {
+	var v = vec {1.0, 2.0, 3.0};
+	var vp = &v;
+	print_i32((i32)vp.y);
+	print_string("\n");
+}
 
-	// var v = vec {-1.0, 12.0, 88.0 };
-	// var vx = v.x;
-	// print_f32(vx);
-	
-	// print_string("\n");
-
-	// var vecs = [make_vec(1.0, 2.0, 3.0), make_vec(0.1, 0.2, 0.3)];
-	// print_f32(vecs[1].x);
-	// print_string("\n");
-	// print_vec_ptr(vecs.data + 0);
+let foo = fun (s: sphere) => void {
+	print_i32((i32)s.point.x);
 }

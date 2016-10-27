@@ -513,6 +513,7 @@ namespace PragmaScript
         {
             public Node left;
             public string fieldName;
+            public bool IsArrow = false;
 
             public bool returnPointer { get; set; }
 
@@ -528,7 +529,7 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return  "." + fieldName + (returnPointer ? " (p)": "");
+                return (IsArrow ? "->" : ".") + fieldName + (returnPointer ? " (p)": "");
             }
         }
 

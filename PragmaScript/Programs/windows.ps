@@ -20,7 +20,12 @@ let BLACKNESS = (u32)66;
 let SRCCOPY = (u32)13369376;
 let DIB_RGB_COLORS = (u32)0;
 let BI_RGB = (u32)0;
-
+let MEM_COMMIT     = (u32)0x00001000;
+let MEM_RESERVE    = (u32)0x00002000;
+let MEM_RESET      = (u32)0x00008000;
+let MEM_RESET_UNDO = (u32)0x10000000;
+let PAGE_READWRITE = (u32)0x04;
+let MEM_RELEASE = (u32)0x8000;
 
 let WNDCLASSEX = struct {
 	cbSize: u32;
@@ -87,8 +92,7 @@ let RGBQUAD = struct {
   reserved: u8;
 }
 
-let BITMAPINFO = struct 
-{
+let BITMAPINFO = struct {
 	header: BITMAPINFOHEADER;
 	rgb: RGBQUAD;
 }
@@ -135,7 +139,8 @@ let CreateDIBSection = fun
 	dwOffset: u32
 ) => umm;
 
-let StretchDIBits = fun (
+let StretchDIBits = fun 
+(
   hdc: umm,
   xDest: i32,
   yDest: i32,
@@ -165,3 +170,19 @@ let PatBlt = fun
 let DeleteObject = fun (obj: umm) => i32;
 let CreateCompatibleDC = fun (hdc: umm) => umm;
 let ReleaseDC = fun (hWnd: umm, hdc: umm) => i32;
+let GetCompatibleDC = fun (hdc: umm) => umm;
+
+let VirtualAlloc = fun 
+(
+  address: i8*,
+  size: umm,
+  allocation_type: u32,
+  protect: u32
+) => i8*;
+
+let VirtualFree = fun
+(
+  address: i8*,
+  size: umm,
+  free_type: u32
+) => i32;

@@ -28,7 +28,9 @@ namespace PragmaScript
 #if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 3;
-            CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\win32_handmade.ps", @"Programs\windows.ps", @"Programs\preamble.ps" });
+
+            // CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
+            CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
 #endif
             if (CompilerOptions.inputFilenames.Count == 0)
             {
@@ -188,7 +190,7 @@ namespace PragmaScript
             {
                 return;
             }
-#if FALSE
+#if false
             Console.WriteLine("rendering graph...");
             renderGraph(root, "");
 #endif
@@ -198,7 +200,7 @@ namespace PragmaScript
             var tc = new TypeChecker();
 
             bool success = true;
-#if DEBUG
+#if false
             tc.CheckTypes(root as AST.Root);
 #else
             try

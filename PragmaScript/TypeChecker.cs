@@ -614,8 +614,20 @@ namespace PragmaScript
                 var st = lt as FrontendStructType;
                 if (st == null)
                 {
+                    if (lt is FrontendPointerType)
+                    {
+                        st = (lt as FrontendPointerType).elementType as FrontendStructType;
+                        if (st != null)
+                        {
+                            node.IsArrow = true;
+                        }
+                    }
+                }
+                if (st == null)
+                {
                     throw new ParserError("left side is not a struct type", node.token);
                 }
+                
                 var field = st.GetField(node.fieldName);
                 if (field == null)
                 {
