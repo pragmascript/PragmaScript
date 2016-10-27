@@ -1302,7 +1302,6 @@ namespace PragmaScript
             FrontendStructType s;
             if (node.IsArrow)
             {
-                v = LLVM.BuildLoad(builder, v, "struct_arrow_load");
                 s = (typeChecker.GetNodeType(node.left) as FrontendPointerType).elementType
                     as FrontendStructType;
             }
@@ -1319,6 +1318,10 @@ namespace PragmaScript
             // assume that when its _NOT_ a pointer then it will be a function argument
             if (LLVM.IsAArgument(v).Pointer == IntPtr.Zero && LLVM.GetTypeKind(LLVM.TypeOf(v)) == LLVMTypeKind.LLVMPointerTypeKind)
             {
+                if (node.IsArrow)
+                {
+                    v = LLVM.BuildLoad(builder, v, "struct_arrow_load");
+                }
                 LLVMValueRef result;
                 var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
                 gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
