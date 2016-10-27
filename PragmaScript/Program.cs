@@ -152,6 +152,9 @@ namespace PragmaScript
         {
             if (root == null)
                 return;
+
+            var filename = Path.GetFileNameWithoutExtension(root.token.filename) + ".png";
+
             var g = getRenderGraph(Graph.Undirected, root, Guid.NewGuid().ToString());
             //g = g.Add(AttributeStatement.Graph.Set("label", label))
             //    .Add(AttributeStatement.Graph.Set("labeljust", "l"))
@@ -164,7 +167,7 @@ namespace PragmaScript
             if (Directory.Exists(gv_path))
             {
                 var renderer = new Shields.GraphViz.Components.Renderer(gv_path);
-                using (Stream file = File.Create("graph.png"))
+                using (Stream file = File.Create(filename))
                 {
                     AsyncHelper.RunSync(() =>
                         renderer.RunAsync(g, file, Shields.GraphViz.Services.RendererLayouts.Dot, Shields.GraphViz.Services.RendererFormats.Png, CancellationToken.None)
@@ -207,10 +210,14 @@ namespace PragmaScript
                 }
                 root.files.Add(fr);
             }
-            
-#if false
+
+#if DEBUG
             Console.WriteLine("rendering graph...");
-            renderGraph(root, "");
+            foreach (var fr in root.files)
+            {
+                renderGraph(fr, "");
+            }
+            
 #endif
 
             Console.WriteLine("type checking...");

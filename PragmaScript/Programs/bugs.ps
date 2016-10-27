@@ -26,9 +26,7 @@ let main = fun () => void {
 	var x = 17;
 	var xp = &x;
 
-	vp* = 17.0;
-
-	print_i32((i32)(vp*).y);
+	print_i32((i32)(*xp));
 	print_string("\n");
 }
 

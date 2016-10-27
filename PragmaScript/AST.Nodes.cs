@@ -381,18 +381,25 @@ namespace PragmaScript
             }
             public override string ToString()
             {
+
+                string name = variableName;
+                if (name == null)
+                {
+                    name = vd.name;
+                }
+
                 switch (inc)
                 {
                     case Incrementor.None:
-                        return variableName + (returnPointer ? " (p)" : "");
+                        return name + (returnPointer ? " (p)" : "");
                     case Incrementor.preIncrement:
-                        return "++" + variableName;
+                        return "++" + name;
                     case Incrementor.preDecrement:
-                        return "--" + variableName;
+                        return "--" + name;
                     case Incrementor.postIncrement:
-                        return variableName + "++";
+                        return name + "++";
                     case Incrementor.postDecrement:
-                        return variableName + "--";
+                        return name + "--";
                     default:
                         throw new InvalidCodePath();
                 }
@@ -622,15 +629,17 @@ namespace PragmaScript
         public class BinOp : Node
         {
             public enum BinOpType { Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Remainder }
-            public BinOpType type;
-
-            public Node left;
-            public Node right;
-
-            public BinOp(Token t, Scope s)
-                : base(t, s)
-            {
-            }
+            // public enum AssignmentType { None, Assignment, MultiplyEquals, DivideEquals, RemainderEquals, PlusEquals, MinusEquals, LeftShiftEquals, RightShiftEquals, AndEquals, NotEquals, OrEquals }
+                                               
+            public BinOpType type;             
+                                               
+            public Node left;                  
+            public Node right;                 
+                                               
+            public BinOp(Token t, Scope s)     
+                : base(t, s)                   
+            {                                  
+            }                                         
             public void SetTypeFromToken(Token next)
             {
                 switch (next.type)
@@ -674,7 +683,7 @@ namespace PragmaScript
                     case Token.TokenType.Equal:
                         type = BinOpType.Equal;
                         break;
-                    case Token.TokenType.NotEqual:
+                    case Token.TokenType.NotEquals:
                         type = BinOpType.NotEqual;
                         break;
                     case Token.TokenType.Greater:
@@ -689,6 +698,20 @@ namespace PragmaScript
                     case Token.TokenType.LessEqual:
                         type = BinOpType.LessEqual;
                         break;
+                    //case Token.TokenType.Assignment:
+                    //case Token.TokenType.MultiplyEquals:
+                    //case Token.TokenType.DivideEquals:
+                    //case Token.TokenType.RemainderEquals:
+                    //case Token.TokenType.PlusEquals:
+                    //case Token.TokenType.MinusEquals:
+                    //case Token.TokenType.LeftShiftEquals:
+                    //case Token.TokenType.RightShiftEquals:
+                    //case Token.TokenType.AndEquals:
+                    //case Token.TokenType.XorEquals:
+                    //case Token.TokenType.OrEquals:
+
+                    //    break;
+
                     default:
                         throw new ParserError("Invalid token type for binary operation", next);
                 }

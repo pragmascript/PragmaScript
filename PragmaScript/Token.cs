@@ -41,7 +41,7 @@ namespace PragmaScript
             Add, Subtract, Multiply, Divide, Remainder, Semicolon, Comma, Return,
             LeftShift, RightShift,
             ConditionalOR, ConditionalAND, LogicalOR, LogicalXOR, LogicalAND,
-            Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
+            Equal, NotEquals, Less, Greater, LessEqual, GreaterEqual,
             Undefined,
             LogicalNOT,
             Complement,
@@ -65,13 +65,13 @@ namespace PragmaScript
             PlusEquals,
             RightShiftEquals,
             LeftShiftEquals,
-            OREquals,
+            OrEquals,
             DivideEquals,
-            ANDEquals,
+            AndEquals,
             RemainderEquals,
             MultiplyEquals,
             MinusEquals,
-            XOREquals,
+            XorEquals,
             Continue,
             Break,
             While,
@@ -139,7 +139,7 @@ namespace PragmaScript
             operators.Add("^", TokenType.LogicalXOR);
             operators.Add("&", TokenType.LogicalAND);
             operators.Add("==", TokenType.Equal);
-            operators.Add("!=", TokenType.NotEqual);
+            operators.Add("!=", TokenType.NotEquals);
             operators.Add(">", TokenType.Greater);
             operators.Add("<", TokenType.Less);
             operators.Add(">=", TokenType.GreaterEqual);
@@ -155,9 +155,9 @@ namespace PragmaScript
             operators.Add("*=", TokenType.MultiplyEquals);
             operators.Add("/=", TokenType.DivideEquals);
             operators.Add("%=", TokenType.RemainderEquals);
-            operators.Add("&=", TokenType.ANDEquals);
-            operators.Add("|=", TokenType.OREquals);
-            operators.Add("^=", TokenType.XOREquals);
+            operators.Add("&=", TokenType.AndEquals);
+            operators.Add("|=", TokenType.OrEquals);
+            operators.Add("^=", TokenType.XorEquals);
             operators.Add("<<=", TokenType.LeftShiftEquals);
             operators.Add(">>=", TokenType.RightShiftEquals);
             operators.Add("[]", TokenType.ArrayTypeBrackets);
@@ -194,10 +194,10 @@ namespace PragmaScript
                 case TokenType.PlusEquals:
                 case TokenType.RightShiftEquals:
                 case TokenType.LeftShiftEquals:
-                case TokenType.XOREquals:
-                case TokenType.OREquals:
+                case TokenType.XorEquals:
+                case TokenType.OrEquals:
                 case TokenType.DivideEquals:
-                case TokenType.ANDEquals:
+                case TokenType.AndEquals:
                 case TokenType.RemainderEquals:
                 case TokenType.MultiplyEquals:
                 case TokenType.MinusEquals:

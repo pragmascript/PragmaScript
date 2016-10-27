@@ -125,74 +125,64 @@ namespace PragmaScript
         static Node parseStatement(ref ParseState ps, Scope scope)
         {
             var result = default(Node);
-
             var current = ps.CurrentToken();
-            if (current.type == Token.TokenType.Var)
-            {
-                result = parseVar(ref ps, scope);
-            }
-            if (current.type == Token.TokenType.Return)
-            {
-                result = parseReturn(ref ps, scope);
-            }
-            if (current.type == Token.TokenType.Identifier)
-            {
-                var next = ps.PeekToken(tokenMustExist: true, skipWS: true);
-                switch (next.type)
-                {
-                    case Token.TokenType.OpenBracket:
-                        result = parseFunctionCall(ref ps, scope);
-                        break;
-                    case Token.TokenType.Increment:
-                    case Token.TokenType.Decrement:
-                        result = parseVariableReference(ref ps, scope);
-                        break;
-                    case Token.TokenType.Dot:
-                    case Token.TokenType.OpenSquareBracket:
-                        result = parseAssignment(ref ps, scope);
-                        break;
-                    default:
-                        if (next.isAssignmentOperator())
-                            result = parseAssignment(ref ps, scope);
-                        else
-                            throw new ParserErrorExpected("assignment operator, function call, or increment/decrement", next.type.ToString(), next);
-                        break;
-                }
-            }
-
+            var next = ps.PeekToken(tokenMustExist: true, skipWS: true);
             bool ignoreSemicolon = false;
-            if (current.type == Token.TokenType.If)
+            switch (current.type)
             {
-                result = parseIf(ref ps, scope);
-                ignoreSemicolon = true;
-            }
+                case Token.TokenType.Var:
+                    result = parseVar(ref ps, scope);
+                    break;
+                case Token.TokenType.Identifier:
 
-            if (current.type == Token.TokenType.For)
-            {
-                result = parseForLoop(ref ps, scope);
-                ignoreSemicolon = true;
-            }
-
-            if (current.type == Token.TokenType.While)
-            {
-                result = parseWhileLoop(ref ps, scope);
-                ignoreSemicolon = true;
-            }
-
-            // TODO: make this LET thing work for variables as well
-            if (current.type == Token.TokenType.Let)
-            {
-                result = parseLet(ref ps, scope, ref ignoreSemicolon);
-            }
-            // TODO: check if inside loo
-            if (current.type == Token.TokenType.Continue)
-            {
-                result = new ContinueLoop(current, scope);
-            }
-            // TODO: check if inside loop
-            if (current.type == Token.TokenType.Break)
-            {
-                result = new BreakLoop(current, scope);
+                    switch (next.type)
+                    {
+                        case Token.TokenType.OpenBracket:
+                            result = parseFunctionCall(ref ps, scope);
+                            break;
+                        case Token.TokenType.Increment:
+                        case Token.TokenType.Decrement:
+                            result = parseVariableReference(ref ps, scope);
+                            break;
+                        case Token.TokenType.Dot:
+                        case Token.TokenType.OpenSquareBracket:
+                            result = parseAssignment(ref ps, scope);
+                            break;
+                        default:
+                            if (next.isAssignmentOperator())
+                                result = parseAssignment(ref ps, scope);
+                            else
+                                throw new ParserErrorExpected("assignment operator, function call, or increment/decrement", next.type.ToString(), next);
+                            break;
+                    }
+                    break;
+                case Token.TokenType.Return:
+                    result = parseReturn(ref ps, scope);
+                    break;
+                case Token.TokenType.If:
+                    result = parseIf(ref ps, scope);
+                    ignoreSemicolon = true;
+                    break;
+                case Token.TokenType.For:
+                    result = parseForLoop(ref ps, scope);
+                    ignoreSemicolon = true;
+                    break;
+                case Token.TokenType.While:
+                    result = parseWhileLoop(ref ps, scope);
+                    ignoreSemicolon = true;
+                    break;
+                case Token.TokenType.Let:
+                    result = parseLet(ref ps, scope, ref ignoreSemicolon);
+                    break;
+                case Token.TokenType.Continue:
+                    result = new ContinueLoop(current, scope);
+                    break;
+                case Token.TokenType.Break:
+                    result = new BreakLoop(current, scope);
+                    break;
+                default:
+                    // result = parseBinOp(ref ps, scope);
+                    break;
             }
 
             if (!ignoreSemicolon)
@@ -554,16 +544,16 @@ namespace PragmaScript
                 case Token.TokenType.LeftShiftEquals:
                     compound.type = BinOp.BinOpType.LeftShift;
                     break;
-                case Token.TokenType.XOREquals:
+                case Token.TokenType.XorEquals:
                     compound.type = BinOp.BinOpType.LogicalXOR;
                     break;
-                case Token.TokenType.OREquals:
+                case Token.TokenType.OrEquals:
                     compound.type = BinOp.BinOpType.LogicalOR;
                     break;
                 case Token.TokenType.DivideEquals:
                     compound.type = BinOp.BinOpType.Divide;
                     break;
-                case Token.TokenType.ANDEquals:
+                case Token.TokenType.AndEquals:
                     compound.type = BinOp.BinOpType.LogicalAND;
                     break;
                 case Token.TokenType.RemainderEquals:
@@ -690,7 +680,7 @@ namespace PragmaScript
                         || tt == Token.TokenType.GreaterEqual;
                 case 6:
                     return tt == Token.TokenType.Equal
-                        || tt == Token.TokenType.NotEqual;
+                        || tt == Token.TokenType.NotEquals;
                 case 7:
                     return tt == Token.TokenType.LogicalAND;
                 case 8:
@@ -701,6 +691,21 @@ namespace PragmaScript
                     return tt == Token.TokenType.ConditionalAND;
                 case 11:
                     return tt == Token.TokenType.ConditionalOR;
+                case 12:
+                    // TODO: conditional ?: operator
+                    return false;
+                case 13:
+                    return tt == Token.TokenType.Assignment
+                        || tt == Token.TokenType.MultiplyEquals
+                        || tt == Token.TokenType.DivideEquals
+                        || tt == Token.TokenType.RemainderEquals
+                        || tt == Token.TokenType.PlusEquals
+                        || tt == Token.TokenType.MinusEquals
+                        || tt == Token.TokenType.LeftShiftEquals
+                        || tt == Token.TokenType.RightShiftEquals
+                        || tt == Token.TokenType.AndEquals
+                        || tt == Token.TokenType.XorEquals
+                        || tt == Token.TokenType.OrEquals;
                 default:
                     throw new InvalidCodePath();
 
