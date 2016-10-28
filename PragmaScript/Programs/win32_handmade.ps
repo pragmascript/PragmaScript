@@ -6,6 +6,26 @@ var bitmap_memory = nullptr;
 var bitmap_width = 0;
 var bitmap_height = 0;
 
+let render_weird_gradient = fun (x_offset: i32, y_offset: i32) => void {
+	var row = bitmap_memory;
+	var pitch = width * 4;
+	for (var y = 0; y < bitmap_height; ++y) {
+		var pixel = (u8*)row;
+		for (var x = 0; x < bitmap_width; ++x) {
+			*pixel = (u8)(x + x_offset);
+			++pixel;
+			*pixel = (u8)(y + y_offset);
+			++pixel;
+			var weird = (u8)((x + x_offset)^(y + y_offset)); 
+			*pixel = (u8)((x + x_offset)^(y + y_offset));
+			++pixel;
+			*pixel = (u8)(0);
+			++pixel;
+		}
+		row += pitch;
+	}
+}
+
 let resize_dib_section = fun (window: umm) => void {
 	var rect = RECT {};
 	GetClientRect(window, &rect); 
@@ -27,23 +47,6 @@ let resize_dib_section = fun (window: umm) => void {
 	
 	var bitmap_size = 4 * width * height;
 	bitmap_memory = VirtualAlloc(nullptr, (umm)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
-
-	var row = bitmap_memory;
-	var pitch = width * 4;
-	for (var y = 0; y < bitmap_height; ++y) {
-		var pixel = (u8*)row;
-		for (var x = 0; x < bitmap_width; ++x) {
-			*pixel = (u8)255;
-			++pixel;
-			*pixel = (u8)0;
-			++pixel;
-			*pixel = (u8)0;
-			++pixel;
-			*pixel = (u8)0;
-			++pixel;
-		}
-		row += pitch;
-	}
 }
 
 let update_window = 
@@ -97,7 +100,7 @@ fun (window: umm, message: u32, w_param: umm, l_param: umm) => umm {
 
 let init_window = fun () => void {
 	var class_name = "PragmaScriptWindowClass\0";
-	var window_name = "PragmaScript\0";
+	var window_name = "handmade-pragmascript\0";
 	
 	var instance = GetModuleHandleA(null);
 	var window_class = WNDCLASSEX {};
@@ -135,14 +138,13 @@ let main = fun () => void {
 	init_window();
 	running = true;
 	while (running) {
-		var message = MSG {};
-		var message_result = GetMessageA(&message, null, (u32)0, (u32)0);
-		if (message_result > 0) {
-			TranslateMessage(&message);
-			DispatchMessageA(&message);
-		}
-		else {
-			break;
+		var msg = MSG {};
+		while (PeekMessageA(&msg, null, (u32)0, (u32)0, PM_REMOVE) != 0) {
+			if (msg.message == WM_QUIT) {
+				running = false;
+			}
+			TranslateMessage(&msg);
+			DispatchMessageA(&msg);
 		}
 	}
     ExitProcess((u32)0);

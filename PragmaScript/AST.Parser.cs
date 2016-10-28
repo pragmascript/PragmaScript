@@ -18,6 +18,32 @@ namespace PragmaScript
                 return tokens[pos];
             }
 
+            public ParseState Peek(bool tokenMustExist = false, bool skipWS = true)
+            {
+                int tempPos = pos;
+                pos++;
+                if (skipWS)
+                {
+                    SkipWhitespace();
+                }
+
+                if (pos >= tokens.Length)
+                {
+                    if (tokenMustExist)
+                    {
+                        throw new ParserError("Missing next token", tokens[pos - 1]);
+                    }
+                    else
+                    {
+                        return this;
+                    }
+                }
+                ParseState result = this;
+                pos = tempPos;
+
+                return result;
+            }
+
             public Token PeekToken(bool tokenMustExist = false, bool skipWS = true)
             {
                 int tempPos = pos;
@@ -770,26 +796,38 @@ namespace PragmaScript
             var next = tempState.NextToken(tokenMustExist: false);
             // TODO: DO I REALLY NEED 2 LOOKAHEAD HERE?
             var nextNext = tempState.PeekToken();
+
+
             // handle type cast operator (T)x
             if (current.type == Token.TokenType.OpenBracket
                 && next.type == Token.TokenType.Identifier
                 // && nextNext.type == Token.TokenType.CloseBracket
                 )
             {
-                ps.NextToken();
-                var type = parseTypeString(ref ps, scope);
-                ps.ExpectNextToken(Token.TokenType.CloseBracket);
+                // there can be ambiguities here see: https://msdn.microsoft.com/en-us/library/aa691370(v=vs.71).aspx
+                // so we first speculatively assume its a cast expression
+                var temp = ps;
 
+                temp.NextToken();
+                var type = parseTypeString(ref temp, scope);
+                var peek = temp.PeekToken();
+                if (!(peek.type == Token.TokenType.CloseBracket))
+                {
+                    goto no_cast;
+                }
+
+                // now we assume its a cast
+                ps = temp;
+                ps.NextToken();
                 ps.NextToken();
                 var exp = parsePrimary(ref ps, scope);
-
                 var result = new TypeCastOp(current, scope);
                 // TODO: check if valid type (in type check phase?)
                 result.typeString = type;
                 result.expression = exp;
                 return result;
             }
-
+        no_cast:
             return parsePrimary(ref ps, scope);
         }
 

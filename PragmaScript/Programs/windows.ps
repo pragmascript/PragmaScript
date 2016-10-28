@@ -15,6 +15,7 @@ let WM_PAINT = (u32)15;
 let WM_CLOSE = (u32)16;
 let WM_DESTROY = (u32)2;
 let WM_SIZE = (u32)5;
+let WM_QUIT = (u32)18;
 let WHITENESS = (u32)16711778;
 let BLACKNESS = (u32)66;
 let SRCCOPY = (u32)13369376;
@@ -26,6 +27,7 @@ let MEM_RESET      = (u32)0x00008000;
 let MEM_RESET_UNDO = (u32)0x10000000;
 let PAGE_READWRITE = (u32)0x04;
 let MEM_RELEASE = (u32)0x8000;
+let PM_REMOVE = (u32)0x0001;
 
 let WNDCLASSEX = struct {
 	cbSize: u32;
@@ -123,6 +125,15 @@ let GetMessageA = fun
   wMsgFilterMin: u32,
   wMsgFilterMax: u32
 ) => i32;
+let PeekMessageA = fun
+(
+  message: MSG*,
+  hWnd: umm,
+  wMsgFilterMin: u32,
+  wMsgFilterMax: u32,
+  wRemoveMsg: u32
+) => i32;
+
 let TranslateMessage = fun (message: MSG*) => i32;
 let DispatchMessageA = fun (message: MSG*) => umm;
 let BeginPaint = fun (hwnd: umm, lpPaint: PAINTSTRUCT*) => umm;

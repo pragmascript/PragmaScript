@@ -903,6 +903,7 @@ namespace PragmaScript
                 if (isConstantVariableDefinition(s))
                 {
                     Visit(s);
+                    valueStack.Clear();
                 }
             }
             foreach (var s in node.statements)
@@ -910,6 +911,7 @@ namespace PragmaScript
                 if (!isConstantVariableDefinition(s))
                 {
                     Visit(s);
+                    valueStack.Clear();
                 }
             }
         }

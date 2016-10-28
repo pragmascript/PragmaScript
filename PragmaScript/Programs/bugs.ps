@@ -27,7 +27,7 @@ let __test__assignment = fun () => void {
 	{
 		var x = 3;
 		var y = 5;
-		x += y += 7;
+		x += y += 7 ;
 	}
 	{
 		var x = 3;
@@ -38,6 +38,14 @@ let __test__assignment = fun () => void {
 
 let main = fun () => void {
 	var x = 12;
+	var y = 13;
+	var x_offset = 12;
+	var y_offset = 13;
+	var weird_1 =(x + 2);
+	// var weird_2 = (u8)((x + x_offset)^(y + y_offset));
+	print_i32((i32)weird_1);
+	print_string("\n");
+
 	--x;
 	print_i32(x);
 	print_string("\n");
