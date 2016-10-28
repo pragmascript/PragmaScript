@@ -62,6 +62,7 @@ namespace PragmaScript
             public static readonly LLVMValueRef ZeroInt32;
             public static readonly LLVMValueRef ZeroInt64;
             public static readonly LLVMValueRef OneInt32;
+            public static readonly LLVMValueRef NegOneInt32;
             public static readonly LLVMValueRef OneFloat32;
             public static readonly LLVMValueRef True;
             public static readonly LLVMValueRef False;
@@ -88,6 +89,10 @@ namespace PragmaScript
                 FalseBool = new LLVMBool(0);
 
                 OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, new LLVMBool(1));
+                unchecked
+                {
+                    NegOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), (ulong)-1, new LLVMBool(1));
+                }
                 OneFloat32 = LLVM.ConstReal(LLVM.FloatType(), 1.0);
 
 

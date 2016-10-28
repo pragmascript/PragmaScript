@@ -552,9 +552,10 @@ namespace PragmaScript
                         {
                             result = LLVM.BuildFAdd(builder, result, LLVM.ConstReal(vet, 1.0), "preinc");
                         }
-                        else
+                        else if (vet_kind == LLVMTypeKind.LLVMPointerTypeKind)
                         {
-                            throw new InvalidCodePath();
+                            var indices = new LLVMValueRef[] { Const.OneInt32 };
+                            result = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_pre_inc");
                         }
                         LLVM.BuildStore(builder, result, v);
                     }
@@ -574,7 +575,8 @@ namespace PragmaScript
                         }
                         else
                         {
-                            throw new InvalidCodePath();
+                            var indices = new LLVMValueRef[] { Const.NegativeOneInt32 };
+                            result = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_pre_dec");
                         }
                         LLVM.BuildStore(builder, result, v);
                     }
@@ -596,7 +598,9 @@ namespace PragmaScript
                         }
                         else
                         {
-                            throw new InvalidCodePath();
+                            var indices = new LLVMValueRef[] { Const.OneInt32 };
+                            var inc = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_post_inc");
+                            LLVM.BuildStore(builder, inc, v);
                         }
                     }
                     break;
@@ -617,7 +621,9 @@ namespace PragmaScript
                         }
                         else
                         {
-                            throw new InvalidCodePath();
+                            var indices = new LLVMValueRef[] { Const.NegativeOneInt32 };
+                            var inc = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_post_dec");
+                            LLVM.BuildStore(builder, inc, v);
                         }
                     }
                     break;
