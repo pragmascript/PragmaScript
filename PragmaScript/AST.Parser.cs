@@ -122,39 +122,16 @@ namespace PragmaScript
             return result;
         }
 
-        static Node parseStatement(ref ParseState ps, Scope scope)
+        static Node parseStatement(ref ParseState ps, Scope scope, bool ignoreNextChar = false)
         {
             var result = default(Node);
             var current = ps.CurrentToken();
             var next = ps.PeekToken(tokenMustExist: true, skipWS: true);
-            bool ignoreSemicolon = false;
+            bool ignoreSemicolon = false | ignoreNextChar;
             switch (current.type)
             {
                 case Token.TokenType.Var:
                     result = parseVar(ref ps, scope);
-                    break;
-                case Token.TokenType.Identifier:
-
-                    switch (next.type)
-                    {
-                        case Token.TokenType.OpenBracket:
-                            result = parseFunctionCall(ref ps, scope);
-                            break;
-                        case Token.TokenType.Increment:
-                        case Token.TokenType.Decrement:
-                            result = parseVariableReference(ref ps, scope);
-                            break;
-                        case Token.TokenType.Dot:
-                        case Token.TokenType.OpenSquareBracket:
-                            result = parseAssignment(ref ps, scope);
-                            break;
-                        default:
-                            if (next.isAssignmentOperator())
-                                result = parseAssignment(ref ps, scope);
-                            else
-                                throw new ParserErrorExpected("assignment operator, function call, or increment/decrement", next.type.ToString(), next);
-                            break;
-                    }
                     break;
                 case Token.TokenType.Return:
                     result = parseReturn(ref ps, scope);
@@ -181,16 +158,19 @@ namespace PragmaScript
                     result = new BreakLoop(current, scope);
                     break;
                 default:
-                    // result = parseBinOp(ref ps, scope);
+                    result = parseBinOp(ref ps, scope);
+                    if (!(result is Assignment || result is FunctionCall
+                        || UnaryOp.IsUnaryExpression(result)))
+                    {
+                        throw new ParserErrorExpected("assignment operator, function call, or increment/decrement", next.type.ToString(), next);
+                    }
                     break;
             }
-
             if (!ignoreSemicolon)
             {
                 ps.NextToken(skipWS: true);
                 ps.ExpectCurrentToken(Token.TokenType.Semicolon);
             }
-
             if (result == null)
             {
                 throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
@@ -341,39 +321,21 @@ namespace PragmaScript
 
             while (true)
             {
-                if (current.type == Token.TokenType.Var && declaration)
+
+                if (current.type != Token.TokenType.Comma && current.type != Token.TokenType.Semicolon
+                    && current.type != Token.TokenType.CloseBracket)
                 {
-                    var vd = parseVar(ref ps, scope);
-                    result.Add(vd);
-                }
-                else if (current.type == Token.TokenType.Identifier)
-                {
-                    if (next.type == Token.TokenType.CloseBracket
-                        || next.type == Token.TokenType.Increment || next.type == Token.TokenType.Decrement)
-                    {
-                        var variable = parseVariableReference(ref ps, scope);
-                        result.Add(variable);
-                    }
-                    else if (next.type == Token.TokenType.OpenBracket)
-                    {
-                        ps.NextToken();
-                        var call = parseFunctionCall(ref ps, scope);
-                        result.Add(call); ;
-                    }
-                    else if (next.isAssignmentOperator())
-                    {
-                        var assignment = parseAssignment(ref ps, scope);
-                        result.Add(assignment);
-                    }
-                    else
+                    var s = parseStatement(ref ps, scope, ignoreNextChar: true);
+                    bool allowed = false;
+                    allowed |= (s is Assignment);
+                    allowed |= (s is VariableDefinition) & declaration;
+                    allowed |= (s is FunctionCall);
+                    allowed |= UnaryOp.IsUnaryExpression(s);
+                    if (!allowed)
                     {
                         throw new ParserError("Invalid statement in for " + (declaration ? "initializer" : "iterator"), current);
                     }
-                }
-                else if (current.type == Token.TokenType.Increment || current.type == Token.TokenType.Decrement)
-                {
-                    var variable = parseVariableReference(ref ps, scope);
-                    result.Add(variable);
+                    result.Add(s);
                 }
                 else
                 {
@@ -487,7 +449,7 @@ namespace PragmaScript
 
         static bool activatePointers_rec(Node node)
         {
-            if (node is ICanReturnPointer)
+            if (node is ICanReturnPointer && (node as ICanReturnPointer).CanReturnPointer())
             {
                 (node as ICanReturnPointer).returnPointer = true;
                 var c = node.GetChilds().FirstOrDefault();
@@ -503,72 +465,101 @@ namespace PragmaScript
             return true;
         }
 
-        static Node parseAssignment(ref ParseState ps, Scope scope)
+        static Node tranformCompoundAssignment(Assignment assign, Token.TokenType op, ParseState left_temp_ps, int precedence)
         {
-            var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
-            var result = new Assignment(current, scope);
-            var temp_ps = ps;
 
-            result.target = parseBinOp(ref ps, scope);
+            return null;
+        }
 
-            if (!activatePointers_rec(result.target))
+        static Node parseAssignment(ref ParseState ps, Scope scope, int precedence)
+        {
+            var left_temp_ps = ps;
+            var left = parseBinOp(ref ps, scope, precedence - 1);
+            var right = default(Node);
+            var next = ps.PeekToken();
+
+            while (next.isAssignmentOperator())
             {
-                throw new ParserErrorExpected(result.target.GetType().Name, "variable, struct field access, array element access", result.target.token);
+                // continue to the next token after the add or subtract
+                ps.NextToken();
+                ps.NextToken();
+
+                right = parseBinOp(ref ps, scope, precedence - 1);
+
+                Node result;
+                var a = new Assignment(next, scope);
+                if (left is Assignment)
+                {
+                    var old_a = left as Assignment;
+                    var ro = old_a.right;
+                    a.left = ro;
+                    a.right = right;
+                    old_a.right = a;
+                    if (!activatePointers_rec(a.left))
+                    {
+                        throw new ParserErrorExpected(a.left.GetType().Name, "variable, struct field access, array element access", a.left.token);
+                    }
+                    a = old_a;
+                }
+                else
+                {
+                    a.left = left;
+                    a.right = right;
+                }
+                if (!activatePointers_rec(a.left))
+                {
+                    throw new ParserErrorExpected(a.left.GetType().Name, "variable, struct field access, array element access", a.left.token);
+                }
+                result = a;
+                if (next.type != Token.TokenType.Assignment)
+                {
+                    var left_copy = parseBinOp(ref left_temp_ps, scope, precedence - 1);
+                    var compound = new BinOp(next, scope);
+                    compound.left = left_copy;
+                    compound.right = right;
+                    a.right = compound;
+                    switch (next.type)
+                    {
+                        case Token.TokenType.PlusEquals:
+                            compound.type = BinOp.BinOpType.Add;
+                            break;
+                        case Token.TokenType.RightShiftEquals:
+                            compound.type = BinOp.BinOpType.RightShift;
+                            break;
+                        case Token.TokenType.LeftShiftEquals:
+                            compound.type = BinOp.BinOpType.LeftShift;
+                            break;
+                        case Token.TokenType.XorEquals:
+                            compound.type = BinOp.BinOpType.LogicalXOR;
+                            break;
+                        case Token.TokenType.OrEquals:
+                            compound.type = BinOp.BinOpType.LogicalOR;
+                            break;
+                        case Token.TokenType.DivideEquals:
+                            compound.type = BinOp.BinOpType.Divide;
+                            break;
+                        case Token.TokenType.AndEquals:
+                            compound.type = BinOp.BinOpType.LogicalAND;
+                            break;
+                        case Token.TokenType.RemainderEquals:
+                            compound.type = BinOp.BinOpType.Remainder;
+                            break;
+                        case Token.TokenType.MultiplyEquals:
+                            compound.type = BinOp.BinOpType.Multiply;
+                            break;
+                        case Token.TokenType.MinusEquals:
+                            compound.type = BinOp.BinOpType.Subract;
+                            break;
+                        default:
+                            throw new InvalidCodePath();
+                    }
+                }
+                left = a;
+                left_temp_ps = ps;
+
+                next = ps.PeekToken();
             }
-
-            var assign = ps.NextToken();
-            if (!assign.isAssignmentOperator())
-            {
-                throw new ParserErrorExpected("assignment operator", assign.type.ToString(), assign);
-            }
-
-            ps.NextToken();
-            var exp = parseBinOp(ref ps, scope);
-
-            var compound = new BinOp(assign, scope);
-            compound.left = parseBinOp(ref temp_ps, scope);
-            compound.right = exp;
-            result.expression = compound;
-
-            switch (assign.type)
-            {
-                case Token.TokenType.Assignment:
-                    result.expression = exp;
-                    break;
-                case Token.TokenType.PlusEquals:
-                    compound.type = BinOp.BinOpType.Add;
-                    break;
-                case Token.TokenType.RightShiftEquals:
-                    compound.type = BinOp.BinOpType.RightShift;
-                    break;
-                case Token.TokenType.LeftShiftEquals:
-                    compound.type = BinOp.BinOpType.LeftShift;
-                    break;
-                case Token.TokenType.XorEquals:
-                    compound.type = BinOp.BinOpType.LogicalXOR;
-                    break;
-                case Token.TokenType.OrEquals:
-                    compound.type = BinOp.BinOpType.LogicalOR;
-                    break;
-                case Token.TokenType.DivideEquals:
-                    compound.type = BinOp.BinOpType.Divide;
-                    break;
-                case Token.TokenType.AndEquals:
-                    compound.type = BinOp.BinOpType.LogicalAND;
-                    break;
-                case Token.TokenType.RemainderEquals:
-                    compound.type = BinOp.BinOpType.Remainder;
-                    break;
-                case Token.TokenType.MultiplyEquals:
-                    compound.type = BinOp.BinOpType.Multiply;
-                    break;
-                case Token.TokenType.MinusEquals:
-                    compound.type = BinOp.BinOpType.Subract;
-                    break;
-                default:
-                    throw new InvalidCodePath();
-            }
-            return result;
+            return left;
         }
 
         static Node parseUninitializedArray(ref ParseState ps, Scope scope)
@@ -713,16 +704,20 @@ namespace PragmaScript
         }
         private static Node parseBinOp(ref ParseState ps, Scope scope)
         {
-            return parseBinOp(ref ps, scope, 11);
+            return parseBinOp(ref ps, scope, 13);
         }
         private static Node parseBinOp(ref ParseState ps, Scope scope, int precedence)
         {
+            if (precedence == 13)
+            {
+                return parseAssignment(ref ps, scope, precedence);
+            }
             if (precedence == 1)
             {
                 return parseUnary(ref ps, scope);
             }
-            var result = parseBinOp(ref ps, scope, precedence - 1);
-            var otherFactor = default(Node);
+            var left = parseBinOp(ref ps, scope, precedence - 1);
+            var right = default(Node);
             var next = ps.PeekToken();
 
             while (isBinOp(next, precedence))
@@ -732,15 +727,15 @@ namespace PragmaScript
                 ps.NextToken();
                 ps.NextToken();
 
-                otherFactor = parseBinOp(ref ps, scope, precedence - 1);
+                right = parseBinOp(ref ps, scope, precedence - 1);
                 var bo = new BinOp(next, scope);
-                bo.left = result;
-                bo.right = otherFactor;
+                bo.left = left;
+                bo.right = right;
                 bo.SetTypeFromToken(next);
-                result = bo;
+                left = bo;
                 next = ps.PeekToken();
             }
-            return result;
+            return left;
         }
 
         // operator precedence 1
@@ -752,13 +747,16 @@ namespace PragmaScript
             if (UnaryOp.IsUnaryToken(current))
             {
                 var result = new UnaryOp(current, scope);
-                result.SetTypeFromToken(current);
+                result.SetTypeFromToken(current, prefix: true);
                 ps.NextToken();
 
                 result.expression = parsePrimary(ref ps, scope);
-                if (result.type == UnaryOp.UnaryOpType.AddressOf)
+
+                if (result.type == UnaryOp.UnaryOpType.AddressOf ||
+                    result.type == UnaryOp.UnaryOpType.PreInc ||
+                    result.type == UnaryOp.UnaryOpType.PreDec)
                 {
-                    if (result.expression is ICanReturnPointer)
+                    if (result.expression is ICanReturnPointer && (result.expression as ICanReturnPointer).CanReturnPointer())
                     {
                         (result.expression as ICanReturnPointer).returnPointer = true;
                     }
@@ -814,7 +812,7 @@ namespace PragmaScript
                         {
                             result.number = int.Parse(current.text);
                         }
-                        
+
                         return result;
                     }
                 case Token.TokenType.FloatNumber:
@@ -843,10 +841,6 @@ namespace PragmaScript
                         ps.ExpectNextToken(Token.TokenType.CloseBracket);
                         return result;
                     }
-                case Token.TokenType.Decrement:
-                case Token.TokenType.Increment:
-                    return parseVariableReference(ref ps, scope);
-
                 case Token.TokenType.Identifier:
                     return parsePrimaryIdent(ref ps, scope);
                 case Token.TokenType.OpenSquareBracket:
@@ -878,9 +872,13 @@ namespace PragmaScript
                         }
                         else
                         {
-                            if (result is ICanReturnPointer)
+                            if (result is ICanReturnPointer && (result as ICanReturnPointer).CanReturnPointer())
                             {
                                 (result as ICanReturnPointer).returnPointer = true;
+                            }
+                            else
+                            {
+                                throw new ParserError("cannot take address of lvalue", result.token);
                             }
                         }
                         ps.NextToken();
@@ -893,10 +891,15 @@ namespace PragmaScript
                         }
                         else
                         {
-                            if (result is ICanReturnPointer)
+                            if (result is ICanReturnPointer && (result as ICanReturnPointer).CanReturnPointer())
                             {
                                 (result as ICanReturnPointer).returnPointer = true;
                             }
+                            else
+                            {
+                                throw new ParserError("cannot take address of lvalue", result.token);
+                            }
+
                         }
                         ps.NextToken();
                         next = parseArrayElementAccess(ref ps, scope, result, false);
@@ -908,12 +911,35 @@ namespace PragmaScript
                     case Token.TokenType.ArrayTypeBrackets:
                         next = parseUninitializedArray(ref ps, scope);
                         break;
+                    case Token.TokenType.Increment:
+                    case Token.TokenType.Decrement:
+                        if (result == null)
+                        {
+                            result = parseVariableReference(ref ps, scope, true);
+                        }
+                        else
+                        {
+                            if (result is ICanReturnPointer && (result as ICanReturnPointer).CanReturnPointer())
+                            {
+                                (result as ICanReturnPointer).returnPointer = true;
+                            }
+                            else
+                            {
+                                throw new ParserError("cannot take address of lvalue", result.token);
+                            }
 
+                        }
+                        ps.NextToken();
+                        next = new UnaryOp(peek, scope);
+                        (next as UnaryOp).expression = result;
+                        (next as UnaryOp).SetTypeFromToken(peek, prefix: false);
+                        break;
                     default:
                         if (result == null)
                         {
                             result = parseVariableReference(ref ps, scope, false);
                         }
+
                         exit = true;
                         break;
                 }
@@ -965,7 +991,7 @@ namespace PragmaScript
             return result;
         }
 
-        
+
         static Node parseStructFieldAccess(ref ParseState ps, Scope scope, Node left, bool returnPointer = false)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Dot);
@@ -1006,17 +1032,6 @@ namespace PragmaScript
 
             VariableReference result = new VariableReference(current, scope);
             result.returnPointer = returnPointer;
-            result.inc = VariableReference.Incrementor.None;
-
-            if (current.type == Token.TokenType.Increment || current.type == Token.TokenType.Decrement)
-            {
-                result.inc = current.type == Token.TokenType.Increment ?
-                    VariableReference.Incrementor.preIncrement : VariableReference.Incrementor.preDecrement;
-                var id = ps.NextToken();
-                expectTokenType(id, Token.TokenType.Identifier);
-                result.token = id;
-                current = id;
-            }
 
             var vd = scope.GetVar(current.text);
             if (scope.GetVar(current.text) != null)
@@ -1028,17 +1043,17 @@ namespace PragmaScript
                 result.variableName = current.text;
             }
 
-            var peek = ps.PeekToken();
-            if (peek.type == Token.TokenType.Increment || peek.type == Token.TokenType.Decrement)
-            {
-                if (result.inc != VariableReference.Incrementor.None)
-                {
-                    throw new ParserError("You can't use both pre-increment and post-increment", peek);
-                }
-                ps.NextToken();
-                result.inc = peek.type == Token.TokenType.Increment ?
-                    VariableReference.Incrementor.postIncrement : VariableReference.Incrementor.postDecrement;
-            }
+            //var peek = ps.PeekToken();
+            //if (peek.type == Token.TokenType.Increment || peek.type == Token.TokenType.Decrement)
+            //{
+            //    if (result.inc != VariableReference.Incrementor.None)
+            //    {
+            //        throw new ParserError("You can't use both pre-increment and post-increment", peek);
+            //    }
+            //    ps.NextToken();
+            //    result.inc = peek.type == Token.TokenType.Increment ?
+            //        VariableReference.Incrementor.postIncrement : VariableReference.Incrementor.postDecrement;
+            //}
             return result;
         }
 
@@ -1138,7 +1153,7 @@ namespace PragmaScript
 
                 bool ignoreSemicolon = false;
 
-                
+
                 if (current.type == Token.TokenType.Let)
                 {
                     decl = parseLet(ref ps, scope, ref ignoreSemicolon);
@@ -1246,7 +1261,7 @@ namespace PragmaScript
 
             // let foo
             var id = ps.ExpectNextToken(Token.TokenType.Identifier);
-            
+
             // let foo = 
             ps.ExpectNextToken(Token.TokenType.Assignment);
 
@@ -1319,7 +1334,7 @@ namespace PragmaScript
                 funScope.AddFunctionParameter(pd.name, result, idx);
                 idx++;
             }
-            
+
             if (ps.CurrentToken().type == Token.TokenType.Identifier)
             {
                 var return_type = parseTypeString(ref ps, scope);

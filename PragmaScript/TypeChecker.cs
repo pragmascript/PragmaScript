@@ -521,18 +521,18 @@ namespace PragmaScript
 
         void checkType(AST.Assignment node)
         {
-            checkTypeDynamic(node.target);
-            var tt = getType(node.target);
+            checkTypeDynamic(node.left);
+            var tt = getType(node.left);
             if (tt == null)
             {
-                addUnresolved(node, node.target);
+                addUnresolved(node, node.left);
             }
 
-            checkTypeDynamic(node.expression);
-            var et = getType(node.expression);
+            checkTypeDynamic(node.right);
+            var et = getType(node.right);
             if (et == null)
             {
-                addUnresolved(node, node.expression);
+                addUnresolved(node, node.right);
             }
 
             if (tt != null && et != null)
@@ -605,10 +605,10 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.UninitializedArray node)
-        {
-            throw new NotImplementedException();
-        }
+        //void checkType(AST.UninitializedArray node)
+        //{
+        //    throw new NotImplementedException();
+        //}
 
         void checkType(AST.StructFieldAccess node)
         {

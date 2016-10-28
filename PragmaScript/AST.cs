@@ -108,11 +108,9 @@ namespace PragmaScript
             addBasicConstants(rootScope, Token.Undefined);
             addBasicFunctions(rootScope);
 
-
             //var main = new Scope.FunctionDefinition { name = "main", returnType = FrontendType.int32 };
             //rootScope.AddFunction(main);
             //rootScope.function = main;
-
             return rootScope;
         }
 

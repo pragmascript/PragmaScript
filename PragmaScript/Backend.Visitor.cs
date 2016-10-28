@@ -222,30 +222,30 @@ namespace PragmaScript
 
         }
 
-        public void Visit(AST.UninitializedArray node)
-        {
-            throw new NotImplementedException();
+        //public void Visit(AST.UninitializedArray node)
+        //{
+        //    throw new NotImplementedException();
 
-            //var l = node.length;
+        //    //var l = node.length;
 
-            //var values = new LLVMValueRef[l];
-            //var et = getTypeRef(node.elementType);
-
-
-            //for (int i = 0; i < values.Length; ++i)
-            //{
-            //    values[i] = LLVM.ConstNull(et);
-            //}
-
-            //var size = LLVM.ConstInt(Const.Int32Type, (ulong)l, Const.FalseBool);
-            //var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
+        //    //var values = new LLVMValueRef[l];
+        //    //var et = getTypeRef(node.elementType);
 
 
-            //var sp = new LLVMValueRef[] { size, arr };
-            //// TODO: does this need to be packed?
-            //var structure = LLVM.ConstStruct(out sp[0], 2, Const.FalseBool);
-            //valueStack.Push(structure);
-        }
+        //    //for (int i = 0; i < values.Length; ++i)
+        //    //{
+        //    //    values[i] = LLVM.ConstNull(et);
+        //    //}
+
+        //    //var size = LLVM.ConstInt(Const.Int32Type, (ulong)l, Const.FalseBool);
+        //    //var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
+
+
+        //    //var sp = new LLVMValueRef[] { size, arr };
+        //    //// TODO: does this need to be packed?
+        //    //var structure = LLVM.ConstStruct(out sp[0], 2, Const.FalseBool);
+        //    //valueStack.Push(structure);
+        //}
 
         public void Visit(AST.BinOp node)
         {
@@ -518,7 +518,7 @@ namespace PragmaScript
                         throw new BackendException("unary subtract is not defined on type " + typeToString(vtype));
                     }
                     break;
-                case AST.UnaryOp.UnaryOpType.LogicalNOT:
+                case AST.UnaryOp.UnaryOpType.LogicalNot:
                     if (!isEqualType(vtype, Const.BoolType))
                     {
                         throw new BackendTypeMismatchException(vtype, Const.BoolType);
@@ -789,13 +789,13 @@ namespace PragmaScript
 
         public void Visit(AST.Assignment node)
         {
-            Visit(node.expression);
+            Visit(node.right);
             var result = valueStack.Pop();
             var resultType = LLVM.TypeOf(result);
             var resultTypeName = typeToString(resultType);
 
 
-            Visit(node.target);
+            Visit(node.left);
 
             var target = valueStack.Pop();
             var targetType = LLVM.TypeOf(target);
@@ -876,11 +876,7 @@ namespace PragmaScript
             else
             {
                 result = v;
-                if (node.returnPointer)
-                {
-                    Debug.Assert(node.inc == AST.VariableReference.Incrementor.None);
-                }
-                else
+                if (!node.returnPointer)
                 {
                     result = LLVM.BuildLoad(builder, v, vd.name);
                 }
@@ -889,6 +885,7 @@ namespace PragmaScript
 
             var ltype_string = typeToString(ltype);
 
+            /*
             switch (node.inc)
             {
                 case AST.VariableReference.Incrementor.None:
@@ -943,6 +940,7 @@ namespace PragmaScript
                 default:
                     break;
             }
+            */
             valueStack.Push(result);
 
         }

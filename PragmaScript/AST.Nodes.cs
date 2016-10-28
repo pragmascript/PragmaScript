@@ -25,10 +25,13 @@ namespace PragmaScript
                 yield break;
             }
 
+            public abstract Node DeepCloneTree();
         }
+
         public interface ICanReturnPointer
         {
             bool returnPointer { get; set; }
+            bool CanReturnPointer();
         }
 
         public class AnnotatedNode : Node
@@ -41,7 +44,10 @@ namespace PragmaScript
                 node = n;
                 this.annotation = annotation;
             }
-
+            public override Node DeepCloneTree()
+            {
+                throw new InvalidCodePath();
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 foreach (var n in node.GetChilds())
@@ -62,6 +68,16 @@ namespace PragmaScript
             public ProgramRoot(Token t, Scope s) : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new ProgramRoot(token, scope);
+                foreach (var f in files)
+                {
+                    result.files.Add(f.DeepCloneTree() as FileRoot);
+                }
+                return result;
+            }
+
             public override IEnumerable<Node> GetChilds()
             {
                 foreach (var f in files)
@@ -80,6 +96,15 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new FileRoot(token, scope);
+                foreach (var d in declarations)
+                {
+                    result.declarations.Add(d.DeepCloneTree());
+                }
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 foreach (var s in declarations)
@@ -97,6 +122,15 @@ namespace PragmaScript
             public Block(Token t, Scope s)
                 : base(t, s)
             {
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new Block(token, scope);
+                foreach (var n in statements)
+                {
+                    result.statements.Add(n.DeepCloneTree());
+                }
+                return result;
             }
             public override IEnumerable<Node> GetChilds()
             {
@@ -118,7 +152,13 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
-
+            public override Node DeepCloneTree()
+            {
+                var result = new Elif(token, scope);
+                result.condition = condition.DeepCloneTree();
+                result.thenBlock = thenBlock.DeepCloneTree();
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 yield return new AnnotatedNode(condition, scope, "condition");
@@ -140,10 +180,22 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new IfCondition(token, scope);
+                result.condition = condition.DeepCloneTree();
+                result.thenBlock = thenBlock.DeepCloneTree();
+                foreach (var n in elifs)
+                {
+                    result.elifs.Add(n.DeepCloneTree());
+                }
+                result.elseBlock = elseBlock.DeepCloneTree();
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 yield return new AnnotatedNode(condition, scope, "condition");
-                yield return new AnnotatedNode(thenBlock, scope, "then"); 
+                yield return new AnnotatedNode(thenBlock, scope, "then");
                 foreach (var elif in elifs)
                 {
                     yield return new AnnotatedNode(elif, scope, "elif");
@@ -171,6 +223,21 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new ForLoop(token, scope);
+                foreach (var n in initializer)
+                {
+                    result.initializer.Add(n.DeepCloneTree());
+                }
+                result.condition = condition.DeepCloneTree();
+                foreach (var n in iterator)
+                {
+                    result.iterator.Add(n.DeepCloneTree());
+                }
+                result.loopBody = loopBody.DeepCloneTree();
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 int idx = 1;
@@ -179,7 +246,7 @@ namespace PragmaScript
                     yield return new AnnotatedNode(init, scope, "init_" + idx);
                     idx++;
                 }
-                
+
                 yield return new AnnotatedNode(condition, scope, "condition");
 
                 idx = 1;
@@ -188,7 +255,7 @@ namespace PragmaScript
                     yield return new AnnotatedNode(it, scope, "iter_" + idx);
                     idx++;
                 }
-                
+
                 yield return new AnnotatedNode(loopBody, scope, "body");
             }
             public override string ToString()
@@ -206,6 +273,13 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new WhileLoop(token, scope);
+                result.condition = condition.DeepCloneTree();
+                result.loopBody = loopBody.DeepCloneTree();
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 yield return new AnnotatedNode(condition, scope, "condition");
@@ -217,8 +291,6 @@ namespace PragmaScript
             }
         }
 
-
-      
         public class VariableDefinition : Node
         {
             public Scope.VariableDefinition variable;
@@ -228,7 +300,10 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
-
+            public override Node DeepCloneTree()
+            {
+                throw new NotImplementedException();
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 yield return expression;
@@ -259,7 +334,10 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
-
+            public override Node DeepCloneTree()
+            {
+                throw new NotImplementedException();
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 if (!external)
@@ -294,13 +372,21 @@ namespace PragmaScript
         {
             public string structName;
             public List<Node> argumentList = new List<Node>();
-            
 
             public StructConstructor(Token t, Scope s)
                 : base(t, s)
             {
             }
-
+            public override Node DeepCloneTree()
+            {
+                var result = new StructConstructor(token, scope);
+                result.structName = structName;
+                foreach (var arg in argumentList)
+                {
+                    result.argumentList.Add(arg.DeepCloneTree());
+                }
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 foreach (var a in argumentList)
@@ -329,6 +415,10 @@ namespace PragmaScript
             {
 
             }
+            public override Node DeepCloneTree()
+            {
+                throw new NotImplementedException();
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 foreach (var f in fields)
@@ -352,6 +442,16 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new FunctionCall(token, scope);
+                result.functionName = functionName;
+                foreach (var arg in argumentList)
+                {
+                    result.argumentList.Add(arg.DeepCloneTree());
+                }
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 foreach (var exp in argumentList)
@@ -367,62 +467,79 @@ namespace PragmaScript
 
         public class VariableReference : Node, ICanReturnPointer
         {
-            public enum Incrementor { None, preIncrement, preDecrement, postIncrement, postDecrement }
-            public Incrementor inc;
-
             public string variableName;
             public Scope.VariableDefinition vd;
 
             // HACK: returnPointer is a HACK remove this?????
             public bool returnPointer { get; set; }
+            public bool CanReturnPointer()
+            {
+                return true;
+            }
+
             public VariableReference(Token t, Scope s)
                 : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                // TODO: this wont work if we "link" to the variable definition
+                // via the scope because the scope pointer wont get updated
+                // and thus fail in the type checking phase.
+                Debug.Assert(vd != null);
+                var result = new VariableReference(token, scope);
+                result.vd = new Scope.VariableDefinition();
+                result.vd.isConstant = vd.isConstant;
+                result.vd.isFunctionParameter = vd.isFunctionParameter;
+                result.vd.parameterIdx = vd.parameterIdx;
+                result.vd.name = vd.name;
+                result.vd.node = vd.node;
+                result.vd.type = vd.type;
+                result.returnPointer = returnPointer;
+                return result;
+            }
             public override string ToString()
             {
-
                 string name = variableName;
                 if (name == null)
                 {
                     name = vd.name;
                 }
-
-                switch (inc)
-                {
-                    case Incrementor.None:
-                        return name + (returnPointer ? " (p)" : "");
-                    case Incrementor.preIncrement:
-                        return "++" + name;
-                    case Incrementor.preDecrement:
-                        return "--" + name;
-                    case Incrementor.postIncrement:
-                        return name + "++";
-                    case Incrementor.postDecrement:
-                        return name + "--";
-                    default:
-                        throw new InvalidCodePath();
-                }
+                return name + (returnPointer ? " (p)" : "");
             }
+
         }
 
-        public class Assignment : Node
+        public class Assignment : Node, ICanReturnPointer
         {
-            public Node target;
-            public Node expression;
+            public Node left;
+            public Node right;
 
             public Assignment(Token t, Scope s)
                 : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new Assignment(token, scope);
+                result.left = left.DeepCloneTree();
+                result.right = right.DeepCloneTree();
+                return result;
+            }
+            public bool returnPointer { get; set; }
+            public bool CanReturnPointer()
+            {
+                return true;
+            }
+
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(target, scope, "target");
-                yield return new AnnotatedNode(expression, scope, "expression");
+                yield return left;
+                yield return right;
             }
             public override string ToString()
             {
-                return " = ";
+                return " = " + (returnPointer ? " (p)" : "");
             }
         }
 
@@ -433,6 +550,12 @@ namespace PragmaScript
             public ConstInt(Token t, Scope s)
                 : base(t, s)
             {
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new ConstInt(token, scope);
+                result.number = number;
+                return result;
             }
             public override string ToString()
             {
@@ -446,6 +569,12 @@ namespace PragmaScript
             public ConstFloat(Token t, Scope s)
                 : base(t, s)
             {
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new ConstFloat(token, scope);
+                result.number = number;
+                return result;
             }
             public override string ToString()
             {
@@ -467,6 +596,12 @@ namespace PragmaScript
                 // TODO: Complete member initialization
                 this.value = b;
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new ConstBool(token, scope);
+                result.value = value;
+                return result;
+            }
             public override string ToString()
             {
                 return value.ToString();
@@ -480,6 +615,12 @@ namespace PragmaScript
             public ConstString(Token t, Scope s)
                 : base(t, s)
             {
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new ConstString(token, scope);
+                result.s = s;
+                return result;
             }
             public override string ToString()
             {
@@ -496,6 +637,15 @@ namespace PragmaScript
             {
 
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new ArrayConstructor(token, scope);
+                foreach (var e in elements)
+                {
+                    result.elements.Add(e.DeepCloneTree());
+                }
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 var idx = 0;
@@ -510,28 +660,31 @@ namespace PragmaScript
             }
         }
 
-        public class UninitializedArray : Node
-        {
-            // public Node length;
-            //TODO: change this to work without compiletime constants
-            public int length;
-            public TypeString typeString;
+        //public class UninitializedArray : Node
+        //{
+        //    // public Node length;
+        //    //TODO: change this to work without compiletime constants
+        //    public int length;
+        //    public TypeString typeString;
 
-            public UninitializedArray(Token t, Scope s)
-                : base(t, s)
-            {
+        //    public UninitializedArray(Token t, Scope s)
+        //        : base(t, s)
+        //    {
 
-            }
-
-            public override IEnumerable<Node> GetChilds()
-            {
-                yield return typeString;
-            }
-            public override string ToString()
-            {
-                return $"[{length}]";
-            }
-        }
+        //    }
+        //    public override Node DeepCloneTree()
+        //    {
+        //        throw new NotImplementedException();
+        //    }
+        //    public override IEnumerable<Node> GetChilds()
+        //    {
+        //        yield return typeString;
+        //    }
+        //    public override string ToString()
+        //    {
+        //        return $"[{length}]";
+        //    }
+        //}
 
         public class StructFieldAccess : Node, ICanReturnPointer
         {
@@ -540,11 +693,24 @@ namespace PragmaScript
             public bool IsArrow = false;
 
             public bool returnPointer { get; set; }
+            public bool CanReturnPointer()
+            {
+                return true;
+            }
 
             public StructFieldAccess(Token t, Scope s) :
                 base(t, s)
             {
 
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new StructFieldAccess(token, scope);
+                result.left = left.DeepCloneTree();
+                result.fieldName = fieldName;
+                result.IsArrow = IsArrow;
+                result.returnPointer = returnPointer;
+                return result;
             }
             public override IEnumerable<Node> GetChilds()
             {
@@ -553,7 +719,7 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return (IsArrow ? "->" : ".") + fieldName + (returnPointer ? " (p)": "");
+                return (IsArrow ? "->" : ".") + fieldName + (returnPointer ? " (p)" : "");
             }
         }
 
@@ -563,12 +729,22 @@ namespace PragmaScript
             public Node index;
 
             public bool returnPointer { get; set; }
-
+            public bool CanReturnPointer()
+            {
+                return true;
+            }
             public ArrayElementAccess(Token t, Scope s)
                 : base(t, s)
             {
             }
-
+            public override Node DeepCloneTree()
+            {
+                var result = new ArrayElementAccess(token, scope);
+                result.left = left.DeepCloneTree();
+                result.index = index.DeepCloneTree();
+                result.returnPointer = returnPointer;
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 yield return new AnnotatedNode(left, scope, "array");
@@ -586,6 +762,11 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new BreakLoop(token, scope);
+                return result;
+            }
             public override string ToString()
             {
                 return "break";
@@ -597,6 +778,11 @@ namespace PragmaScript
             public ContinueLoop(Token t, Scope s)
                 : base(t, s)
             {
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new ContinueLoop(token, scope);
+                return result;
             }
             public override string ToString()
             {
@@ -612,6 +798,12 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
+            public override Node DeepCloneTree()
+            {
+                var result = new ReturnFunction(token, scope);
+                result.expression = expression.DeepCloneTree();
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 if (expression != null)
@@ -623,23 +815,30 @@ namespace PragmaScript
             {
                 return "return";
             }
-
         }
 
         public class BinOp : Node
         {
             public enum BinOpType { Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Remainder }
             // public enum AssignmentType { None, Assignment, MultiplyEquals, DivideEquals, RemainderEquals, PlusEquals, MinusEquals, LeftShiftEquals, RightShiftEquals, AndEquals, NotEquals, OrEquals }
-                                               
-            public BinOpType type;             
-                                               
-            public Node left;                  
-            public Node right;                 
-                                               
-            public BinOp(Token t, Scope s)     
-                : base(t, s)                   
-            {                                  
-            }                                         
+
+            public BinOpType type;
+
+            public Node left;
+            public Node right;
+
+            public BinOp(Token t, Scope s)
+                : base(t, s)
+            {
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new BinOp(token, scope);
+                result.type = type;
+                result.left = left.DeepCloneTree();
+                result.right = right.DeepCloneTree();
+                return result;
+            }
             public void SetTypeFromToken(Token next)
             {
                 switch (next.type)
@@ -698,20 +897,6 @@ namespace PragmaScript
                     case Token.TokenType.LessEqual:
                         type = BinOpType.LessEqual;
                         break;
-                    //case Token.TokenType.Assignment:
-                    //case Token.TokenType.MultiplyEquals:
-                    //case Token.TokenType.DivideEquals:
-                    //case Token.TokenType.RemainderEquals:
-                    //case Token.TokenType.PlusEquals:
-                    //case Token.TokenType.MinusEquals:
-                    //case Token.TokenType.LeftShiftEquals:
-                    //case Token.TokenType.RightShiftEquals:
-                    //case Token.TokenType.AndEquals:
-                    //case Token.TokenType.XorEquals:
-                    //case Token.TokenType.OrEquals:
-
-                    //    break;
-
                     default:
                         throw new ParserError("Invalid token type for binary operation", next);
                 }
@@ -779,18 +964,56 @@ namespace PragmaScript
             }
         }
 
-        public class UnaryOp : Node
+        public class UnaryOp : Node, ICanReturnPointer
         {
-            public enum UnaryOpType { Add, Subract, LogicalNOT, Complement, AddressOf, Dereference }
+
+            public enum UnaryOpType
+            {
+                Add, Subract, LogicalNot, Complement, AddressOf, Dereference,
+                PreInc, PreDec, PostInc, PostDec
+            }
             public UnaryOpType type;
 
             public Node expression;
 
+            public bool returnPointer { get; set; }
+            public bool CanReturnPointer()
+            {
+                return type == UnaryOpType.PreInc || type == UnaryOpType.PreDec;
+            }
             public UnaryOp(Token t, Scope s)
                 : base(t, s)
             {
             }
-
+            public override Node DeepCloneTree()
+            {
+                var result = new UnaryOp(token, scope);
+                result.type = type;
+                result.expression = expression.DeepCloneTree();
+                result.returnPointer = returnPointer;
+                return result;
+            }
+            public static bool IsUnaryExpression(Node node)
+            {
+                if (!(node is UnaryOp))
+                {
+                    return false;
+                }
+                var ut = (node as UnaryOp).type;
+                switch (ut)
+                {
+                    case UnaryOpType.PreInc:
+                        return true;
+                    case UnaryOpType.PreDec:
+                        return true;
+                    case UnaryOpType.PostInc:
+                        return true;
+                    case UnaryOpType.PostDec:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
             public static bool IsUnaryToken(Token t)
             {
                 switch (t.type)
@@ -807,12 +1030,15 @@ namespace PragmaScript
                         return true;
                     case Token.TokenType.Multiply:
                         return true;
+                    case Token.TokenType.Increment:
+                        return true;
+                    case Token.TokenType.Decrement:
+                        return true;
                     default:
                         return false;
                 }
             }
-
-            public void SetTypeFromToken(Token next)
+            public void SetTypeFromToken(Token next, bool prefix)
             {
                 switch (next.type)
                 {
@@ -823,7 +1049,7 @@ namespace PragmaScript
                         type = UnaryOpType.Subract;
                         break;
                     case Token.TokenType.LogicalNOT:
-                        type = UnaryOpType.LogicalNOT;
+                        type = UnaryOpType.LogicalNot;
                         break;
                     case Token.TokenType.Complement:
                         type = UnaryOpType.Complement;
@@ -834,6 +1060,19 @@ namespace PragmaScript
                     case Token.TokenType.Multiply:
                         type = UnaryOpType.Dereference;
                         break;
+                    case Token.TokenType.Increment:
+                        if (prefix)
+                            type = UnaryOpType.PreInc;
+                        else
+                            type = UnaryOpType.PostInc;
+                        break;
+                    case Token.TokenType.Decrement:
+                        if (prefix)
+                            type = UnaryOpType.PreDec;
+                        else
+                            type = UnaryOpType.PostDec;
+                        break;
+
                     default:
                         throw new ParserError("Invalid token type for unary operator", next);
                 }
@@ -844,28 +1083,51 @@ namespace PragmaScript
             }
             public override string ToString()
             {
+                string result = null;
                 switch (type)
                 {
                     case UnaryOpType.Add:
-                        return "unary +";
+                        result = "unary +";
+                        break;
                     case UnaryOpType.Subract:
-                        return "unary -";
-                    case UnaryOpType.LogicalNOT:
-                        return "!";
+                        result = "unary -";
+                        break;
+                    case UnaryOpType.LogicalNot:
+                        result = "!";
+                        break;
                     case UnaryOpType.Complement:
-                        return "~";
+                        result = "~";
+                        break;
                     case UnaryOpType.AddressOf:
-                        return "address of &";
+                        result = "address of &";
+                        break;
                     case UnaryOpType.Dereference:
-                        return "dereference *";
+                        result = "dereference *";
+                        break;
+                    case UnaryOpType.PreInc:
+                        result = "++unary";
+                        break;
+                    case UnaryOpType.PreDec:
+                        result = "--unary";
+                        break;
+                    case UnaryOpType.PostInc:
+                        result = "unary++";
+                        break;
+                    case UnaryOpType.PostDec:
+                        result = "unary--";
+                        break;
                     default:
                         throw new InvalidCodePath();
                 }
+                if (returnPointer)
+                {
+                    Debug.Assert(CanReturnPointer());
+                    result += " (p)";
+                }
+                return result;
             }
         }
 
-
-        
         public class TypeCastOp : Node
         {
             public Node expression;
@@ -875,7 +1137,13 @@ namespace PragmaScript
                 : base(t, s)
             {
             }
-
+            public override Node DeepCloneTree()
+            {
+                var result = new TypeCastOp(token, scope);
+                result.expression = expression.DeepCloneTree();
+                result.typeString = typeString.DeepCloneTree() as TypeString;
+                return result;
+            }
             public override IEnumerable<Node> GetChilds()
             {
                 yield return expression;
@@ -895,6 +1163,15 @@ namespace PragmaScript
             public int pointerLevel = 0;
             public TypeString(Token t, Scope s) : base(t, s)
             {
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new TypeString(token, scope);
+                result.typeString = typeString;
+                result.isArrayType = isArrayType;
+                result.isPointerType = isPointerType;
+                result.pointerLevel = pointerLevel;
+                return result;
             }
             public override string ToString()
             {

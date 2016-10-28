@@ -20,13 +20,12 @@ let sphere = struct
 }
 
 let main = fun () => void {
-	var v = vec {1.0, 2.0, 3.0};
-	var vp = &v;
-
-	var x = 17;
-	var xp = &x;
-
-	print_i32((i32)(*xp));
+	var x = 3;
+	var y = 5;
+	x += y += 7;
+	print_i32(x);
+	print_string("\n");
+	print_i32(y);
 	print_string("\n");
 }
 
