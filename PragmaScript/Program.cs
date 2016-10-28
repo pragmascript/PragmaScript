@@ -243,8 +243,6 @@ namespace PragmaScript
                 return;
             }
 
-            return;
-
             Console.WriteLine("backend...");
             var backend = new Backend(Backend.TargetPlatform.x64, tc);
             // 

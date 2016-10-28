@@ -979,7 +979,8 @@ namespace PragmaScript
             public bool returnPointer { get; set; }
             public bool CanReturnPointer()
             {
-                return type == UnaryOpType.PreInc || type == UnaryOpType.PreDec;
+                return type == UnaryOpType.PreInc || type == UnaryOpType.PreDec
+                    || type == UnaryOpType.Dereference;
             }
             public UnaryOp(Token t, Scope s)
                 : base(t, s)

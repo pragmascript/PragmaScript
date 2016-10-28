@@ -317,7 +317,7 @@ namespace PragmaScript
             }
 
             // if a token starts with a leter its either a keyword or an identifier
-            if (char.IsLetter(current))
+            if (char.IsLetter(current) || current == '_')
             {
                 while (isIdentifierChar(current))
                 {

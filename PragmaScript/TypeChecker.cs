@@ -479,6 +479,10 @@ namespace PragmaScript
             {
                 Debug.Assert(node.variableName != null);
                 vd = node.scope.GetVar(node.variableName);
+                if (vd == null)
+                {
+                    throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
+                }
                 if (!vd.isConstant)
                 {
                     throw new ParserError("Non constant variables can't be accessesd prior to declaration", node.token);

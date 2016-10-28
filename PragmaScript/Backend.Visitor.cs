@@ -535,10 +535,91 @@ namespace PragmaScript
                     {
                         LLVM.BuildBitCast(builder, v, Const.Int8PointerType, "func_pointer");
                     }
-
                     break;
                 case AST.UnaryOp.UnaryOpType.Dereference:
                     result = LLVM.BuildLoad(builder, v, "deref");
+                    break;
+                case AST.UnaryOp.UnaryOpType.PreInc:
+                    {
+                        result = LLVM.BuildLoad(builder, v, "preinc_load");
+                        var vet = LLVM.GetElementType(vtype);
+                        var vet_kind = LLVM.GetTypeKind(vet);
+                        if (vet_kind == LLVMTypeKind.LLVMIntegerTypeKind)
+                        {
+                            result = LLVM.BuildAdd(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "preinc");
+                        }
+                        else if (vet_kind == LLVMTypeKind.LLVMFloatTypeKind)
+                        {
+                            result = LLVM.BuildFAdd(builder, result, LLVM.ConstReal(vet, 1.0), "preinc");
+                        }
+                        else
+                        {
+                            throw new InvalidCodePath();
+                        }
+                        LLVM.BuildStore(builder, result, v);
+                    }
+                    break;
+                case AST.UnaryOp.UnaryOpType.PreDec:
+                    {
+                        result = LLVM.BuildLoad(builder, v, "predec_load");
+                        var vet = LLVM.GetElementType(vtype);
+                        var vet_kind = LLVM.GetTypeKind(vet);
+                        if (vet_kind == LLVMTypeKind.LLVMIntegerTypeKind)
+                        {
+                            result = LLVM.BuildSub(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "predec");
+                        }
+                        else if (vet_kind == LLVMTypeKind.LLVMFloatTypeKind)
+                        {
+                            result = LLVM.BuildFSub(builder, result, LLVM.ConstReal(vet, 1.0), "predec");
+                        }
+                        else
+                        {
+                            throw new InvalidCodePath();
+                        }
+                        LLVM.BuildStore(builder, result, v);
+                    }
+                    break;
+                case AST.UnaryOp.UnaryOpType.PostInc:
+                    {
+                        result = LLVM.BuildLoad(builder, v, "postinc_load");
+                        var vet = LLVM.GetElementType(vtype);
+                        var vet_kind = LLVM.GetTypeKind(vet);
+                        if (vet_kind == LLVMTypeKind.LLVMIntegerTypeKind)
+                        {
+                            var inc = LLVM.BuildAdd(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "postinc");
+                            LLVM.BuildStore(builder, inc, v);
+                        }
+                        else if (vet_kind == LLVMTypeKind.LLVMFloatTypeKind)
+                        {
+                            var inc = LLVM.BuildFAdd(builder, result, LLVM.ConstReal(vet, 1.0), "postinc");
+                            LLVM.BuildStore(builder, inc, v);
+                        }
+                        else
+                        {
+                            throw new InvalidCodePath();
+                        }
+                    }
+                    break;
+                case AST.UnaryOp.UnaryOpType.PostDec:
+                    {
+                        result = LLVM.BuildLoad(builder, v, "postdec_load");
+                        var vet = LLVM.GetElementType(vtype);
+                        var vet_kind = LLVM.GetTypeKind(vet);
+                        if (vet_kind == LLVMTypeKind.LLVMIntegerTypeKind)
+                        {
+                            var inc = LLVM.BuildSub(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "postdec");
+                            LLVM.BuildStore(builder, inc, v);
+                        }
+                        else if (vet_kind == LLVMTypeKind.LLVMFloatTypeKind)
+                        {
+                            var inc = LLVM.BuildFSub(builder, result, LLVM.ConstReal(vet, 1.0), "postdec");
+                            LLVM.BuildStore(builder, inc, v);
+                        }
+                        else
+                        {
+                            throw new InvalidCodePath();
+                        }
+                    }
                     break;
                 default:
                     throw new InvalidCodePath();
@@ -803,6 +884,8 @@ namespace PragmaScript
 
             Debug.Assert(isEqualType(LLVM.GetElementType(targetType), resultType));
             LLVM.BuildStore(builder, result, target);
+
+            valueStack.Push(result);
         }
 
 
@@ -837,7 +920,6 @@ namespace PragmaScript
                 valueStack.Push(pr);
                 return;
             }
-
             LLVMValueRef v;
             var nt = typeChecker.GetNodeType(node);
             string varName;
@@ -849,8 +931,6 @@ namespace PragmaScript
             {
                 varName = node.vd.name;
             }
-
-
             if (nt is FrontendFunctionType)
             {
                 v = functions[varName];
@@ -859,13 +939,8 @@ namespace PragmaScript
             {
                 v = variables[varName];
             }
-
-
             var v_type = typeToString(LLVM.TypeOf(v));
-
-
             LLVMValueRef result;
-
             bool is_global = LLVM.IsAGlobalVariable(v).Pointer != IntPtr.Zero;
 
             if (vd.isConstant)
@@ -882,7 +957,6 @@ namespace PragmaScript
                 }
             }
             var ltype = LLVM.TypeOf(result);
-
             var ltype_string = typeToString(ltype);
 
             /*
@@ -1374,7 +1448,6 @@ namespace PragmaScript
 
         public void Visit(AST.StructDefinition node)
         {
-            // throw new NotImplementedException();
         }
 
 
@@ -1383,118 +1456,5 @@ namespace PragmaScript
             dynamic dn = node;
             Visit(dn);
         }
-
-
-        //public void Visit(AST.Node node)
-        //{
-        //    if (node is AST.FileRoot)
-        //    {
-        //        Visit(node as AST.FileRoot);
-        //    }
-        //    else if (node is AST.ConstInt)
-        //    {
-        //        Visit(node as AST.ConstInt);
-        //    }
-        //    else if (node is AST.ConstFloat)
-        //    {
-        //        Visit(node as AST.ConstFloat);
-        //    }
-        //    else if (node is AST.ConstBool)
-        //    {
-        //        Visit(node as AST.ConstBool);
-        //    }
-        //    else if (node is AST.ConstString)
-        //    {
-        //        Visit(node as AST.ConstString);
-        //    }
-        //    else if (node is AST.ArrayConstructor)
-        //    {
-        //        Visit(node as AST.ArrayConstructor);
-        //    }
-        //    else if (node is AST.BinOp)
-        //    {
-        //        Visit(node as AST.BinOp);
-        //    }
-        //    else if (node is AST.UnaryOp)
-        //    {
-        //        Visit(node as AST.UnaryOp);
-        //    }
-        //    else if (node is AST.TypeCastOp)
-        //    {
-        //        Visit(node as AST.TypeCastOp);
-        //    }
-        //    else if (node is AST.VariableDefinition)
-        //    {
-        //        Visit(node as AST.VariableDefinition);
-        //    }
-        //    else if (node is AST.Assignment)
-        //    {
-        //        Visit(node as AST.Assignment);
-        //    }
-        //    else if (node is AST.Block)
-        //    {
-        //        Visit(node as AST.Block);
-        //    }
-        //    else if (node is AST.VariableReference)
-        //    {
-        //        Visit(node as AST.VariableReference);
-        //    }
-        //    else if (node is AST.ArrayElementAccess)
-        //    {
-        //        Visit(node as AST.ArrayElementAccess);
-        //    }
-        //    else if (node is AST.StructFieldAccess)
-        //    {
-        //        Visit(node as AST.StructFieldAccess);
-        //    }
-        //    else if (node is AST.StructConstructor)
-        //    {
-        //        Visit(node as AST.StructConstructor);
-        //    }
-        //    else if (node is AST.UninitializedArray)
-        //    {
-        //        Visit(node as AST.UninitializedArray);
-        //    }
-        //    else if (node is AST.FunctionCall)
-        //    {
-        //        Visit(node as AST.FunctionCall);
-        //    }
-        //    else if (node is AST.IfCondition)
-        //    {
-        //        Visit(node as AST.IfCondition);
-        //    }
-        //    else if (node is AST.ForLoop)
-        //    {
-        //        Visit(node as AST.ForLoop);
-        //    }
-        //    else if (node is AST.WhileLoop)
-        //    {
-        //        Visit(node as AST.WhileLoop);
-        //    }
-        //    else if (node is AST.BreakLoop)
-        //    {
-        //        Visit(node as AST.BreakLoop);
-        //    }
-        //    else if (node is AST.ContinueLoop)
-        //    {
-        //        Visit(node as AST.ContinueLoop);
-        //    }
-        //    else if (node is AST.ReturnFunction)
-        //    {
-        //        Visit(node as AST.ReturnFunction);
-        //    }
-        //    else if (node is AST.FunctionDefinition)
-        //    {
-        //        Visit(node as AST.FunctionDefinition);
-        //    }
-        //    else if (node is AST.StructDefinition)
-        //    {
-        //        Visit(node as AST.StructDefinition);
-        //    }
-        //    else
-        //    {
-        //        throw new InvalidCodePath();
-        //    }
-        //}
     }
 }

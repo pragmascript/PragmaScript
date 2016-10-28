@@ -157,6 +157,10 @@ namespace PragmaScript
                 case Token.TokenType.Break:
                     result = new BreakLoop(current, scope);
                     break;
+                case Token.TokenType.OpenCurly:
+                    result = parseBlock(ref ps, scope);
+                    ignoreSemicolon = true;
+                    break;
                 default:
                     result = parseBinOp(ref ps, scope);
                     if (!(result is Assignment || result is FunctionCall
@@ -465,25 +469,20 @@ namespace PragmaScript
             return true;
         }
 
-        static Node tranformCompoundAssignment(Assignment assign, Token.TokenType op, ParseState left_temp_ps, int precedence)
-        {
-
-            return null;
-        }
 
         static Node parseAssignment(ref ParseState ps, Scope scope, int precedence)
         {
-            var left_temp_ps = ps;
             var left = parseBinOp(ref ps, scope, precedence - 1);
             var right = default(Node);
             var next = ps.PeekToken();
+
+            List<Assignment> assignments = new List<Assignment>();
 
             while (next.isAssignmentOperator())
             {
                 // continue to the next token after the add or subtract
                 ps.NextToken();
                 ps.NextToken();
-
                 right = parseBinOp(ref ps, scope, precedence - 1);
 
                 Node result;
@@ -495,28 +494,31 @@ namespace PragmaScript
                     a.left = ro;
                     a.right = right;
                     old_a.right = a;
-                    if (!activatePointers_rec(a.left))
-                    {
-                        throw new ParserErrorExpected(a.left.GetType().Name, "variable, struct field access, array element access", a.left.token);
-                    }
+                    assignments.Add(a);
                     a = old_a;
                 }
                 else
                 {
                     a.left = left;
                     a.right = right;
+                    assignments.Add(a);
                 }
-                if (!activatePointers_rec(a.left))
-                {
-                    throw new ParserErrorExpected(a.left.GetType().Name, "variable, struct field access, array element access", a.left.token);
-                }
+                
                 result = a;
-                if (next.type != Token.TokenType.Assignment)
+                left = a;
+                next = ps.PeekToken();
+            }
+
+            for (int i = 0; i < assignments.Count; ++i)
+            {
+                var a = assignments[i];
+
+                if (a.token.type != Token.TokenType.Assignment)
                 {
-                    var left_copy = parseBinOp(ref left_temp_ps, scope, precedence - 1);
+                    var left_copy = a.left.DeepCloneTree(); ;
                     var compound = new BinOp(next, scope);
                     compound.left = left_copy;
-                    compound.right = right;
+                    compound.right = a.right;
                     a.right = compound;
                     switch (next.type)
                     {
@@ -550,14 +552,12 @@ namespace PragmaScript
                         case Token.TokenType.MinusEquals:
                             compound.type = BinOp.BinOpType.Subract;
                             break;
-                        default:
-                            throw new InvalidCodePath();
                     }
                 }
-                left = a;
-                left_temp_ps = ps;
-
-                next = ps.PeekToken();
+                if (!activatePointers_rec(a.left))
+                {
+                    throw new ParserErrorExpected(a.left.GetType().Name, "variable, struct field access, array element access", a.left.token);
+                }
             }
             return left;
         }

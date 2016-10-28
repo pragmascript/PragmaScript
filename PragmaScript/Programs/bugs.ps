@@ -19,16 +19,24 @@ let sphere = struct
 	radius: f32;
 }
 
-let main = fun () => void {
-	var x = 3;
-	var y = 5;
-	x += y += 7;
-	print_i32(x);
-	print_string("\n");
-	print_i32(y);
-	print_string("\n");
-}
-
 let foo = fun (s: sphere) => void {
 	print_i32((i32)s.point.x);
+}
+
+let __test__assignment = fun () => void {
+	{
+		var x = 3;
+		var y = 5;
+		x += y += 7;
+	}
+	{
+		var x = 3;
+		var px = &x;
+		*px = 12;
+	}
+}
+
+let main = fun () => void {
+	print_i32(x);
+	print_string("\n");
 }
