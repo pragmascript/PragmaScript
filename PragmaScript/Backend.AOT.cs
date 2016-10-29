@@ -50,7 +50,7 @@ namespace PragmaScript
                 Console.WriteLine($"optimizer... (O{optLevel})");
                 var optProcess = new Process();
                 optProcess.StartInfo.FileName = @"External\opt.exe";
-                optProcess.StartInfo.Arguments = $"output.ll -O{optLevel} -march={arch} -S -o output_opt.ll";
+                optProcess.StartInfo.Arguments = $"output.ll -O{optLevel} -march={arch} -mcpu=nehalem -S -o output_opt.ll";
                 optProcess.StartInfo.RedirectStandardInput = false;
                 optProcess.StartInfo.RedirectStandardOutput = false;
                 optProcess.StartInfo.UseShellExecute = false;
@@ -64,7 +64,7 @@ namespace PragmaScript
                 Console.WriteLine("assembler...(debug)");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = @"External\llc.exe";
-                llcProcess.StartInfo.Arguments = $"output_opt.ll -O{optLevel} -march={arch} -filetype=asm -o output.asm";
+                llcProcess.StartInfo.Arguments = $"output_opt.ll -O{optLevel} -march={arch} -mcpu=nehalem -filetype=asm -o output.asm";
                 llcProcess.StartInfo.RedirectStandardInput = false;
                 llcProcess.StartInfo.RedirectStandardOutput = false;
                 llcProcess.StartInfo.UseShellExecute = false;
@@ -82,7 +82,7 @@ namespace PragmaScript
                 {
                     inp = "output.ll";
                 }
-                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -filetype=obj -o output.o";
+                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=nehalem -filetype=obj -o output.o";
                 llcProcess.StartInfo.RedirectStandardInput = false;
                 llcProcess.StartInfo.RedirectStandardOutput = false;
                 llcProcess.StartInfo.UseShellExecute = false;

@@ -29,7 +29,8 @@ let PAGE_READWRITE = (u32)0x04;
 let MEM_RELEASE = (u32)0x8000;
 let PM_REMOVE = (u32)0x0001;
 
-let WNDCLASSEX = struct {
+let WNDCLASSEX = struct 
+(
 	cbSize: u32;
   style: u32;
   lpfnWndProc: i8*;
@@ -42,12 +43,14 @@ let WNDCLASSEX = struct {
   lpszMenuName: i8*;
   lpszClassName: i8*;
 	hIconSm: umm;
-}
-let POINT = struct {
+)
+let POINT = struct 
+(
 	x: i32;
 	y: i32;
-}
-let MSG = struct {
+)
+let MSG = struct
+(
 	hwnd: umm;
 	message: u32;
 	wParam: umm;
@@ -55,14 +58,16 @@ let MSG = struct {
 	time: i32;
 	pt: POINT;
   pad: umm;
-}
-let RECT = struct {
+)
+let RECT = struct 
+(
 	left: i32;
 	top: i32;
 	right: i32;
 	bottom: i32;
-}
-let PAINTSTRUCT = struct {
+)
+let PAINTSTRUCT = struct
+(
 	hdc: umm;
 	fErase: i32;
 	rcPaint: RECT;
@@ -72,9 +77,10 @@ let PAINTSTRUCT = struct {
 	reserved1: umm;
 	reserved2: umm;
 	reserved3: umm;
-}
+)
 
-let BITMAPINFOHEADER = struct {
+let BITMAPINFOHEADER = struct
+(
   biSize: u32;
   biWidth: i32;
   biHeight: i32;
@@ -86,116 +92,123 @@ let BITMAPINFOHEADER = struct {
   biYPelsPerMeter: i32;
   biClrUsed: u32;
   biClrImportant: u32;
-}
+)
 
-let RGBQUAD = struct {
+
+let RGBQUAD = struct 
+(
   blue: u8;
   green: u8;
   red: u8;
   reserved: u8;
-}
+)
 
-let BITMAPINFO = struct {
+let BITMAPINFO = struct
+(
 	header: BITMAPINFOHEADER;
 	rgb: RGBQUAD;
-}
+)
 
 let GetModuleHandleA = fun (lpModuleName: umm) => umm;
 let RegisterClassExA = fun (window_class: WNDCLASSEX*) => u16;
-let DefWindowProcA = fun (window: umm, message: u32, w_param: umm, l_param: umm) => umm;
+let DefWindowProcA = fun (window: umm; message: u32; w_param: umm; l_param: umm) => umm;
 let ExitProcess = fun(signal: u32) => void;
 let CreateWindowExA = fun
 (
-   dwExStyle: i32,     
-   lpClassName: i8*,
-   lpWindowName: i8*,
-   dwStyle: i32,
-   x: i32,
-   y: i32,
-   nWidth: i32,
-   nHeight: i32,
-   hWndParent: umm,
-   hMenu: umm,
-   hInstance: umm,
+   dwExStyle: i32;     
+   lpClassName: i8*;
+   lpWindowName: i8*;
+   dwStyle: i32;
+   x: i32;
+   y: i32;
+   nWidth: i32;
+   nHeight: i32;
+   hWndParent: umm;
+   hMenu: umm;
+   hInstance: umm;
    lpParam: umm
 ) => umm;
 let GetMessageA = fun
 (
-  message: MSG*,
-  hWnd: umm,
-  wMsgFilterMin: u32,
+  message: MSG*;
+  hWnd: umm;
+  wMsgFilterMin: u32;
   wMsgFilterMax: u32
 ) => i32;
 let PeekMessageA = fun
 (
-  message: MSG*,
-  hWnd: umm,
-  wMsgFilterMin: u32,
-  wMsgFilterMax: u32,
+  message: MSG*;
+  hWnd: umm;
+  wMsgFilterMin: u32;
+  wMsgFilterMax: u32;
   wRemoveMsg: u32
 ) => i32;
 
 let TranslateMessage = fun (message: MSG*) => i32;
 let DispatchMessageA = fun (message: MSG*) => umm;
-let BeginPaint = fun (hwnd: umm, lpPaint: PAINTSTRUCT*) => umm;
-let EndPaint = fun (hwnd: umm, lpPaint: PAINTSTRUCT*) => i32;
+let BeginPaint = fun (hwnd: umm; lpPaint: PAINTSTRUCT*) => umm;
+let EndPaint = fun (hwnd: umm; lpPaint: PAINTSTRUCT*) => i32;
 let PostQuitMessage = fun (nExitCode: i32) => void;
-let GetClientRect = fun (hWnd: umm, rect: RECT*) => i32;
+let GetClientRect = fun (hWnd: umm; rect: RECT*) => i32;
 let CreateDIBSection = fun 
 (
-	hdc: umm,
-	bitmap: BITMAPINFO*,
-	iUsage: u32,
-	ppvBits: i8**,
-	hSection: umm, 
+	hdc: umm;
+	bitmap: BITMAPINFO*;
+	iUsage: u32;
+	ppvBits: i8**;
+	hSection: umm; 
 	dwOffset: u32
 ) => umm;
 
 let StretchDIBits = fun 
 (
-  hdc: umm,
-  xDest: i32,
-  yDest: i32,
-  nDestWidth: i32,
-  nDestHeight: i32,
-  XSrc: i32,
-  YSrc: i32,
-  nSrcWidth: i32,
-  nSrcHeight: i32,
-  lpBits: i8*,
-  lpBitsInfo: BITMAPINFO*,
-  iUsage: u32,
+  hdc: umm;
+  xDest: i32;
+  yDest: i32;
+  nDestWidth: i32;
+  nDestHeight: i32;
+  XSrc: i32;
+  YSrc: i32;
+  nSrcWidth: i32;
+  nSrcHeight: i32;
+  lpBits: i8*;
+  lpBitsInfo: BITMAPINFO*;
+  iUsage: u32;
   dwRop: u32
 ) => i32;
 
 // gdi32.lib
 let PatBlt = fun 
 (
-	hdc: umm,
-	nXLeft: i32,
-	nYLeft: i32,
-	nWidth: i32,
-	nHeight: i32,
+	hdc: umm;
+	nXLeft: i32;
+	nYLeft: i32;
+	nWidth: i32;
+	nHeight: i32;
 	dwRop: u32
 ) => i32;
 
 let DeleteObject = fun (obj: umm) => i32;
 let CreateCompatibleDC = fun (hdc: umm) => umm;
 let GetDC = fun (hWnd: umm) => umm;
-let ReleaseDC = fun (hWnd: umm, hdc: umm) => i32;
+let ReleaseDC = fun (hWnd: umm; hdc: umm) => i32;
 let GetCompatibleDC = fun (hdc: umm) => umm;
 
 let VirtualAlloc = fun 
 (
-  address: i8*,
-  size: umm,
-  allocation_type: u32,
+  address: i8*;
+  size: umm;
+  allocation_type: u32;
   protect: u32
 ) => i8*;
 
 let VirtualFree = fun
 (
-  address: i8*,
-  size: umm,
+  address: i8*;
+  size: umm;
   free_type: u32
 ) => i32;
+
+
+// **************** XINPUT ****************
+

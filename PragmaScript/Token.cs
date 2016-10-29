@@ -80,7 +80,8 @@ namespace PragmaScript
             Dot,
             Struct,
             ArrayTypeBrackets,
-            Alias
+            Alias,
+            AssignmentAuto
         }
 
         public TokenType type { get; private set; }
@@ -116,6 +117,7 @@ namespace PragmaScript
 
 
             operators = new Dictionary<string, TokenType>();
+            operators.Add(":=", TokenType.AssignmentAuto);
             operators.Add("=", TokenType.Assignment);
             operators.Add("(", TokenType.OpenBracket);
             operators.Add(")", TokenType.CloseBracket);
@@ -191,6 +193,7 @@ namespace PragmaScript
             switch (type)
             {
                 case TokenType.Assignment:
+                case TokenType.AssignmentAuto:
                 case TokenType.PlusEquals:
                 case TokenType.RightShiftEquals:
                 case TokenType.LeftShiftEquals:

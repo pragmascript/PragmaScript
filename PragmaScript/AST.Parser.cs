@@ -477,22 +477,17 @@ namespace PragmaScript
             }
         }
 
-        static bool activatePointers_rec(Node node)
+        static bool activateReturnPointer(Node node)
         {
             if (node is ICanReturnPointer && (node as ICanReturnPointer).CanReturnPointer())
             {
                 (node as ICanReturnPointer).returnPointer = true;
-                var c = node.GetChilds().FirstOrDefault();
-                if (c != null)
-                {
-                    activatePointers_rec(c);
-                }
+                return true;
             }
             else
             {
                 return false;
             }
-            return true;
         }
 
 
@@ -580,7 +575,7 @@ namespace PragmaScript
                             break;
                     }
                 }
-                if (!activatePointers_rec(a.left))
+                if (!activateReturnPointer(a.left))
                 {
                     throw new ParserErrorExpected(a.left.GetType().Name, "variable, struct field access, array element access", a.left.token);
                 }
@@ -664,13 +659,15 @@ namespace PragmaScript
 
             var v = ps.ExpectNextToken(Token.TokenType.Identifier);
             var variableName = v.text;
-            result.variable = scope.AddVar(variableName, result, v);
-            result.variable.isConstant = isConstant;
+            
 
             ps.ExpectNextToken(Token.TokenType.Assignment);
             ps.NextToken();
 
             result.expression = parseBinOp(ref ps, scope);
+
+            result.variable = scope.AddVar(variableName, result, v);
+            result.variable.isConstant = isConstant;
 
             return result;
         }
@@ -713,6 +710,7 @@ namespace PragmaScript
                     return false;
                 case 13:
                     return tt == Token.TokenType.Assignment
+                        || tt == Token.TokenType.AssignmentAuto
                         || tt == Token.TokenType.MultiplyEquals
                         || tt == Token.TokenType.DivideEquals
                         || tt == Token.TokenType.RemainderEquals
@@ -780,13 +778,10 @@ namespace PragmaScript
 
                 if (result.type == UnaryOp.UnaryOpType.AddressOf ||
                     result.type == UnaryOp.UnaryOpType.PreInc ||
-                    result.type == UnaryOp.UnaryOpType.PreDec)
+                    result.type == UnaryOp.UnaryOpType.PreDec ||
+                    result.type == UnaryOp.UnaryOpType.Dereference) 
                 {
-                    if (result.expression is ICanReturnPointer && (result.expression as ICanReturnPointer).CanReturnPointer())
-                    {
-                        (result.expression as ICanReturnPointer).returnPointer = true;
-                    }
-                    else
+                    if (!activateReturnPointer(result.expression))
                         throw new ParserError($"Cannot take address of expression \"{ result.expression }\"", ps.CurrentToken());
                 }
                 return result;
@@ -907,11 +902,7 @@ namespace PragmaScript
                         }
                         else
                         {
-                            if (result is ICanReturnPointer && (result as ICanReturnPointer).CanReturnPointer())
-                            {
-                                (result as ICanReturnPointer).returnPointer = true;
-                            }
-                            else
+                            if (!activateReturnPointer(result))
                             {
                                 throw new ParserError("cannot take address of lvalue", result.token);
                             }
@@ -926,11 +917,7 @@ namespace PragmaScript
                         }
                         else
                         {
-                            if (result is ICanReturnPointer && (result as ICanReturnPointer).CanReturnPointer())
-                            {
-                                (result as ICanReturnPointer).returnPointer = true;
-                            }
-                            else
+                            if (!activateReturnPointer(result))
                             {
                                 throw new ParserError("cannot take address of lvalue", result.token);
                             }
@@ -954,11 +941,7 @@ namespace PragmaScript
                         }
                         else
                         {
-                            if (result is ICanReturnPointer && (result as ICanReturnPointer).CanReturnPointer())
-                            {
-                                (result as ICanReturnPointer).returnPointer = true;
-                            }
-                            else
+                            if (!activateReturnPointer(result))
                             {
                                 throw new ParserError("cannot take address of lvalue", result.token);
                             }
@@ -1077,18 +1060,7 @@ namespace PragmaScript
             {
                 result.variableName = current.text;
             }
-
-            //var peek = ps.PeekToken();
-            //if (peek.type == Token.TokenType.Increment || peek.type == Token.TokenType.Decrement)
-            //{
-            //    if (result.inc != VariableReference.Incrementor.None)
-            //    {
-            //        throw new ParserError("You can't use both pre-increment and post-increment", peek);
-            //    }
-            //    ps.NextToken();
-            //    result.inc = peek.type == Token.TokenType.Increment ?
-            //        VariableReference.Incrementor.postIncrement : VariableReference.Incrementor.postDecrement;
-            //}
+            
             return result;
         }
 
@@ -1098,13 +1070,6 @@ namespace PragmaScript
 
             var result = new FunctionCall(current, scope);
             result.functionName = current.text;
-
-
-            // TODO: resolve this at type checking time
-            //if (scope.GetFunction(result.functionName) == null)
-            //{
-            //    throw new ParserError(string.Format("Undefined function \"{0}\"", result.functionName), current);
-            //}
 
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
@@ -1223,8 +1188,8 @@ namespace PragmaScript
             // let foo = struct
             ps.ExpectNextToken(Token.TokenType.Struct);
 
-            // let foo = stuct { 
-            ps.ExpectNextToken(Token.TokenType.OpenCurly);
+            // let foo = stuct ( 
+            ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
             var result = new StructDefinition(current, scope);
             result.name = id.text;
@@ -1234,15 +1199,15 @@ namespace PragmaScript
             scope.AddType(result.name, result, current);
 
             var next = ps.PeekToken();
-            while (next.type != Token.TokenType.CloseCurly)
+            while (next.type != Token.TokenType.CloseBracket)
             {
-                // let foo = struct { x 
+                // let foo = struct ( x 
                 var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
 
-                // let foo = struct { x: 
+                // let foo = struct ( x: 
                 ps.ExpectNextToken(Token.TokenType.Colon);
 
-                // let foo = struct { x: int32
+                // let foo = struct ( x: int32
                 ps.NextToken();
                 var ts = parseTypeString(ref ps, scope);
 
@@ -1251,7 +1216,7 @@ namespace PragmaScript
                 f.typeString = ts;
                 result.fields.Add(f);
 
-                // let foo = struct { x: int32, ... 
+                // let foo = struct ( x: int32; ... 
                 ps.ExpectNextToken(Token.TokenType.Semicolon);
                 next = ps.PeekToken();
             }
@@ -1333,8 +1298,8 @@ namespace PragmaScript
                     }
                     if (next.type != Token.TokenType.CloseBracket)
                     {
-                        // let foo = fun (x: int32,
-                        expectTokenType(next, Token.TokenType.Comma);
+                        // let foo = fun (x: int32;
+                        expectTokenType(next, Token.TokenType.Semicolon);
                         continue;
                     }
                     else

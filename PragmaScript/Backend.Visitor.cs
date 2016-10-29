@@ -538,6 +538,11 @@ namespace PragmaScript
                     break;
                 case AST.UnaryOp.UnaryOpType.Dereference:
                     result = LLVM.BuildLoad(builder, v, "deref");
+                    if (!node.returnPointer)
+                    {
+                        result = LLVM.BuildLoad(builder, result, "deref");
+                    }
+                    
                     break;
                 case AST.UnaryOp.UnaryOpType.PreInc:
                     {

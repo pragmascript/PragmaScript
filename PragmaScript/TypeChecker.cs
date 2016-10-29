@@ -56,6 +56,7 @@ namespace PragmaScript
         {
             Debug.Assert(from != null);
             Debug.Assert(to != null);
+            Debug.Assert(from != to);
 
             UnresolvedType u;
             if (!unresolved.TryGetValue(from, out u))

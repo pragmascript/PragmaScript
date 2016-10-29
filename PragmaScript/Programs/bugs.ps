@@ -6,47 +6,51 @@
 // var s = sphere{};
 // s.pos = vec{1.0,2.0,3.0};
 
-let vec = struct 
-{
-	x: f32;
-	y: f32;
-	z: f32;
-}
+// let vec = struct 
+// {
+// 	x: f32;
+// 	y: f32;
+// 	z: f32;
+// }
 
-let sphere = struct
-{
-	point: vec;
-	radius: f32;
-}
+// let sphere = struct
+// {
+// 	point: vec;
+// 	radius: f32;
+// }
 
-let foo = fun (s: sphere) => void {
-	print_i32((i32)s.point.x);
-}
+// let foo = fun (s: sphere) => void {
+// 	print_i32((i32)s.point.x);
+// }
 
-let __test__assignment = fun () => void {
-	{
-		var x = 3;
-		var y = 5;
-		x += y += 7 ;
-	}
-	{
-		var x = 3;
-		var px = &x;
-		*px = 12;
-	}
-}
+// let __test__assignment = fun () => void {
+// 	{
+// 		var x = 3;
+// 		var y = 5;
+// 		x += y += 7 ;
+// 	}
+// 	{
+// 		var x = 3;
+// 		var px = &x;
+// 		*px = 12;
+// 	}
+// }
+
+// let __test__ref_deref = fun () => void {
+// 	var x = 12;
+// 	var y = &x;
+// 	var z = *y;
+// 	print_i32(z);
+// 	print_string("\n");
+// 	*y = 17;
+// 	print_i32(*y);
+// }
+
+
 
 let main = fun () => void {
-	var x = 12;
-	var y = 13;
-	var x_offset = 12;
-	var y_offset = 13;
-	var weird_1 =(x + 2);
-	// var weird_2 = (u8)((x + x_offset)^(y + y_offset));
-	print_i32((i32)weird_1);
-	print_string("\n");
+	// __test__ref_deref();
 
-	--x;
-	print_i32(x);
-	print_string("\n");
+	// causes stack overflow in typechecker
+	var xxx = xxx + 3;
 }
