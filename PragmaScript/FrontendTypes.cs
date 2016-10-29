@@ -65,6 +65,20 @@ namespace PragmaScript
             return !(t1 == t2);
         }
 
+        public static bool IsIntegerType(FrontendType t)
+        {
+            bool result = false;
+            result |= t.Equals(i8);
+            result |= t.Equals(i16);
+            result |= t.Equals(i32);
+            result |= t.Equals(i64);
+            result |= t.Equals(u8);
+            result |= t.Equals(u16);
+            result |= t.Equals(u32);
+            result |= t.Equals(u64);
+            return result;
+        }
+
     }
 
     public class FrontendArrayType : FrontendStructType

@@ -542,11 +542,11 @@ namespace PragmaScript
                 if (a.token.type != Token.TokenType.Assignment)
                 {
                     var left_copy = a.left.DeepCloneTree(); ;
-                    var compound = new BinOp(next, scope);
+                    var compound = new BinOp(a.token, scope);
                     compound.left = left_copy;
                     compound.right = a.right;
                     a.right = compound;
-                    switch (next.type)
+                    switch (a.token.type)
                     {
                         case Token.TokenType.PlusEquals:
                             compound.type = BinOp.BinOpType.Add;
@@ -811,23 +811,20 @@ namespace PragmaScript
                 temp.NextToken();
                 var type = parseTypeString(ref temp, scope);
                 var peek = temp.PeekToken();
-                if (!(peek.type == Token.TokenType.CloseBracket))
+                if (peek.type == Token.TokenType.CloseBracket)
                 {
-                    goto no_cast;
+                    // now we assume its a cast
+                    ps = temp;
+                    ps.NextToken();
+                    ps.NextToken();
+                    var exp = parsePrimary(ref ps, scope);
+                    var result = new TypeCastOp(current, scope);
+                    // TODO: check if valid type (in type check phase?)
+                    result.typeString = type;
+                    result.expression = exp;
+                    return result;
                 }
-
-                // now we assume its a cast
-                ps = temp;
-                ps.NextToken();
-                ps.NextToken();
-                var exp = parsePrimary(ref ps, scope);
-                var result = new TypeCastOp(current, scope);
-                // TODO: check if valid type (in type check phase?)
-                result.typeString = type;
-                result.expression = exp;
-                return result;
             }
-        no_cast:
             return parsePrimary(ref ps, scope);
         }
 

@@ -54,6 +54,7 @@ let MSG = struct {
 	lParam: umm;
 	time: i32;
 	pt: POINT;
+  pad: umm;
 }
 let RECT = struct {
 	left: i32;
@@ -180,6 +181,7 @@ let PatBlt = fun
 
 let DeleteObject = fun (obj: umm) => i32;
 let CreateCompatibleDC = fun (hdc: umm) => umm;
+let GetDC = fun (hWnd: umm) => umm;
 let ReleaseDC = fun (hWnd: umm, hdc: umm) => i32;
 let GetCompatibleDC = fun (hdc: umm) => umm;
 

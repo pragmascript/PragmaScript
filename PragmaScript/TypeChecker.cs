@@ -743,12 +743,12 @@ namespace PragmaScript
                 if (node.isEither(AST.BinOp.BinOpType.LeftShift, AST.BinOp.BinOpType.RightShift))
                 {
                     // TODO: suppport all integer types here.
-                    if (!lt.Equals(FrontendType.i32) || !rt.Equals(FrontendType.i32))
+                    if (!(FrontendType.IsIntegerType(lt) && FrontendType.IsIntegerType(rt)))
                     {
                         throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lt, rt), node.token);
                     }
                 }
-                if (lt is FrontendPointerType)
+                else if (lt is FrontendPointerType)
                 {
                     if (!node.isEither(AST.BinOp.BinOpType.Add, AST.BinOp.BinOpType.Subract))
                     {
@@ -756,7 +756,7 @@ namespace PragmaScript
                     }
 
                     // TODO: rather use umm and smm???
-                    if (!(rt.Equals(FrontendType.i32) || rt.Equals(FrontendType.i64) || rt.Equals(FrontendType.i8)))
+                    if (!FrontendType.IsIntegerType(rt))
                     {
                         throw new ParserError($"Right side of pointer arithmetic operation must be of integer type not \"{rt}\".", node.right.token);
                     }
