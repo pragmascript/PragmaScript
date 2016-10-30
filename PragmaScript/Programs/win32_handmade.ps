@@ -15,14 +15,14 @@ let window_info = struct
 )
 
 var running = false;
-var backbuffer = offscreen_buffer {};
-var window = window_info {};
+var backbuffer: offscreen_buffer;
+var window: window_info;
 
 let bytes_per_pixel = 4;
 let render_weird_gradient = fun (buffer: offscreen_buffer*; x_offset: i32; y_offset: i32; z_offset: i32) => void {
-	var width = buffer.width;
+	var width  = buffer.width;
 	var height = buffer.height;
-	var pitch = buffer.pitch;
+	var pitch  = buffer.pitch;
 	var row = (u8*)buffer.memory;
 	for (var j = 0; j < height; ++j) {
 		var pixel = (u32*)row;
@@ -66,7 +66,7 @@ let blit_to_screen = fun (buffer: offscreen_buffer*) => void {
 }
 
 let update_window_rect = fun () => void {
-	var rect = RECT {};
+	var rect: RECT;
 	GetClientRect(window.handle, &rect); 
 	window.width = rect.right - rect.left;
 	window.height = rect.bottom - rect.top;
@@ -85,11 +85,9 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm {
 		running = false;
 	}
 	elif (message == WM_PAINT) {
-		var paint = PAINTSTRUCT {};
+		var paint: PAINTSTRUCT;
 		var context = BeginPaint(window_handle, &paint);
-		var width = paint.rcPaint.right - paint.rcPaint.left;
-		var height = paint.rcPaint.bottom - paint.rcPaint.top;
-		// blit_to_screen(context, width, height);
+		blit_to_screen(&backbuffer);
 		EndPaint(window_handle, &paint);
 	} else {
 		result = DefWindowProcA(window_handle, message, w_param, l_param);
@@ -100,10 +98,10 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm {
 let main = fun () => void {
 	create_backbuffer(&backbuffer, 1244, 705);
 
-	var class_name = "PragmaScriptWindowClass\0";
+	var class_name  = "PragmaScriptWindowClass\0";
 	var window_name = "handmade-pragmascript\0";
 	var instance = GetModuleHandleA(null);
-	var window_class = WNDCLASSEX {};
+	var window_class: WNDCLASSEX;
 	window_class.cbSize = (u32)80;
 	window_class.style = (u32)(CS_HREDRAW|CS_VREDRAW);
 	window_class.lpfnWndProc = (i8*)main_window_callback;
@@ -140,7 +138,7 @@ let main = fun () => void {
 	var y_offset = 0;
 	var z_offset = 0;
 	while (running) {
-		var msg = MSG {};
+		var msg: MSG;
 		while (PeekMessageA(&msg, null, (u32)0, (u32)0, PM_REMOVE) != 0) {
 			if (msg.message == WM_QUIT) {
 				running = false;

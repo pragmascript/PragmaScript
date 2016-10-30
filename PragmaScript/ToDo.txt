@@ -5,6 +5,8 @@
  - sizeof!!!!
  
  - switch!
+
+ - structs global variables with constant initializers
  
  - setup a compilation task
  - - http://code.visualstudio.com/docs/editor/tasks

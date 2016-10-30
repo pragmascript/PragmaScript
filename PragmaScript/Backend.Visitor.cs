@@ -542,7 +542,7 @@ namespace PragmaScript
                     {
                         result = LLVM.BuildLoad(builder, result, "deref");
                     }
-                    
+
                     break;
                 case AST.UnaryOp.UnaryOpType.PreInc:
                     {
@@ -730,6 +730,7 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
+        
 
         public void Visit(AST.StructConstructor node)
         {
@@ -798,6 +799,7 @@ namespace PragmaScript
         {
             if (node.variable.isConstant)
             {
+
                 Visit(node.expression);
                 var v = valueStack.Pop();
                 Debug.Assert(LLVM.IsConstant(v));
@@ -807,16 +809,29 @@ namespace PragmaScript
 
             if (!ctx.Peek().global)
             {
-                Visit(node.expression);
-                var v = valueStack.Pop();
-                var vType = LLVM.TypeOf(v);
+                Debug.Assert(node.expression != null || node.typeString != null);
+
+                LLVMTypeRef vType;
+                LLVMValueRef v;
+                if (node.expression != null)
+                {
+                    Visit(node.expression);
+                    v = valueStack.Pop();
+                    vType = LLVM.TypeOf(v);
+
+                }
+                else
+                {
+                    v = new LLVMValueRef(IntPtr.Zero);
+                    vType = getTypeRef(typeChecker.GetNodeType(node.typeString));
+                }
 
                 LLVMValueRef result;
-                if (node.expression is AST.StructConstructor)
+                if (node.expression != null && node.expression is AST.StructConstructor)
                 {
                     result = v;
                 }
-                else if (node.expression is AST.ArrayConstructor)
+                else if (node.expression != null && node.expression is AST.ArrayConstructor)
                 {
                     result = v;
                 }
@@ -827,24 +842,25 @@ namespace PragmaScript
                     result = LLVM.BuildAlloca(builder, vType, node.variable.name);
                     variables[node.variable.name] = result;
                     LLVM.PositionBuilderAtEnd(builder, insert);
-                    LLVM.BuildStore(builder, v, result);
+                    if (v.Pointer != IntPtr.Zero)
+                    {
+                        LLVM.BuildStore(builder, v, result);
+                    }
                 }
                 variables[node.variable.name] = result;
             }
             else // is global
             {
-                if (node.expression is AST.StructConstructor)
+                if (node.expression != null && node.expression is AST.StructConstructor)
                 {
                     var sc = node.expression as AST.StructConstructor;
-
                     var structType = getTypeRef(typeChecker.GetNodeType(sc));
 
                     var v = LLVM.AddGlobal(mod, structType, node.variable.name);
                     LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
-
                     variables[node.variable.name] = v;
                     LLVM.SetInitializer(v, LLVM.ConstNull(structType));
-
+                    
                     for (int i = 0; i < sc.argumentList.Count; ++i)
                     {
                         Visit(sc.argumentList[i]);
@@ -859,22 +875,33 @@ namespace PragmaScript
                 }
                 else
                 {
-                    Visit(node.expression);
-                    var result = valueStack.Pop();
-                    var resultType = LLVM.TypeOf(result);
-                    var v = LLVM.AddGlobal(mod, resultType, node.variable.name);
-                    LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
-
-                    if (LLVM.IsConstant(result))
+                    if (node.expression != null)
                     {
-                        LLVM.SetInitializer(v, result);
+                        Visit(node.expression);
+                        var result = valueStack.Pop();
+                        var resultType = LLVM.TypeOf(result);
+                        var v = LLVM.AddGlobal(mod, resultType, node.variable.name);
+                        variables[node.variable.name] = v;
+                        LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
+                        if (LLVM.IsConstant(result))
+                        {
+                            LLVM.SetInitializer(v, result);
+                        }
+                        else
+                        {
+                            
+                            LLVM.SetInitializer(v, LLVM.ConstNull(resultType));
+                            LLVM.BuildStore(builder, result, v);
+                        }
                     }
                     else
                     {
-                        LLVM.SetInitializer(v, LLVM.ConstNull(resultType));
-                        LLVM.BuildStore(builder, result, v);
+                        var vType = getTypeRef(typeChecker.GetNodeType(node.typeString));
+                        var v = LLVM.AddGlobal(mod, vType, node.variable.name);
+                        variables[node.variable.name] = v;
+                        LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
+                        LLVM.SetInitializer(v, LLVM.ConstNull(vType));
                     }
-                    variables[node.variable.name] = v;
                 }
             }
         }
@@ -1280,6 +1307,10 @@ namespace PragmaScript
 
             if (proto)
             {
+                if (node.external && functions.ContainsKey(node.funName))
+                {
+                    return;
+                }
                 var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
                 Debug.Assert(!functions.ContainsKey(node.funName));
                 var cnt = Math.Max(1, fun.parameters.Count);

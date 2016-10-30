@@ -102,12 +102,26 @@ namespace PragmaScript
                 return t;
             }
 
+            public Token ExpectNextToken(params Token.TokenType[] tts)
+            {
+                var t = NextToken();
+                expectTokenType(t, tts);
+                return t;
+            }
+
             public Token ExpectPeekToken(Token.TokenType tt)
             {
                 var t = PeekToken();
                 expectTokenType(t, tt);
                 return t;
             }
+            public Token ExpectPeekToken(params Token.TokenType[] tts)
+            {
+                var t = PeekToken();
+                expectTokenType(t, tts);
+                return t;
+            }
+
 
             public void SkipWhitespace(bool requireOneWS = false)
             {
@@ -133,6 +147,13 @@ namespace PragmaScript
             {
                 var t = CurrentToken();
                 expectTokenType(t, tt);
+                return t;
+            }
+
+            public Token ExpectCurrentToken(params Token.TokenType[] tts)
+            {
+                var t = CurrentToken();
+                expectTokenType(t, tts);
                 return t;
             }
 
@@ -218,7 +239,7 @@ namespace PragmaScript
             // TODO: do i really need 3 lookahead?
             tempState.ExpectNextToken(Token.TokenType.Identifier);
             tempState.ExpectNextToken(Token.TokenType.Assignment);
-            var next = tempState.NextToken(tokenMustExist: false);
+            var next = tempState.NextToken();
 
             if (next.type == Token.TokenType.Struct)
             {
@@ -650,24 +671,43 @@ namespace PragmaScript
 
         static Node parseVariableDefinition(ref ParseState ps, Scope scope)
         {
-            var current = ps.CurrentToken();
-            expectTokenType(current, Token.TokenType.Let, Token.TokenType.Var);
-
+            var current = ps.ExpectCurrentToken(Token.TokenType.Let, Token.TokenType.Var);
             bool isConstant = current.type == Token.TokenType.Let;
-
             var result = new VariableDefinition(current, scope);
-
             var v = ps.ExpectNextToken(Token.TokenType.Identifier);
             var variableName = v.text;
-            
 
-            ps.ExpectNextToken(Token.TokenType.Assignment);
-            ps.NextToken();
+            if (!isConstant)
+            {
+                var at = ps.ExpectNextToken(Token.TokenType.Colon, Token.TokenType.Assignment);
+                ps.NextToken();
+                if (at.type == Token.TokenType.Colon)
+                {
+                    result.typeString = parseTypeString(ref ps, scope);
 
-            result.expression = parseBinOp(ref ps, scope);
-
+                    var peek = ps.ExpectPeekToken(Token.TokenType.Assignment, Token.TokenType.Semicolon);
+                    if (peek.type == Token.TokenType.Assignment)
+                    {
+                        ps.NextToken();
+                        ps.NextToken();
+                        result.expression = parseBinOp(ref ps, scope);
+                    }
+                }
+                else
+                {
+                    result.expression = parseBinOp(ref ps, scope);
+                }
+            }
+            else
+            {
+                var at = ps.ExpectNextToken(Token.TokenType.Assignment);
+                ps.NextToken();
+                result.expression = parseBinOp(ref ps, scope);
+            }
+           
             result.variable = scope.AddVar(variableName, result, v);
             result.variable.isConstant = isConstant;
+            Debug.Assert(result.expression != null || result.typeString != null);
 
             return result;
         }
@@ -710,7 +750,6 @@ namespace PragmaScript
                     return false;
                 case 13:
                     return tt == Token.TokenType.Assignment
-                        || tt == Token.TokenType.AssignmentAuto
                         || tt == Token.TokenType.MultiplyEquals
                         || tt == Token.TokenType.DivideEquals
                         || tt == Token.TokenType.RemainderEquals

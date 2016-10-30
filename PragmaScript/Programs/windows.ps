@@ -2,7 +2,7 @@
 var console_input_handle = GetStdHandle(-10);
 let print_string = fun (s: string) => void
 {
- 	WriteFile(console_output_handle, s.data, s.length, nullptr, nullptr);
+ 	WriteFile(console_output_handle, s.data, (u32)s.length, (u32*)nullptr, nullptr);
 }
 
 let WS_OVERLAPPEDWINDOW = 13565952;
@@ -94,7 +94,6 @@ let BITMAPINFOHEADER = struct
   biClrImportant: u32;
 )
 
-
 let RGBQUAD = struct 
 (
   blue: u8;
@@ -109,6 +108,25 @@ let BITMAPINFO = struct
 	rgb: RGBQUAD;
 )
 
+let WriteFile = fun
+(
+  hFile: umm;
+  lpBuffer: i8*;
+  nNumberOfBytesToWrite: u32;
+  lpNumberOfBytesWritten: u32*;
+  lpOverlapped: i8*
+) => i32;
+
+let ReadFile = fun
+(
+  hFile: umm;
+  lpBuffer: i8*;
+  nNumberOfBytesToRead: u32;
+  nNumberOfBytesRead: u32*;
+  lpOverlapped: i8*
+) => i32;
+
+let GetStdHandle = fun (nStdHandle: i32) => umm;
 let GetModuleHandleA = fun (lpModuleName: umm) => umm;
 let RegisterClassExA = fun (window_class: WNDCLASSEX*) => u16;
 let DefWindowProcA = fun (window: umm; message: u32; w_param: umm; l_param: umm) => umm;

@@ -1,4 +1,8 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-    "workbench.editor.showIcons": true
+    "workbench.editor.showIcons": true,
+"files.associations": {
+    "*.ps": "csharp"
+}
+
 }

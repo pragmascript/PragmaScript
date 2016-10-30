@@ -295,6 +295,7 @@ namespace PragmaScript
         {
             public Scope.VariableDefinition variable;
             public Node expression;
+            public TypeString typeString;
 
             public VariableDefinition(Token t, Scope s)
                 : base(t, s)
@@ -306,7 +307,15 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return expression;
+                if (expression != null)
+                {
+                    yield return expression;
+                }
+                
+                if (typeString != null)
+                {
+                    yield return typeString;
+                }
             }
             public override string ToString()
             {

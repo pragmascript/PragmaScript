@@ -6,12 +6,12 @@
 // var s = sphere{};
 // s.pos = vec{1.0,2.0,3.0};
 
-// let vec = struct 
-// {
-// 	x: f32;
-// 	y: f32;
-// 	z: f32;
-// }
+let vec = struct 
+(
+	x: f32;
+	y: f32;
+	z: f32;
+)
 
 // let sphere = struct
 // {
@@ -46,11 +46,18 @@
 // 	print_i32(*y);
 // }
 
-
+var global_x: i32;
+var global_y = 12;
+var global_z = 2 + 3;
+var global_v: vec;
+var global_v2 = vec {1.0, 2.0, 3.0};
 
 let main = fun () => void {
 	// __test__ref_deref();
 
 	// causes stack overflow in typechecker
-	var xxx = xxx + 3;
+	var y: i32;
+	y = 17;
+	var x = 13;
+	var z: i32 = x + y;
 }

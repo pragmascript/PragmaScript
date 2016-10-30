@@ -15,6 +15,8 @@ namespace PragmaScript
 {
     partial class Backend
     {
+       
+
         // NOTE: function signature is broken in LLVMSharp 3.7 so we declare it here manually
         [DllImport("libLLVM.dll", EntryPoint = "LLVMGetBufferStart", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr GetBufferStart(LLVMMemoryBufferRef @MemBuf);
@@ -31,9 +33,8 @@ namespace PragmaScript
                     throw new NotImplementedException();
                     break;
                 case TargetPlatform.x64:
-                    var target = Marshal.PtrToStringAnsi(LLVM.GetDefaultTargetTriple());
                     LLVM.SetDataLayout(mod, "e-m:w-i64:64-f80:128-n8:16:32:64-S128");
-                    // LLVM.SetDataLayout()
+                    var target = Marshal.PtrToStringAnsi(LLVM.GetDefaultTargetTriple());
                     LLVM.SetTarget(mod, target);
                     arch = "x86-64";
                     break;
@@ -49,7 +50,7 @@ namespace PragmaScript
             {
                 Console.WriteLine($"optimizer... (O{optLevel})");
                 var optProcess = new Process();
-                optProcess.StartInfo.FileName = @"External\opt.exe";
+                optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
                 optProcess.StartInfo.Arguments = $"output.ll -O{optLevel} -march={arch} -mcpu=nehalem -S -o output_opt.ll";
                 optProcess.StartInfo.RedirectStandardInput = false;
                 optProcess.StartInfo.RedirectStandardOutput = false;
@@ -63,7 +64,7 @@ namespace PragmaScript
             {
                 Console.WriteLine("assembler...(debug)");
                 var llcProcess = new Process();
-                llcProcess.StartInfo.FileName = @"External\llc.exe";
+                llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
                 llcProcess.StartInfo.Arguments = $"output_opt.ll -O{optLevel} -march={arch} -mcpu=nehalem -filetype=asm -o output.asm";
                 llcProcess.StartInfo.RedirectStandardInput = false;
                 llcProcess.StartInfo.RedirectStandardOutput = false;
@@ -76,7 +77,7 @@ namespace PragmaScript
             {
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();
-                llcProcess.StartInfo.FileName = @"External\llc.exe";
+                llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
                 var inp = "output_opt.ll";
                 if (optLevel == 0)
                 {
@@ -93,7 +94,7 @@ namespace PragmaScript
             {
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
-                lldProcess.StartInfo.FileName = @"External\lld-link.exe";
+                lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
                 lldProcess.StartInfo.Arguments = $"kernel32.lib user32.lib gdi32.lib output.o /entry:__init /subsystem:console  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;

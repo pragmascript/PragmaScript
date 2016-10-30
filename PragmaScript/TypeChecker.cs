@@ -135,18 +135,15 @@ namespace PragmaScript
             {
                 checkTypeDynamic(fr);
             }
-
             HashSet<AST.Node> blocker = new HashSet<AST.Node>();
             foreach (var v in unresolved.Values)
             {
                 getRootBlocker(v, blocker);
             }
-
             foreach (var n in blocker)
             {
                 throw new ParserError($"Cannot resolve type of \"{n}\"", n.token);
             }
-
         }
 
         public void checkType(AST.FileRoot node)
@@ -167,7 +164,7 @@ namespace PragmaScript
             resolve(node, FrontendType.none);
         }
 
-        
+
 
         void checkType(AST.Elif node)
         {
@@ -263,15 +260,53 @@ namespace PragmaScript
 
         void checkType(AST.VariableDefinition node)
         {
-            checkTypeDynamic(node.expression);
-            var et = getType(node.expression);
-            if (et != null)
+            Debug.Assert(node.typeString != null || node.expression != null);
+
+
+            FrontendType tt = null;
+            if (node.typeString != null)
             {
-                resolve(node, et);
+                checkTypeDynamic(node.typeString);
+                tt = getType(node.typeString);
+                if (tt == null)
+                {
+                    addUnresolved(node, node.typeString);
+                }
             }
-            else
+            FrontendType et = null;
+            if (node.expression != null)
             {
-                addUnresolved(node, node.expression);
+                checkTypeDynamic(node.expression);
+                et = getType(node.expression);
+                if (et == null)
+                {
+                    addUnresolved(node, node.expression);
+                }
+            }
+
+            if (et != null || tt != null)
+            {
+                if (node.typeString != null && node.expression == null && tt != null)
+                {
+                    resolve(node, tt);
+                    return;
+                }
+                if (node.typeString != null && node.expression != null && et != null && tt != null)
+                {
+                    if (!et.Equals(tt))
+                    {
+                        throw new ParserTypeMismatch(tt, et, node.token);
+                    }
+                    resolve(node, et);
+                    return;
+                }
+                if (node.typeString == null && et != null)
+                {
+                    Debug.Assert(node.expression != null);
+                    Debug.Assert(tt == null);
+                    resolve(node, et);
+                    return;
+                }
             }
         }
 
@@ -494,7 +529,7 @@ namespace PragmaScript
             {
                 vd = node.vd;
             }
-            
+
             Debug.Assert(vd != null);
 
             if (vd.type != null)
@@ -641,7 +676,7 @@ namespace PragmaScript
                 {
                     throw new ParserError("left side is not a struct type", node.token);
                 }
-                
+
                 var field = st.GetField(node.fieldName);
                 if (field == null)
                 {

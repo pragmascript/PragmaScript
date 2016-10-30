@@ -57,32 +57,26 @@ namespace PragmaScript
 
         static void addBasicFunctions(Scope scope)
         {
-            // TODO: avoid having to do this twice here and in the backend?
-            var get_std_handle = new FrontendFunctionType();
-            get_std_handle.AddParam("nStdHandle", FrontendType.i32);
-            get_std_handle.returnType = FrontendType.i64;
-            scope.AddVar("GetStdHandle", get_std_handle, Token.Undefined, isConst: true);
+
+            //var write_file = new FrontendFunctionType();
+            //write_file.returnType = FrontendType.bool_;
+            //write_file.AddParam("hFile", FrontendType.i64);
+            //write_file.AddParam("lpBuffer", new FrontendPointerType(FrontendType.i8));
+            //write_file.AddParam("nNumberOfBytesToWrite", FrontendType.i32);
+            //write_file.AddParam("lpNumberOfBytesWritten", new FrontendPointerType(FrontendType.i8));
+            //write_file.AddParam("lpOverlapped", new FrontendPointerType(FrontendType.i8));
+            //scope.AddVar("WriteFile", write_file, Token.Undefined, isConst: true);
 
 
-            var write_file = new FrontendFunctionType();
-            write_file.returnType = FrontendType.bool_;
-            write_file.AddParam("hFile", FrontendType.i64);
-            write_file.AddParam("lpBuffer", new FrontendPointerType(FrontendType.i8));
-            write_file.AddParam("nNumberOfBytesToWrite", FrontendType.i32);
-            write_file.AddParam("lpNumberOfBytesWritten", new FrontendPointerType(FrontendType.i8));
-            write_file.AddParam("lpOverlapped", new FrontendPointerType(FrontendType.i8));
-            scope.AddVar("WriteFile", write_file, Token.Undefined, isConst: true);
+            //var read_file = new FrontendFunctionType();
+            //read_file.returnType = FrontendType.bool_;
+            //read_file.AddParam("hFile", FrontendType.i64);
+            //read_file.AddParam("lpBuffer", new FrontendPointerType(FrontendType.i8));
+            //read_file.AddParam("nNumberOfBytesToRead", FrontendType.i32);
+            //read_file.AddParam("lpNumberOfBytesRead", new FrontendPointerType(FrontendType.i8));
+            //read_file.AddParam("lpOverlapped", new FrontendPointerType(FrontendType.i8));
+            //scope.AddVar("ReadFile", read_file, Token.Undefined, isConst: true);
 
-
-            var read_file = new FrontendFunctionType();
-            read_file.returnType = FrontendType.bool_;
-            read_file.returnType = FrontendType.bool_;
-            read_file.AddParam("hFile", FrontendType.i64);
-            read_file.AddParam("lpBuffer", new FrontendPointerType(FrontendType.i8));
-            read_file.AddParam("nNumberOfBytesToRead", FrontendType.i32);
-            read_file.AddParam("lpNumberOfBytesRead", new FrontendPointerType(FrontendType.i8));
-            read_file.AddParam("lpOverlapped", new FrontendPointerType(FrontendType.i8));
-            scope.AddVar("ReadFile", read_file, Token.Undefined, isConst: true);
 
             addIntrinsics(scope);
         }

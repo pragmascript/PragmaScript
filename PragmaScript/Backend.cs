@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace PragmaScript
@@ -164,8 +165,18 @@ namespace PragmaScript
 
 
         public TypeChecker typeChecker;
+
+        static string exeDir;
+        public static string RelDir(string dir)
+        {
+            string result = Path.Combine(exeDir, dir);
+            return result;
+        }
+
         public Backend(TargetPlatform platform, TypeChecker typeChecker)
         {
+            exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location);
+
             this.typeChecker = typeChecker;
             this.platform = platform;
 
@@ -430,14 +441,6 @@ namespace PragmaScript
 
         void addPreamble()
         {
-            addIntrinsics();
-            {
-                LLVMTypeRef[] param_types = { LLVM.Int32Type() };
-                LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int64Type(), param_types, Const.FalseBool);
-                var fun = LLVM.AddFunction(mod, "GetStdHandle", fun_type);
-                LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
-                functions.Add("GetStdHandle", fun);
-            }
 
             var byte_ptr_type = LLVM.PointerType(LLVM.Int8Type(), 0);
             {
@@ -445,7 +448,7 @@ namespace PragmaScript
                     LLVM.Int64Type(),    // 0
                     byte_ptr_type,       // 1
                     LLVM.Int32Type(),    // 2
-                    byte_ptr_type,       // 3
+                    LLVM.PointerType(LLVM.Int32Type(), 0),       // 3
                     byte_ptr_type,       // 4
                 };
                 LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int32Type(), param_types, Const.FalseBool);
@@ -465,7 +468,7 @@ namespace PragmaScript
                     LLVM.Int64Type(),   // 0
                     byte_ptr_type,      // 1
                     LLVM.Int32Type(),   // 2
-                    byte_ptr_type,      // 3
+                    LLVM.PointerType(LLVM.Int32Type(), 0),       // 3
                     byte_ptr_type,      // 4
                 };
                 LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int32Type(), param_types, Const.FalseBool);
@@ -483,9 +486,26 @@ namespace PragmaScript
 
         void prepareModule()
         {
-            mod = LLVM.ModuleCreateWithName("WhatIsThisIDontEven");
+            // mod = LLVM.ModuleCreateWithName("WhatIsThisIDontEven");
+            LLVMMemoryBufferRef buf;
+            IntPtr msg;
+            LLVM.CreateMemoryBufferWithContentsOfFile(RelDir(@"Programs\ll\preamble.ll"), out buf, out msg);
+            var ctx = LLVM.GetGlobalContext();
+            LLVM.ParseIRInContext(ctx, buf, out mod, out msg);
 
+            var fun = LLVM.GetNamedFunction(mod, "VirtualAlloc");
+            Debug.Assert(fun.Pointer != IntPtr.Zero);
+            functions.Add("VirtualAlloc", fun);
+
+
+
+            // Console.WriteLine(Marshal.PtrToStringAnsi(msg));
+            //LLVM.LinkModules(mod, m, LLVMLinkerMode.LLVMLinkerDestroySource, out msg);
+            //Console.WriteLine(Marshal.PtrToStringAnsi(msg));
+            addIntrinsics();
             addPreamble();
+
+
             builder = LLVM.CreateBuilder();
 
             // HACK: 
