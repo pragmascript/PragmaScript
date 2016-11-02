@@ -80,7 +80,8 @@ namespace PragmaScript
             Dot,
             Struct,
             ArrayTypeBrackets,
-            Alias
+            Alias,
+            SizeOf
         }
 
         public TokenType type { get; private set; }
@@ -113,6 +114,7 @@ namespace PragmaScript
             keywords.Add("while", TokenType.While);
             keywords.Add("break", TokenType.Break);
             keywords.Add("continue", TokenType.Continue);
+            keywords.Add("sizeof", TokenType.SizeOf);
 
 
             operators = new Dictionary<string, TokenType>();

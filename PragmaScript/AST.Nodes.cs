@@ -979,7 +979,7 @@ namespace PragmaScript
             public enum UnaryOpType
             {
                 Add, Subract, LogicalNot, Complement, AddressOf, Dereference,
-                PreInc, PreDec, PostInc, PostDec
+                PreInc, PreDec, PostInc, PostDec, SizeOf
             }
             public UnaryOpType type;
 
@@ -1003,7 +1003,7 @@ namespace PragmaScript
                 result.returnPointer = returnPointer;
                 return result;
             }
-            public static bool IsUnaryExpression(Node node)
+            public static bool IsUnaryStatement(Node node)
             {
                 if (!(node is UnaryOp))
                 {
@@ -1044,6 +1044,8 @@ namespace PragmaScript
                         return true;
                     case Token.TokenType.Decrement:
                         return true;
+                    case Token.TokenType.SizeOf:
+                        return true;
                     default:
                         return false;
                 }
@@ -1082,7 +1084,9 @@ namespace PragmaScript
                         else
                             type = UnaryOpType.PostDec;
                         break;
-
+                    case Token.TokenType.SizeOf:
+                        type = UnaryOpType.SizeOf;
+                        break;
                     default:
                         throw new ParserError("Invalid token type for unary operator", next);
                 }
@@ -1125,6 +1129,9 @@ namespace PragmaScript
                         break;
                     case UnaryOpType.PostDec:
                         result = "unary--";
+                        break;
+                    case UnaryOpType.SizeOf:
+                        result = "sizeof";
                         break;
                     default:
                         throw new InvalidCodePath();

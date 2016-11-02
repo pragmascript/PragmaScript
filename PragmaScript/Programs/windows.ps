@@ -229,4 +229,28 @@ let VirtualFree = fun
 
 
 // **************** XINPUT ****************
+let XUSER_MAX_COUNT = 4;
+let XINPUT_SUCCESS = (u32)0;
+let XINPUT_DEVICE_NOT_CONNECTED = (u32)1167;
+let XINPUT_GAMEPAD = struct
+(
+  Buttons: u16; 
+  LeftTrigger: u8;
+  RightTrigger: u8;
+  ThumbLX: u16;
+  ThumbLY: u16;
+  ThumbRX: u16;
+  ThumbRY: u16; // 12
+)
 
+let XINPUT_STATE = struct
+(
+  PacketNumber: u32;
+  Gamepad: XINPUT_GAMEPAD;
+)
+
+let XInputGetState = fun 
+(
+  dwUserIndex: u32;
+  state : XINPUT_STATE*
+) => u32;

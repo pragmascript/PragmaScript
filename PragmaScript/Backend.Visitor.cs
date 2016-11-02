@@ -494,6 +494,19 @@ namespace PragmaScript
 
         public void Visit(AST.UnaryOp node)
         {
+            http://stackoverflow.com/questions/14608250/how-can-i-find-the-size-of-a-type
+            if (node.type == AST.UnaryOp.UnaryOpType.SizeOf)
+            {
+                var fet = typeChecker.GetNodeType(node.expression);
+                var et = getTypeRef(fet);
+                var indices = new LLVMValueRef[] { Const.OneInt32 };
+                var size = LLVM.BuildGEP(builder, LLVM.ConstPointerNull(LLVM.PointerType(et, 0)), out indices[0], 1, "size_of_trick");
+                var size_of = LLVM.BuildPtrToInt(builder, size, Const.Umm, "size_of_int");
+                valueStack.Push(size_of);
+                return;
+            }
+
+
             Visit(node.expression);
 
             var v = valueStack.Pop();

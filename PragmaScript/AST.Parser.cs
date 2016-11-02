@@ -211,7 +211,7 @@ namespace PragmaScript
                 default:
                     result = parseBinOp(ref ps, scope);
                     if (!(result is Assignment || result is FunctionCall
-                        || UnaryOp.IsUnaryExpression(result)))
+                        || UnaryOp.IsUnaryStatement(result)))
                     {
                         throw new ParserErrorExpected("assignment operator, function call, or increment/decrement", next.type.ToString(), next);
                     }
@@ -381,7 +381,7 @@ namespace PragmaScript
                     allowed |= (s is Assignment);
                     allowed |= (s is VariableDefinition) & declaration;
                     allowed |= (s is FunctionCall);
-                    allowed |= UnaryOp.IsUnaryExpression(s);
+                    allowed |= UnaryOp.IsUnaryStatement(s);
                     if (!allowed)
                     {
                         throw new ParserError("Invalid statement in for " + (declaration ? "initializer" : "iterator"), current);
@@ -545,7 +545,7 @@ namespace PragmaScript
                     a.right = right;
                     assignments.Add(a);
                 }
-                
+
                 result = a;
                 left = a;
                 next = ps.PeekToken();
@@ -704,7 +704,7 @@ namespace PragmaScript
                 ps.NextToken();
                 result.expression = parseBinOp(ref ps, scope);
             }
-           
+
             result.variable = scope.AddVar(variableName, result, v);
             result.variable.isConstant = isConstant;
             Debug.Assert(result.expression != null || result.typeString != null);
@@ -806,22 +806,38 @@ namespace PragmaScript
         {
             var current = ps.CurrentToken();
 
+            if (current.type == Token.TokenType.SizeOf)
+            {
+                int breakHere = 42;
+            }
+     
             // handle unary plus and minus, ! and ~
             if (UnaryOp.IsUnaryToken(current))
             {
+
                 var result = new UnaryOp(current, scope);
                 result.SetTypeFromToken(current, prefix: true);
-                ps.NextToken();
-
-                result.expression = parsePrimary(ref ps, scope);
-
-                if (result.type == UnaryOp.UnaryOpType.AddressOf ||
-                    result.type == UnaryOp.UnaryOpType.PreInc ||
-                    result.type == UnaryOp.UnaryOpType.PreDec ||
-                    result.type == UnaryOp.UnaryOpType.Dereference) 
+                
+                if (result.type == UnaryOp.UnaryOpType.SizeOf)
                 {
-                    if (!activateReturnPointer(result.expression))
-                        throw new ParserError($"Cannot take address of expression \"{ result.expression }\"", ps.CurrentToken());
+                    ps.ExpectNextToken(Token.TokenType.OpenBracket);
+                    ps.NextToken();
+                    result.expression = parseTypeString(ref ps, scope);
+                    ps.ExpectNextToken(Token.TokenType.CloseBracket);
+                }
+                else
+                {
+                    ps.NextToken();
+                    result.expression = parsePrimary(ref ps, scope);
+
+                    if (result.type == UnaryOp.UnaryOpType.AddressOf ||
+                        result.type == UnaryOp.UnaryOpType.PreInc ||
+                        result.type == UnaryOp.UnaryOpType.PreDec ||
+                        result.type == UnaryOp.UnaryOpType.Dereference)
+                    {
+                        if (!activateReturnPointer(result.expression))
+                            throw new ParserError($"Cannot take address of expression \"{ result.expression }\"", ps.CurrentToken());
+                    }
                 }
                 return result;
             }
@@ -851,7 +867,7 @@ namespace PragmaScript
                     ps = temp;
                     ps.NextToken();
                     ps.NextToken();
-                    var exp = parsePrimary(ref ps, scope);
+                    var exp = parseBinOp(ref ps, scope);
                     var result = new TypeCastOp(current, scope);
                     // TODO: check if valid type (in type check phase?)
                     result.typeString = type;
@@ -859,6 +875,9 @@ namespace PragmaScript
                     return result;
                 }
             }
+
+
+
             return parsePrimary(ref ps, scope);
         }
 
@@ -1099,7 +1118,7 @@ namespace PragmaScript
             {
                 result.variableName = current.text;
             }
-            
+
             return result;
         }
 

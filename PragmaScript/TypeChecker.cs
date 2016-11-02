@@ -838,6 +838,9 @@ namespace PragmaScript
                         }
                         resolve(node, pet.elementType);
                         break;
+                    case AST.UnaryOp.UnaryOpType.SizeOf:
+                        resolve(node, FrontendType.umm);
+                        break;
                     default:
                         resolve(node, et);
                         break;

@@ -46,18 +46,41 @@ let vec = struct
 // 	print_i32(*y);
 // }
 
-var global_x: i32;
-var global_y = 12;
-var global_z = 2 + 3;
-var global_v: vec;
-var global_v2 = vec {1.0, 2.0, 3.0};
+// var global_x: i32;
+// var global_y = 12;
+// var global_z = 2 + 3;
+// var global_v: vec;
+// var global_v2 = vec {1.0, 2.0, 3.0};
+
+// let __test_assignment = fun () => void {
+// 	var y: i32;
+// 	y = 17;
+// 	var x = 13;
+// 	var z: i32 = x + y;
+// }
+
+
 
 let main = fun () => void {
-	// __test__ref_deref();
+	print_string("hello world!\n");
 
-	// causes stack overflow in typechecker
-	var y: i32;
-	y = 17;
-	var x = 13;
-	var z: i32 = x + y;
+	print_string("sizeof(i64): ");
+	print_i32((i32)sizeof(i64));
+	print_string("\n");
+
+	print_string("sizeof(i32): ");
+	print_i32((i32)sizeof(i32));
+	print_string("\n");
+
+	print_string("sizeof(u16): ");
+	print_i32((i32)sizeof(u16));
+	print_string("\n");
+
+	print_string("sizeof(i8): ");
+	print_i32((i32)sizeof(i8));
+	print_string("\n");
+
+	print_string("sizeof(vec): ");
+	print_i32((i32)sizeof(vec));
+	print_string("\n");
 }
