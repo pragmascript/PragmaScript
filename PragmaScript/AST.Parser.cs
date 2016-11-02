@@ -867,7 +867,7 @@ namespace PragmaScript
                     ps = temp;
                     ps.NextToken();
                     ps.NextToken();
-                    var exp = parseBinOp(ref ps, scope);
+                    var exp = parsePrimary(ref ps, scope);
                     var result = new TypeCastOp(current, scope);
                     // TODO: check if valid type (in type check phase?)
                     result.typeString = type;

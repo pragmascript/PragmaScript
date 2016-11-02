@@ -59,28 +59,36 @@ let vec = struct
 // 	var z: i32 = x + y;
 // }
 
+// let __test_size_of = fun () => void {
+// 	print_string("sizeof(i64): ");
+// 	print_i32((i32)sizeof(i64));
+// 	print_string("\n");
+
+// 	print_string("sizeof(i32): ");
+// 	print_i32((i32)sizeof(i32));
+// 	print_string("\n");
+
+// 	print_string("sizeof(u16): ");
+// 	print_i32((i32)sizeof(u16));
+// 	print_string("\n");
+
+// 	print_string("sizeof(i8): ");
+// 	print_i32((i32)sizeof(i8));
+// 	print_string("\n");
+
+// 	print_string("sizeof(vec): ");
+// 	print_i32((i32)sizeof(vec));
+// 	print_string("\n");
+// }
 
 
 let main = fun () => void {
-	print_string("hello world!\n");
+	var x = (f32)3 + 7.0;
+	var v = vec{ 1.0, 2.0, 3.0};
+	var result = true;
+	if ((i32)v.x + (i32)v.y != 3) 
+	{
+		result = false;
+	}
 
-	print_string("sizeof(i64): ");
-	print_i32((i32)sizeof(i64));
-	print_string("\n");
-
-	print_string("sizeof(i32): ");
-	print_i32((i32)sizeof(i32));
-	print_string("\n");
-
-	print_string("sizeof(u16): ");
-	print_i32((i32)sizeof(u16));
-	print_string("\n");
-
-	print_string("sizeof(i8): ");
-	print_i32((i32)sizeof(i8));
-	print_string("\n");
-
-	print_string("sizeof(vec): ");
-	print_i32((i32)sizeof(vec));
-	print_string("\n");
 }

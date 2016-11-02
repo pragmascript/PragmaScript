@@ -30,8 +30,8 @@ namespace PragmaScript
             CompilerOptions.optimizationLevel = 3;
 
             // CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
-            CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
-            // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\bugs.ps" });
+            // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
+            CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\bugs.ps" });
 #endif
             if (CompilerOptions.inputFilenames.Count == 0)
             {
@@ -77,7 +77,7 @@ namespace PragmaScript
             Console.WriteLine("command line options: ");
             Console.WriteLine("-D: turn on debug messages");
             Console.WriteLine("-O0: turn off optimizations");
-            Console.WriteLine("-O1: turn on optimizations");
+            Console.WriteLine("-OX: turn on optimization level X in [1..3]");
             Console.WriteLine();
         }
         static void parseARGS(string[] args)
