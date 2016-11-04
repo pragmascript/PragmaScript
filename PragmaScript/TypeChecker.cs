@@ -412,7 +412,7 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.StructDefinition node)
+        void checkType(AST.StructDeclaration node)
         {
             List<FrontendType> fieldTypes = new List<FrontendType>();
             foreach (var p in node.fields)

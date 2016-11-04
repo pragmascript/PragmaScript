@@ -108,7 +108,7 @@ let BITMAPINFO = struct
 	rgb: RGBQUAD;
 )
 
-let WriteFile = fun
+let WriteFile = extern fun
 (
   hFile: umm;
   lpBuffer: i8*;
@@ -117,7 +117,7 @@ let WriteFile = fun
   lpOverlapped: i8*
 ) => i32;
 
-let ReadFile = fun
+let ReadFile = extern fun
 (
   hFile: umm;
   lpBuffer: i8*;
@@ -126,12 +126,12 @@ let ReadFile = fun
   lpOverlapped: i8*
 ) => i32;
 
-let GetStdHandle = fun (nStdHandle: i32) => umm;
-let GetModuleHandleA = fun (lpModuleName: umm) => umm;
-let RegisterClassExA = fun (window_class: WNDCLASSEX*) => u16;
-let DefWindowProcA = fun (window: umm; message: u32; w_param: umm; l_param: umm) => umm;
-let ExitProcess = fun(signal: u32) => void;
-let CreateWindowExA = fun
+let GetStdHandle = extern fun (nStdHandle: i32) => umm;
+let GetModuleHandleA = extern fun (lpModuleName: umm) => umm;
+let RegisterClassExA = extern fun (window_class: WNDCLASSEX*) => u16;
+let DefWindowProcA = extern fun (window: umm; message: u32; w_param: umm; l_param: umm) => umm;
+let ExitProcess = extern fun(signal: u32) => void;
+let CreateWindowExA = extern fun
 (
    dwExStyle: i32;     
    lpClassName: i8*;
@@ -146,14 +146,14 @@ let CreateWindowExA = fun
    hInstance: umm;
    lpParam: umm
 ) => umm;
-let GetMessageA = fun
+let GetMessageA = extern fun
 (
   message: MSG*;
   hWnd: umm;
   wMsgFilterMin: u32;
   wMsgFilterMax: u32
 ) => i32;
-let PeekMessageA = fun
+let PeekMessageA = extern fun
 (
   message: MSG*;
   hWnd: umm;
@@ -162,13 +162,13 @@ let PeekMessageA = fun
   wRemoveMsg: u32
 ) => i32;
 
-let TranslateMessage = fun (message: MSG*) => i32;
-let DispatchMessageA = fun (message: MSG*) => umm;
-let BeginPaint = fun (hwnd: umm; lpPaint: PAINTSTRUCT*) => umm;
-let EndPaint = fun (hwnd: umm; lpPaint: PAINTSTRUCT*) => i32;
-let PostQuitMessage = fun (nExitCode: i32) => void;
-let GetClientRect = fun (hWnd: umm; rect: RECT*) => i32;
-let CreateDIBSection = fun 
+let TranslateMessage = extern fun (message: MSG*) => i32;
+let DispatchMessageA = extern fun (message: MSG*) => umm;
+let BeginPaint = extern fun (hwnd: umm; lpPaint: PAINTSTRUCT*) => umm;
+let EndPaint = extern fun (hwnd: umm; lpPaint: PAINTSTRUCT*) => i32;
+let PostQuitMessage = extern fun (nExitCode: i32) => void;
+let GetClientRect = extern fun (hWnd: umm; rect: RECT*) => i32;
+let CreateDIBSection = extern fun 
 (
 	hdc: umm;
 	bitmap: BITMAPINFO*;
@@ -178,7 +178,7 @@ let CreateDIBSection = fun
 	dwOffset: u32
 ) => umm;
 
-let StretchDIBits = fun 
+let StretchDIBits = extern fun 
 (
   hdc: umm;
   xDest: i32;
@@ -196,7 +196,7 @@ let StretchDIBits = fun
 ) => i32;
 
 // gdi32.lib
-let PatBlt = fun 
+let PatBlt = extern fun 
 (
 	hdc: umm;
 	nXLeft: i32;
@@ -206,13 +206,13 @@ let PatBlt = fun
 	dwRop: u32
 ) => i32;
 
-let DeleteObject = fun (obj: umm) => i32;
-let CreateCompatibleDC = fun (hdc: umm) => umm;
-let GetDC = fun (hWnd: umm) => umm;
-let ReleaseDC = fun (hWnd: umm; hdc: umm) => i32;
-let GetCompatibleDC = fun (hdc: umm) => umm;
+let DeleteObject = extern fun (obj: umm) => i32;
+let CreateCompatibleDC = extern fun (hdc: umm) => umm;
+let GetDC = extern fun (hWnd: umm) => umm;
+let ReleaseDC = extern fun (hWnd: umm; hdc: umm) => i32;
+let GetCompatibleDC = extern fun (hdc: umm) => umm;
 
-let VirtualAlloc = fun 
+let VirtualAlloc = extern fun 
 (
   address: i8*;
   size: umm;
@@ -220,7 +220,7 @@ let VirtualAlloc = fun
   protect: u32
 ) => i8*;
 
-let VirtualFree = fun
+let VirtualFree = extern fun
 (
   address: i8*;
   size: umm;
@@ -249,7 +249,7 @@ let XINPUT_STATE = struct
   Gamepad: XINPUT_GAMEPAD;
 )
 
-let XInputGetState = fun 
+let XInputGetState = extern fun 
 (
   dwUserIndex: u32;
   state : XINPUT_STATE*

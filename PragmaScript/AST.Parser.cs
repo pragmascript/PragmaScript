@@ -232,18 +232,21 @@ namespace PragmaScript
         static Node parseLet(ref ParseState ps, Scope scope, ref bool ignoreSemicolon)
         {
             ps.ExpectCurrentToken(Token.TokenType.Let);
-
             Node result = null;
-            var tempState = ps;
 
-            // TODO: do i really need 3 lookahead?
+            var tempState = ps;
             tempState.ExpectNextToken(Token.TokenType.Identifier);
             tempState.ExpectNextToken(Token.TokenType.Assignment);
+
             var next = tempState.NextToken();
 
+            if (next.type == Token.TokenType.Extern)
+            {
+                next = tempState.NextToken();
+            }
             if (next.type == Token.TokenType.Struct)
             {
-                result = parseStructDefinition(ref ps, scope);
+                result = parseStructDeclaration(ref ps, scope);
                 ignoreSemicolon = true;
             }
             else if (next.type == Token.TokenType.Fun)
@@ -806,18 +809,13 @@ namespace PragmaScript
         {
             var current = ps.CurrentToken();
 
-            if (current.type == Token.TokenType.SizeOf)
-            {
-                int breakHere = 42;
-            }
-     
             // handle unary plus and minus, ! and ~
             if (UnaryOp.IsUnaryToken(current))
             {
 
                 var result = new UnaryOp(current, scope);
                 result.SetTypeFromToken(current, prefix: true);
-                
+
                 if (result.type == UnaryOp.UnaryOpType.SizeOf)
                 {
                     ps.ExpectNextToken(Token.TokenType.OpenBracket);
@@ -875,8 +873,6 @@ namespace PragmaScript
                     return result;
                 }
             }
-
-
 
             return parsePrimary(ref ps, scope);
         }
@@ -1232,7 +1228,7 @@ namespace PragmaScript
             return result;
         }
 
-        public static Node parseStructDefinition(ref ParseState ps, Scope scope)
+        public static Node parseStructDeclaration(ref ParseState ps, Scope scope)
         {
             // let
             var current = ps.ExpectCurrentToken(Token.TokenType.Let);
@@ -1249,7 +1245,7 @@ namespace PragmaScript
             // let foo = stuct ( 
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
-            var result = new StructDefinition(current, scope);
+            var result = new StructDeclaration(current, scope);
             result.name = id.text;
 
 
@@ -1269,7 +1265,7 @@ namespace PragmaScript
                 ps.NextToken();
                 var ts = parseTypeString(ref ps, scope);
 
-                var f = new StructDefinition.StructField();
+                var f = new StructDeclaration.StructField();
                 f.name = ident.text;
                 f.typeString = ts;
                 result.fields.Add(f);
@@ -1312,6 +1308,7 @@ namespace PragmaScript
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Let);
 
+
             var result = new FunctionDefinition(current, scope);
 
             if (scope.parent != null)
@@ -1322,6 +1319,18 @@ namespace PragmaScript
 
             // let foo = 
             ps.ExpectNextToken(Token.TokenType.Assignment);
+
+            // let foo = [extern]
+
+            if (ps.PeekToken().type == Token.TokenType.Extern)
+            {
+                result.external = true;
+                ps.NextToken();
+            }
+            else
+            {
+                result.external = false;
+            }
 
             // let foo = fun
             ps.ExpectNextToken(Token.TokenType.Fun);
@@ -1380,11 +1389,8 @@ namespace PragmaScript
 
             ps.NextToken();
             // let foo = fun (x: int32) => { ... }
-
-
-            scope.AddVar(id.text, result, current, isConst: true);
             result.funName = id.text;
-            result.external = false;
+
             var funScope = new Scope(scope);
             var idx = 0;
             foreach (var pd in result.parameters)
@@ -1393,26 +1399,38 @@ namespace PragmaScript
                 idx++;
             }
 
-            if (ps.CurrentToken().type == Token.TokenType.Identifier)
-            {
-                var return_type = parseTypeString(ref ps, scope);
+            var return_type = parseTypeString(ref ps, scope);
+            result.returnType = return_type;
 
-                result.returnType = return_type;
-                var ppt = ps.PeekToken(true);
-                if (ppt.type == Token.TokenType.Semicolon)
-                {
-                    result.body = null;
-                    result.external = true;
-                }
-                else
-                {
-                    ps.NextToken();
-                    result.body = parseBlock(ref ps, null, funScope);
-                }
+            if (result.external)
+            {
+                ps.ExpectPeekToken(Token.TokenType.Semicolon);
             }
             else
             {
-                result.body = parseBlock(ref ps, null, funScope);
+                if (ps.PeekToken().type != Token.TokenType.Semicolon)
+                {
+                    if (result.external)
+                    {
+                        throw new ParserError("External functions can't have a body", ps.CurrentToken());
+                    }
+                    ps.NextToken();
+                    scope.AddVar(id.text, result, current, isConst: true);
+                    result.body = parseBlock(ref ps, null, funScope);
+                }
+                else
+                {
+                    result.body = null;
+                }
+            }
+
+            if (result.external)
+            {
+                scope.AddVar(id.text, result, current, isConst: true);
+            }
+            else
+            {
+                scope.AddType(id.text, result, current);
             }
             return result;
         }

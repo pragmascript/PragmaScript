@@ -409,7 +409,7 @@ namespace PragmaScript
             }
         }
 
-        public class StructDefinition : Node
+        public class StructDeclaration : Node
         {
             public string name;
             public struct StructField
@@ -419,7 +419,7 @@ namespace PragmaScript
             }
             public List<StructField> fields = new List<StructField>();
 
-            public StructDefinition(Token t, Scope s)
+            public StructDeclaration(Token t, Scope s)
                 : base(t, s)
             {
 

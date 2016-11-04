@@ -81,7 +81,8 @@ namespace PragmaScript
             Struct,
             ArrayTypeBrackets,
             Alias,
-            SizeOf
+            SizeOf,
+            Extern
         }
 
         public TokenType type { get; private set; }
@@ -115,7 +116,7 @@ namespace PragmaScript
             keywords.Add("break", TokenType.Break);
             keywords.Add("continue", TokenType.Continue);
             keywords.Add("sizeof", TokenType.SizeOf);
-
+            keywords.Add("extern", TokenType.Extern);
 
             operators = new Dictionary<string, TokenType>();
             operators.Add("=", TokenType.Assignment);

@@ -1503,7 +1503,7 @@ namespace PragmaScript
         }
 
 
-        public void Visit(AST.StructDefinition node)
+        public void Visit(AST.StructDeclaration node)
         {
         }
 
