@@ -146,7 +146,6 @@ let main = fun () => void {
 			TranslateMessage(&msg);
 			DispatchMessageA(&msg);
 		}
-		
 		for(var c_idx = 0; c_idx < XUSER_MAX_COUNT; ++c_idx) {
 			var x_state : XINPUT_STATE;
 			var x_result = XInputGetState((u32)c_idx, &x_state); 
@@ -154,6 +153,8 @@ let main = fun () => void {
 			{
 				print_string("\ncontroller connected: ");
 				print_i32(c_idx);
+
+				// TODO: decode input
 			}
 			elif (x_result == XINPUT_DEVICE_NOT_CONNECTED)
 			{
@@ -161,7 +162,6 @@ let main = fun () => void {
 				print_i32(c_idx);
 			}
 		}
-
 		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
 		blit_to_screen(&backbuffer);
 

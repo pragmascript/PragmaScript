@@ -346,7 +346,7 @@ namespace PragmaScript
                 result.name = node.funName;
                 resolve(node, result);
             }
-            if (!node.external)
+            if (node.body != null)
             {
                 checkTypeDynamic(node.body);
             }
@@ -503,6 +503,7 @@ namespace PragmaScript
                             throw new ParserExpectedArgumentType(f_type.parameters[idx].type, arg, idx + 1, node.argumentList[idx].token);
                         }
                     }
+                    node.callThroughPointer = !fun_vd.isConstant;
                     resolve(node, f_type.returnType);
                 }
             }

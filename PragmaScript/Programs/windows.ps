@@ -249,8 +249,10 @@ let XINPUT_STATE = struct
   Gamepad: XINPUT_GAMEPAD;
 )
 
-let XInputGetState = extern fun 
+let x_input_get_state = fun 
 (
   dwUserIndex: u32;
   state : XINPUT_STATE*
 ) => u32;
+
+var XInputGetState : x_input_get_state;

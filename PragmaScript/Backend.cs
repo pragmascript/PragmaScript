@@ -146,8 +146,7 @@ namespace PragmaScript
 
         Stack<LLVMValueRef> valueStack = new Stack<LLVMValueRef>();
         Dictionary<string, LLVMValueRef> variables = new Dictionary<string, LLVMValueRef>();
-        Dictionary<string, LLVMValueRef> functions = new Dictionary<string, LLVMValueRef>();
-
+        
         public Stack<ExecutionContext> ctx = new Stack<ExecutionContext>();
 
         LLVMModuleRef mod;
@@ -273,6 +272,22 @@ namespace PragmaScript
             return LLVM.PointerType(et, 0);
         }
 
+        static LLVMTypeRef getTypeRef(FrontendFunctionType t)
+        {
+            var fun = t;
+            var cnt = Math.Max(1, fun.parameters.Count);
+            var par = new LLVMTypeRef[cnt];
+            for (int i = 0; i < fun.parameters.Count; ++i)
+            {
+                par[i] = getTypeRef(fun.parameters[i].type);
+            }
+            var returnType = getTypeRef(fun.returnType);
+            var funType = LLVM.FunctionType(returnType, out par[0],
+                            (uint)fun.parameters.Count, Const.FalseBool);
+
+            return LLVM.PointerType(funType, 0);
+        }
+
         static LLVMTypeRef getTypeRef(FrontendType t)
         {
             if (t.Equals(FrontendType.i16))
@@ -343,6 +358,10 @@ namespace PragmaScript
             {
                 return getTypeRef(t as FrontendPointerType);
             }
+            if (t is FrontendFunctionType)
+            {
+                return getTypeRef(t as FrontendFunctionType);
+            }
             throw new InvalidCodePath();
         }
 
@@ -408,7 +427,7 @@ namespace PragmaScript
             var fun_type = LLVM.FunctionType(returnTypeRef, param_types, Const.FalseBool);
             IntPtr functionPtr = Marshal.GetFunctionPointerForDelegate(del as Delegate);
             var llvmFuncPtr = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)functionPtr, Const.FalseBool), LLVM.PointerType(fun_type, 0));
-            functions.Add(name, llvmFuncPtr);
+            variables.Add(name, llvmFuncPtr);
         }
 
         void insertMissingReturn(LLVMTypeRef returnType)
@@ -435,7 +454,7 @@ namespace PragmaScript
             LLVMTypeRef[] param_types = { Const.Float32Type };
             LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
             LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.cos.f32", fn_type);
-            functions.Add("cos", fn);
+            variables.Add("cos", fn);
         }
 
 
@@ -460,7 +479,7 @@ namespace PragmaScript
                 LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
 
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
-                functions.Add("WriteFile", fun);
+                variables.Add("WriteFile", fun);
             }
 
             {
@@ -480,7 +499,7 @@ namespace PragmaScript
                 LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
 
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
-                functions.Add("ReadFile", fun);
+                variables.Add("ReadFile", fun);
             }
         }
 
@@ -495,7 +514,7 @@ namespace PragmaScript
 
             var fun = LLVM.GetNamedFunction(mod, "VirtualAlloc");
             Debug.Assert(fun.Pointer != IntPtr.Zero);
-            functions.Add("VirtualAlloc", fun);
+            variables.Add("VirtualAlloc", fun);
 
 
 

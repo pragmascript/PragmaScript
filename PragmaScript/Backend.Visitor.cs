@@ -88,8 +88,8 @@ namespace PragmaScript
             }
 
             LLVM.PositionBuilderAtEnd(builder, entry);
-            Debug.Assert(functions.ContainsKey("main"));
-            var mf = functions["main"];
+            Debug.Assert(variables.ContainsKey("main"));
+            var mf = variables["main"];
             var par = new LLVMValueRef[1];
             LLVM.BuildCall(builder, mf, out par[0], 0, "");
 
@@ -743,7 +743,7 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        
+
 
         public void Visit(AST.StructConstructor node)
         {
@@ -873,7 +873,7 @@ namespace PragmaScript
                     LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                     variables[node.variable.name] = v;
                     LLVM.SetInitializer(v, LLVM.ConstNull(structType));
-                    
+
                     for (int i = 0; i < sc.argumentList.Count; ++i)
                     {
                         Visit(sc.argumentList[i]);
@@ -902,7 +902,7 @@ namespace PragmaScript
                         }
                         else
                         {
-                            
+
                             LLVM.SetInitializer(v, LLVM.ConstNull(resultType));
                             LLVM.BuildStore(builder, result, v);
                         }
@@ -984,14 +984,7 @@ namespace PragmaScript
             {
                 varName = node.vd.name;
             }
-            if (nt is FrontendFunctionType)
-            {
-                v = functions[varName];
-            }
-            else
-            {
-                v = variables[varName];
-            }
+            v = variables[varName];
             var v_type = typeToString(LLVM.TypeOf(v));
             LLVMValueRef result;
             bool is_global = LLVM.IsAGlobalVariable(v).Pointer != IntPtr.Zero;
@@ -1074,10 +1067,10 @@ namespace PragmaScript
 
         public void Visit(AST.FunctionCall node)
         {
-            var f = functions[node.functionName];
+            var f = variables[node.functionName];
+
             var cnt = node.argumentList.Count;
             LLVMValueRef[] parameters = new LLVMValueRef[Math.Max(1, cnt)];
-
             for (int i = 0; i < node.argumentList.Count; ++i)
             {
                 Visit(node.argumentList[i]);
@@ -1086,8 +1079,12 @@ namespace PragmaScript
                 // Console.WriteLine(pn);
             }
 
-            var ftn = f.GetTypeString();
+            if (node.callThroughPointer)
+            {
+                f = LLVM.BuildLoad(builder, f, "fun_ptr_load");
+            }
 
+            var ftn = f.GetTypeString();
             var ft = LLVM.TypeOf(f);
             // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
             var rt = LLVM.GetReturnType(LLVM.GetElementType(ft));
@@ -1312,33 +1309,19 @@ namespace PragmaScript
 
         public void Visit(AST.FunctionDefinition node, bool proto = false)
         {
-            // for external prototype is enough
-            if (node.external && !proto)
-            {
-                return;
-            }
-
+            Console.WriteLine($"proto: {proto}, {node.funName}");
             if (proto)
             {
-                if (node.external && functions.ContainsKey(node.funName))
+
+                if (node.external && variables.ContainsKey(node.funName) || node.isFunctionTypeDeclaration())
                 {
                     return;
                 }
                 var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
-                Debug.Assert(!functions.ContainsKey(node.funName));
-                var cnt = Math.Max(1, fun.parameters.Count);
-                var par = new LLVMTypeRef[cnt];
+                var funType = LLVM.GetElementType(getTypeRef(fun));
 
-                for (int i = 0; i < fun.parameters.Count; ++i)
-                {
-                    par[i] = getTypeRef(fun.parameters[i].type);
-                }
-
-                var returnType = getTypeRef(fun.returnType);
-
-                var funType = LLVM.FunctionType(returnType, out par[0], (uint)fun.parameters.Count, Const.FalseBool);
+                Debug.Assert(!variables.ContainsKey(node.funName));
                 var function = LLVM.AddFunction(mod, node.funName, funType);
-
                 LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i)
                 {
@@ -1346,15 +1329,16 @@ namespace PragmaScript
                     LLVM.SetValueName(param, fun.parameters[i].name);
                     // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
                 }
-                functions.Add(node.funName, function);
+                variables.Add(node.funName, function);
+                
             }
             else
             {
-                if (node.external)
+                if (node.external || node.body == null)
                 {
                     return;
                 }
-                var function = functions[node.funName];
+                var function = variables[node.funName];
                 LLVM.SetLinkage(function, LLVMLinkage.LLVMInternalLinkage);
                 var vars = LLVM.AppendBasicBlock(function, "vars");
                 var entry = LLVM.AppendBasicBlock(function, "entry");
@@ -1362,10 +1346,12 @@ namespace PragmaScript
                 var blockTemp = LLVM.GetInsertBlock(builder);
 
                 LLVM.PositionBuilderAtEnd(builder, entry);
-
                 ctx.Push(new ExecutionContext(function, node.funName, entry, vars));
 
-                Visit(node.body);
+                if (node.body != null)
+                {
+                    Visit(node.body);
+                }
 
                 var returnType = getTypeRef(typeChecker.GetNodeType(node.returnType));
                 insertMissingReturn(returnType);

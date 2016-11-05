@@ -1415,16 +1415,16 @@ namespace PragmaScript
                         throw new ParserError("External functions can't have a body", ps.CurrentToken());
                     }
                     ps.NextToken();
-                    scope.AddVar(id.text, result, current, isConst: true);
                     result.body = parseBlock(ref ps, null, funScope);
                 }
                 else
                 {
+                    ps.NextToken();
                     result.body = null;
                 }
             }
 
-            if (result.external)
+            if (result.external || result.body != null)
             {
                 scope.AddVar(id.text, result, current, isConst: true);
             }

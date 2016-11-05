@@ -336,6 +336,11 @@ namespace PragmaScript
             public string funName;
             public List<FunctionParameter> parameters = new List<FunctionParameter>();
             public TypeString returnType;
+            public bool isFunctionTypeDeclaration()
+            {
+                return !external && body == null;
+            }
+
 
             public bool external;
 
@@ -349,7 +354,7 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                if (!external)
+                if (body != null)
                 {
                     yield return body;
                 }
@@ -446,6 +451,7 @@ namespace PragmaScript
         {
             public string functionName;
             public List<Node> argumentList = new List<Node>();
+            public bool callThroughPointer = false;
 
             public FunctionCall(Token t, Scope s)
                 : base(t, s)
