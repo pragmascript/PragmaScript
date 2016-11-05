@@ -17,6 +17,9 @@ let window_info = struct
 var running = false;
 var backbuffer: offscreen_buffer;
 var window: window_info;
+var x_offset = 0;
+var y_offset = 0;
+var z_offset = 0;
 
 let load_x_input = fun () => void {
 	var lib_string = "xinput1_3.dll\0";
@@ -103,18 +106,25 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm {
 		  || message == WM_SYSKEYUP
 		  || message == WM_KEYDOWN
 		  || message == WM_KEYUP) {
+
 		var vk_code = (u32)w_param;
-		var was_down = ((i32)l_param & (1 << 30)) != 0;
-		var is_down = ((i32)l_param & (1 << 31)) == 0;
+		var was_down = (l_param & (umm)(1 << 30)) != (umm)0;
+		var is_down = (l_param & (umm)(1 << 31)) == (umm)0;
 		var key_up = was_down && !is_down;
 		var key_down = !was_down && is_down; 
 
 		if(vk_code == VK_ESCAPE) {
 			running = false;
-		}
-		else {
-			if (key_down)
-			{
+		} elif (key_down && vk_code == VK_LEFT) {
+			x_offset += 1;
+		} elif (key_down && vk_code == VK_RIGHT) {
+			x_offset -= 1;
+		} elif (key_down && vk_code == VK_UP) {
+			y_offset += 1;
+		} elif (key_down && vk_code == VK_DOWN) {
+			y_offset -= 1;
+		} else {
+			if (key_down) {
 				print_string("key_down: ");
 				print_i32((i32)vk_code);
 				print_string("\n");
@@ -172,9 +182,7 @@ let main = fun () => void {
 	update_window_rect();
 
 	running = true;
-	var x_offset = 0;
-	var y_offset = 0;
-	var z_offset = 0;
+	
 	while (running) {
 		var msg: MSG;
 		while (PeekMessageA(&msg, null, (u32)0, (u32)0, PM_REMOVE) != 0) {
@@ -199,9 +207,9 @@ let main = fun () => void {
 		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
 		blit_to_screen(&backbuffer);
 
-		x_offset += 1;
-		y_offset += 2;
-		z_offset += 1;
+		// x_offset += 1;
+		// y_offset += 2;
+		// z_offset += 1;
 	}
     ExitProcess((u32)0);
 }

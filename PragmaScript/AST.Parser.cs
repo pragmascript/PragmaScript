@@ -560,7 +560,7 @@ namespace PragmaScript
 
                 if (a.token.type != Token.TokenType.Assignment)
                 {
-                    var left_copy = a.left.DeepCloneTree(); ;
+                    var left_copy = a.left.DeepCloneTree();
                     var compound = new BinOp(a.token, scope);
                     compound.left = left_copy;
                     compound.right = a.right;
