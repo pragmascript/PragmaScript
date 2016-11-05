@@ -10,6 +10,12 @@ namespace PragmaScript
     partial class AST
     {
 
+        public class NamedParameter
+        {
+            public string name;
+            public TypeString typeString;
+        }
+
         public abstract class Node
         {
             public Token token;
@@ -311,7 +317,7 @@ namespace PragmaScript
                 {
                     yield return expression;
                 }
-                
+
                 if (typeString != null)
                 {
                     yield return typeString;
@@ -327,14 +333,9 @@ namespace PragmaScript
 
         public class FunctionDefinition : Node
         {
-            public struct FunctionParameter
-            {
-                public string name;
-                public TypeString typeString;
-            }
             public Node body;
             public string funName;
-            public List<FunctionParameter> parameters = new List<FunctionParameter>();
+            public List<NamedParameter> parameters = new List<NamedParameter>();
             public TypeString returnType;
             public bool isFunctionTypeDeclaration()
             {
@@ -417,12 +418,8 @@ namespace PragmaScript
         public class StructDeclaration : Node
         {
             public string name;
-            public struct StructField
-            {
-                public string name;
-                public TypeString typeString;
-            }
-            public List<StructField> fields = new List<StructField>();
+            
+            public List<NamedParameter> fields = new List<NamedParameter>();
 
             public StructDeclaration(Token t, Scope s)
                 : base(t, s)

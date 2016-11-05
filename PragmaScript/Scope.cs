@@ -122,7 +122,6 @@ namespace PragmaScript
             }
         }
 
-
         public void AddType(string name, AST.Node node, Token t)
         {
             Debug.Assert(node != null);

@@ -11,7 +11,7 @@ let vec = struct
 	x: f32;
 	y: f32;
 	z: f32;
-)
+);
 
 // let sphere = struct
 // {
@@ -83,12 +83,18 @@ let vec = struct
 
 
 let main = fun () => void {
-	var x = (f32)3 + 7.0;
-	var v = vec{ 1.0, 2.0, 3.0};
-	var result = true;
-	if ((i32)v.x + (i32)v.y != 3) 
-	{
-		result = false;
-	}
+	var x = 12;
+	var y = &x;
+	var z = *y;
+	// print_i32(z);
+	// print_string("\n");
+
+	*y = 17;
+	assert(x == 17);
+	assert(*y == 17);
+	
+
+	
+	// print_i32(*y);
 
 }

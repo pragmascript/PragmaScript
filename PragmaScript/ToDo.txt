@@ -5,8 +5,6 @@
 - first add all global varialbes to the scope
   before parsing function blocks!
     
- - sizeof!!!!
-
  - function pointers!
      use VariableReference
 	 inside FunctionCall so i no longer need
@@ -15,7 +13,12 @@
  
  - switch!
 
-  - change i8* to ptr
+ - make ";" optional for the last argument of structs
+   / functions
+ 
+ - replace bool with b32
+
+ - get rid of signed unsigned types
 
 
  - structs global variables with constant initializers
@@ -60,20 +63,3 @@ http://llvm.org/devmtg/2013-11/slides/Gao-LTO.pdf
 
 - wait on condition
   http://stackoverflow.com/questions/32455985/how-to-asynchronously-wait-on-a-certain-condition-in-c-sharp-async-task
-
-???
-	replace
-	let vec = struct 
-	{
-		x: f32;
-		y: f32;
-		z: f32;
-	}
-	with
-	type vec = struct 
-	{
-		x: f32;
-		y: f32;
-		z: f32;
-	}
-????

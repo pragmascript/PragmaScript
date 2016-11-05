@@ -52,6 +52,7 @@ namespace PragmaScript
 
             scope.AddType(FrontendType.bool_, token);
             scope.AddTypeAlias(FrontendType.string_, token, "string");
+            scope.AddTypeAlias(FrontendType.ptr, token, "ptr");
             scope.AddType(FrontendType.void_, token);
         }
 
@@ -91,7 +92,7 @@ namespace PragmaScript
 
         static void addBasicConstants(Scope scope, Token token)
         {
-            var nullptr = scope.AddVar("nullptr", new FrontendPointerType(FrontendType.i8), token, isConst: true);
+            var nullptr = scope.AddVar("nullptr", FrontendType.ptr, token, isConst: true);
         }
 
         public static Scope MakeRootScope()

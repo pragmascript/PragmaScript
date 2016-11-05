@@ -550,7 +550,7 @@ namespace PragmaScript
                     }
                     break;
                 case AST.UnaryOp.UnaryOpType.Dereference:
-                    result = LLVM.BuildLoad(builder, v, "deref");
+                    result = v;
                     if (!node.returnPointer)
                     {
                         result = LLVM.BuildLoad(builder, result, "deref");

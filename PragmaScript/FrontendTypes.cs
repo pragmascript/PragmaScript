@@ -18,13 +18,14 @@ namespace PragmaScript
         public static readonly FrontendType u16 = new FrontendType("u16");
         public static readonly FrontendType u32 = new FrontendType("u32");
         public static readonly FrontendType u64 = new FrontendType("u64");
-        
+
         public static readonly FrontendType f32 = new FrontendType("f32");
         public static readonly FrontendType f64 = new FrontendType("f64");
         public static readonly FrontendType bool_ = new FrontendType("bool");
         public static readonly FrontendType umm = new FrontendType("umm");
 
-        public static readonly FrontendArrayType string_ = new FrontendArrayType(i8);
+        public static readonly FrontendArrayType string_ = new FrontendArrayType(u8);
+        public static readonly FrontendPointerType ptr = new FrontendPointerType(u8);
 
 
         public string name;

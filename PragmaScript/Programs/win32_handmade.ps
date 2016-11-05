@@ -1,18 +1,18 @@
 ﻿let offscreen_buffer = struct
 (
 	info:   BITMAPINFO;
-	memory: i8*;
+	memory: ptr;
 	width:  i32;
 	height: i32;
 	pitch:  i32;
-)
+);
 let window_info = struct 
 (
 	handle: umm;
 	dc: umm;
 	width: i32;
 	height: i32;
-)
+);
 
 var running = false;
 var backbuffer: offscreen_buffer;
@@ -21,12 +21,36 @@ var x_offset = 0;
 var y_offset = 0;
 var z_offset = 0;
 
+
+let init_direct_sound = fun () => void {
+	var direct_sound_lib = LoadLibraryA(cstr("dsound.dll\0"));
+	if (direct_sound_lib != null) {
+
+
+	}
+}
+
 let load_x_input = fun () => void {
-	var lib_string = "xinput1_3.dll\0";
-	var x_input_lib = LoadLibraryA(lib_string.data);
+	var x_input_lib = LoadLibraryA(cstr("xinput1_4.dll\0"));
+	if (x_input_lib == null) {
+		x_input_lib = LoadLibraryA(cstr("xinput1_3.dll\0"));
+	}
 	if (x_input_lib != null) {
-		var proc_string = "XInputGetState\0";
-		XInputGetState = (x_input_get_state)GetProcAddress(x_input_lib, proc_string.data);
+		XInputGetState = (x_input_get_state)GetProcAddress(x_input_lib, cstr("XInputGetState\0"));
+	}
+}
+
+let handle_x_input = fun () => void {
+	for(var c_idx = 0; c_idx < XUSER_MAX_COUNT; ++c_idx) {
+		var x_state : XINPUT_STATE;
+		var x_result = XInputGetState((u32)c_idx, &x_state); 
+		if (x_result == XINPUT_SUCCESS)
+		{
+			// TODO: decode input
+		}
+		elif (x_result == XINPUT_DEVICE_NOT_CONNECTED)
+		{
+		}
 	}
 }
 
@@ -115,25 +139,25 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm {
 
 		if(vk_code == VK_ESCAPE) {
 			running = false;
-		} elif (key_down && vk_code == VK_LEFT) {
+		} elif (vk_code == VK_LEFT) {
 			x_offset += 1;
-		} elif (key_down && vk_code == VK_RIGHT) {
+		} elif (vk_code == VK_RIGHT) {
 			x_offset -= 1;
-		} elif (key_down && vk_code == VK_UP) {
+		} elif (vk_code == VK_UP) {
 			y_offset += 1;
-		} elif (key_down && vk_code == VK_DOWN) {
+		} elif (vk_code == VK_DOWN) {
 			y_offset -= 1;
 		} else {
-			if (key_down) {
-				print_string("key_down: ");
-				print_i32((i32)vk_code);
-				print_string("\n");
-			}
-			if (key_up) {
-				print_string("key_up: ");
-				print_i32((i32)vk_code);
-				print_string("\n");
-			}
+			// if (key_down) {
+			// 	print_string("key_down: ");
+			// 	print_i32((i32)vk_code);
+			// 	print_string("\n");
+			// }
+			// if (key_up) {
+			// 	print_string("key_up: ");
+			// 	print_i32((i32)vk_code);
+			// 	print_string("\n");
+			// }
 		}
 	}
 	else {
@@ -152,7 +176,7 @@ let main = fun () => void {
 	var window_class: WNDCLASSEX;
 	window_class.cbSize = (u32)80;
 	window_class.style = (u32)(CS_HREDRAW|CS_VREDRAW);
-	window_class.lpfnWndProc = (i8*)main_window_callback;
+	window_class.lpfnWndProc = (ptr)main_window_callback;
 	window_class.cbClsExtra = 0;
 	window_class.cbWndExtra = 0;
 	window_class.hInstance = instance;
@@ -192,24 +216,8 @@ let main = fun () => void {
 			TranslateMessage(&msg);
 			DispatchMessageA(&msg);
 		}
-		for(var c_idx = 0; c_idx < XUSER_MAX_COUNT; ++c_idx) {
-			var x_state : XINPUT_STATE;
-			var x_result = XInputGetState((u32)c_idx, &x_state); 
-			if (x_result == XINPUT_SUCCESS)
-			{
-				// TODO: decode input
-			}
-			elif (x_result == XINPUT_DEVICE_NOT_CONNECTED)
-			{
-			}
-		}
-		
 		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
 		blit_to_screen(&backbuffer);
-
-		// x_offset += 1;
-		// y_offset += 2;
-		// z_offset += 1;
 	}
     ExitProcess((u32)0);
 }

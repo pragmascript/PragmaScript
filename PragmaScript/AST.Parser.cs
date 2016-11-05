@@ -239,28 +239,26 @@ namespace PragmaScript
             tempState.ExpectNextToken(Token.TokenType.Assignment);
 
             var next = tempState.NextToken();
-
             if (next.type == Token.TokenType.Extern)
             {
                 next = tempState.NextToken();
             }
+
+            ignoreSemicolon = false;
             if (next.type == Token.TokenType.Struct)
             {
                 result = parseStructDeclaration(ref ps, scope);
-                ignoreSemicolon = true;
             }
             else if (next.type == Token.TokenType.Fun)
             {
                 result = parseFunctionDefinition(ref ps, scope);
-                ignoreSemicolon = true;
-                if ((result as FunctionDefinition).external)
+                if ((result as FunctionDefinition).body != null)
                 {
-                    ignoreSemicolon = false;
+                    ignoreSemicolon = true;
                 }
             }
             else
             {
-                ignoreSemicolon = false;
                 result = parseVariableDefinition(ref ps, scope);
             }
             return result;
@@ -830,8 +828,7 @@ namespace PragmaScript
 
                     if (result.type == UnaryOp.UnaryOpType.AddressOf ||
                         result.type == UnaryOp.UnaryOpType.PreInc ||
-                        result.type == UnaryOp.UnaryOpType.PreDec ||
-                        result.type == UnaryOp.UnaryOpType.Dereference)
+                        result.type == UnaryOp.UnaryOpType.PreDec)
                     {
                         if (!activateReturnPointer(result.expression))
                             throw new ParserError($"Cannot take address of expression \"{ result.expression }\"", ps.CurrentToken());
@@ -842,9 +839,7 @@ namespace PragmaScript
 
             var tempState = ps;
             var next = tempState.NextToken(tokenMustExist: false);
-            // TODO: DO I REALLY NEED 2 LOOKAHEAD HERE?
             var nextNext = tempState.PeekToken();
-
 
             // handle type cast operator (T)x
             if (current.type == Token.TokenType.OpenBracket
@@ -1236,46 +1231,20 @@ namespace PragmaScript
             // let foo
             var id = ps.ExpectNextToken(Token.TokenType.Identifier);
 
+            var result = new StructDeclaration(current, scope);
+            result.name = id.text;
+
             // let foo = 
             ps.ExpectNextToken(Token.TokenType.Assignment);
 
             // let foo = struct
             ps.ExpectNextToken(Token.TokenType.Struct);
 
-            // let foo = stuct ( 
-            ps.ExpectNextToken(Token.TokenType.OpenBracket);
-
-            var result = new StructDeclaration(current, scope);
-            result.name = id.text;
-
+            result.fields = parseParamList(ref ps, scope);
 
             // add struct type to scope here to allow recursive structs
             scope.AddType(result.name, result, current);
 
-            var next = ps.PeekToken();
-            while (next.type != Token.TokenType.CloseBracket)
-            {
-                // let foo = struct ( x 
-                var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
-
-                // let foo = struct ( x: 
-                ps.ExpectNextToken(Token.TokenType.Colon);
-
-                // let foo = struct ( x: int32
-                ps.NextToken();
-                var ts = parseTypeString(ref ps, scope);
-
-                var f = new StructDeclaration.StructField();
-                f.name = ident.text;
-                f.typeString = ts;
-                result.fields.Add(f);
-
-                // let foo = struct ( x: int32; ... 
-                ps.ExpectNextToken(Token.TokenType.Semicolon);
-                next = ps.PeekToken();
-            }
-
-            ps.NextToken();
             return result;
         }
 
@@ -1304,10 +1273,50 @@ namespace PragmaScript
             return result;
         }
 
+
+        public static List<NamedParameter> parseParamList(ref ParseState ps, Scope scope)
+        {
+            var result = new List<NamedParameter>();
+            // let foo = stuct ( 
+            ps.ExpectNextToken(Token.TokenType.OpenBracket);
+
+            var next = ps.PeekToken();
+            while (next.type != Token.TokenType.CloseBracket)
+            {
+                // let foo = struct ( x 
+                var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
+
+                // let foo = struct ( x: 
+                ps.ExpectNextToken(Token.TokenType.Colon);
+
+                // let foo = struct ( x: int32
+                ps.NextToken();
+                var ts = parseTypeString(ref ps, scope);
+
+                var p = new AST.NamedParameter();
+                p.name = ident.text;
+                p.typeString = ts;
+                result.Add(p);
+
+                // let foo = struct ( x: int32; ... 
+                if (ps.PeekToken().type == Token.TokenType.CloseBracket)
+                {
+                    next = ps.PeekToken();
+                }
+                else
+                {
+                    next = ps.ExpectNextToken(Token.TokenType.Semicolon);
+                    next = ps.PeekToken();
+                }
+            }
+            ps.NextToken();
+
+            return result;
+        }
+
         public static Node parseFunctionDefinition(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Let);
-
 
             var result = new FunctionDefinition(current, scope);
 
@@ -1335,57 +1344,11 @@ namespace PragmaScript
             // let foo = fun
             ps.ExpectNextToken(Token.TokenType.Fun);
 
-            // let foo = fun (
-            ps.ExpectNextToken(Token.TokenType.OpenBracket);
-
-            var next = ps.PeekToken();
-            if (next.type != Token.TokenType.CloseBracket)
-            {
-                while (true)
-                {
-                    // let foo = fun (x
-                    var pid = ps.ExpectNextToken(Token.TokenType.Identifier);
-
-                    // let foo = fun (x: 
-                    ps.ExpectNextToken(Token.TokenType.Colon);
-
-                    // let foo = fun (x: int32
-                    var ptyp = ps.ExpectNextToken(Token.TokenType.Identifier);
-                    var typeString = parseTypeString(ref ps, scope);
-                    var p = new FunctionDefinition.FunctionParameter();
-                    p.name = pid.text;
-                    p.typeString = typeString;
-                    result.parameters.Add(p);
-
-                    // let foo = fun (x: int32
-                    next = ps.NextToken();
-                    if (next == null)
-                    {
-                        throw new ParserError("Missing \")\" in function definition", ptyp);
-                    }
-                    if (next.type != Token.TokenType.CloseBracket)
-                    {
-                        // let foo = fun (x: int32;
-                        expectTokenType(next, Token.TokenType.Semicolon);
-                        continue;
-                    }
-                    else
-                    {
-                        // let foo = fun (x: int32)
-                        ps.NextToken();
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                ps.NextToken();
-                ps.NextToken();
-                // let foo = fun ( ) =>
-            }
+            // let foo = fun 
+            result.parameters = parseParamList(ref ps, scope);
 
             // let foo = fun (x: int32) =>
-            ps.ExpectCurrentToken(Token.TokenType.FatArrow);
+            ps.ExpectNextToken(Token.TokenType.FatArrow);
 
             ps.NextToken();
             // let foo = fun (x: int32) => { ... }
@@ -1402,11 +1365,7 @@ namespace PragmaScript
             var return_type = parseTypeString(ref ps, scope);
             result.returnType = return_type;
 
-            if (result.external)
-            {
-                ps.ExpectPeekToken(Token.TokenType.Semicolon);
-            }
-            else
+            if (!result.external)
             {
                 if (ps.PeekToken().type != Token.TokenType.Semicolon)
                 {
@@ -1419,7 +1378,6 @@ namespace PragmaScript
                 }
                 else
                 {
-                    ps.NextToken();
                     result.body = null;
                 }
             }
