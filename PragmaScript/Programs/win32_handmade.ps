@@ -18,6 +18,15 @@ var running = false;
 var backbuffer: offscreen_buffer;
 var window: window_info;
 
+let load_x_input = fun () => void {
+	var lib_string = "xinput1_3.dll\0";
+	var x_input_lib = LoadLibraryA(lib_string.data);
+	if (x_input_lib != null) {
+		var proc_string = "XInputGetState\0";
+		XInputGetState = (x_input_get_state)GetProcAddress(x_input_lib, proc_string.data);
+	}
+}
+
 let bytes_per_pixel = 4;
 let render_weird_gradient = fun (buffer: offscreen_buffer*; x_offset: i32; y_offset: i32; z_offset: i32) => void {
 	var width  = buffer.width;
@@ -89,13 +98,42 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm {
 		var context = BeginPaint(window_handle, &paint);
 		blit_to_screen(&backbuffer);
 		EndPaint(window_handle, &paint);
-	} else {
+	} 
+	elif (message == WM_SYSKEYDOWN 
+		  || message == WM_SYSKEYUP
+		  || message == WM_KEYDOWN
+		  || message == WM_KEYUP) {
+		var vk_code = (u32)w_param;
+		var was_down = ((i32)l_param & (1 << 30)) != 0;
+		var is_down = ((i32)l_param & (1 << 31)) == 0;
+		var key_up = was_down && !is_down;
+		var key_down = !was_down && is_down; 
+
+		if(vk_code == VK_ESCAPE) {
+			running = false;
+		}
+		else {
+			if (key_down)
+			{
+				print_string("key_down: ");
+				print_i32((i32)vk_code);
+				print_string("\n");
+			}
+			if (key_up) {
+				print_string("key_up: ");
+				print_i32((i32)vk_code);
+				print_string("\n");
+			}
+		}
+	}
+	else {
 		result = DefWindowProcA(window_handle, message, w_param, l_param);
 	} 
 	return result;
 }
 
 let main = fun () => void {
+	load_x_input();
 	create_backbuffer(&backbuffer, 1244, 705);
 
 	var class_name  = "PragmaScriptWindowClass\0";
@@ -151,17 +189,13 @@ let main = fun () => void {
 			var x_result = XInputGetState((u32)c_idx, &x_state); 
 			if (x_result == XINPUT_SUCCESS)
 			{
-				print_string("\ncontroller connected: ");
-				print_i32(c_idx);
-
 				// TODO: decode input
 			}
 			elif (x_result == XINPUT_DEVICE_NOT_CONNECTED)
 			{
-				print_string("\ncontroller _not_ connected: ");
-				print_i32(c_idx);
 			}
 		}
+		
 		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
 		blit_to_screen(&backbuffer);
 

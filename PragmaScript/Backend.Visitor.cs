@@ -1309,7 +1309,6 @@ namespace PragmaScript
 
         public void Visit(AST.FunctionDefinition node, bool proto = false)
         {
-            Console.WriteLine($"proto: {proto}, {node.funName}");
             if (proto)
             {
 

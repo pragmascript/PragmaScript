@@ -5,8 +5,15 @@
  - sizeof!!!!
 
  - function pointers!
+     use VariableReference
+	 inside FunctionCall so i no longer need
+	 "callThroughPointer" bool
+  
  
  - switch!
+
+  - change i8* to ptr
+
 
  - structs global variables with constant initializers
  

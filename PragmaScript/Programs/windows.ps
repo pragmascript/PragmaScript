@@ -16,6 +16,10 @@ let WM_CLOSE = (u32)16;
 let WM_DESTROY = (u32)2;
 let WM_SIZE = (u32)5;
 let WM_QUIT = (u32)18;
+let WM_SYSKEYDOWN = (u32)260;
+let WM_SYSKEYUP = (u32)261;
+let WM_KEYDOWN = (u32)256;
+let WM_KEYUP = (u32)257;
 let WHITENESS = (u32)16711778;
 let BLACKNESS = (u32)66;
 let SRCCOPY = (u32)13369376;
@@ -28,6 +32,14 @@ let MEM_RESET_UNDO = (u32)0x10000000;
 let PAGE_READWRITE = (u32)0x04;
 let MEM_RELEASE = (u32)0x8000;
 let PM_REMOVE = (u32)0x0001;
+
+let VK_ESCAPE = (u32)0x1B;
+let VK_UP     = (u32)0x26;
+let VK_DOWN   = (u32)0x28;
+let VK_LEFT   = (u32)0x25;
+let VK_RIGHT  = (u32)0x27;
+let VK_SPACE  = (u32)0x20;
+
 
 let WNDCLASSEX = struct 
 (
@@ -211,7 +223,6 @@ let CreateCompatibleDC = extern fun (hdc: umm) => umm;
 let GetDC = extern fun (hWnd: umm) => umm;
 let ReleaseDC = extern fun (hWnd: umm; hdc: umm) => i32;
 let GetCompatibleDC = extern fun (hdc: umm) => umm;
-
 let VirtualAlloc = extern fun 
 (
   address: i8*;
@@ -219,7 +230,6 @@ let VirtualAlloc = extern fun
   allocation_type: u32;
   protect: u32
 ) => i8*;
-
 let VirtualFree = extern fun
 (
   address: i8*;
@@ -227,6 +237,8 @@ let VirtualFree = extern fun
   free_type: u32
 ) => i32;
 
+let LoadLibraryA = extern fun(name: i8*) => umm;
+let GetProcAddress = extern fun(lib: umm; name: i8*) => i8*;
 
 // **************** XINPUT ****************
 let XUSER_MAX_COUNT = 4;
