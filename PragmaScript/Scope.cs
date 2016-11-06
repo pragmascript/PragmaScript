@@ -28,7 +28,6 @@ namespace PragmaScript
         }
 
         public Scope parent;
-
         public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
         public Dictionary<string, TypeDefinition> types = new Dictionary<string, TypeDefinition>();
 
@@ -85,7 +84,6 @@ namespace PragmaScript
             variables.Add(name, v);
             return v;
         }
-
 
         public void AddFunctionParameter(string name, AST.FunctionDefinition node, int idx)
         {

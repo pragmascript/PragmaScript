@@ -21,15 +21,6 @@ var x_offset = 0;
 var y_offset = 0;
 var z_offset = 0;
 
-
-let init_direct_sound = fun () => void {
-	var direct_sound_lib = LoadLibraryA(cstr("dsound.dll\0"));
-	if (direct_sound_lib != null) {
-
-
-	}
-}
-
 let load_x_input = fun () => void {
 	var x_input_lib = LoadLibraryA(cstr("xinput1_4.dll\0"));
 	if (x_input_lib == null) {
@@ -37,6 +28,7 @@ let load_x_input = fun () => void {
 	}
 	if (x_input_lib != null) {
 		XInputGetState = (x_input_get_state)GetProcAddress(x_input_lib, cstr("XInputGetState\0"));
+		assert((umm)XInputGetState != null);
 	}
 }
 
@@ -140,13 +132,13 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm {
 		if(vk_code == VK_ESCAPE) {
 			running = false;
 		} elif (vk_code == VK_LEFT) {
-			x_offset += 1;
+			x_offset += 10;
 		} elif (vk_code == VK_RIGHT) {
-			x_offset -= 1;
+			x_offset -= 10;
 		} elif (vk_code == VK_UP) {
-			y_offset += 1;
+			y_offset += 10;
 		} elif (vk_code == VK_DOWN) {
-			y_offset -= 1;
+			y_offset -= 10;
 		} else {
 			// if (key_down) {
 			// 	print_string("key_down: ");
@@ -170,8 +162,8 @@ let main = fun () => void {
 	load_x_input();
 	create_backbuffer(&backbuffer, 1244, 705);
 
-	var class_name  = "PragmaScriptWindowClass\0";
-	var window_name = "handmade-pragmascript\0";
+	var class_name  = cstr("PragmaScriptWindowClass\0");
+	var window_name = cstr("handmade-pragmascript\0");
 	var instance = GetModuleHandleA(null);
 	var window_class: WNDCLASSEX;
 	window_class.cbSize = (u32)80;
@@ -184,14 +176,14 @@ let main = fun () => void {
 	window_class.hCursor = null;
 	window_class.hbrBackground = null;
 	window_class.lpszMenuName = nullptr;
-	window_class.lpszClassName = class_name.data;
+	window_class.lpszClassName = class_name;
 	window_class.hIconSm = null;
 	RegisterClassExA(&window_class);
 	
 	window.handle = CreateWindowExA(
 		0,
-		class_name.data,
-		window_name.data,
+		class_name,
+		window_name,
 		WS_OVERLAPPEDWINDOW|WS_VISIBLE,
 		CW_USEDEFAULT,
 		CW_USEDEFAULT,
@@ -205,8 +197,9 @@ let main = fun () => void {
 	window.dc = GetDC(window.handle);
 	update_window_rect();
 
+	// init_direct_sound();
+
 	running = true;
-	
 	while (running) {
 		var msg: MSG;
 		while (PeekMessageA(&msg, null, (u32)0, (u32)0, PM_REMOVE) != 0) {

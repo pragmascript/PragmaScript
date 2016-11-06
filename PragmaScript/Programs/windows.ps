@@ -269,22 +269,3 @@ let x_input_get_state = fun
 ) => u32;
 
 var XInputGetState: x_input_get_state;
-
-// **************** DSOUND ****************
-
-let GUID = struct
-(
-  Data1: u32;
-  Data2: u16;
-  Data3: u16;
-  Data4: u64;
-);
-
-let direct_sound_create = fun
-(
-  guid: GUID*;
-  obj: ptr;
-  unused: ptr
-) => i32;
-
-var DirectSoundCreate: direct_sound_create; 
