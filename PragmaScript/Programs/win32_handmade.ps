@@ -211,6 +211,7 @@ let main = fun () => void {
 		}
 		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
 		blit_to_screen(&backbuffer);
+		z_offset += 1;
 	}
     ExitProcess((u32)0);
 }

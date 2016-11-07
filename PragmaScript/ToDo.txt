@@ -10,17 +10,15 @@
 	 inside FunctionCall so i no longer need
 	 "callThroughPointer" bool
   
- 
- - switch!
+  - switch!
 
- - make ";" optional for the last argument of structs
-   / functions
- 
+ - use parseTypeString inside of
+   struct decl and function def
+
  - replace bool with b32
 
  - get rid of signed unsigned types
-
-
+ 
  - structs global variables with constant initializers
  
  - setup a compilation task
@@ -37,9 +35,6 @@
  - constant arrays?
 
  - type aliases
-
- FUNCTION TYPE DEFINITIONS SHOULD WORK LIKE STRUCTS
- How to handle "extern" then????
 
  - unify types and vars in scope (we dont need both, 
    types are constant vars?)

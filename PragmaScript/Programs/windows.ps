@@ -240,7 +240,7 @@ let VirtualFree = extern fun
 let LoadLibraryA = extern fun(name: u8*) => umm;
 let GetProcAddress = extern fun(lib: umm; name: u8*) => ptr;
 
-// **************** XINPUT ****************
+// ********************** XINPUT ********************** 
 
 let XUSER_MAX_COUNT = 4;
 let XINPUT_SUCCESS = (u32)0;
@@ -269,3 +269,8 @@ let x_input_get_state = fun
 ) => u32;
 
 var XInputGetState: x_input_get_state;
+
+
+// ********************** DIRECTSOUND ********************** 
+
+let DS_OK = 0;
