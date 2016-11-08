@@ -268,9 +268,83 @@ let x_input_get_state = fun
   state : XINPUT_STATE*
 ) => u32;
 
-var XInputGetState: x_input_get_state;
+var XInputGetState: fun 
+(
+  dwUserIndex: u32;
+  state : XINPUT_STATE*
+) => u32;
 
 
 // ********************** DIRECTSOUND ********************** 
 
 let DS_OK = 0;
+
+let WaveFormat = struct
+(
+  formatTag: u16;
+  channels: u16;
+  nSamplesPerSec: u32;
+  nAvgBytesPerSec: u32;
+  nBlockAlign: u16;
+  nBitsPerSample: u16;
+  size: u16;
+);
+
+let DSBUFFERDESC = struct
+(
+  size: u32;
+  flags: u32;
+  bufferBytes: u32;
+  reserved: u32;
+  fxFormat: WaveFormat*;
+); 
+
+let DirectSoundFunctions = struct
+(
+  _unused0: ptr;
+  _unused1: ptr;
+  _unused2: ptr;
+  CreateSoundBuffer: fun
+  (
+    this: IDirectSound*;
+    dsb: IDirectSoundBuffer**;
+  ) => i32;
+);
+
+let DirectSoundBufferFunctions = struct
+(
+  _unused0: ptr;
+  _unused1: ptr;
+  _unused2: ptr;
+
+  _unused3: ptr; // GetCaps
+  GetCurrentPosition: fun
+  (
+    this: IDirectSoundBuffer*;
+    currentPlayCursor: u32*;
+    currentWriteCursor: u32*;
+  ) => i32;
+  _unused4: ptr; // GetFormat
+  _unused5: ptr; // GetVolume
+  _unused6: ptr; // GetPan
+  _unused7: ptr; // GetFrequency
+  _unused8: ptr; // GetStatus
+  _usused9: ptr; // Initialize
+);
+
+let IDirectSound = struct
+(
+  vtable: DirectSoundFunctions*;
+); 
+
+let IDirectSoundBuffer = struct
+(
+  vtable: DirectSoundBufferFunctions*;
+);
+
+var DirectSoundCreate: fun 
+(
+  GuidDevice: ptr;
+  ds: IDirectSound**;
+  unused: ptr;
+) => i32;

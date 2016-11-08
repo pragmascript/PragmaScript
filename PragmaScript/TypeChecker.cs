@@ -27,11 +27,41 @@ namespace PragmaScript
     {
         Dictionary<AST.Node, FrontendType> knownTypes;
         Dictionary<AST.Node, UnresolvedType> unresolved;
+        Dictionary<AST.Node, FrontendType> pre_resolved;
 
         public TypeChecker()
         {
             unresolved = new Dictionary<AST.Node, UnresolvedType>();
             knownTypes = new Dictionary<AST.Node, FrontendType>();
+            pre_resolved = new Dictionary<AST.Node, FrontendType>();
+        }
+
+
+        public void CheckTypes(AST.ProgramRoot root)
+        {
+            foreach (var fr in root.files)
+            {
+                checkTypeDynamic(fr);
+            }
+            foreach (var u in unresolved.Values)
+            {
+                Console.WriteLine(u.node.ToString());
+            }
+            if (unresolved.Count > 0)
+            {
+                throw new ParserError($"Cannot resolve type: {unresolved.First().Key}", unresolved.First().Key.token);
+            }
+
+            // TODO: cycle detection!
+            //    HashSet<AST.Node> blocker = new HashSet<AST.Node>();
+            //foreach (var v in unresolved.Values)
+            //{
+            //    getRootBlocker(v, blocker);
+            //}
+            //foreach (var n in blocker)
+            //{
+            //    throw new ParserError($"Cannot resolve type of \"{n}\"", n.token);
+            //}
         }
 
         public FrontendType GetNodeType(AST.Node node)
@@ -97,8 +127,19 @@ namespace PragmaScript
                     }
                 }
             }
+
+            if (pre_resolved.ContainsKey(node))
+            {
+                pre_resolved.Remove(node);
+            }
         }
 
+        void pre_resolve(AST.Node node, FrontendType type)
+        {
+            Debug.Assert(node != null);
+            Debug.Assert(type != null);
+            pre_resolved.Add(node, type);
+        }
 
         void getRootBlocker(UnresolvedType t, HashSet<AST.Node> blocker)
         {
@@ -118,6 +159,15 @@ namespace PragmaScript
             }
         }
 
+        void checkType(AST.FileRoot node)
+        {
+            foreach (var n in node.declarations)
+            {
+                checkTypeDynamic(n);
+            }
+            resolve(node, FrontendType.none);
+        }
+
         void checkTypeDynamic(AST.Node node)
         {
             if (knownTypes.ContainsKey(node))
@@ -127,34 +177,7 @@ namespace PragmaScript
             dynamic dn = node;
             checkType(dn);
         }
-
-
-        public void CheckTypes(AST.ProgramRoot root)
-        {
-            foreach (var fr in root.files)
-            {
-                checkTypeDynamic(fr);
-            }
-            HashSet<AST.Node> blocker = new HashSet<AST.Node>();
-            foreach (var v in unresolved.Values)
-            {
-                getRootBlocker(v, blocker);
-            }
-            foreach (var n in blocker)
-            {
-                throw new ParserError($"Cannot resolve type of \"{n}\"", n.token);
-            }
-        }
-
-        public void checkType(AST.FileRoot node)
-        {
-            foreach (var n in node.declarations)
-            {
-                checkTypeDynamic(n);
-            }
-            resolve(node, FrontendType.none);
-        }
-
+        
         void checkType(AST.Block node)
         {
             foreach (var n in node.statements)
@@ -262,7 +285,6 @@ namespace PragmaScript
         {
             Debug.Assert(node.typeString != null || node.expression != null);
 
-
             FrontendType tt = null;
             if (node.typeString != null)
             {
@@ -312,40 +334,23 @@ namespace PragmaScript
 
         void checkType(AST.FunctionDefinition node)
         {
-            List<FrontendType> parameterTypes = new List<FrontendType>();
-            foreach (var p in node.parameters)
+            FrontendType tt = null;
+            if (node.typeString != null)
             {
-                checkTypeDynamic(p.typeString);
-                var pt = getType(p.typeString);
-                if (pt != null)
+                checkTypeDynamic(node.typeString);
+                tt = getType(node.typeString);
+                if (tt == null)
                 {
-                    parameterTypes.Add(pt);
+                    addUnresolved(node, node.typeString);
                 }
-                else
-                {
-                    addUnresolved(node, p.typeString);
-                }
+            }
+            if (tt != null)
+            {
+                resolve(node, tt);
             }
 
-            bool all_ps = parameterTypes.Count == node.parameters.Count;
-
-            checkTypeDynamic(node.returnType);
-            var returnType = getType(node.returnType);
-            if (returnType == null)
-            {
-                addUnresolved(node, node.returnType);
-            }
-            if (returnType != null && all_ps)
-            {
-                var result = new FrontendFunctionType();
-                for (int idx = 0; idx < node.parameters.Count; ++idx)
-                {
-                    result.AddParam(node.parameters[idx].name, parameterTypes[idx]);
-                }
-                result.returnType = returnType;
-                result.name = node.funName;
-                resolve(node, result);
-            }
+            // TODO: find out why this has to come last
+            // weird errors occur if this is further up!
             if (node.body != null)
             {
                 checkTypeDynamic(node.body);
@@ -414,6 +419,20 @@ namespace PragmaScript
 
         void checkType(AST.StructDeclaration node)
         {
+
+            FrontendStructType result;
+            if (!pre_resolved.ContainsKey(node))
+            {
+                result = new FrontendStructType();
+                result.name = node.name;
+                pre_resolve(node, result);
+            }
+            else
+            {
+                result = pre_resolved[node] as FrontendStructType;
+                Debug.Assert(result != null);
+            }
+            
             List<FrontendType> fieldTypes = new List<FrontendType>();
             foreach (var p in node.fields)
             {
@@ -430,10 +449,9 @@ namespace PragmaScript
             }
 
             bool all_fs = fieldTypes.Count == node.fields.Count;
-
             if (all_fs)
             {
-                var result = new FrontendStructType();
+                
                 for (int idx = 0; idx < node.fields.Count; ++idx)
                 {
                     result.AddField(node.fields[idx].name, fieldTypes[idx]);
@@ -874,46 +892,96 @@ namespace PragmaScript
 
         void checkType(AST.TypeString node)
         {
-            var base_t_def = node.scope.GetType(node.typeString);
-            if (base_t_def == null)
+            switch (node.kind)
             {
-                throw new ParserError($"Unknown type: \"{node.typeString}\"", node.token);
-            }
-
-            FrontendType base_t = null;
-            if (base_t_def.type != null)
-            {
-                base_t = base_t_def.type;
-            }
-            else
-            {
-                var nt = getType(base_t_def.node);
-                if (nt == null)
+                case AST.TypeString.TypeKind.Other:
                 {
-                    addUnresolved(node, base_t_def.node);
-                }
-                else
-                {
-                    base_t = nt;
-                }
-            }
-            if (base_t != null)
-            {
-                FrontendType result = base_t;
-                if (node.isArrayType)
-                {
-                    Debug.Assert(!node.isPointerType);
-                    result = new FrontendArrayType(base_t);
-                }
-                else if (node.isPointerType)
-                {
-                    result = base_t;
-                    for (int i = 0; i < node.pointerLevel; ++i)
+                    var base_t_def = node.scope.GetType(node.typeName);
+                    if (base_t_def == null)
                     {
-                        result = new FrontendPointerType(result);
+                        throw new ParserError($"Unknown type: \"{node.typeName}\"", node.token);
+                    }
+
+                    FrontendType base_t = null;
+                    if (base_t_def.type != null)
+                    {
+                        base_t = base_t_def.type;
+                    }
+                    else
+                    {
+                        if (pre_resolved.ContainsKey(base_t_def.node) && node.isPointerType)
+                        {
+                            base_t = pre_resolved[base_t_def.node];
+                        }
+                        var nt = getType(base_t_def.node);
+                        if (nt == null)
+                        {
+                            addUnresolved(node, base_t_def.node);
+                        }
+                        else
+                        {
+                            base_t = nt;
+                        }
+                    }
+                    if (base_t != null)
+                    {
+                        FrontendType result = base_t;
+                        if (node.isArrayType)
+                        {
+                            Debug.Assert(!node.isPointerType);
+                            result = new FrontendArrayType(base_t);
+                        }
+                        else if (node.isPointerType)
+                        {
+                            result = base_t;
+                            for (int i = 0; i < node.pointerLevel; ++i)
+                            {
+                                result = new FrontendPointerType(result);
+                            }
+                        }
+                        resolve(node, result);
                     }
                 }
-                resolve(node, result);
+                break;
+                case AST.TypeString.TypeKind.Function:
+                {
+                    var fts = node.functionTypeString;
+                    List<FrontendType> parameterTypes = new List<FrontendType>();
+                    foreach (var p in fts.parameters)
+                    {
+                        checkTypeDynamic(p.typeString);
+                        var pt = getType(p.typeString);
+                        if (pt != null)
+                        {
+                            parameterTypes.Add(pt);
+                        }
+                        else
+                        {
+                            addUnresolved(node, p.typeString);
+                        }
+                    }
+                    bool all_ps = parameterTypes.Count == fts.parameters.Count;
+                    checkTypeDynamic(fts.returnType);
+                    var returnType = getType(fts.returnType);
+                    if (returnType == null)
+                    {
+                        addUnresolved(node, fts.returnType);
+                    }
+                    if (returnType != null && all_ps)
+                    {
+                        var result = new FrontendFunctionType();
+                        for (int idx = 0; idx < fts.parameters.Count; ++idx)
+                        {
+                            result.AddParam(fts.parameters[idx].name, parameterTypes[idx]);
+                        }
+                        result.returnType = returnType;
+                        resolve(node, result);
+                    }
+                }
+                break;
+                case AST.TypeString.TypeKind.Struct:
+                    throw new NotImplementedException();
+
             }
         }
 

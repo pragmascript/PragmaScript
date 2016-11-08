@@ -335,8 +335,8 @@ namespace PragmaScript
         {
             public Node body;
             public string funName;
-            public List<NamedParameter> parameters = new List<NamedParameter>();
-            public TypeString returnType;
+            public TypeString typeString;
+
             public bool isFunctionTypeDeclaration()
             {
                 return !external && body == null;
@@ -355,25 +355,10 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
+                yield return typeString;
                 if (body != null)
                 {
                     yield return body;
-                }
-                else
-                {
-                    yield break;
-                }
-                foreach (var p in parameters)
-                {
-                    yield return new AnnotatedNode(p.typeString, scope, p.name);
-                }
-                if (returnType != null)
-                {
-                    yield return new AnnotatedNode(returnType, scope, "return");
-                }
-                else
-                {
-                    Console.WriteLine("fun no return: " + funName);
                 }
             }
             public override string ToString()
@@ -1177,25 +1162,93 @@ namespace PragmaScript
 
         public class TypeString : Node
         {
-            public string typeString;
+            public enum TypeKind
+            {
+                Function, Struct, Other
+            }
+            public class FunctionTypeString
+            {
+                public List<NamedParameter> parameters = new List<NamedParameter>();
+                public TypeString returnType;
+            }
+            public class StructTypeString
+            {
+            }
+
+            public string typeName;
             public bool isArrayType = false;
             public bool isPointerType = false;
             public int pointerLevel = 0;
+            public TypeKind kind = TypeKind.Other;
+            public FunctionTypeString functionTypeString;
+            public StructTypeString structTypeString;
+
             public TypeString(Token t, Scope s) : base(t, s)
             {
             }
             public override Node DeepCloneTree()
             {
                 var result = new TypeString(token, scope);
-                result.typeString = typeString;
+                result.typeName = typeName;
                 result.isArrayType = isArrayType;
                 result.isPointerType = isPointerType;
                 result.pointerLevel = pointerLevel;
+                result.kind = kind;
+
+                if (functionTypeString != null)
+                {
+                    var fts = new FunctionTypeString();
+                    foreach (var p in functionTypeString.parameters)
+                    {
+                        var np = new AST.NamedParameter();
+                        np.name = p.name;
+                        np.typeString = p.typeString.DeepCloneTree() as TypeString;
+                        fts.parameters.Add(np);
+                    }
+                    result.functionTypeString = fts;
+                }
+                else
+                {
+                    result.functionTypeString = null;
+                }
+
                 return result;
             }
+            public override IEnumerable<Node> GetChilds()
+            {
+                switch (kind)
+                {
+                    case TypeKind.Function:
+                        foreach (var p in functionTypeString.parameters)
+                        {
+                            yield return new AnnotatedNode(p.typeString, scope, p.name);
+                        }
+                        yield return new AnnotatedNode(functionTypeString.returnType, scope, "return");
+                        break;
+                    case TypeKind.Struct:
+                        yield break;
+                    case TypeKind.Other:
+                        yield break;
+                }
+            }
+
             public override string ToString()
             {
-                var result = typeString;
+                string result = "";
+                switch (kind)
+                {
+                    case TypeKind.Function:
+                        result = "fun () => ";
+                        break;
+                    case TypeKind.Struct:
+                        result = "struct ()";
+                        break;
+                    case TypeKind.Other:
+                        result = typeName;
+                        break;
+                    default:
+                        break;
+                }
                 if (isArrayType)
                     result += "[]";
                 if (isPointerType)

@@ -24,14 +24,13 @@ namespace PragmaScript
         {
             parseARGS(args);
 
-
 #if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 3;
 
             // CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
-            CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
-            // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\bugs.ps" });
+            // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
+            CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\bugs.ps" });
 #endif
             if (CompilerOptions.inputFilenames.Count == 0)
             {
@@ -246,8 +245,6 @@ namespace PragmaScript
 
             Console.WriteLine("backend...");
             var backend = new Backend(Backend.TargetPlatform.x64, tc);
-            // 
-            // backend.EmitAndJIT(root, useOptimizations: CompilerOptions.useOptimizations);
             backend.EmitAndAOT(root, "output.o");
 #if DEBUG
             Console.ReadLine();

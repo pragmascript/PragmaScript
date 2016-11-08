@@ -21,17 +21,22 @@ var x_offset = 0;
 var y_offset = 0;
 var z_offset = 0;
 
+
+let init_direct_sound = fun () => void {
+
+}
+
 let load_x_input = fun () => void {
 	var x_input_lib = LoadLibraryA(cstr("xinput1_4.dll\0"));
 	if (x_input_lib == null) {
 		x_input_lib = LoadLibraryA(cstr("xinput1_3.dll\0"));
 	}
 	if (x_input_lib != null) {
-		XInputGetState = (x_input_get_state)GetProcAddress(x_input_lib, cstr("XInputGetState\0"));
+		// var x = (ptr*)(&XInputGetState);
+		*((ptr*)(&XInputGetState)) = (ptr)GetProcAddress(x_input_lib, cstr("XInputGetState\0"));
 		assert((umm)XInputGetState != null);
 	}
 }
-
 let handle_x_input = fun () => void {
 	for(var c_idx = 0; c_idx < XUSER_MAX_COUNT; ++c_idx) {
 		var x_state : XINPUT_STATE;

@@ -1352,7 +1352,8 @@ namespace PragmaScript
                     Visit(node.body);
                 }
 
-                var returnType = getTypeRef(typeChecker.GetNodeType(node.returnType));
+                var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
+                var returnType = getTypeRef(fun.returnType);
                 insertMissingReturn(returnType);
 
                 LLVM.PositionBuilderAtEnd(builder, vars);

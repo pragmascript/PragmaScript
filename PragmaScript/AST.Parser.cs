@@ -1255,34 +1255,55 @@ namespace PragmaScript
 
         public static TypeString parseTypeString(ref ParseState ps, Scope scope)
         {
-            var current = ps.ExpectCurrentToken(Token.TokenType.Identifier, 
+            var current = ps.ExpectCurrentToken(Token.TokenType.Identifier,
                                                 Token.TokenType.Fun, Token.TokenType.Struct);
 
-            if (current.type == Token.TokenType.Fun || current.type == Token.TokenType.Struct)
-            {
-                throw new System.NotImplementedException();
-            }
-
-            var next = ps.PeekToken();
-
             TypeString result = new TypeString(current, scope);
+            if (current.type == Token.TokenType.Fun)
+            {
+                result.kind = TypeString.TypeKind.Function;
+                result.functionTypeString = new TypeString.FunctionTypeString();
+                var fts = result.functionTypeString;
+                // let foo = fun 
+                fts.parameters = parseParamList(ref ps, scope);
 
-            result.typeString = current.text;
-            if (next.type == Token.TokenType.ArrayTypeBrackets)
-            {
-                result.isArrayType = true;
+                // let foo = fun (x: int32) =>
+                ps.ExpectNextToken(Token.TokenType.FatArrow);
                 ps.NextToken();
+
+                // let foo = fun (x: int32) => void 
+                var return_type = parseTypeString(ref ps, scope);
+                fts.returnType = return_type;
+                return result;
             }
-            else if (next.type == Token.TokenType.Multiply)
+            else if (current.type == Token.TokenType.Struct)
             {
-                result.isPointerType = true;
-                while (ps.PeekToken().type == Token.TokenType.Multiply)
+                result.kind = TypeString.TypeKind.Struct;
+                throw new System.NotImplementedException();
+                return result;
+            }
+            else
+            {
+                result.kind = TypeString.TypeKind.Other;
+                var next = ps.PeekToken();
+                result.typeName = current.text;
+                if (next.type == Token.TokenType.ArrayTypeBrackets)
                 {
-                    result.pointerLevel++;
+                    result.isArrayType = true;
                     ps.NextToken();
                 }
+                else if (next.type == Token.TokenType.Multiply)
+                {
+                    result.isPointerType = true;
+                    while (ps.PeekToken().type == Token.TokenType.Multiply)
+                    {
+                        result.pointerLevel++;
+                        ps.NextToken();
+                    }
+                }
+                return result;
             }
-            return result;
+            
         }
 
 
@@ -1342,6 +1363,7 @@ namespace PragmaScript
 
             // let foo = 
             ps.ExpectNextToken(Token.TokenType.Assignment);
+            
 
             // let foo = [extern]
             if (ps.PeekToken().type == Token.TokenType.Extern)
@@ -1358,30 +1380,18 @@ namespace PragmaScript
                 result.external = false;
             }
 
-            // let foo = fun
-            ps.ExpectNextToken(Token.TokenType.Fun);
-
-            // let foo = fun 
-            result.parameters = parseParamList(ref ps, scope);
-
-            // let foo = fun (x: int32) =>
-            ps.ExpectNextToken(Token.TokenType.FatArrow);
-
             ps.NextToken();
-            // let foo = fun (x: int32) => { ... }
-            result.funName = id.text;
+            result.typeString = parseTypeString(ref ps, scope);
+            Debug.Assert(result.typeString.kind == TypeString.TypeKind.Function);
 
+            result.funName = id.text;
             var funScope = new Scope(scope);
             var idx = 0;
-            foreach (var pd in result.parameters)
+            foreach (var pd in result.typeString.functionTypeString.parameters)
             {
                 funScope.AddFunctionParameter(pd.name, result, idx);
                 idx++;
             }
-
-            var return_type = parseTypeString(ref ps, scope);
-            result.returnType = return_type;
-
             if (!result.external)
             {
                 if (ps.PeekToken().type != Token.TokenType.Semicolon)
@@ -1403,7 +1413,7 @@ namespace PragmaScript
             {
                 scope.AddVar(id.text, result, current, isConst: true);
             }
-            else 
+            else
             {
                 if (isVar)
                 {

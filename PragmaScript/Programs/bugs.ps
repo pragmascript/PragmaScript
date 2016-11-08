@@ -82,19 +82,40 @@ let vec = struct
 // }
 
 
-let main = fun () => void {
-	var x = 12;
-	var y = &x;
-	var z = *y;
-	// print_i32(z);
-	// print_string("\n");
+let list = struct
+(
+	value: i32;
+	next: list*;
+);
+let Foo = struct
+(
+	bar: Bar*;
+);
+let Bar = struct
+(
+	foo: Foo*;
+);
 
-	*y = 17;
-	assert(x == 17);
-	assert(*y == 17);
+let main = fun () => void 
+{
+	var l = list {};
+	var g = list {};
+	var foo = 12;
+	l.next = &g;
+	// g.next = &foo;
+	// var x = 12;
+	// var y = &x;
+	// var z = *y;
+	// // print_i32(z);
+	// // print_string("\n");
+
+	// *y = 17;
+	// assert(x == 17);
+	// assert(*y == 17);
 	
 
-	
+
 	// print_i32(*y);
 
 }
+
