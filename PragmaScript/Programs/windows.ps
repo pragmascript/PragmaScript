@@ -278,11 +278,13 @@ var XInputGetState: fun
 // ********************** DIRECTSOUND ********************** 
 
 let DS_OK = 0;
+let WAVE_FORMAT_PCM = (u16)1;
+let DSBCAPS_PRIMARYBUFFER = (u32)1;
 
-let WaveFormat = struct
+let WAVEFORMATEX = struct
 (
   formatTag: u16;
-  channels: u16;
+  nChannels: u16;
   nSamplesPerSec: u32;
   nAvgBytesPerSec: u32;
   nBlockAlign: u16;
@@ -296,19 +298,12 @@ let DSBUFFERDESC = struct
   flags: u32;
   bufferBytes: u32;
   reserved: u32;
-  fxFormat: WaveFormat*;
+  fxFormat: WAVEFORMATEX*;
 ); 
 
-let DirectSoundFunctions = struct
+let IDirectSoundBuffer = struct
 (
-  _unused0: ptr;
-  _unused1: ptr;
-  _unused2: ptr;
-  CreateSoundBuffer: fun
-  (
-    this: IDirectSound*;
-    dsb: IDirectSoundBuffer**;
-  ) => i32;
+  vtable: DirectSoundBufferFunctions*;
 );
 
 let DirectSoundBufferFunctions = struct
@@ -330,21 +325,72 @@ let DirectSoundBufferFunctions = struct
   _unused7: ptr; // GetFrequency
   _unused8: ptr; // GetStatus
   _usused9: ptr; // Initialize
+  Lock: fun
+  (
+    this: IDirectSoundBuffer*;
+    writeCursor: u32;
+    writeBytes: u32;
+    audioRegion1: ptr;
+    audioRegion1Size: u32*;
+    audioRegion2: ptr;
+    audioRegion2Size: u32*;
+    flags: u32;
+  ) => i32;
+  Play: fun
+  (
+    this: IDirectSoundBuffer*;
+    reserved: u32;
+    priority: u32;
+    flags: u32;
+  ) => i32;
+  _usused10: ptr; // SetCurrentPosition
+  SetFormat: fun
+  (
+    format: WAVEFORMATEX*;
+  ) => i32;
+  _usused11: ptr; // SetVolume
+  _usused12: ptr; // SetPan
+  _usused14: ptr; // SetFrequency
+  _usused15: ptr; // Stop
+  Unlock: fun
+  (
+    this: IDirectSoundBuffer*;
+    audioRegion1: ptr;
+    audioRegion1Size: u32*;
+    audioRegion2: ptr;
+    audioRegion2Size: u32*;
+  ) => i32;
+  _usused15: ptr;
 );
+
 
 let IDirectSound = struct
 (
   vtable: DirectSoundFunctions*;
 ); 
-
-let IDirectSoundBuffer = struct
+let DirectSoundFunctions = struct
 (
-  vtable: DirectSoundBufferFunctions*;
+  _unused0: ptr;
+  _unused1: ptr;
+  _unused2: ptr;
+  CreateSoundBuffer: fun
+  (
+    this: IDirectSound*;
+    desc: DSBUFFERDESC*;
+    dsb: IDirectSoundBuffer**;
+    unused: ptr;
+  ) => i32;
+  _unused3: ptr; // GetCaps
+  _unused4: ptr; // DuplicateSoundBuffer
+  SetCooperativeLevel: fun
+  (
+    this: IDirectSound*;
+    hwnd: umm;
+    level: u32;
+  ) => i32;
+  _unused5: ptr; // Compact
+  _unused6: ptr; // GetSpeakerConfig
+  _unused7: ptr; // SetSpeakerConfig
+  _unused8: ptr; // Initialize
 );
 
-var DirectSoundCreate: fun 
-(
-  GuidDevice: ptr;
-  ds: IDirectSound**;
-  unused: ptr;
-) => i32;

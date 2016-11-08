@@ -22,11 +22,46 @@ var y_offset = 0;
 var z_offset = 0;
 
 
-let init_direct_sound = fun () => void {
+let init_direct_sound = fun (hwnd: umm; buffer_size: i32; samples_per_second: i32) => void 
+{
+	var dsound_library = LoadLibraryA(cstr("dsound.dll\0"));
+	assert((umm)dsound_library != null);
+	var DirectSoundCreate: fun 
+	(
+		GuidDevice: ptr;
+		ds: IDirectSound**;
+		unused: ptr;
+	) => i32;
+	*((ptr*)(&DirectSoundCreate)) = (ptr)GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
+	assert((umm)DirectSoundCreate != null);
+
+	var dsound_obj: IDirectSound*;
+	assert(DirectSoundCreate(nullptr, &dsound_obj, nullptr) == DS_OK);
+
+	var desc = DSBUFFERDESC { };
+	desc.flags = DSBCAPS_PRIMARYBUFFER;
+	desc.size = (u32)0;
+	desc.bufferBytes = (u32)0;
+	desc.reserved = (u32)0;
+	desc.fxFormat = (WAVEFORMATEX*)nullptr;
+
+	var primary_buffer: IDirectSoundBuffer*;
+	dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc, &primary_buffer, nullptr);
+
+	var wave_format = WAVEFORMATEX {};
+	wave_format.formatTag = WAVE_FORMAT_PCM;
+	wave_format.nChannels = (u16)2;
+	wave_format.nBitsPerSample = (u16)16;
+	wave_format.nSamplesPerSec = (u32)samples_per_second;
+	wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / 8;
+	wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * wave_format.nBlockAlign;
+	wave_format.size = sizeof(WAVEFORMATEX);
+	
 
 }
 
-let load_x_input = fun () => void {
+let load_x_input = fun () => void 
+{
 	var x_input_lib = LoadLibraryA(cstr("xinput1_4.dll\0"));
 	if (x_input_lib == null) {
 		x_input_lib = LoadLibraryA(cstr("xinput1_3.dll\0"));
@@ -37,7 +72,9 @@ let load_x_input = fun () => void {
 		assert((umm)XInputGetState != null);
 	}
 }
-let handle_x_input = fun () => void {
+
+let handle_x_input = fun () => void 
+{
 	for(var c_idx = 0; c_idx < XUSER_MAX_COUNT; ++c_idx) {
 		var x_state : XINPUT_STATE;
 		var x_result = XInputGetState((u32)c_idx, &x_state); 
@@ -52,7 +89,8 @@ let handle_x_input = fun () => void {
 }
 
 let bytes_per_pixel = 4;
-let render_weird_gradient = fun (buffer: offscreen_buffer*; x_offset: i32; y_offset: i32; z_offset: i32) => void {
+let render_weird_gradient = fun (buffer: offscreen_buffer*; x_offset: i32; y_offset: i32; z_offset: i32) => void 
+{
 	var width  = buffer.width;
 	var height = buffer.height;
 	var pitch  = buffer.pitch;
@@ -72,7 +110,8 @@ let render_weird_gradient = fun (buffer: offscreen_buffer*; x_offset: i32; y_off
 	}
 }
 
-let create_backbuffer = fun (buffer: offscreen_buffer*; width: i32; height: i32) => void {
+let create_backbuffer = fun (buffer: offscreen_buffer*; width: i32; height: i32) => void 
+{
 	buffer.width = width;
 	buffer.height = height;
 	buffer.info.header.biSize = (u32)40;
@@ -89,7 +128,8 @@ let create_backbuffer = fun (buffer: offscreen_buffer*; width: i32; height: i32)
 	buffer.pitch = buffer.width * bytes_per_pixel;
 }
 
-let blit_to_screen = fun (buffer: offscreen_buffer*) => void {
+let blit_to_screen = fun (buffer: offscreen_buffer*) => void 
+{
     StretchDIBits(window.dc,
 		0, 0, window.width, window.height,
 		0, 0, buffer.width, buffer.height,
@@ -98,7 +138,8 @@ let blit_to_screen = fun (buffer: offscreen_buffer*) => void {
 		);
 }
 
-let update_window_rect = fun () => void {
+let update_window_rect = fun () => void 
+{
 	var rect: RECT;
 	GetClientRect(window.handle, &rect); 
 	window.width = rect.right - rect.left;
@@ -106,7 +147,8 @@ let update_window_rect = fun () => void {
 }
 
 let main_window_callback =
-fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm {
+fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm 
+{
 	var result = null;
 	if (message == WM_SIZE) {
 		update_window_rect();	
@@ -163,7 +205,8 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm {
 	return result;
 }
 
-let main = fun () => void {
+let main = fun () => void 
+{
 	load_x_input();
 	create_backbuffer(&backbuffer, 1244, 705);
 
@@ -202,7 +245,7 @@ let main = fun () => void {
 	window.dc = GetDC(window.handle);
 	update_window_rect();
 
-	// init_direct_sound();
+	init_direct_sound();
 
 	running = true;
 	while (running) {
