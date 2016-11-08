@@ -146,7 +146,7 @@ namespace PragmaScript
 
         Stack<LLVMValueRef> valueStack = new Stack<LLVMValueRef>();
         Dictionary<string, LLVMValueRef> variables = new Dictionary<string, LLVMValueRef>();
-        
+
         public Stack<ExecutionContext> ctx = new Stack<ExecutionContext>();
 
         LLVMModuleRef mod;
@@ -242,12 +242,12 @@ namespace PragmaScript
 
 
         // TODO: cache struct times at definition time
-        static LLVMTypeRef getTypeRef(FrontendStructType t)
+        static LLVMTypeRef getTypeRef(FrontendStructType t, int depth)
         {
             LLVMTypeRef[] ets = new LLVMTypeRef[t.fields.Count];
             for (int i = 0; i < ets.Length; ++i)
             {
-                ets[i] = getTypeRef(t.fields[i].type);
+                ets[i] = getTypeRef(t.fields[i].type, depth + 1);
             }
 
             // TODO packed?
@@ -255,40 +255,55 @@ namespace PragmaScript
         }
 
         // TODO: cache struct times at definition time
-        static LLVMTypeRef getTypeRef(FrontendArrayType t)
+        static LLVMTypeRef getTypeRef(FrontendArrayType t, int depth)
         {
             LLVMTypeRef[] ets = new LLVMTypeRef[2];
 
             ets[0] = Const.Int32Type;
-            ets[1] = LLVM.PointerType(getTypeRef(t.elementType), 0);
+            ets[1] = LLVM.PointerType(getTypeRef(t.elementType, depth), 0);
 
-            // TODO packed?
             return LLVM.StructType(ets, true);
         }
 
-        static LLVMTypeRef getTypeRef(FrontendPointerType t)
+        static LLVMTypeRef getTypeRef(FrontendPointerType t, int depth)
         {
-            var et = getTypeRef(t.elementType);
-            return LLVM.PointerType(et, 0);
+            if (depth <= 2)
+            {
+                var et = getTypeRef(t.elementType, depth);
+                return LLVM.PointerType(et, 0);
+            }
+            else
+            {
+                return Const.Int8PointerType;
+            }
         }
 
-        static LLVMTypeRef getTypeRef(FrontendFunctionType t)
+        static LLVMTypeRef getTypeRef(FrontendFunctionType t, int depth)
         {
             var fun = t;
             var cnt = Math.Max(1, fun.parameters.Count);
             var par = new LLVMTypeRef[cnt];
+
+            // TODO: what if we have a recursive function parameter here?
+            // do i need to inc depth?
             for (int i = 0; i < fun.parameters.Count; ++i)
             {
-                par[i] = getTypeRef(fun.parameters[i].type);
+                par[i] = getTypeRef(fun.parameters[i].type, depth);
             }
-            var returnType = getTypeRef(fun.returnType);
+            var returnType = getTypeRef(fun.returnType, 0);
             var funType = LLVM.FunctionType(returnType, out par[0],
                             (uint)fun.parameters.Count, Const.FalseBool);
 
             return LLVM.PointerType(funType, 0);
         }
 
-        static LLVMTypeRef getTypeRef(FrontendType t)
+
+        static LLVMTypeRef GetTypeRef(FrontendType t)
+        {
+            return getTypeRef(t, 0);
+        }
+
+        static LLVMTypeRef getTypeRef(FrontendType t, int depth)
         {
             if (t.Equals(FrontendType.i16))
             {
@@ -344,23 +359,23 @@ namespace PragmaScript
             }
             if (t.Equals(FrontendType.string_))
             {
-                return getTypeRef(t as FrontendArrayType);
+                return getTypeRef(t as FrontendArrayType, depth);
             }
             if (t is FrontendArrayType)
             {
-                return getTypeRef(t as FrontendArrayType);
+                return getTypeRef(t as FrontendArrayType, depth);
             }
             if (t is FrontendStructType)
             {
-                return getTypeRef(t as FrontendStructType);
+                return getTypeRef(t as FrontendStructType, depth);
             }
             if (t is FrontendPointerType)
             {
-                return getTypeRef(t as FrontendPointerType);
+                return getTypeRef(t as FrontendPointerType, depth);
             }
             if (t is FrontendFunctionType)
             {
-                return getTypeRef(t as FrontendFunctionType);
+                return getTypeRef(t as FrontendFunctionType, depth);
             }
             throw new InvalidCodePath();
         }

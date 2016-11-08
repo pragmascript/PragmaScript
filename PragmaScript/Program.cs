@@ -28,9 +28,9 @@ namespace PragmaScript
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 3;
 
-            // CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
+            CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
             // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
-            CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\bugs.ps" });
+            // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\bugs.ps" });
 #endif
             if (CompilerOptions.inputFilenames.Count == 0)
             {

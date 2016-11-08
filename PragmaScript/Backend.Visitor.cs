@@ -175,13 +175,13 @@ namespace PragmaScript
 
             var type = FrontendType.string_;
 
-            var arr_struct_type = getTypeRef(type);
+            var arr_struct_type = GetTypeRef(type);
 
             var insert = LLVM.GetInsertBlock(builder);
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
 
             var arr_struct_ptr = LLVM.BuildAlloca(builder, arr_struct_type, "arr_struct_alloca");
-            var elem_type = getTypeRef(type.elementType);
+            var elem_type = GetTypeRef(type.elementType);
 
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)bytes.Length, Const.FalseBool);
             var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
@@ -229,7 +229,7 @@ namespace PragmaScript
         //    //var l = node.length;
 
         //    //var values = new LLVMValueRef[l];
-        //    //var et = getTypeRef(node.elementType);
+        //    //var et = GetTypeRef(node.elementType);
 
 
         //    //for (int i = 0; i < values.Length; ++i)
@@ -238,7 +238,7 @@ namespace PragmaScript
         //    //}
 
         //    //var size = LLVM.ConstInt(Const.Int32Type, (ulong)l, Const.FalseBool);
-        //    //var arr = LLVM.ConstArray(getTypeRef(node.elementType), out values[0], (uint)values.Length);
+        //    //var arr = LLVM.ConstArray(GetTypeRef(node.elementType), out values[0], (uint)values.Length);
 
 
         //    //var sp = new LLVMValueRef[] { size, arr };
@@ -498,7 +498,7 @@ namespace PragmaScript
             if (node.type == AST.UnaryOp.UnaryOpType.SizeOf)
             {
                 var fet = typeChecker.GetNodeType(node.expression);
-                var et = getTypeRef(fet);
+                var et = GetTypeRef(fet);
                 var indices = new LLVMValueRef[] { Const.OneInt32 };
                 var size = LLVM.BuildGEP(builder, LLVM.ConstPointerNull(LLVM.PointerType(et, 0)), out indices[0], 1, "size_of_trick");
                 var size_of = LLVM.BuildPtrToInt(builder, size, Const.Umm, "size_of_int");
@@ -661,7 +661,7 @@ namespace PragmaScript
             var typeName = node.typeString.ToString(); // node.type.ToString();
 
             var result = default(LLVMValueRef);
-            var targetType = getTypeRef(typeChecker.GetNodeType(node));
+            var targetType = GetTypeRef(typeChecker.GetNodeType(node));
 
             if (isEqualType(targetType, vtype))
             {
@@ -748,7 +748,7 @@ namespace PragmaScript
         public void Visit(AST.StructConstructor node)
         {
             var sc = node;
-            var structType = getTypeRef(typeChecker.GetNodeType(node));
+            var structType = GetTypeRef(typeChecker.GetNodeType(node));
 
             var insert = LLVM.GetInsertBlock(builder);
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
@@ -770,12 +770,12 @@ namespace PragmaScript
             var ac = node;
             var ac_type = typeChecker.GetNodeType(node) as FrontendArrayType;
 
-            var arr_struct_type = getTypeRef(ac_type);
+            var arr_struct_type = GetTypeRef(ac_type);
 
             var insert = LLVM.GetInsertBlock(builder);
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
             var arr_struct_ptr = LLVM.BuildAlloca(builder, arr_struct_type, "arr_struct_alloca");
-            var elem_type = getTypeRef(ac_type.elementType);
+            var elem_type = GetTypeRef(ac_type.elementType);
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)ac.elements.Count, Const.FalseBool);
             var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
             LLVM.PositionBuilderAtEnd(builder, insert);
@@ -836,7 +836,7 @@ namespace PragmaScript
                 else
                 {
                     v = new LLVMValueRef(IntPtr.Zero);
-                    vType = getTypeRef(typeChecker.GetNodeType(node.typeString));
+                    vType = GetTypeRef(typeChecker.GetNodeType(node.typeString));
                 }
 
                 LLVMValueRef result;
@@ -867,7 +867,7 @@ namespace PragmaScript
                 if (node.expression != null && node.expression is AST.StructConstructor)
                 {
                     var sc = node.expression as AST.StructConstructor;
-                    var structType = getTypeRef(typeChecker.GetNodeType(sc));
+                    var structType = GetTypeRef(typeChecker.GetNodeType(sc));
 
                     var v = LLVM.AddGlobal(mod, structType, node.variable.name);
                     LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
@@ -909,7 +909,7 @@ namespace PragmaScript
                     }
                     else
                     {
-                        var vType = getTypeRef(typeChecker.GetNodeType(node.typeString));
+                        var vType = GetTypeRef(typeChecker.GetNodeType(node.typeString));
                         var v = LLVM.AddGlobal(mod, vType, node.variable.name);
                         variables[node.variable.name] = v;
                         LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
@@ -1317,7 +1317,7 @@ namespace PragmaScript
                     return;
                 }
                 var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
-                var funType = LLVM.GetElementType(getTypeRef(fun));
+                var funType = LLVM.GetElementType(GetTypeRef(fun));
 
                 Debug.Assert(!variables.ContainsKey(node.funName));
                 var function = LLVM.AddFunction(mod, node.funName, funType);
@@ -1353,7 +1353,7 @@ namespace PragmaScript
                 }
 
                 var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
-                var returnType = getTypeRef(fun.returnType);
+                var returnType = GetTypeRef(fun.returnType);
                 insertMissingReturn(returnType);
 
                 LLVM.PositionBuilderAtEnd(builder, vars);
