@@ -431,9 +431,8 @@ namespace PragmaScript
 
         public class FunctionCall : Node
         {
-            public string functionName;
+            public Node left;
             public List<Node> argumentList = new List<Node>();
-            public bool callThroughPointer = false;
 
             public FunctionCall(Token t, Scope s)
                 : base(t, s)
@@ -442,7 +441,7 @@ namespace PragmaScript
             public override Node DeepCloneTree()
             {
                 var result = new FunctionCall(token, scope);
-                result.functionName = functionName;
+                result.left = left.DeepCloneTree();
                 foreach (var arg in argumentList)
                 {
                     result.argumentList.Add(arg.DeepCloneTree());
@@ -458,7 +457,7 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return functionName + "()";
+                return "call()";
             }
         }
 

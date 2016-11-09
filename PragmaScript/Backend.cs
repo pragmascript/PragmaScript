@@ -267,14 +267,14 @@ namespace PragmaScript
 
         static LLVMTypeRef getTypeRef(FrontendPointerType t, int depth)
         {
-            if (depth <= 2)
+            if (depth > 1 &&t.elementType is FrontendStructType)
             {
-                var et = getTypeRef(t.elementType, depth);
-                return LLVM.PointerType(et, 0);
+                return Const.Int8PointerType;
             }
             else
             {
-                return Const.Int8PointerType;
+                var et = getTypeRef(t.elementType, depth);
+                return LLVM.PointerType(et, 0);
             }
         }
 

@@ -921,19 +921,21 @@ namespace PragmaScript
 
         public void Visit(AST.Assignment node)
         {
+            Visit(node.left);
+            var target = valueStack.Pop();
+            var targetType = LLVM.TypeOf(target);
+            var targetTypeName = typeToString(targetType);
+
             Visit(node.right);
             var result = valueStack.Pop();
             var resultType = LLVM.TypeOf(result);
             var resultTypeName = typeToString(resultType);
 
-
-            Visit(node.left);
-
-            var target = valueStack.Pop();
-            var targetType = LLVM.TypeOf(target);
-            var targetTypeName = typeToString(targetType);
-
-            Debug.Assert(isEqualType(LLVM.GetElementType(targetType), resultType));
+            var et = LLVM.GetElementType(targetType);
+            if (et.Pointer != resultType.Pointer)
+            {
+                result = LLVM.BuildBitCast(builder, result, LLVM.GetElementType(targetType), "hmpf");
+            }
             LLVM.BuildStore(builder, result, target);
 
             valueStack.Push(result);
@@ -985,7 +987,7 @@ namespace PragmaScript
                 varName = node.vd.name;
             }
             v = variables[varName];
-            var v_type = typeToString(LLVM.TypeOf(v));
+            var v_type = typeToString(GetTypeRef(nt));
             LLVMValueRef result;
             bool is_global = LLVM.IsAGlobalVariable(v).Pointer != IntPtr.Zero;
 
@@ -1067,7 +1069,20 @@ namespace PragmaScript
 
         public void Visit(AST.FunctionCall node)
         {
-            var f = variables[node.functionName];
+            Visit(node.left);
+            var f = valueStack.Pop();
+
+            string funName;
+
+            bool functionPointer = false;
+            if (f.IsAFunction().Pointer != IntPtr.Zero)
+            {
+            }
+            else
+            {
+                functionPointer = true;
+            }
+
 
             var cnt = node.argumentList.Count;
             LLVMValueRef[] parameters = new LLVMValueRef[Math.Max(1, cnt)];
@@ -1079,7 +1094,7 @@ namespace PragmaScript
                 // Console.WriteLine(pn);
             }
 
-            if (node.callThroughPointer)
+            if (functionPointer)
             {
                 f = LLVM.BuildLoad(builder, f, "fun_ptr_load");
             }
@@ -1094,7 +1109,7 @@ namespace PragmaScript
             }
             else
             {
-                var v = LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, node.functionName);
+                var v = LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, "fun_call");
                 valueStack.Push(v);
             }
         }

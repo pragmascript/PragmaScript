@@ -463,34 +463,20 @@ namespace PragmaScript
 
         void checkType(AST.FunctionCall node)
         {
-            var fun_vd = node.scope.GetVar(node.functionName);
-            if (fun_vd == null)
-            {
-                throw new ParserError($"Unknown function of name: \"{node.functionName}\"", node.token);
-            }
-
             FrontendFunctionType f_type = null;
-            if (fun_vd.type != null)
+
+            checkTypeDynamic(node.left);
+            var lt = getType(node.left);
+            if (lt == null)
             {
-                Debug.Assert(fun_vd.type is FrontendFunctionType);
-                f_type = fun_vd.type as FrontendFunctionType;
+                addUnresolved(node, node.left);
             }
             else
             {
-                var t = getType(fun_vd.node);
-                if (t == null)
-                {
-                    addUnresolved(node, fun_vd.node);
-                }
-                else
-                {
-                    if (!(t is FrontendFunctionType))
-                    {
-                        throw new ParserErrorExpected("funciton type", t.name, node.token);
-                    }
-                    f_type = t as FrontendFunctionType;
-                }
+                f_type = lt as FrontendFunctionType;
+                Debug.Assert(f_type != null);
             }
+        
             List<FrontendType> argumentTypes = new List<FrontendType>();
             foreach (var arg in node.argumentList)
             {
@@ -521,7 +507,6 @@ namespace PragmaScript
                             throw new ParserExpectedArgumentType(f_type.parameters[idx].type, arg, idx + 1, node.argumentList[idx].token);
                         }
                     }
-                    node.callThroughPointer = !fun_vd.isConstant;
                     resolve(node, f_type.returnType);
                 }
             }

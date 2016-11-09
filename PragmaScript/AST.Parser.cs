@@ -945,7 +945,19 @@ namespace PragmaScript
                 switch (peek.type)
                 {
                     case Token.TokenType.OpenBracket:
-                        next = parseFunctionCall(ref ps, scope);
+                        if (result == null)
+                        {
+                            result = parseVariableReference(ref ps, scope, true);
+                        }
+                        else
+                        {
+                            if (!activateReturnPointer(result))
+                            {
+                                throw new ParserError("cannot take address of lvalue", result.token);
+                            }
+                        }
+                        ps.NextToken();
+                        next = parseFunctionCall(ref ps, scope, result);
                         break;
                     case Token.TokenType.Dot:
                         if (result == null)
@@ -1116,14 +1128,12 @@ namespace PragmaScript
             return result;
         }
 
-        static Node parseFunctionCall(ref ParseState ps, Scope scope)
+        static Node parseFunctionCall(ref ParseState ps, Scope scope, Node left)
         {
-            var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
+            var current = ps.ExpectCurrentToken(Token.TokenType.OpenBracket);
 
             var result = new FunctionCall(current, scope);
-            result.functionName = current.text;
-
-            ps.ExpectNextToken(Token.TokenType.OpenBracket);
+            result.left = left;
 
             var next = ps.PeekToken();
             if (next.type != Token.TokenType.CloseBracket)

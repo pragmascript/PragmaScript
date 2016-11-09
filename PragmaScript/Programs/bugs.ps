@@ -82,26 +82,29 @@ let vec = struct
 // }
 
 
-// let list = struct
-// (
-// 	value: i32;
-// 	next: list*;
-// );
-// let Foo = struct
-// (
-// 	bar: Bar*;
-// );
-// let Bar = struct
-// (
-// 	foo: Foo*;
-// );
+let list = struct
+(
+	value: i32;
+	next: list*;
+);
+let Foo = struct
+(
+	bar: Bar*;
+);
+let Bar = struct
+(
+	foo: Foo*;
+);
 
 let main = fun () => void 
 {
-	var l = list {};
-	var g = list {};
-	var foo = 12;
-	l.next = &g;
+	
+	// var g = list {};
+	// var foo = 12;
+	// l.next = &g; 
+
+	print_string("hello world\n");
+	
 	// g.next = &foo;
 	// var x = 12;
 	// var y = &x;
@@ -113,9 +116,22 @@ let main = fun () => void
 	// assert(x == 17);
 	// assert(*y == 17);
 	
+	var a = list {};
+	a.value = 7;
+	var b = list {};
+	b.value = 12;
+	var c = list {};
+	c.value = 32;
+	a.next = &b;
+	b.next = &c;
 
-
+	
+	for (var l = &a; (umm)l != null; l = l.next)
+	{
+		print_i32(l.value);
+		print_string("\n");
+	}
+	
 	// print_i32(*y);
-
 }
 
