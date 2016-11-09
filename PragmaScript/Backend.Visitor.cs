@@ -518,11 +518,11 @@ namespace PragmaScript
                     result = v;
                     break;
                 case AST.UnaryOp.UnaryOpType.Subract:
-                    if (isEqualType(vtype, Const.Float32Type))
+                    if (LLVM.GetTypeKind(vtype)== LLVMTypeKind.LLVMFloatTypeKind)
                     {
                         result = LLVM.BuildFNeg(builder, v, "fneg_tmp");
                     }
-                    else if (isEqualType(vtype, Const.Int32Type))
+                    else if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMIntegerTypeKind)
                     {
                         result = LLVM.BuildNeg(builder, v, "neg_tmp");
                     }
@@ -1071,38 +1071,34 @@ namespace PragmaScript
         {
             Visit(node.left);
             var f = valueStack.Pop();
+            var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
 
-            string funName;
 
-            bool functionPointer = false;
-            if (f.IsAFunction().Pointer != IntPtr.Zero)
+            if (f.IsAFunction().Pointer == IntPtr.Zero)
             {
-            }
-            else
-            {
-                functionPointer = true;
-            }
+                var fpt = LLVM.TypeOf(f);
+                var spt = LLVM.PointerType(GetTypeRef(feft), 0);
 
+                if (fpt.Pointer != spt.Pointer)
+                {
+                    f = LLVM.BuildBitCast(builder, f, spt, "ptr_hack");
+                }
+                f = LLVM.BuildLoad(builder, f, "fun_ptr_load");
+            }
 
             var cnt = node.argumentList.Count;
             LLVMValueRef[] parameters = new LLVMValueRef[Math.Max(1, cnt)];
+
             for (int i = 0; i < node.argumentList.Count; ++i)
             {
                 Visit(node.argumentList[i]);
                 parameters[i] = valueStack.Pop();
-                var pn = parameters[i].GetTypeString();
-                // Console.WriteLine(pn);
             }
 
-            if (functionPointer)
-            {
-                f = LLVM.BuildLoad(builder, f, "fun_ptr_load");
-            }
-
-            var ftn = f.GetTypeString();
             var ft = LLVM.TypeOf(f);
-            // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
             var rt = LLVM.GetReturnType(LLVM.GetElementType(ft));
+
+            // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
             if (isEqualType(rt, Const.VoidType))
             {
                 LLVM.BuildCall(builder, f, out parameters[0], (uint)cnt, "");

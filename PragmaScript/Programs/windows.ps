@@ -280,6 +280,8 @@ var XInputGetState: fun
 let DS_OK = 0;
 let WAVE_FORMAT_PCM = (u16)1;
 let DSBCAPS_PRIMARYBUFFER = (u32)1;
+let DSBPLAY_LOOPING = (u32)1;
+let DSSCL_PRIORITY = (u32)2;
 
 let WAVEFORMATEX = struct
 (
@@ -305,7 +307,6 @@ let IDirectSoundBuffer = struct
 (
   vtable: DirectSoundBufferFunctions*;
 );
-
 let DirectSoundBufferFunctions = struct
 (
   _unused0: ptr;
@@ -330,9 +331,9 @@ let DirectSoundBufferFunctions = struct
     this: IDirectSoundBuffer*;
     writeCursor: u32;
     writeBytes: u32;
-    audioRegion1: ptr;
+    audioRegion1: ptr*;
     audioRegion1Size: u32*;
-    audioRegion2: ptr;
+    audioRegion2: ptr*;
     audioRegion2Size: u32*;
     flags: u32;
   ) => i32;
@@ -346,6 +347,7 @@ let DirectSoundBufferFunctions = struct
   _usused10: ptr; // SetCurrentPosition
   SetFormat: fun
   (
+    this: IDirectSoundBuffer*;
     format: WAVEFORMATEX*;
   ) => i32;
   _usused11: ptr; // SetVolume
@@ -356,9 +358,9 @@ let DirectSoundBufferFunctions = struct
   (
     this: IDirectSoundBuffer*;
     audioRegion1: ptr;
-    audioRegion1Size: u32*;
+    audioRegion1Size: u32;
     audioRegion2: ptr;
-    audioRegion2Size: u32*;
+    audioRegion2Size: u32;
   ) => i32;
   _usused15: ptr;
 );

@@ -22,10 +22,11 @@ var y_offset = 0;
 var z_offset = 0;
 
 
-let init_direct_sound = fun (hwnd: umm; buffer_size: i32; samples_per_second: i32) => void 
+let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u32) => IDirectSoundBuffer* 
 {
 	var dsound_library = LoadLibraryA(cstr("dsound.dll\0"));
 	assert((umm)dsound_library != null);
+
 	var DirectSoundCreate: fun 
 	(
 		GuidDevice: ptr;
@@ -37,27 +38,42 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: i32; samples_per_second: i3
 
 	var dsound_obj: IDirectSound*;
 	assert(DirectSoundCreate(nullptr, &dsound_obj, nullptr) == DS_OK);
+	
+	assert(dsound_obj.vtable.SetCooperativeLevel(dsound_obj, hwnd, DSSCL_PRIORITY) == DS_OK);
 
-	var desc = DSBUFFERDESC { };
-	desc.flags = DSBCAPS_PRIMARYBUFFER;
-	desc.size = (u32)0;
-	desc.bufferBytes = (u32)0;
-	desc.reserved = (u32)0;
-	desc.fxFormat = (WAVEFORMATEX*)nullptr;
+	var desc_primary = DSBUFFERDESC { };
+	desc_primary.flags = DSBCAPS_PRIMARYBUFFER;
+	desc_primary.size = (u32)(sizeof(DSBUFFERDESC));
+	desc_primary.bufferBytes = (u32)0;
+	desc_primary.reserved = (u32)0;
+	desc_primary.fxFormat = (WAVEFORMATEX*)nullptr;
 
 	var primary_buffer: IDirectSoundBuffer*;
-	dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc, &primary_buffer, nullptr);
+	assert(dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_primary, &primary_buffer, nullptr) == DS_OK);
 
 	var wave_format = WAVEFORMATEX {};
 	wave_format.formatTag = WAVE_FORMAT_PCM;
 	wave_format.nChannels = (u16)2;
 	wave_format.nBitsPerSample = (u16)16;
 	wave_format.nSamplesPerSec = (u32)samples_per_second;
-	wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / 8;
-	wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * wave_format.nBlockAlign;
-	wave_format.size = sizeof(WAVEFORMATEX);
-	
+	wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / (u16)8;
+	wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * (u32)wave_format.nBlockAlign;
+	wave_format.size = (u16)(sizeof(WAVEFORMATEX));
+	assert(primary_buffer.vtable.SetFormat(primary_buffer, &wave_format) == DS_OK);
 
+	var desc_secondary = DSBUFFERDESC { };
+	desc_secondary.size = (u32)(sizeof(DSBUFFERDESC));
+	desc_secondary.flags = (u32)0;
+	desc_secondary.bufferBytes = (u32)buffer_size;
+	desc_secondary.fxFormat = &wave_format;
+	desc_secondary.reserved = (u32)0;
+
+	var secondary_buffer: IDirectSoundBuffer*;
+	assert(dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_secondary, &secondary_buffer, nullptr) == DS_OK);
+
+	assert(secondary_buffer.vtable.Play(secondary_buffer, (u32)0, (u32)0, DSBPLAY_LOOPING) == DS_OK);
+
+	return secondary_buffer;
 }
 
 let load_x_input = fun () => void 
@@ -245,7 +261,21 @@ let main = fun () => void
 	window.dc = GetDC(window.handle);
 	update_window_rect();
 
-	init_direct_sound();
+	let samples_per_second = (u32)48000;
+	let n_channels = (u32)2;
+	let byte_per_sample = (u32)2;
+	let bytes_per_chunk = byte_per_sample * n_channels;
+	let seconds = (u32)2;
+	let buffer_size = (u32)samples_per_second * n_channels * byte_per_sample * seconds;
+	let hz = (u32)256;
+	let square_wave_half_period = samples_per_second / hz / (u32)2;
+	var square_wave_counter = square_wave_half_period;
+	var volume = (i16)1000;
+
+	var sound_buffer = init_direct_sound(window.handle, buffer_size, samples_per_second);
+	var write_cursor: u32;
+	var play_cursor : u32;
+	var sample_index = (u32)0;
 
 	running = true;
 	while (running) {
@@ -257,9 +287,64 @@ let main = fun () => void
 			TranslateMessage(&msg);
 			DispatchMessageA(&msg);
 		}
+
+		var write_cursor: u32;
+		var play_cursor : u32;
+		var error = sound_buffer.vtable.GetCurrentPosition(sound_buffer, &play_cursor, &write_cursor);
+		assert(error == DS_OK);
+
+		var byte_lock_position = (sample_index * bytes_per_chunk) % (u32)buffer_size;
+		var bytes_to_write: u32;
+		if (byte_lock_position > play_cursor) {
+			bytes_to_write = buffer_size - byte_lock_position + play_cursor;
+		} else {
+			bytes_to_write = play_cursor - byte_lock_position;
+		}
+		var region1: ptr;
+		var region1_size: u32;
+		var region2: ptr;
+		var region2_size: u32;
+
+		error = sound_buffer.vtable.Lock(sound_buffer, 
+			byte_lock_position, bytes_to_write, 
+			&region1, &region1_size,
+			&region2, &region2_size,
+			(u32)0);
+		if (error == DS_OK)
+		{
+			var sample = (i16*)region1;
+			var sample_count = region1_size / bytes_per_chunk;
+			for (var i = (u32)0; i < sample_count; ++i) {
+				if (square_wave_counter == (u32)0) {
+					square_wave_counter = square_wave_half_period;
+					volume = -volume;
+				}
+				*sample++ = volume;
+				*sample++ = volume;
+				square_wave_counter--;
+				sample_index++;
+			}
+			sample = (i16*)region2;
+			sample_count = region2_size / bytes_per_chunk;
+			for (var i = (u32)0; i < sample_count; ++i) {
+				if (square_wave_counter == (u32)0) {
+					square_wave_counter = square_wave_half_period;
+					volume = -volume;
+				}
+				*sample++ = volume;
+				*sample++ = volume;
+				square_wave_counter--;
+				sample_index++;
+			}
+			error = sound_buffer.vtable.Unlock(sound_buffer,
+				region1, region1_size, 
+				region2, region2_size);
+			assert(error == DS_OK);
+		}
 		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
 		blit_to_screen(&backbuffer);
 		z_offset += 1;
 	}
     ExitProcess((u32)0);
 }
+

@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace PragmaScript
 {
+
     public class FrontendType
     {
         public static readonly FrontendType none = new FrontendType("$$__none__$$");
@@ -27,6 +29,8 @@ namespace PragmaScript
         public static readonly FrontendArrayType string_ = new FrontendArrayType(u8);
         public static readonly FrontendPointerType ptr = new FrontendPointerType(u8);
 
+
+        
 
         public string name;
 
@@ -80,7 +84,91 @@ namespace PragmaScript
             return result;
         }
 
+        public static bool IsFloatType(FrontendType t)
+        {
+            bool result = false;
+            result |= t.Equals(f32);
+            result |= t.Equals(f64);
+            return result;
+        }
+
+        public static bool CompatibleAndLateBind(FrontendType a, FrontendType b)
+        {
+            var a_is_number = a is FrontendNumberType;
+            var b_is_number = b is FrontendNumberType;
+
+            if (a_is_number || b_is_number)
+            {
+                if (a_is_number && b_is_number)
+                {
+                    (a as FrontendNumberType).other = b  as FrontendNumberType;
+                    (b as FrontendNumberType).other = a as FrontendNumberType; 
+                    return true;
+                }
+
+                if (a_is_number)
+                {
+                    if (IsIntegerType(b) || IsFloatType(b))
+                    {
+                        (a as FrontendNumberType).Bind(b);
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                if (b_is_number)
+                {
+                    if (IsIntegerType(a) || IsFloatType(a))
+                    {
+                        (b as FrontendNumberType).Bind(a);
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+            if (a.Equals(b))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
     }
+
+    public class FrontendNumberType : FrontendType
+    {
+        FrontendType boundType;
+
+        internal FrontendNumberType other;
+        public FrontendNumberType()
+        {
+            name = "$$__number__$$";
+            other = null;
+        }
+        public void Bind(FrontendType type)
+        {
+            boundType = type;
+            if (other != null)
+            {
+                other.Bind(type);
+            }
+        }
+
+        public void SetOther(FrontendType other)
+        {
+            var on = other as FrontendNumberType;
+            Debug.Assert(on != null);
+            Debug.Assert(!Object.ReferenceEquals(this, other));
+        }
+    }
+
 
     public class FrontendArrayType : FrontendStructType
     {

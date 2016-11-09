@@ -168,6 +168,7 @@ namespace PragmaScript
             resolve(node, FrontendType.none);
         }
 
+
         void checkTypeDynamic(AST.Node node)
         {
             if (knownTypes.ContainsKey(node))

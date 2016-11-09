@@ -54,3 +54,10 @@ let print_i32 = fun (value: i32) => void
 	print_string(result);
 }
 
+let debug_print = fun (name: string; value: i32) => void
+{
+	print_string(name);
+	print_string(": ");
+	print_i32(value);
+	print_string("\n");
+}
