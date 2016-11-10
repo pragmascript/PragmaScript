@@ -81,6 +81,7 @@ namespace PragmaScript
             result |= t.Equals(u16);
             result |= t.Equals(u32);
             result |= t.Equals(u64);
+            result |= t.Equals(umm);
             return result;
         }
 
@@ -92,11 +93,55 @@ namespace PragmaScript
             return result;
         }
 
+        public static void LateBind(FrontendType a, FrontendType b)
+        {
+            var a_is_number = a is FrontendNumberType;
+            var b_is_number = b is FrontendNumberType;
+            if (a_is_number || b_is_number)
+            {
+                if (a_is_number && b_is_number)
+                {
+                    (a as FrontendNumberType).other = b as FrontendNumberType;
+                    (b as FrontendNumberType).other = a as FrontendNumberType;
+                }
+
+                if (a_is_number)
+                {
+                    if (IsIntegerType(b))
+                    {
+                        var an = a as FrontendNumberType;
+                        if (!an.floatLiteral)
+                        {
+                            an.Bind(b);
+                        }
+                    }
+                    else if (IsFloatType(b))
+                    {
+                        (a as FrontendNumberType).Bind(b);
+                    }
+                }
+                if (b_is_number)
+                {
+                    if (IsIntegerType(a))
+                    {
+                        var bn = b as FrontendNumberType;
+                        if (!bn.floatLiteral)
+                        {
+                            bn.Bind(a);
+                        }
+                    }
+                    else if (IsFloatType(a))
+                    {
+                        (b as FrontendNumberType).Bind(a);
+                    }
+                }
+            }
+        }
+
         public static bool CompatibleAndLateBind(FrontendType a, FrontendType b)
         {
             var a_is_number = a is FrontendNumberType;
             var b_is_number = b is FrontendNumberType;
-
             if (a_is_number || b_is_number)
             {
                 if (a_is_number && b_is_number)
@@ -108,7 +153,20 @@ namespace PragmaScript
 
                 if (a_is_number)
                 {
-                    if (IsIntegerType(b) || IsFloatType(b))
+                    if (IsIntegerType(b))
+                    {
+                        var an = a as FrontendNumberType;
+                        if (an.floatLiteral)
+                        {
+                            return false;
+                        }
+                        else
+                        {
+                            an.Bind(b);
+                            return true;
+                        }
+                    }
+                    else if (IsFloatType(b))
                     {
                         (a as FrontendNumberType).Bind(b);
                         return true;
@@ -120,7 +178,20 @@ namespace PragmaScript
                 }
                 if (b_is_number)
                 {
-                    if (IsIntegerType(a) || IsFloatType(a))
+                    if (IsIntegerType(a))
+                    {
+                        var bn = b as FrontendNumberType;
+                        if (bn.floatLiteral)
+                        {
+                            return false;
+                        }
+                        else
+                        {
+                            bn.Bind(a);
+                            return true;
+                        }
+                    }
+                    else if (IsFloatType(a))
                     {
                         (b as FrontendNumberType).Bind(a);
                         return true;
@@ -144,13 +215,16 @@ namespace PragmaScript
 
     public class FrontendNumberType : FrontendType
     {
-        FrontendType boundType;
+        public FrontendType boundType;
+        public  FrontendNumberType other;
+        public bool floatLiteral;
 
-        internal FrontendNumberType other;
-        public FrontendNumberType()
+        public FrontendNumberType(bool floatLiteral)
         {
             name = "$$__number__$$";
             other = null;
+            boundType = null;
+            this.floatLiteral = floatLiteral;
         }
         public void Bind(FrontendType type)
         {
@@ -166,6 +240,18 @@ namespace PragmaScript
             var on = other as FrontendNumberType;
             Debug.Assert(on != null);
             Debug.Assert(!Object.ReferenceEquals(this, other));
+        }
+
+        public FrontendType Default()
+        {
+            if (floatLiteral)
+            {
+                return FrontendType.f32;
+            }
+            else
+            {
+                return FrontendType.i32;
+            }
         }
     }
 

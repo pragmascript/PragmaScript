@@ -106,13 +106,15 @@ namespace PragmaScript
 
         public void Visit(AST.ConstInt node)
         {
-            var result = LLVM.ConstInt(Const.Int32Type, (ulong)node.number, Const.TrueBool);
+            var ct = GetTypeRef(typeChecker.GetNodeType(node));
+            var result = LLVM.ConstInt(ct, (ulong)node.number, Const.TrueBool);
             valueStack.Push(result);
         }
 
         public void Visit(AST.ConstFloat node)
         {
-            var result = LLVM.ConstReal(Const.Float32Type, node.number);
+            var ct = GetTypeRef(typeChecker.GetNodeType(node));
+            var result = LLVM.ConstReal(ct, node.number);
             valueStack.Push(result);
         }
 

@@ -163,9 +163,59 @@ namespace PragmaScript
             }
         }
 
-        static Node parseRootDeclarations(ref ParseState ps, Scope scope)
+
+        public static List<string> parseImports(ref ParseState ps, Scope scope)
         {
-            var result = default(Node);
+            var result = new List<string>();
+
+            while (true)
+            {
+                if (ps.CurrentToken().type == Token.TokenType.Import)
+                {
+                    var s = ps.ExpectNextToken(Token.TokenType.String);
+                    result.Add(s.text.Substring(1, s.text.Length - 2));
+                    ps.NextToken();
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return result;
+        }
+
+
+        public static Node parseFileRoot(ref ParseState ps, Scope scope)
+        {
+            parseImports(ref ps, scope);
+
+            var current = ps.CurrentToken();
+            var result = new FileRoot(current, scope);
+
+            var next = current;
+
+            while (next.type != Token.TokenType.EOF)
+            {
+                Node decl = null;
+                current = ps.CurrentToken();
+                bool ignoreSemicolon = false;
+                if (current.type == Token.TokenType.Var || current.type == Token.TokenType.Let)
+                {
+                    decl = parseLetVar(ref ps, scope, ref ignoreSemicolon);
+                }
+                if (!ignoreSemicolon)
+                {
+                    ps.NextToken(skipWS: true);
+                    ps.ExpectCurrentToken(Token.TokenType.Semicolon);
+                }
+                if (decl == null)
+                {
+                    throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
+                }
+                result.declarations.Add(decl);
+
+                next = ps.NextToken();
+            }
             return result;
         }
 
@@ -237,10 +287,15 @@ namespace PragmaScript
 
             if (tempState.PeekToken().type == Token.TokenType.Colon)
             {
-                return parseVariableDefinition(ref ps, scope);
+                tempState.NextToken();
+                tempState.NextToken();
+                parseTypeString(ref tempState, scope);
+            }
+            if (tempState.PeekToken().type == Token.TokenType.Assignment)
+            {
+                tempState.NextToken();
             }
 
-            tempState.ExpectNextToken(Token.TokenType.Assignment);
 
             var next = tempState.NextToken();
             if (next.type == Token.TokenType.Extern)
@@ -681,31 +736,22 @@ namespace PragmaScript
             var v = ps.ExpectNextToken(Token.TokenType.Identifier);
             var variableName = v.text;
 
-            if (!isConstant)
+            var at = ps.ExpectNextToken(Token.TokenType.Colon, Token.TokenType.Assignment);
+            ps.NextToken();
+            if (at.type == Token.TokenType.Colon)
             {
-                var at = ps.ExpectNextToken(Token.TokenType.Colon, Token.TokenType.Assignment);
-                ps.NextToken();
-                if (at.type == Token.TokenType.Colon)
-                {
-                    result.typeString = parseTypeString(ref ps, scope);
+                result.typeString = parseTypeString(ref ps, scope);
 
-                    var peek = ps.ExpectPeekToken(Token.TokenType.Assignment, Token.TokenType.Semicolon);
-                    if (peek.type == Token.TokenType.Assignment)
-                    {
-                        ps.NextToken();
-                        ps.NextToken();
-                        result.expression = parseBinOp(ref ps, scope);
-                    }
-                }
-                else
+                var peek = ps.ExpectPeekToken(Token.TokenType.Assignment, Token.TokenType.Semicolon);
+                if (peek.type == Token.TokenType.Assignment)
                 {
+                    ps.NextToken();
+                    ps.NextToken();
                     result.expression = parseBinOp(ref ps, scope);
                 }
             }
             else
             {
-                var at = ps.ExpectNextToken(Token.TokenType.Assignment);
-                ps.NextToken();
                 result.expression = parseBinOp(ref ps, scope);
             }
 
@@ -1197,38 +1243,6 @@ namespace PragmaScript
             return result;
         }
 
-        public static Node parseFileRoot(ref ParseState ps, Scope scope)
-        {
-            var current = ps.CurrentToken();
-            var result = new FileRoot(current, scope);
-
-            var next = current;
-
-            while (next.type != Token.TokenType.EOF)
-            {
-                Node decl = null;
-                current = ps.CurrentToken();
-                bool ignoreSemicolon = false;
-                if (current.type == Token.TokenType.Var || current.type == Token.TokenType.Let)
-                {
-                    decl = parseLetVar(ref ps, scope, ref ignoreSemicolon);
-                }
-                if (!ignoreSemicolon)
-                {
-                    ps.NextToken(skipWS: true);
-                    ps.ExpectCurrentToken(Token.TokenType.Semicolon);
-                }
-                if (decl == null)
-                {
-                    throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
-                }
-                result.declarations.Add(decl);
-
-                next = ps.NextToken();
-            }
-            return result;
-        }
-
         public static Node parseStructDeclaration(ref ParseState ps, Scope scope)
         {
             // let
@@ -1313,7 +1327,7 @@ namespace PragmaScript
                 }
                 return result;
             }
-            
+
         }
 
 
@@ -1373,7 +1387,7 @@ namespace PragmaScript
 
             // let foo = 
             ps.ExpectNextToken(Token.TokenType.Assignment);
-            
+
 
             // let foo = [extern]
             if (ps.PeekToken().type == Token.TokenType.Extern)

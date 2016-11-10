@@ -82,7 +82,8 @@ namespace PragmaScript
             ArrayTypeBrackets,
             Alias,
             SizeOf,
-            Extern
+            Extern,
+            Import
         }
 
         public TokenType type { get; private set; }
@@ -117,6 +118,7 @@ namespace PragmaScript
             keywords.Add("continue", TokenType.Continue);
             keywords.Add("sizeof", TokenType.SizeOf);
             keywords.Add("extern", TokenType.Extern);
+            keywords.Add("import", TokenType.Import);
 
             operators = new Dictionary<string, TokenType>();
             operators.Add("=", TokenType.Assignment);

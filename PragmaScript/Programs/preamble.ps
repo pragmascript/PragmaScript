@@ -1,13 +1,15 @@
-﻿let null = (umm)0;
+﻿import "windows.ps"
+
+let null = (umm)0;
 
 let assert = fun (value: bool) => void {
 	if (!value) {
-		*((u8*)nullptr) = (u8)42;
+		*((u8*)nullptr) = 42;
 	}
 }
 
 let cstr = fun(value: string) => u8* {
-	assert(value[value.length - 1] == (u8)0);
+	assert(value[value.length - 1] == 0);
 	return value.data;
 }
 
@@ -45,7 +47,7 @@ let print_i32 = fun (value: i32) => void
 	}
 	var result = "\0\0\0\0\0\0\0\0\0\0\0";
 	if (value < 0) {
-		result[0] = (u8)45;
+		result[0] = 45;
 	}
 	for (var i = 0; i < count; ++i) {
 		result[i+offset] = temp[count - i - 1];

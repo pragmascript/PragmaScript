@@ -6,6 +6,8 @@ using System.Linq;
 using Shields.GraphViz.Models;
 using System.Threading;
 using System.Text;
+using static PragmaScript.AST;
+using System.Diagnostics;
 
 namespace PragmaScript
 {
@@ -13,13 +15,14 @@ namespace PragmaScript
     static class CompilerOptions
     {
         public static bool debug = false;
-        public static List<string> inputFilenames = new List<string>(); 
+        public static string inputFilename;
         public static int optimizationLevel;
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
     class Program
     {
+        static Dictionary<string, bool> files = new Dictionary<string, bool>();
         static void Main(string[] args)
         {
             parseARGS(args);
@@ -28,41 +31,24 @@ namespace PragmaScript
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 3;
 
-            CompilerOptions.inputFilenames.AddRange(new string[]{ @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\win32_handmade.ps" });
+            CompilerOptions.inputFilename = @"Programs\win32_handmade.ps";
             // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
             // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\bugs.ps" });
 #endif
-            if (CompilerOptions.inputFilenames.Count == 0)
+            if (CompilerOptions.inputFilename == null)
             {
                 Console.WriteLine("Input file name missing!");
                 return;
             }
             try
             {
-                
-                var tokens = new List<Token[]>();
-                foreach (var fn in CompilerOptions.inputFilenames)
-                {
-                    var text = File.ReadAllText(fn);
-                    var filename = Path.GetFileName(fn);
-                    try
-                    {
-                        List<Token> ts = new List<Token>(); ;
-                        Token.Tokenize(ts, text, filename);
-                        tokens.Add(ts.ToArray());
-                    }
-                    catch(LexerError e)
-                    {
-                        Console.WriteLine(e.Message);
-                    }
-                }
-                compile(tokens);
+                compile(CompilerOptions.inputFilename);
             }
             catch (FileNotFoundException)
             {
                 writeError("Could not open input file!");
             }
-           
+
         }
 
         static void writeError(string s)
@@ -117,12 +103,12 @@ namespace PragmaScript
                 }
                 else
                 {
-                    CompilerOptions.inputFilenames.Add(arg);
+                    CompilerOptions.inputFilename = arg;
                 }
             }
         }
 
-      
+
 #if DEBUG
         static Graph getRenderGraph(Graph g, AST.Node node, string id)
         {
@@ -147,7 +133,7 @@ namespace PragmaScript
             }
             return result;
         }
-      
+
         static void renderGraph(AST.Node root, string label)
         {
             if (root == null)
@@ -181,22 +167,57 @@ namespace PragmaScript
         }
 
 #endif
-        static void compile(List<Token[]> tokens)
-        {
 
-            
+        static Token[] tokenize(string text, string filename)
+        {
+            Token[] result = null;
+            try
+            {
+                List<Token> ts = new List<Token>();
+                Token.Tokenize(ts, text, filename);
+                result = ts.ToArray();
+            }
+            catch (LexerError e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            return result;
+        }
+
+
+
+        static void compile(string filename)
+        {
             Console.WriteLine("parsing...");
+
+            Queue<string> toImport = new Queue<string>();
+            HashSet<string> imported = new HashSet<string>();
+
+            Stack<Token[]> toCompile = new Stack<Token[]>();
+
+            var ffn = Path.GetFullPath(filename);
+            toImport.Enqueue(ffn);
+            imported.Add(ffn);
 
             var scope = AST.MakeRootScope();
             var root = new AST.ProgramRoot(Token.Undefined, scope);
-            foreach (var pt in tokens)
+
+            while (toImport.Count > 0)
             {
-                AST.FileRoot fr = null;
+                var fn = toImport.Dequeue();
+                var text = File.ReadAllText(fn);
+                var tokens = tokenize(text, fn);
+
+                AST.ParseState ps;
+                ps.pos = 0;
+                ps.tokens = tokens;
+
+                List<string> imports = null;
 #if !DEBUG
                 try
 #endif
                 {
-                    fr = AST.ParseFile(pt, scope);
+                    imports = AST.parseImports(ref ps, scope);
                 }
 #if !DEBUG
                 catch (ParserError error)
@@ -204,30 +225,52 @@ namespace PragmaScript
                     Console.Error.WriteLine(error.Message);
                 }
 #endif
-                if (fr == null)
+                toCompile.Push(tokens);
+                foreach (var import in imports)
                 {
-                    return;
+                    var dir = Path.GetDirectoryName(fn);
+                    var imp_fn = Path.GetFullPath(Path.Combine(dir, import));
+                    if (!imported.Contains(imp_fn))
+                    {
+                        toImport.Enqueue(imp_fn);
+                        imported.Add(imp_fn);
+                    }
                 }
-                root.files.Add(fr);
+            }
+            foreach (var tokens in toCompile)
+            {
+                AST.ParseState ps;
+                ps.pos = 0;
+                ps.tokens = tokens;
+#if !DEBUG
+                try
+#endif
+                {
+                    var fileRoot = AST.parseFileRoot(ref ps, scope) as FileRoot;
+                    root.files.Add(fileRoot);
+                }
+#if !DEBUG
+                catch (ParserError error)
+                {
+                    Console.Error.WriteLine(error.Message);
+                }
+#endif
             }
 
-#if DEBUG
-            Console.WriteLine("rendering graph...");
-            foreach (var fr in root.files)
-            {
-                renderGraph(fr, "");
-            }
-            
-#endif
+            //#if DEBUG
+            //            Console.WriteLine("rendering graph...");
+            //            foreach (var fr in root.files)
+            //            {
+            //                renderGraph(fr, "");
+            //            }
+
+            //#endif
 
             Console.WriteLine("type checking...");
 
             var tc = new TypeChecker();
 
             bool success = true;
-#if false
-            tc.CheckTypes(root as AST.Root);
-#else
             try
             {
                 tc.CheckTypes(root);
@@ -237,7 +280,6 @@ namespace PragmaScript
                 Console.WriteLine(e.Message);
                 success = false;
             }
-#endif
             if (!success)
             {
                 return;

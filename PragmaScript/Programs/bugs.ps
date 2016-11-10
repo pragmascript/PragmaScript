@@ -1,4 +1,7 @@
-﻿// let sphere = struct
+﻿import "preamble.ps"
+import "windows.ps"
+
+// let sphere = struct
 // {
 // 	pos:    vec;
 // 	radius: float32;
@@ -81,56 +84,42 @@ let vec = struct
 // 	print_string("\n");
 // }
 
+// let __test_cyclic_types = fun() => void 
+// {
+// 	let list = struct
+// 	(
+// 		value: i32;
+// 		next: list*;
+// 	);
+// 	let Foo = struct
+// 	(
+// 		bar: Bar*;
+// 	);
+// 	let Bar = struct
+// 	(
+// 		foo: Foo*;
+// 	);
 
-let list = struct
-(
-	value: i32;
-	next: list*;
-);
-let Foo = struct
-(
-	bar: Bar*;
-);
-let Bar = struct
-(
-	foo: Foo*;
-);
+// 	var a = list {};
+// 	// a.value = 7;
+// 	// var b = list {};
+// 	// b.value = 12;
+// 	// var c = list {};
+// 	// c.value = 32;
+// 	// a.next = &b;
+// 	// b.next = &c;
+
+// 	var nxt = a.next.next.next.next.next;
+// 	// for (var l = &a; (umm)l != null; l = l.next)
+// 	// {
+// 	// 	print_i32(l.value);
+// 	// 	print_string("\n");
+// 	// }
+// }
+
+
 
 let main = fun () => void 
 {
-	// var g = list {};
-	// var foo = 12;
-	// l.next = &g; 
-
-	print_string("hello world\n");
-
-	// g.next = &foo;
-	// var x = 12;
-	// var y = &x;
-	// var z = *y;
-	// // print_i32(z);
-	// // print_string("\n");
-
-	// *y = 17;
-	// assert(x == 17);
-	// assert(*y == 17);
-	
-	var a = list {};
-	a.value = 7;
-	var b = list {};
-	b.value = 12;
-	var c = list {};
-	c.value = 32;
-	a.next = &b;
-	b.next = &c;
-
-	
-	for (var l = &a; (umm)l != null; l = l.next)
-	{
-		print_i32(l.value);
-		print_string("\n");
-	}
-	
-	// print_i32(*y);
 }
 

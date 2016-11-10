@@ -1,4 +1,7 @@
-﻿let offscreen_buffer = struct
+﻿import "preamble.ps"
+import "windows.ps"
+
+let offscreen_buffer = struct
 (
 	info:   BITMAPINFO;
 	memory: ptr;
@@ -53,8 +56,8 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u3
 
 	var wave_format = WAVEFORMATEX {};
 	wave_format.formatTag = WAVE_FORMAT_PCM;
-	wave_format.nChannels = (u16)2;
-	wave_format.nBitsPerSample = (u16)16;
+	wave_format.nChannels = 2;
+	wave_format.nBitsPerSample = 16;
 	wave_format.nSamplesPerSec = (u32)samples_per_second;
 	wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / (u16)8;
 	wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * (u32)wave_format.nBlockAlign;
@@ -63,15 +66,15 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u3
 
 	var desc_secondary = DSBUFFERDESC { };
 	desc_secondary.size = (u32)(sizeof(DSBUFFERDESC));
-	desc_secondary.flags = (u32)0;
+	desc_secondary.flags = 0;
 	desc_secondary.bufferBytes = (u32)buffer_size;
 	desc_secondary.fxFormat = &wave_format;
-	desc_secondary.reserved = (u32)0;
+	desc_secondary.reserved = 0;
 
 	var secondary_buffer: IDirectSoundBuffer*;
 	assert(dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_secondary, &secondary_buffer, nullptr) == DS_OK);
 
-	assert(secondary_buffer.vtable.Play(secondary_buffer, (u32)0, (u32)0, DSBPLAY_LOOPING) == DS_OK);
+	assert(secondary_buffer.vtable.Play(secondary_buffer, 0, 0, DSBPLAY_LOOPING) == DS_OK);
 
 	return secondary_buffer;
 }
@@ -130,11 +133,11 @@ let create_backbuffer = fun (buffer: offscreen_buffer*; width: i32; height: i32)
 {
 	buffer.width = width;
 	buffer.height = height;
-	buffer.info.header.biSize = (u32)40;
+	buffer.info.header.biSize = 40;
 	buffer.info.header.biWidth = width;
 	buffer.info.header.biHeight = -height;
-	buffer.info.header.biPlanes = (u16)1;
-	buffer.info.header.biBitCount = (u16)32;
+	buffer.info.header.biPlanes = 1;
+	buffer.info.header.biBitCount = 32;
 	buffer.info.header.biCompression = (u32)BI_RGB;
 	var bitmap_size = bytes_per_pixel * width * height;
 	if ((umm)buffer.memory != (umm)nullptr) {
@@ -187,8 +190,8 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm
 		  || message == WM_KEYUP) {
 
 		var vk_code = (u32)w_param;
-		var was_down = (l_param & (umm)(1 << 30)) != (umm)0;
-		var is_down = (l_param & (umm)(1 << 31)) == (umm)0;
+		var was_down = (l_param & (umm)(1 << 30)) != 0;
+		var is_down = (l_param & (umm)(1 << 31)) == 0;
 		var key_up = was_down && !is_down;
 		var key_down = !was_down && is_down; 
 
@@ -202,18 +205,7 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm
 			y_offset += 10;
 		} elif (vk_code == VK_DOWN) {
 			y_offset -= 10;
-		} else {
-			// if (key_down) {
-			// 	print_string("key_down: ");
-			// 	print_i32((i32)vk_code);
-			// 	print_string("\n");
-			// }
-			// if (key_up) {
-			// 	print_string("key_up: ");
-			// 	print_i32((i32)vk_code);
-			// 	print_string("\n");
-			// }
-		}
+		} 
 	}
 	else {
 		result = DefWindowProcA(window_handle, message, w_param, l_param);
@@ -230,7 +222,7 @@ let main = fun () => void
 	var window_name = cstr("handmade-pragmascript\0");
 	var instance = GetModuleHandleA(null);
 	var window_class: WNDCLASSEX;
-	window_class.cbSize = (u32)80;
+	window_class.cbSize = 80;
 	window_class.style = (u32)(CS_HREDRAW|CS_VREDRAW);
 	window_class.lpfnWndProc = (ptr)main_window_callback;
 	window_class.cbClsExtra = 0;
@@ -261,21 +253,21 @@ let main = fun () => void
 	window.dc = GetDC(window.handle);
 	update_window_rect();
 
-	let samples_per_second = (u32)48000;
-	let n_channels = (u32)2;
-	let byte_per_sample = (u32)2;
+	let samples_per_second: u32 = 48000;
+	let n_channels: u32 = 2;
+	let byte_per_sample: u32 = 2;
 	let bytes_per_chunk = byte_per_sample * n_channels;
-	let seconds = (u32)2;
+	let seconds: u32 = 2;
 	let buffer_size = (u32)samples_per_second * n_channels * byte_per_sample * seconds;
-	let hz = (u32)256;
-	let square_wave_half_period = samples_per_second / hz / (u32)2;
+	let hz: u32 = 256;
+	let square_wave_half_period = samples_per_second / hz / 2;
 	var square_wave_counter = square_wave_half_period;
-	var volume = (i16)1000;
+	var volume: i16 = 1000;
 
 	var sound_buffer = init_direct_sound(window.handle, buffer_size, samples_per_second);
 	var write_cursor: u32;
 	var play_cursor : u32;
-	var sample_index = (u32)0;
+	var sample_index: u32 = 0;
 
 	running = true;
 	while (running) {
@@ -309,13 +301,13 @@ let main = fun () => void
 			byte_lock_position, bytes_to_write, 
 			&region1, &region1_size,
 			&region2, &region2_size,
-			(u32)0);
+			0);
 		if (error == DS_OK)
 		{
 			var sample = (i16*)region1;
 			var sample_count = region1_size / bytes_per_chunk;
-			for (var i = (u32)0; i < sample_count; ++i) {
-				if (square_wave_counter == (u32)0) {
+			for (var i: u32 = 0; i < sample_count; ++i) {
+				if (square_wave_counter == 0) {
 					square_wave_counter = square_wave_half_period;
 					volume = -volume;
 				}
@@ -326,8 +318,8 @@ let main = fun () => void
 			}
 			sample = (i16*)region2;
 			sample_count = region2_size / bytes_per_chunk;
-			for (var i = (u32)0; i < sample_count; ++i) {
-				if (square_wave_counter == (u32)0) {
+			for (var i: u32 = 0; i < sample_count; ++i) {
+				if (square_wave_counter == 0) {
 					square_wave_counter = square_wave_half_period;
 					volume = -volume;
 				}
@@ -345,6 +337,6 @@ let main = fun () => void
 		blit_to_screen(&backbuffer);
 		z_offset += 1;
 	}
-    ExitProcess((u32)0);
+    ExitProcess(0);
 }
 

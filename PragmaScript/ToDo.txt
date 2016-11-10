@@ -5,15 +5,18 @@
 - first add all global varialbes to the scope
   before parsing function blocks!
     
- - function pointers!
-     use VariableReference
-	 inside FunctionCall so i no longer need
-	 "callThroughPointer" bool
-  
-  - switch!
+ - switch!
+
+ - rethink recursive types
+     list.next.next.next.next
+	 is limited by max depth and shouldnt be.
+
+ - #import
 
  - use parseTypeString inside of
    struct decl and function def
+
+ - throw error if literal number type exceeds range of late bound integer
 
  - replace bool with b32
 
@@ -29,6 +32,7 @@
  - global variables
  - - strings
  - - structs
+
 
  - constant strings
  - constant structs

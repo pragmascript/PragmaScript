@@ -66,14 +66,30 @@ namespace PragmaScript
 
         public FrontendType GetNodeType(AST.Node node)
         {
-            return knownTypes[node];
+            return getType(node, mustBeBound: true);
         }
 
-        FrontendType getType(AST.Node node)
+        FrontendType getType(AST.Node node, bool mustBeBound = false)
         {
             FrontendType result;
             if (knownTypes.TryGetValue(node, out result))
             {
+                if (result is FrontendNumberType)
+                {
+                    var fnt = result as FrontendNumberType;
+                    if (fnt.boundType != null)
+                    {
+                        return fnt.boundType;
+                    }
+                    else
+                    {
+                        if (mustBeBound)
+                        {
+                            return fnt.Default();
+                        }
+                    }
+
+                }
                 return result;
             }
             else
@@ -316,7 +332,7 @@ namespace PragmaScript
                 }
                 if (node.typeString != null && node.expression != null && et != null && tt != null)
                 {
-                    if (!et.Equals(tt))
+                    if (!FrontendType.CompatibleAndLateBind(et, tt))
                     {
                         throw new ParserTypeMismatch(tt, et, node.token);
                     }
@@ -327,6 +343,10 @@ namespace PragmaScript
                 {
                     Debug.Assert(node.expression != null);
                     Debug.Assert(tt == null);
+                    if (et is FrontendNumberType)
+                    {
+                        et = (et as FrontendNumberType).Default();
+                    }
                     resolve(node, et);
                     return;
                 }
@@ -409,7 +429,7 @@ namespace PragmaScript
             {
                 for (int i = 0; i < argTypes.Count; ++i)
                 {
-                    if (!argTypes[i].Equals(structType.fields[i].type))
+                    if (!FrontendType.CompatibleAndLateBind(argTypes[i], structType.fields[i].type))
                     {
                         throw new ParserExpectedArgumentType(structType.fields[i].type, argTypes[i], i + 1, node.argumentList[i].token);
                     }
@@ -503,7 +523,7 @@ namespace PragmaScript
                     for (int idx = 0; idx < argumentTypes.Count; ++idx)
                     {
                         var arg = argumentTypes[idx];
-                        if (!arg.Equals(f_type.parameters[idx].type))
+                        if (!FrontendType.CompatibleAndLateBind(arg, f_type.parameters[idx].type))
                         {
                             throw new ParserExpectedArgumentType(f_type.parameters[idx].type, arg, idx + 1, node.argumentList[idx].token);
                         }
@@ -582,7 +602,7 @@ namespace PragmaScript
 
             if (tt != null && et != null)
             {
-                if (!et.Equals(tt))
+                if (!FrontendType.CompatibleAndLateBind(et, tt))
                 {
                     throw new ParserVariableTypeMismatch(tt, et, node.token);
                 }
@@ -592,12 +612,12 @@ namespace PragmaScript
 
         void checkType(AST.ConstInt node)
         {
-            resolve(node, FrontendType.i32);
+            resolve(node, new FrontendNumberType(false));
         }
 
         void checkType(AST.ConstFloat node)
         {
-            resolve(node, FrontendType.f32);
+            resolve(node, new FrontendNumberType(true));
         }
 
         void checkType(AST.ConstBool node)
@@ -634,9 +654,15 @@ namespace PragmaScript
             {
                 bool same = true;
                 var first = elementTypes.First();
+                if (first is FrontendNumberType)
+                {
+                    var nt = first as FrontendNumberType;
+                    Debug.Assert(nt.boundType == null);
+                    first = nt.Default();
+                }
                 for (int i = 1; i < elementTypes.Count; ++i)
                 {
-                    if (!first.Equals(elementTypes[i]))
+                    if (!FrontendType.CompatibleAndLateBind(first, elementTypes[i]))
                     {
                         same = false;
                         break;
@@ -717,7 +743,7 @@ namespace PragmaScript
             }
             else
             {
-                if (!idx_t.Equals(FrontendType.i32))
+                if (!FrontendType.CompatibleAndLateBind(idx_t, FrontendType.i32))
                 {
                     throw new ParserExpectedType(FrontendType.i32, idx_t, node.index.token);
                 }
@@ -783,6 +809,19 @@ namespace PragmaScript
             {
                 if (node.isEither(AST.BinOp.BinOpType.LeftShift, AST.BinOp.BinOpType.RightShift))
                 {
+                   
+                    if (lt is FrontendNumberType)
+                    {
+                        var lnt = lt as FrontendNumberType;
+                        lt = lnt.Default();
+                        lnt.Bind(lt);
+                    }
+                    if (rt is FrontendNumberType)
+                    {
+                        var rnt = rt as FrontendNumberType;
+                        rt = rnt.Default();
+                        rnt.Bind(rt);
+                    }
                     // TODO: suppport all integer types here.
                     if (!(FrontendType.IsIntegerType(lt) && FrontendType.IsIntegerType(rt)))
                     {
@@ -802,7 +841,7 @@ namespace PragmaScript
                         throw new ParserError($"Right side of pointer arithmetic operation must be of integer type not \"{rt}\".", node.right.token);
                     }
                 }
-                else if (!lt.Equals(rt))
+                else if (!FrontendType.CompatibleAndLateBind(lt, rt))
                 {
                     throw new ParserTypeMismatch(lt, rt, node.token);
                 }

@@ -109,19 +109,5 @@ namespace PragmaScript
             return rootScope;
         }
 
-        public static FileRoot ParseFile(Token[] tokens, Scope scope)
-        {
-            int pos = 0;
-            var current = tokens[pos];
-
-            ParseState ps;
-            ps.pos = 0;
-            ps.tokens = tokens;
-            // perform AST generation pass
-            ps.SkipWhitespace();
-            var root = parseFileRoot(ref ps, scope) as FileRoot;
-
-            return root;
-        }
     }
 }
