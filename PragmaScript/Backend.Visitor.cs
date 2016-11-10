@@ -107,7 +107,17 @@ namespace PragmaScript
         public void Visit(AST.ConstInt node)
         {
             var ct = GetTypeRef(typeChecker.GetNodeType(node));
-            var result = LLVM.ConstInt(ct, (ulong)node.number, Const.TrueBool);
+            LLVMValueRef result;
+            if (LLVM.GetTypeKind(ct) == LLVMTypeKind.LLVMFloatTypeKind
+                || LLVM.GetTypeKind(ct) == LLVMTypeKind.LLVMDoubleTypeKind)
+            {
+                result = LLVM.ConstReal(ct, node.number);
+            }
+            else
+            {
+                result = LLVM.ConstInt(ct, (ulong)node.number, Const.TrueBool);
+            }
+
             valueStack.Push(result);
         }
 
@@ -291,130 +301,131 @@ namespace PragmaScript
                         throw new InvalidCodePath();
                 }
             }
-            else if (LLVM.GetTypeKind(leftType) == LLVMTypeKind.LLVMIntegerTypeKind)
-            {
-                switch (node.type)
-                {
-                    case AST.BinOp.BinOpType.Add:
-                        result = LLVM.BuildAdd(builder, left, right, "add_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Subract:
-                        result = LLVM.BuildSub(builder, left, right, "sub_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Multiply:
-                        result = LLVM.BuildMul(builder, left, right, "mul_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Divide:
-                        result = LLVM.BuildSDiv(builder, left, right, "div_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.LeftShift:
-                        result = LLVM.BuildShl(builder, left, right, "shl_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.RightShift:
-                        result = LLVM.BuildAShr(builder, left, right, "shr_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Remainder:
-                        result = LLVM.BuildSRem(builder, left, right, "srem_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Equal:
-                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, left, right, "icmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.NotEqual:
-                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, left, right, "icmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Greater:
-                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGT, left, right, "icmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.GreaterEqual:
-                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGE, left, right, "icmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Less:
-                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLT, left, right, "icmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.LessEqual:
-                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLE, left, right, "icmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.LogicalAND:
-                        result = LLVM.BuildAnd(builder, left, right, "and_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.LogicalOR:
-                        result = LLVM.BuildOr(builder, left, right, "or_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.LogicalXOR:
-                        result = LLVM.BuildXor(builder, left, right, "xor_tmp");
-                        break;
-                    default:
-                        throw new InvalidCodePath();
-                }
-            }
-            else if (LLVM.GetTypeKind(leftType) == LLVMTypeKind.LLVMFloatTypeKind)
-            {
-                switch (node.type)
-                {
-                    case AST.BinOp.BinOpType.Add:
-                        result = LLVM.BuildFAdd(builder, left, right, "fadd_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Subract:
-                        result = LLVM.BuildFSub(builder, left, right, "fsub_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Multiply:
-                        result = LLVM.BuildFMul(builder, left, right, "fmul_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Divide:
-                        result = LLVM.BuildFDiv(builder, left, right, "fdiv_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Remainder:
-                        result = LLVM.BuildFRem(builder, left, right, "frem_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Equal:
-                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, left, right, "fcmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.NotEqual:
-                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, left, right, "fcmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Greater:
-                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, left, right, "fcmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.GreaterEqual:
-                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGE, left, right, "fcmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.Less:
-                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, left, right, "fcmp_tmp");
-                        break;
-                    case AST.BinOp.BinOpType.LessEqual:
-                        result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLE, left, right, "fcmp_tmp");
-                        break;
-                    default:
-                        throw new InvalidCodePath();
-                }
-            }
-            else if (LLVM.GetTypeKind(leftType) == LLVMTypeKind.LLVMPointerTypeKind)
-            {
-                switch (node.type)
-                {
-
-                    case AST.BinOp.BinOpType.Add:
-                        {
-                            var indices = new LLVMValueRef[] { right };
-                            result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
-                        }
-                        break;
-                    case AST.BinOp.BinOpType.Subract:
-                        {
-                            var n_right = LLVM.BuildNeg(builder, right, "ptr_add_neg");
-                            var indices = new LLVMValueRef[] { n_right };
-                            result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
-                        }
-                        break;
-                    default:
-                        throw new InvalidCodePath();
-                }
-            }
             else
             {
-                throw new InvalidCodePath();
-            }
+                switch (LLVM.GetTypeKind(leftType))
+                {
+                    case LLVMTypeKind.LLVMIntegerTypeKind:
+                        switch (node.type)
+                        {
+                            case AST.BinOp.BinOpType.Add:
+                                result = LLVM.BuildAdd(builder, left, right, "add_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Subract:
+                                result = LLVM.BuildSub(builder, left, right, "sub_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Multiply:
+                                result = LLVM.BuildMul(builder, left, right, "mul_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Divide:
+                                result = LLVM.BuildSDiv(builder, left, right, "div_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LeftShift:
+                                result = LLVM.BuildShl(builder, left, right, "shl_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.RightShift:
+                                result = LLVM.BuildAShr(builder, left, right, "shr_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Remainder:
+                                result = LLVM.BuildSRem(builder, left, right, "srem_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Equal:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.NotEqual:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Greater:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGT, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.GreaterEqual:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGE, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Less:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLT, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LessEqual:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLE, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LogicalAND:
+                                result = LLVM.BuildAnd(builder, left, right, "and_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LogicalOR:
+                                result = LLVM.BuildOr(builder, left, right, "or_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LogicalXOR:
+                                result = LLVM.BuildXor(builder, left, right, "xor_tmp");
+                                break;
+                            default:
+                                throw new InvalidCodePath();
+                        }
+                        break;
+                    case LLVMTypeKind.LLVMDoubleTypeKind:
+                    case LLVMTypeKind.LLVMFloatTypeKind:
+                        switch (node.type)
+                        {
+                            case AST.BinOp.BinOpType.Add:
+                                result = LLVM.BuildFAdd(builder, left, right, "fadd_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Subract:
+                                result = LLVM.BuildFSub(builder, left, right, "fsub_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Multiply:
+                                result = LLVM.BuildFMul(builder, left, right, "fmul_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Divide:
+                                result = LLVM.BuildFDiv(builder, left, right, "fdiv_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Remainder:
+                                result = LLVM.BuildFRem(builder, left, right, "frem_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Equal:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.NotEqual:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Greater:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.GreaterEqual:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGE, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Less:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LessEqual:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLE, left, right, "fcmp_tmp");
+                                break;
+                            default:
+                                throw new InvalidCodePath();
+                        }
+                        break;
+                    case LLVMTypeKind.LLVMPointerTypeKind:
+                        switch (node.type)
+                        {
+                            case AST.BinOp.BinOpType.Add:
+                                {
+                                    var indices = new LLVMValueRef[] { right };
+                                    result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+                                }
+                                break;
+                            case AST.BinOp.BinOpType.Subract:
+                                {
+                                    var n_right = LLVM.BuildNeg(builder, right, "ptr_add_neg");
+                                    var indices = new LLVMValueRef[] { n_right };
+                                    result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+                                }
+                                break;
+                            default:
+                                throw new InvalidCodePath();
+                        }
+                        break;
+                    default:
+                        throw new InvalidCodePath();
 
+                }
+            }
             valueStack.Push(result);
         }
 
@@ -520,17 +531,17 @@ namespace PragmaScript
                     result = v;
                     break;
                 case AST.UnaryOp.UnaryOpType.Subract:
-                    if (LLVM.GetTypeKind(vtype)== LLVMTypeKind.LLVMFloatTypeKind)
+                    switch (LLVM.GetTypeKind(vtype))
                     {
-                        result = LLVM.BuildFNeg(builder, v, "fneg_tmp");
-                    }
-                    else if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMIntegerTypeKind)
-                    {
-                        result = LLVM.BuildNeg(builder, v, "neg_tmp");
-                    }
-                    else
-                    {
-                        throw new BackendException("unary subtract is not defined on type " + typeToString(vtype));
+                        case LLVMTypeKind.LLVMDoubleTypeKind:
+                        case LLVMTypeKind.LLVMFloatTypeKind:
+                            result = LLVM.BuildFNeg(builder, v, "fneg_tmp");
+                            break;
+                        case LLVMTypeKind.LLVMIntegerTypeKind:
+                            result = LLVM.BuildNeg(builder, v, "neg_tmp");
+                            break;
+                        default:
+                            throw new InvalidCodePath();
                     }
                     break;
                 case AST.UnaryOp.UnaryOpType.LogicalNot:
@@ -564,18 +575,21 @@ namespace PragmaScript
                         result = LLVM.BuildLoad(builder, v, "preinc_load");
                         var vet = LLVM.GetElementType(vtype);
                         var vet_kind = LLVM.GetTypeKind(vet);
-                        if (vet_kind == LLVMTypeKind.LLVMIntegerTypeKind)
+                        switch (vet_kind)
                         {
-                            result = LLVM.BuildAdd(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "preinc");
-                        }
-                        else if (vet_kind == LLVMTypeKind.LLVMFloatTypeKind)
-                        {
-                            result = LLVM.BuildFAdd(builder, result, LLVM.ConstReal(vet, 1.0), "preinc");
-                        }
-                        else if (vet_kind == LLVMTypeKind.LLVMPointerTypeKind)
-                        {
-                            var indices = new LLVMValueRef[] { Const.OneInt32 };
-                            result = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_pre_inc");
+                            case LLVMTypeKind.LLVMIntegerTypeKind:
+                                result = LLVM.BuildAdd(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "preinc");
+                                break;
+                            case LLVMTypeKind.LLVMDoubleTypeKind:
+                            case LLVMTypeKind.LLVMFloatTypeKind:
+                                result = LLVM.BuildFAdd(builder, result, LLVM.ConstReal(vet, 1.0), "preinc");
+                                break;
+                            case LLVMTypeKind.LLVMPointerTypeKind:
+                                var indices = new LLVMValueRef[] { Const.OneInt32 };
+                                result = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_pre_inc");
+                                break;
+                            default:
+                                throw new InvalidCodePath();
                         }
                         LLVM.BuildStore(builder, result, v);
                     }
@@ -585,18 +599,21 @@ namespace PragmaScript
                         result = LLVM.BuildLoad(builder, v, "predec_load");
                         var vet = LLVM.GetElementType(vtype);
                         var vet_kind = LLVM.GetTypeKind(vet);
-                        if (vet_kind == LLVMTypeKind.LLVMIntegerTypeKind)
+                        switch (vet_kind)
                         {
-                            result = LLVM.BuildSub(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "predec");
-                        }
-                        else if (vet_kind == LLVMTypeKind.LLVMFloatTypeKind)
-                        {
-                            result = LLVM.BuildFSub(builder, result, LLVM.ConstReal(vet, 1.0), "predec");
-                        }
-                        else
-                        {
-                            var indices = new LLVMValueRef[] { Const.NegativeOneInt32 };
-                            result = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_pre_dec");
+                            case LLVMTypeKind.LLVMIntegerTypeKind:
+                                result = LLVM.BuildSub(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "predec");
+                                break;
+                            case LLVMTypeKind.LLVMDoubleTypeKind:
+                            case LLVMTypeKind.LLVMFloatTypeKind:
+                                result = LLVM.BuildFSub(builder, result, LLVM.ConstReal(vet, 1.0), "predec");
+                                break;
+                            case LLVMTypeKind.LLVMPointerTypeKind:
+                                var indices = new LLVMValueRef[] { Const.NegativeOneInt32 };
+                                result = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_pre_dec");
+                                break;
+                            default:
+                                throw new InvalidCodePath();
                         }
                         LLVM.BuildStore(builder, result, v);
                     }
@@ -606,21 +623,30 @@ namespace PragmaScript
                         result = LLVM.BuildLoad(builder, v, "postinc_load");
                         var vet = LLVM.GetElementType(vtype);
                         var vet_kind = LLVM.GetTypeKind(vet);
-                        if (vet_kind == LLVMTypeKind.LLVMIntegerTypeKind)
+                        switch (vet_kind)
                         {
-                            var inc = LLVM.BuildAdd(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "postinc");
-                            LLVM.BuildStore(builder, inc, v);
-                        }
-                        else if (vet_kind == LLVMTypeKind.LLVMFloatTypeKind)
-                        {
-                            var inc = LLVM.BuildFAdd(builder, result, LLVM.ConstReal(vet, 1.0), "postinc");
-                            LLVM.BuildStore(builder, inc, v);
-                        }
-                        else
-                        {
-                            var indices = new LLVMValueRef[] { Const.OneInt32 };
-                            var inc = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_post_inc");
-                            LLVM.BuildStore(builder, inc, v);
+                            case LLVMTypeKind.LLVMIntegerTypeKind:
+                                {
+                                    var inc = LLVM.BuildAdd(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "postinc");
+                                    LLVM.BuildStore(builder, inc, v);
+                                }
+                                break;
+                            case LLVMTypeKind.LLVMDoubleTypeKind:
+                            case LLVMTypeKind.LLVMFloatTypeKind:
+                                {
+                                    var inc = LLVM.BuildFAdd(builder, result, LLVM.ConstReal(vet, 1.0), "postinc");
+                                    LLVM.BuildStore(builder, inc, v);
+                                }
+                                break;
+                            case LLVMTypeKind.LLVMPointerTypeKind:
+                                {
+                                    var indices = new LLVMValueRef[] { Const.OneInt32 };
+                                    var inc = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_post_inc");
+                                    LLVM.BuildStore(builder, inc, v);
+                                }
+                                break;
+                            default:
+                                throw new InvalidCodePath();
                         }
                     }
                     break;
@@ -629,21 +655,30 @@ namespace PragmaScript
                         result = LLVM.BuildLoad(builder, v, "postdec_load");
                         var vet = LLVM.GetElementType(vtype);
                         var vet_kind = LLVM.GetTypeKind(vet);
-                        if (vet_kind == LLVMTypeKind.LLVMIntegerTypeKind)
+                        switch (vet_kind)
                         {
-                            var inc = LLVM.BuildSub(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "postdec");
-                            LLVM.BuildStore(builder, inc, v);
-                        }
-                        else if (vet_kind == LLVMTypeKind.LLVMFloatTypeKind)
-                        {
-                            var inc = LLVM.BuildFSub(builder, result, LLVM.ConstReal(vet, 1.0), "postdec");
-                            LLVM.BuildStore(builder, inc, v);
-                        }
-                        else
-                        {
-                            var indices = new LLVMValueRef[] { Const.NegativeOneInt32 };
-                            var inc = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_post_dec");
-                            LLVM.BuildStore(builder, inc, v);
+                            case LLVMTypeKind.LLVMIntegerTypeKind:
+                                {
+                                    var inc = LLVM.BuildSub(builder, result, LLVM.ConstInt(vet, 1, Const.FalseBool), "postdec");
+                                    LLVM.BuildStore(builder, inc, v);
+                                }
+                                break;
+                            case LLVMTypeKind.LLVMDoubleTypeKind:
+                            case LLVMTypeKind.LLVMFloatTypeKind:
+                                {
+                                    var inc = LLVM.BuildFSub(builder, result, LLVM.ConstReal(vet, 1.0), "postdec");
+                                    LLVM.BuildStore(builder, inc, v);
+                                }
+                                break;
+                            case LLVMTypeKind.LLVMPointerTypeKind:
+                                {
+                                    var indices = new LLVMValueRef[] { Const.NegativeOneInt32 };
+                                    var inc = LLVM.BuildGEP(builder, result, out indices[0], 1, "ptr_post_dec");
+                                    LLVM.BuildStore(builder, inc, v);
+                                }
+                                break;
+                            default:
+                                throw new InvalidCodePath();
                         }
                     }
                     break;
@@ -672,75 +707,69 @@ namespace PragmaScript
                 return;
             }
 
-            // TODO: check if integral type
-            // TODO: handle non integral types
-            if (LLVM.GetTypeKind(targetType) == LLVMTypeKind.LLVMIntegerTypeKind)
+            var ttk = LLVM.GetTypeKind(targetType);
+            var vtk = LLVM.GetTypeKind(vtype);
+            switch (ttk)
             {
-                if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMIntegerTypeKind)
-                {
-                    if (LLVM.GetIntTypeWidth(targetType) > LLVM.GetIntTypeWidth(vtype))
+                case LLVMTypeKind.LLVMIntegerTypeKind:
+                    switch (vtk)
                     {
-                        result = LLVM.BuildZExt(builder, v, targetType, "int_cast");
+                        case LLVMTypeKind.LLVMIntegerTypeKind:
+                            if (LLVM.GetIntTypeWidth(targetType) > LLVM.GetIntTypeWidth(vtype))
+                            {
+                                result = LLVM.BuildZExt(builder, v, targetType, "int_cast");
+                            }
+                            else if (LLVM.GetIntTypeWidth(targetType) < LLVM.GetIntTypeWidth(vtype))
+                            {
+                                result = LLVM.BuildTrunc(builder, v, targetType, "int_trunc");
+                            }
+                            else if (LLVM.GetIntTypeWidth(targetType) == LLVM.GetIntTypeWidth(vtype))
+                            {
+                                result = LLVM.BuildBitCast(builder, v, targetType, "int_bitcast");
+                            }
+                            break;
+                        case LLVMTypeKind.LLVMDoubleTypeKind:
+                        case LLVMTypeKind.LLVMFloatTypeKind:
+                            result = LLVM.BuildFPToSI(builder, v, targetType, "int_cast");
+                            break;
+                        case LLVMTypeKind.LLVMPointerTypeKind:
+                            result = LLVM.BuildPtrToInt(builder, v, targetType, "int_cast");
+                            break;
+                        default:
+                            throw new InvalidCodePath();
                     }
-                    else if (LLVM.GetIntTypeWidth(targetType) < LLVM.GetIntTypeWidth(vtype))
+                    break;
+                case LLVMTypeKind.LLVMDoubleTypeKind:
+                case LLVMTypeKind.LLVMFloatTypeKind:
+                    switch (vtk)
                     {
-                        result = LLVM.BuildTrunc(builder, v, targetType, "int_trunc");
+                        case LLVMTypeKind.LLVMIntegerTypeKind:
+                            result = LLVM.BuildSIToFP(builder, v, targetType, "int_to_float_cast");
+                            break;
+                        case LLVMTypeKind.LLVMDoubleTypeKind:
+                        case LLVMTypeKind.LLVMFloatTypeKind:
+                            result = LLVM.BuildFPCast(builder, v, targetType, "fp_to_fp_cast");
+                            break;
+                        default:
+                            throw new InvalidCodePath();
                     }
-                    else if (LLVM.GetIntTypeWidth(targetType) == LLVM.GetIntTypeWidth(vtype))
+                    break;
+                case LLVMTypeKind.LLVMPointerTypeKind:
+                    switch (vtk)
                     {
-                        result = LLVM.BuildBitCast(builder, v, targetType, "int_bitcast");
+                        case LLVMTypeKind.LLVMIntegerTypeKind:
+                            result = LLVM.BuildIntToPtr(builder, v, targetType, "int_to_ptr");
+                            break;
+                        case LLVMTypeKind.LLVMPointerTypeKind:
+                            result = LLVM.BuildBitCast(builder, v, targetType, "pointer_bit_cast");
+                            break;
+                        default:
+                            throw new InvalidCodePath();
                     }
-                }
-                // TODO: support different float widths
-                else if (isEqualType(vtype, Const.Float32Type))
-                {
-                    result = LLVM.BuildFPToSI(builder, v, Const.Int32Type, "int_cast");
-                }
-                else if (isEqualType(vtype, Const.BoolType))
-                {
-                    result = LLVM.BuildZExt(builder, v, targetType, "int_cast");
-                }
-                else if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMPointerTypeKind)
-                {
-                    result = LLVM.BuildPtrToInt(builder, v, targetType, "int_cast");
-                }
-                else
-                {
+                    break;
+                default:
                     throw new InvalidCodePath();
-                }
-            }
-            else if (LLVM.GetTypeKind(targetType) == LLVMTypeKind.LLVMFloatTypeKind)
-            {
-                if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMIntegerTypeKind)
-                {
-                    result = LLVM.BuildSIToFP(builder, v, targetType, "int_to_float_cast");
-                }
-                else
-                {
-                    throw new NotImplementedException();
-                }
-            }
-            else if (LLVM.GetTypeKind(targetType) == LLVMTypeKind.LLVMPointerTypeKind)
-            {
-                var targetTypeName = typeToString(targetType);
-                var sourceTypeName = typeToString(vtype);
-                if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMIntegerTypeKind)
-                {
-                    result = LLVM.BuildIntToPtr(builder, v, targetType, "int_to_ptr");
-                }
-                else if (LLVM.GetTypeKind(vtype) == LLVMTypeKind.LLVMPointerTypeKind)
-                {
-                    result = LLVM.BuildBitCast(builder, v, targetType, "pointer_bit_cast");
-                }
-                else
-                {
-                    throw new InvalidCodePath();
-                }
 
-            }
-            else
-            {
-                throw new InvalidCodePath();
             }
             valueStack.Push(result);
         }
@@ -1342,7 +1371,7 @@ namespace PragmaScript
                     // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
                 }
                 variables.Add(node.funName, function);
-                
+
             }
             else
             {

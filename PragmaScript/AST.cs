@@ -88,6 +88,26 @@ namespace PragmaScript
             cos.returnType = FrontendType.f32;
             cos.AddParam("x", FrontendType.f32);
             scope.AddVar("cos", cos, Token.Undefined, isConst: true);
+
+            var sin = new FrontendFunctionType();
+            sin.returnType = FrontendType.f32;
+            sin.AddParam("x", FrontendType.f32);
+            scope.AddVar("sin", sin, Token.Undefined, isConst: true);
+
+            var abs = new FrontendFunctionType();
+            abs.returnType = FrontendType.f32;
+            abs.AddParam("x", FrontendType.f32);
+            scope.AddVar("abs", abs, Token.Undefined, isConst: true);
+
+            var sqrt = new FrontendFunctionType();
+            sqrt.returnType = FrontendType.f32;
+            sqrt.AddParam("x", FrontendType.f32);
+            scope.AddVar("sqrt", sqrt, Token.Undefined, isConst: true);
+
+            var floor = new FrontendFunctionType();
+            floor.returnType = FrontendType.f32;
+            floor.AddParam("x", FrontendType.f32);
+            scope.AddVar("floor", floor, Token.Undefined, isConst: true);
         }
 
         static void addBasicConstants(Scope scope, Token token)

@@ -466,10 +466,40 @@ namespace PragmaScript
         // http://stackoverflow.com/questions/27681500/generate-call-to-intrinsic-using-llvm-c-api
         void addIntrinsics()
         {
-            LLVMTypeRef[] param_types = { Const.Float32Type };
-            LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
-            LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.cos.f32", fn_type);
-            variables.Add("cos", fn);
+            {
+                LLVMTypeRef[] param_types = { Const.Float32Type };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.cos.f32", fn_type);
+                variables.Add("cos", fn);
+            }
+
+            {
+                LLVMTypeRef[] param_types = { Const.Float32Type };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.sin.f32", fn_type);
+                variables.Add("sin", fn);
+            }
+
+            {
+                LLVMTypeRef[] param_types = { Const.Float32Type };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.fabs.f32", fn_type);
+                variables.Add("abs", fn);
+            }
+            {
+                LLVMTypeRef[] param_types = { Const.Float32Type };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.sqrt.f32", fn_type);
+                variables.Add("sqrt", fn);
+            }
+
+            {
+                LLVMTypeRef[] param_types = { Const.Float32Type };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.floor.f32", fn_type);
+                variables.Add("floor", fn);
+            }
+
         }
 
 
@@ -558,7 +588,7 @@ namespace PragmaScript
         public void EmitAndAOT(AST.Node root, string filename)
         {
             emit(root);
-            aotModule(filename, CompilerOptions.optimizationLevel);
+            aotModule(filename);
         }
     }
 }

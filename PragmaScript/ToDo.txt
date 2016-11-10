@@ -11,14 +11,14 @@
      list.next.next.next.next
 	 is limited by max depth and shouldnt be.
 
- - #import
-
- - use parseTypeString inside of
-   struct decl and function def
+ - implement assert using optional param, something like:
+     assert(value: bool; caller = __FILEPOS__)
 
  - throw error if literal number type exceeds range of late bound integer
 
  - replace bool with b32
+
+ - insert missing return bs not working for non ints
 
  - get rid of signed unsigned types
  

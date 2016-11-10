@@ -21,8 +21,9 @@ namespace PragmaScript
         [DllImport("libLLVM.dll", EntryPoint = "LLVMGetBufferStart", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr GetBufferStart(LLVMMemoryBufferRef @MemBuf);
 
-        public void aotModule(string filename, int optLevel)
+        public void aotModule(string filename)
         {
+            int optLevel = CompilerOptions.optimizationLevel;
             Debug.Assert(optLevel >= 0 && optLevel <= 3);
 
             string arch=null;
@@ -103,11 +104,13 @@ namespace PragmaScript
                 lldProcess.WaitForExit();
                 lldProcess.Close();
             }
-#if DEBUG
+
+            if (CompilerOptions.runAfterCompile)
             {
                 Console.WriteLine("running...");
                 var outputProcess = new Process();
-                var fn = Path.GetFileNameWithoutExtension(filename) + ".exe";
+                var dir = Directory.GetCurrentDirectory();
+                var fn = Path.Combine(dir, Path.GetFileNameWithoutExtension(filename) + ".exe");
                 outputProcess.StartInfo.FileName = fn;
                 outputProcess.StartInfo.Arguments = "";
                 outputProcess.StartInfo.RedirectStandardInput = false;
@@ -117,7 +120,7 @@ namespace PragmaScript
                 outputProcess.WaitForExit();
                 outputProcess.Close();
             }
-#endif
+
 
             Console.WriteLine("done.");
         }

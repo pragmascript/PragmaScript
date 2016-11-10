@@ -1,16 +1,48 @@
 ﻿import "windows.ps"
 
 let null = (umm)0;
+let pi: f64 = 3.141592653589793238462643383279502884197;
+let half_pi = pi / 2.0;
+let pi_32 = (f32)pi;
+let half_pi_32 = (f32)half_pi;
 
-let assert = fun (value: bool) => void {
+let assert = fun (value: bool) => void 
+{
 	if (!value) {
 		*((u8*)nullptr) = 42;
 	}
 }
 
-let cstr = fun(value: string) => u8* {
+let cstr = fun(value: string) => u8* 
+{
 	assert(value[value.length - 1] == 0);
 	return value.data;
+}
+
+// http://forum.devmaster.net/t/fast-and-accurate-sine-cosine/9648/85
+let sinf = fun(x: f32) => f32 
+{
+    let P = 0.225;
+    let A = 16 * sqrt(P);
+    let B = (1 - P) / sqrt(P);
+
+    var y = x / (2 * pi_32);
+    y = y - floor(y + 0.5);  // y in range -0.5..0.5
+    y = A * y * (0.5 - abs(y));
+    return y * (B + abs(y));
+}
+
+let cosf = fun(value: f32) => f32 
+{
+	var x = half_pi_32 - value;
+    let P = 0.225;
+    let A = 16 * sqrt(P);
+    let B = (1 - P) / sqrt(P);
+
+    var y = x / (2 * pi_32);
+    y = y - floor(y + 0.5);  // y in range -0.5..0.5
+    y = A * y * (0.5 - abs(y));
+    return y * (B + abs(y));
 }
 
 let abs_i32 = fun (value: i32) => i32
@@ -24,36 +56,109 @@ let abs_i32 = fun (value: i32) => i32
 
 let print_i32 = fun (value: i32) => void
 {
-	if (value == 0) {
-		print_string("0");
-		return;
+	print_i64((i64)value);
+}
+
+let print_i64 = fun (value: i64) => void
+{
+	var v = value;
+	var pd = print_dest { };
+	pd.buffer = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+	assert(pd.buffer.length == 64); 
+	pd.pos = 0;
+	if (v < 0) {
+		v = -v;
+		out_char(&pd, 45);
 	}
-	var x = value;
-	var temp = "\0\0\0\0\0\0\0\0\0\0";
-	var count = 0;
-	for (var i = 0; i < temp.length; ++i) {
-		if (x != 0) {
-			var d = abs_i32(x % 10);
-			temp[i] = (u8)(d + 48);
-			x = x / 10;
-			count++;
-		} else {
+	u64_to_ascii(&pd, (u64)v);
+	pd.buffer.length = pd.pos;
+	print_string(pd.buffer);
+}
+
+let print_f32 = fun (value: f32) => void
+{
+	print_f64(((f64)value));	
+}
+
+
+let print_dest = struct
+(
+	buffer: string;
+	pos: i32;
+);
+
+let out_char = fun (dest: print_dest*; char: u8) => void
+{
+	dest.buffer[dest.pos++] = char;
+} 
+
+var decimal_digits = "0123456789";
+let u64_to_ascii = fun (dest: print_dest*; value: u64) => void
+{
+	let base = 10;
+	var v = value;
+
+	var start = &dest.buffer[dest.pos];
+	while (true) {
+		var index = (i32)(v % (u64)base);
+		var digit = decimal_digits[index];
+		out_char(dest, digit);
+		v /= (u64)base;
+		if (v == 0) {
 			break;
 		}
 	}
-	var offset = 0;
-	if (value < 0) {
-		offset = 1;
+	var end = &dest.buffer[dest.pos];
+	
+	while((umm)start < (umm)end) {
+		--end;
+		var temp = *end;
+		*end = *start;
+		*start = temp;
+		++start;
 	}
-	var result = "\0\0\0\0\0\0\0\0\0\0\0";
-	if (value < 0) {
-		result[0] = 45;
+}
+
+let print_f64 = fun (value: f64) => void
+{
+	let precision = 10;
+
+	var v = value;
+	var pd = print_dest { };
+	pd.buffer = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+	assert(pd.buffer.length == 64); 
+	pd.pos = 0;
+	if (v < 0) {
+		v = -v;
+		out_char(&pd, 45);
 	}
-	for (var i = 0; i < count; ++i) {
-		result[i+offset] = temp[count - i - 1];
+	var int_part = (u64)v;
+	u64_to_ascii(&pd, int_part);
+	v -= (f64)int_part;
+	out_char(&pd, 46);
+
+	var first_fraction_char = pd.pos;
+	var last_non_zero = pd.pos;
+	for (var i = 0; i < precision; ++i) {
+		v *= 10.0;
+		var int_part = (i32)v;
+		v -= (f64)int_part;
+		assert(int_part < 10);
+		out_char(&pd, decimal_digits[int_part]);
+		if (int_part != 0) {
+			last_non_zero = pd.pos;
+		} 
 	}
-	result.length = count + offset;
-	print_string(result);
+	
+	assert(pd.pos < pd.buffer.length);
+
+	// if (first_fraction_char != last_non_zero) {
+	// 	pd.buffer.length = last_non_zero;
+	// } else {
+	// 	pd.buffer.length = first_fraction_char - 1;
+	// }
+	pd.buffer.length = pd.pos;
+	print_string(pd.buffer);
 }
 
 let debug_print = fun (name: string; value: i32) => void

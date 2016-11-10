@@ -17,6 +17,7 @@ namespace PragmaScript
         public static bool debug = false;
         public static string inputFilename;
         public static int optimizationLevel;
+        public static bool runAfterCompile;
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
@@ -30,10 +31,9 @@ namespace PragmaScript
 #if DEBUG
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 3;
-
-            CompilerOptions.inputFilename = @"Programs\win32_handmade.ps";
-            // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\preamble.ps", @"Programs\windows.ps", @"Programs\bugs.ps" });
-            // CompilerOptions.inputFilenames.AddRange(new string[] { @"Programs\bugs.ps" });
+            CompilerOptions.runAfterCompile = true;
+            //CompilerOptions.inputFilename = @"Programs\win32_handmade.ps";
+            CompilerOptions.inputFilename = @"Programs\bugs.ps";
 #endif
             if (CompilerOptions.inputFilename == null)
             {
@@ -60,10 +60,10 @@ namespace PragmaScript
         {
             Console.WriteLine();
             Console.WriteLine("command line options: ");
-            Console.WriteLine("-D: turn on debug messages");
+            Console.WriteLine("-D: build in debug mode");
             Console.WriteLine("-O0: turn off optimizations");
             Console.WriteLine("-OX: turn on optimization level X in [1..3]");
-            Console.WriteLine();
+            Console.WriteLine("-R: run program after compilation");
         }
         static void parseARGS(string[] args)
         {
@@ -95,6 +95,10 @@ namespace PragmaScript
                         case "-HELP":
                         case "H":
                             printHelp();
+                            break;
+                        case "R":
+                        case "RUN":
+                            CompilerOptions.runAfterCompile = true;
                             break;
                         default:
                             writeError("Unknown command line option");
@@ -202,6 +206,8 @@ namespace PragmaScript
             var scope = AST.MakeRootScope();
             var root = new AST.ProgramRoot(Token.Undefined, scope);
 
+            bool parseError = false;
+
             while (toImport.Count > 0)
             {
                 var fn = toImport.Dequeue();
@@ -223,6 +229,7 @@ namespace PragmaScript
                 catch (ParserError error)
                 {
                     Console.Error.WriteLine(error.Message);
+                    parseError = true;
                 }
 #endif
                 toCompile.Push(tokens);
@@ -253,6 +260,7 @@ namespace PragmaScript
                 catch (ParserError error)
                 {
                     Console.Error.WriteLine(error.Message);
+                    parseError = true;
                 }
 #endif
             }
@@ -280,7 +288,7 @@ namespace PragmaScript
                 Console.WriteLine(e.Message);
                 success = false;
             }
-            if (!success)
+            if (!success || parseError)
             {
                 return;
             }

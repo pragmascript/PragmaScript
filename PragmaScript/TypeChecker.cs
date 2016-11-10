@@ -486,6 +486,7 @@ namespace PragmaScript
         {
             FrontendFunctionType f_type = null;
 
+
             checkTypeDynamic(node.left);
             var lt = getType(node.left);
             if (lt == null)

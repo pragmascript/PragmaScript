@@ -4,11 +4,11 @@
     "version": "0.1.0",
     "command": "..\\bin\\x64\\Release\\pragma.exe",
     "isShellCommand": true,
-    "args": ["-O0", "${file}"],
+    "args": ["-O0", "${file}", "-run"],
     "showOutput": "always",
     "problemMatcher": {
         // "owner": "ps",
-        "fileLocation":  ["relative", "${workspaceRoot}"],
+        "fileLocation":  "absolute",
         "pattern":{
             "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
             "message": 1,
