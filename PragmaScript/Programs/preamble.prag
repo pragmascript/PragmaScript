@@ -1,21 +1,21 @@
 ﻿import "windows.prag"
 
-let null = (umm)0;
+let null = (mm)0;
 let pi: f64 = 3.141592653589793238462643383279502884197;
 let half_pi = pi / 2.0;
 let pi_32 = (f32)pi;
 let half_pi_32 = (f32)half_pi;
 
-let _rdtsc = extern fun () => u64;
+let _rdtsc = extern fun () => i64;
 
 let assert = fun (value: bool) => void 
 {
 	if (!value) {
-		*((u8*)nullptr) = 42;
+		*nullptr = 42;
 	}
 }
 
-let cstr = fun(value: string) => u8* 
+let cstr = fun(value: string) => i8* 
 {
 	assert(value[value.length - 1] == 0);
 	return value.data;
@@ -27,7 +27,6 @@ let cstr = fun(value: string) => u8*
 // 	var result = x / y;
 // 	return 3.0;
 // }
-
 let remainder = fun(x: f32; y: f32) => f32
 {
 	return x - floor(x/y)*y;
@@ -74,39 +73,33 @@ let abs_i32 = fun (value: i32) => i32
   }
 }
 
-let print_i32 = fun (value: i32) => void
+let print_i32 = fun (value: i32; signed: bool) => void
 {
-	print_i64((i64)value);
+	if (signed)
+	{
+		print_i64((i64)value, true);
+	}
+	else
+	{
+		print_i64((i64\)value, false);
+	}
 }
 
-let print_i64 = fun (value: i64) => void
+let print_i64 = fun (value: i64; signed: bool) => void
 {
 	var v = value;
 	var pd = print_dest { };
 	pd.buffer = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 	assert(pd.buffer.length == 64); 
 	pd.pos = 0;
-	if (v < 0) {
+	if (signed && v < 0) {
 		v = -v;
 		out_char(&pd, 45);
 	}
-	u64_to_ascii(&pd, (u64)v);
-	pd.buffer.length = pd.pos;
-	print_string(pd.buffer);
-}
-
-let print_u64 = fun (value: u64) => void
-{
-	var v = value;
-	var pd = print_dest { };
-	pd.buffer = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
-	assert(pd.buffer.length == 64); 
-	pd.pos = 0;
 	u64_to_ascii(&pd, v);
 	pd.buffer.length = pd.pos;
 	print_string(pd.buffer);
 }
- 
 
 let print_f32 = fun (value: f32) => void
 {
@@ -119,30 +112,30 @@ let print_dest = struct
 	pos: i32;
 );
 
-let out_char = fun (dest: print_dest*; char: u8) => void
+let out_char = fun (dest: print_dest*; char: i8) => void
 {
 	dest.buffer[dest.pos++] = char;
 } 
 
 var decimal_digits = "0123456789";
-let u64_to_ascii = fun (dest: print_dest*; value: u64) => void
+let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 {
 	let base = 10;
 	var v = value;
 
 	var start = &dest.buffer[dest.pos];
 	while (true) {
-		var index = (i32)(v % (u64)base);
-		var digit = decimal_digits[index];
+		var index = v % (i64)base;
+		var digit = decimal_digits[(i32)index];
 		out_char(dest, digit);
-		v /= (u64)base;
+		v /\= (i64)base;
 		if (v == 0) {
 			break;
 		}
 	}
 	var end = &dest.buffer[dest.pos];
 	
-	while((umm)start < (umm)end) {
+	while((mm)start < (mm)end) {
 		--end;
 		var temp = *end;
 		*end = *start;
@@ -164,7 +157,7 @@ let print_f64 = fun (value: f64) => void
 		v = -v;
 		out_char(&pd, 45);
 	}
-	var int_part = (u64)v;
+	var int_part = (i64)v;
 	u64_to_ascii(&pd, int_part);
 	v -= (f64)int_part;
 	out_char(&pd, 46);
@@ -194,32 +187,19 @@ let print_f64 = fun (value: f64) => void
 }
 
 
-let debug_print_u64 = fun (name: string; value: u64) => void
+let debug_print_i64 = fun (name: string; value: i64; signed: bool) => void
 {
 	print_string(name);
 	print_string(": ");
-	print_u64(value);
+	print_i64(value, signed);
 	print_string("\n");
 }
-let debug_print_i64 = fun (name: string; value: i64) => void
+
+let debug_print_i32 = fun (name: string; value: i32; signed: bool) => void
 {
 	print_string(name);
 	print_string(": ");
-	print_i64(value);
-	print_string("\n");
-}
-let debug_print_u32 = fun (name: string; value: u32) => void
-{
-	print_string(name);
-	print_string(": ");
-	print_i64((i64)value);
-	print_string("\n");
-}
-let debug_print_i32 = fun (name: string; value: i32) => void
-{
-	print_string(name);
-	print_string(": ");
-	print_i32(value);
+	print_i32(value, signed);
 	print_string("\n");
 }
 let debug_print_f32 = fun (name: string; value: f32) => void

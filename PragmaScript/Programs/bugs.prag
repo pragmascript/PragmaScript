@@ -1,5 +1,5 @@
-﻿import "preamble.prag"
-import "windows.prag"
+﻿// import "preamble.prag"
+// import "windows.prag"
 
 // let sphere = struct
 // {
@@ -9,12 +9,12 @@ import "windows.prag"
 // var s = sphere{};
 // s.pos = vec{1.0,2.0,3.0};
 
-let vec = struct 
-(
-	x: f32;
-	y: f32;
-	z: f32;
-);
+// let vec = struct 
+// (
+// 	x: f32;
+// 	y: f32;
+// 	z: f32;
+// );
 
 // let sphere = struct
 // {
@@ -117,18 +117,47 @@ let vec = struct
 // 	// }
 // }
 
-// let digits = "0123456789";
+// let __test_cosine = fun () => void
+// {
+// 	for (var i = 1; i <= 64; ++i) 
+// 	{
+// 		var t = (f32)i / 64.0;
+// 		var r = lerp(0, 2*pi_32, t);
+// 		var x = cos(r);
+// 		print_f32(x);
+// 		print_string("\n");
+// 	}
+// }
+// let __test_unsigned_ops = fun () => void
+// {
+// 	var x = -1;
+// 	print_i32(x, true);
+// 	print_string("\n");
+// 	print_i32(x, false);
+// 	print_string("\n");
+
+// 	var y: i64 = -1;
+// 	print_i64(y, true);
+// 	print_string("\n");
+// 	print_i64(y, false);
+// 	print_string("\n");
+// 	if (-1 >\ 1)
+// 	{
+// 		print_string("fumm fumm\n");
+// 	}
+// 	if (-1 >=\ 1)
+// 	{
+// 		print_string("fumm fumm\n");
+// 	}
+
+// }
+
+// let __test_number_literal_typecheck = fun () => void
+// {
+// 	var x: i32 = 1 + 0.5;
+// }
 
 let main = fun () => void 
 {
-	var x: i32 = 2 + 3;
-	for (var i = 1; i <= 64; ++i) 
-	{
-		var t = (f32)i / 64.0;
-		var r = lerp(0, 2*pi_32, t);
-		var x = cos(r);
-		print_f32(x);
-		print_string("\n");
-	}
 }
 

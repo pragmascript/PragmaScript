@@ -194,7 +194,7 @@ namespace PragmaScript
             dynamic dn = node;
             checkType(dn);
         }
-        
+
         void checkType(AST.Block node)
         {
             foreach (var n in node.statements)
@@ -453,7 +453,7 @@ namespace PragmaScript
                 result = pre_resolved[node] as FrontendStructType;
                 Debug.Assert(result != null);
             }
-            
+
             List<FrontendType> fieldTypes = new List<FrontendType>();
             foreach (var p in node.fields)
             {
@@ -472,7 +472,7 @@ namespace PragmaScript
             bool all_fs = fieldTypes.Count == node.fields.Count;
             if (all_fs)
             {
-                
+
                 for (int idx = 0; idx < node.fields.Count; ++idx)
                 {
                     result.AddField(node.fields[idx].name, fieldTypes[idx]);
@@ -498,7 +498,7 @@ namespace PragmaScript
                 f_type = lt as FrontendFunctionType;
                 Debug.Assert(f_type != null);
             }
-        
+
             List<FrontendType> argumentTypes = new List<FrontendType>();
             foreach (var arg in node.argumentList)
             {
@@ -810,7 +810,7 @@ namespace PragmaScript
             {
                 if (node.isEither(AST.BinOp.BinOpType.LeftShift, AST.BinOp.BinOpType.RightShift))
                 {
-                   
+
                     if (lt is FrontendNumberType)
                     {
                         var lnt = lt as FrontendNumberType;
@@ -846,14 +846,52 @@ namespace PragmaScript
                 {
                     throw new ParserTypeMismatch(lt, rt, node.token);
                 }
+
+
+
+                if (node.isEither(AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned,
+                    AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned))
+                {
+                    if (lt is FrontendNumberType)
+                    {
+                        var lnt = lt as FrontendNumberType;
+                        lt = lnt.Default();
+                        lnt.Bind(lt);
+                    }
+                    if (rt is FrontendNumberType)
+                    {
+                        var rnt = rt as FrontendNumberType;
+                        rt = rnt.Default();
+                        rnt.Bind(rt);
+                    }
+
+                    // TODO: rather use umm and smm???
+                    if (!(FrontendType.IsIntegerType(lt) && FrontendType.IsIntegerType(rt)))
+                    {
+                        throw new ParserError($"Unsigned comparison operators are only valid for integer types not \"{lt}\".", node.right.token);
+                    }
+                }
+
                 if (node.isEither(AST.BinOp.BinOpType.Less, AST.BinOp.BinOpType.LessEqual,
                     AST.BinOp.BinOpType.Greater, AST.BinOp.BinOpType.GreaterEqual,
+                    AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned,
+                    AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned,
                     AST.BinOp.BinOpType.Equal, AST.BinOp.BinOpType.NotEqual))
                 {
+
+
                     resolve(node, FrontendType.bool_);
                 }
                 else
                 {
+                    if (node.type == AST.BinOp.BinOpType.DivideUnsigned)
+                    {
+                        if (!(FrontendType.IsIntegerType(lt) && FrontendType.IsIntegerType(rt)))
+                        {
+                            throw new ParserError($"Unsigned division operator is only valid for integer types not \"{lt}\".", node.right.token);
+                        }
+                    }
+
                     resolve(node, lt);
                 }
             }
@@ -884,7 +922,7 @@ namespace PragmaScript
                         resolve(node, pet.elementType);
                         break;
                     case AST.UnaryOp.UnaryOpType.SizeOf:
-                        resolve(node, FrontendType.umm);
+                        resolve(node, FrontendType.mm);
                         break;
                     default:
                         resolve(node, et);
@@ -921,90 +959,90 @@ namespace PragmaScript
             switch (node.kind)
             {
                 case AST.TypeString.TypeKind.Other:
-                {
-                    var base_t_def = node.scope.GetType(node.typeName);
-                    if (base_t_def == null)
                     {
-                        throw new ParserError($"Unknown type: \"{node.typeName}\"", node.token);
-                    }
-
-                    FrontendType base_t = null;
-                    if (base_t_def.type != null)
-                    {
-                        base_t = base_t_def.type;
-                    }
-                    else
-                    {
-                        if (pre_resolved.ContainsKey(base_t_def.node) && node.isPointerType)
+                        var base_t_def = node.scope.GetType(node.typeName);
+                        if (base_t_def == null)
                         {
-                            base_t = pre_resolved[base_t_def.node];
+                            throw new ParserError($"Unknown type: \"{node.typeName}\"", node.token);
                         }
-                        var nt = getType(base_t_def.node);
-                        if (nt == null)
+
+                        FrontendType base_t = null;
+                        if (base_t_def.type != null)
                         {
-                            addUnresolved(node, base_t_def.node);
+                            base_t = base_t_def.type;
                         }
                         else
                         {
-                            base_t = nt;
-                        }
-                    }
-                    if (base_t != null)
-                    {
-                        FrontendType result = base_t;
-                        if (node.isArrayType)
-                        {
-                            Debug.Assert(!node.isPointerType);
-                            result = new FrontendArrayType(base_t);
-                        }
-                        else if (node.isPointerType)
-                        {
-                            result = base_t;
-                            for (int i = 0; i < node.pointerLevel; ++i)
+                            if (pre_resolved.ContainsKey(base_t_def.node) && node.isPointerType)
                             {
-                                result = new FrontendPointerType(result);
+                                base_t = pre_resolved[base_t_def.node];
+                            }
+                            var nt = getType(base_t_def.node);
+                            if (nt == null)
+                            {
+                                addUnresolved(node, base_t_def.node);
+                            }
+                            else
+                            {
+                                base_t = nt;
                             }
                         }
-                        resolve(node, result);
+                        if (base_t != null)
+                        {
+                            FrontendType result = base_t;
+                            if (node.isArrayType)
+                            {
+                                Debug.Assert(!node.isPointerType);
+                                result = new FrontendArrayType(base_t);
+                            }
+                            else if (node.isPointerType)
+                            {
+                                result = base_t;
+                                for (int i = 0; i < node.pointerLevel; ++i)
+                                {
+                                    result = new FrontendPointerType(result);
+                                }
+                            }
+                            resolve(node, result);
+                        }
                     }
-                }
-                break;
+                    break;
                 case AST.TypeString.TypeKind.Function:
-                {
-                    var fts = node.functionTypeString;
-                    List<FrontendType> parameterTypes = new List<FrontendType>();
-                    foreach (var p in fts.parameters)
                     {
-                        checkTypeDynamic(p.typeString);
-                        var pt = getType(p.typeString);
-                        if (pt != null)
+                        var fts = node.functionTypeString;
+                        List<FrontendType> parameterTypes = new List<FrontendType>();
+                        foreach (var p in fts.parameters)
                         {
-                            parameterTypes.Add(pt);
+                            checkTypeDynamic(p.typeString);
+                            var pt = getType(p.typeString);
+                            if (pt != null)
+                            {
+                                parameterTypes.Add(pt);
+                            }
+                            else
+                            {
+                                addUnresolved(node, p.typeString);
+                            }
                         }
-                        else
+                        bool all_ps = parameterTypes.Count == fts.parameters.Count;
+                        checkTypeDynamic(fts.returnType);
+                        var returnType = getType(fts.returnType);
+                        if (returnType == null)
                         {
-                            addUnresolved(node, p.typeString);
+                            addUnresolved(node, fts.returnType);
+                        }
+                        if (returnType != null && all_ps)
+                        {
+                            var result = new FrontendFunctionType();
+                            for (int idx = 0; idx < fts.parameters.Count; ++idx)
+                            {
+                                result.AddParam(fts.parameters[idx].name, parameterTypes[idx]);
+                            }
+                            result.returnType = returnType;
+                            resolve(node, result);
                         }
                     }
-                    bool all_ps = parameterTypes.Count == fts.parameters.Count;
-                    checkTypeDynamic(fts.returnType);
-                    var returnType = getType(fts.returnType);
-                    if (returnType == null)
-                    {
-                        addUnresolved(node, fts.returnType);
-                    }
-                    if (returnType != null && all_ps)
-                    {
-                        var result = new FrontendFunctionType();
-                        for (int idx = 0; idx < fts.parameters.Count; ++idx)
-                        {
-                            result.AddParam(fts.parameters[idx].name, parameterTypes[idx]);
-                        }
-                        result.returnType = returnType;
-                        resolve(node, result);
-                    }
-                }
-                break;
+                    break;
                 case AST.TypeString.TypeKind.Struct:
                     throw new NotImplementedException();
 

@@ -320,6 +320,9 @@ namespace PragmaScript
                             case AST.BinOp.BinOpType.Divide:
                                 result = LLVM.BuildSDiv(builder, left, right, "div_tmp");
                                 break;
+                            case AST.BinOp.BinOpType.DivideUnsigned:
+                                result = LLVM.BuildUDiv(builder, left, right, "div_tmp");
+                                break;
                             case AST.BinOp.BinOpType.LeftShift:
                                 result = LLVM.BuildShl(builder, left, right, "shl_tmp");
                                 break;
@@ -346,6 +349,18 @@ namespace PragmaScript
                                 break;
                             case AST.BinOp.BinOpType.LessEqual:
                                 result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLE, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.GreaterUnsigned:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntUGT, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.GreaterEqualUnsigned:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntUGE, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LessUnsigned:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntULT, left, right, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LessEqualUnsigned:
+                                result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntULE, left, right, "icmp_tmp");
                                 break;
                             case AST.BinOp.BinOpType.LogicalAND:
                                 result = LLVM.BuildAnd(builder, left, right, "and_tmp");
@@ -514,7 +529,7 @@ namespace PragmaScript
                 var et = GetTypeRef(fet);
                 var indices = new LLVMValueRef[] { Const.OneInt32 };
                 var size = LLVM.BuildGEP(builder, LLVM.ConstPointerNull(LLVM.PointerType(et, 0)), out indices[0], 1, "size_of_trick");
-                var size_of = LLVM.BuildPtrToInt(builder, size, Const.Umm, "size_of_int");
+                var size_of = LLVM.BuildPtrToInt(builder, size, Const.mm, "size_of_int");
                 valueStack.Push(size_of);
                 return;
             }
@@ -717,7 +732,14 @@ namespace PragmaScript
                         case LLVMTypeKind.LLVMIntegerTypeKind:
                             if (LLVM.GetIntTypeWidth(targetType) > LLVM.GetIntTypeWidth(vtype))
                             {
-                                result = LLVM.BuildZExt(builder, v, targetType, "int_cast");
+                                if (!node.unsigned)
+                                {
+                                    result = LLVM.BuildSExt(builder, v, targetType, "int_cast");
+                                }
+                                else
+                                {
+                                    result = LLVM.BuildZExt(builder, v, targetType, "int_cast");
+                                }
                             }
                             else if (LLVM.GetIntTypeWidth(targetType) < LLVM.GetIntTypeWidth(vtype))
                             {

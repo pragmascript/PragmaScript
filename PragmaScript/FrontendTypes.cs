@@ -16,18 +16,14 @@ namespace PragmaScript
         public static readonly FrontendType i16 = new FrontendType("i16");
         public static readonly FrontendType i32 = new FrontendType("i32");
         public static readonly FrontendType i64 = new FrontendType("i64");
-        public static readonly FrontendType u8 = new FrontendType("u8");
-        public static readonly FrontendType u16 = new FrontendType("u16");
-        public static readonly FrontendType u32 = new FrontendType("u32");
-        public static readonly FrontendType u64 = new FrontendType("u64");
 
         public static readonly FrontendType f32 = new FrontendType("f32");
         public static readonly FrontendType f64 = new FrontendType("f64");
         public static readonly FrontendType bool_ = new FrontendType("bool");
-        public static readonly FrontendType umm = new FrontendType("umm");
+        public static readonly FrontendType mm = new FrontendType("mm");
 
-        public static readonly FrontendArrayType string_ = new FrontendArrayType(u8);
-        public static readonly FrontendPointerType ptr = new FrontendPointerType(u8);
+        public static readonly FrontendArrayType string_ = new FrontendArrayType(i8);
+        public static readonly FrontendPointerType ptr = new FrontendPointerType(i8);
 
 
         
@@ -77,11 +73,7 @@ namespace PragmaScript
             result |= t.Equals(i16);
             result |= t.Equals(i32);
             result |= t.Equals(i64);
-            result |= t.Equals(u8);
-            result |= t.Equals(u16);
-            result |= t.Equals(u32);
-            result |= t.Equals(u64);
-            result |= t.Equals(umm);
+            result |= t.Equals(mm);
             return result;
         }
 
@@ -110,7 +102,7 @@ namespace PragmaScript
                     if (IsIntegerType(b))
                     {
                         var an = a as FrontendNumberType;
-                        if (!an.floatLiteral)
+                        if (!an.floatType)
                         {
                             an.Bind(b);
                         }
@@ -125,7 +117,7 @@ namespace PragmaScript
                     if (IsIntegerType(a))
                     {
                         var bn = b as FrontendNumberType;
-                        if (!bn.floatLiteral)
+                        if (!bn.floatType)
                         {
                             bn.Bind(a);
                         }
@@ -146,8 +138,16 @@ namespace PragmaScript
             {
                 if (a_is_number && b_is_number)
                 {
-                    (a as FrontendNumberType).other = b  as FrontendNumberType;
-                    (b as FrontendNumberType).other = a as FrontendNumberType; 
+                    var an = a as FrontendNumberType;
+                    var bn = b as FrontendNumberType;
+                    an.other = bn;
+                    bn.other = an;
+                    if (an.floatType || bn.floatType)
+                    {
+                        an.floatType = true;
+                        bn.floatType = true;
+                    }
+                    
                     return true;
                 }
 
@@ -156,7 +156,7 @@ namespace PragmaScript
                     if (IsIntegerType(b))
                     {
                         var an = a as FrontendNumberType;
-                        if (an.floatLiteral)
+                        if (an.floatType)
                         {
                             return false;
                         }
@@ -181,7 +181,7 @@ namespace PragmaScript
                     if (IsIntegerType(a))
                     {
                         var bn = b as FrontendNumberType;
-                        if (bn.floatLiteral)
+                        if (bn.floatType)
                         {
                             return false;
                         }
@@ -217,14 +217,14 @@ namespace PragmaScript
     {
         public FrontendType boundType;
         public  FrontendNumberType other;
-        public bool floatLiteral;
+        public bool floatType;
 
         public FrontendNumberType(bool floatLiteral)
         {
             name = "$$__number__$$";
             other = null;
             boundType = null;
-            this.floatLiteral = floatLiteral;
+            this.floatType = floatLiteral;
         }
         public void Bind(FrontendType type)
         {
@@ -254,7 +254,7 @@ namespace PragmaScript
 
         public FrontendType Default()
         {
-            if (floatLiteral)
+            if (floatType)
             {
                 return FrontendType.f32;
             }
@@ -262,6 +262,22 @@ namespace PragmaScript
             {
                 return FrontendType.i32;
             }
+        }
+        public override string ToString()
+        {
+            if (boundType != null)
+            {
+                return boundType.ToString();
+            }
+            if (floatType)
+            {
+                return "float literal";
+            }
+            else
+            {
+                return "integer literal";
+            }
+
         }
     }
 

@@ -75,11 +75,7 @@ namespace PragmaScript
             public static readonly LLVMTypeRef Int32Type;
             public static readonly LLVMTypeRef Int64Type;
             public static readonly LLVMTypeRef Int8Type;
-            public static readonly LLVMTypeRef UInt16Type;
-            public static readonly LLVMTypeRef UInt32Type;
-            public static readonly LLVMTypeRef UInt64Type;
-            public static readonly LLVMTypeRef UInt8Type;
-            public static LLVMTypeRef Umm;
+            public static LLVMTypeRef mm;
             public static readonly LLVMTypeRef Int8PointerType;
             public static readonly LLVMTypeRef BoolType;
             public static readonly LLVMTypeRef VoidType;
@@ -112,11 +108,6 @@ namespace PragmaScript
                 Int64Type = LLVM.Int64Type();
                 Int8Type = LLVM.IntType(8);
 
-                UInt16Type = LLVM.Int16Type();
-                UInt32Type = LLVM.Int32Type();
-                UInt64Type = LLVM.Int64Type();
-                UInt8Type = LLVM.IntType(8);
-
 
                 Int8PointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
 
@@ -133,10 +124,10 @@ namespace PragmaScript
                 switch (platform)
                 {
                     case TargetPlatform.x86:
-                        Umm = LLVM.Int32Type();
+                        mm = LLVM.Int32Type();
                         break;
                     case TargetPlatform.x64:
-                        Umm = LLVM.Int64Type();
+                        mm = LLVM.Int64Type();
                         break;
                 }
             }
@@ -321,25 +312,9 @@ namespace PragmaScript
             {
                 return Const.Int8Type;
             }
-            if (t.Equals(FrontendType.u16))
+            if (t.Equals(FrontendType.mm))
             {
-                return Const.UInt16Type;
-            }
-            if (t.Equals(FrontendType.u32))
-            {
-                return Const.UInt32Type;
-            }
-            if (t.Equals(FrontendType.u64))
-            {
-                return Const.UInt64Type;
-            }
-            if (t.Equals(FrontendType.u8))
-            {
-                return Const.UInt8Type;
-            }
-            if (t.Equals(FrontendType.umm))
-            {
-                return Const.Umm;
+                return Const.mm;
             }
             if (t.Equals(FrontendType.f32))
             {

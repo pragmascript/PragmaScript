@@ -43,11 +43,7 @@ namespace PragmaScript
             scope.AddType(FrontendType.i64, token);
             scope.AddType(FrontendType.i8, token);
 
-            scope.AddType(FrontendType.u16, token);
-            scope.AddType(FrontendType.u32, token);
-            scope.AddType(FrontendType.u64, token);
-            scope.AddType(FrontendType.u8, token);
-            scope.AddType(FrontendType.umm, token);
+            scope.AddType(FrontendType.mm, token);
 
 
             scope.AddType(FrontendType.bool_, token);

@@ -822,7 +822,13 @@ namespace PragmaScript
 
         public class BinOp : Node
         {
-            public enum BinOpType { Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Remainder }
+            public enum BinOpType { Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Remainder,
+                GreaterEqualUnsigned,
+                LessEqualUnsigned,
+                GreaterUnsigned,
+                LessUnsigned,
+                DivideUnsigned
+            }
             // public enum AssignmentType { None, Assignment, MultiplyEquals, DivideEquals, RemainderEquals, PlusEquals, MinusEquals, LeftShiftEquals, RightShiftEquals, AndEquals, NotEquals, OrEquals }
 
             public BinOpType type;
@@ -857,6 +863,9 @@ namespace PragmaScript
                         break;
                     case Token.TokenType.Divide:
                         type = BinOpType.Divide;
+                        break;
+                    case Token.TokenType.DivideUnsigned:
+                        type = BinOpType.DivideUnsigned;
                         break;
                     case Token.TokenType.Remainder:
                         type = BinOpType.Remainder;
@@ -899,6 +908,18 @@ namespace PragmaScript
                         break;
                     case Token.TokenType.LessEqual:
                         type = BinOpType.LessEqual;
+                        break;
+                    case Token.TokenType.GreaterUnsigned:
+                        type = BinOpType.GreaterUnsigned;
+                        break;
+                    case Token.TokenType.LessUnsigned:
+                        type = BinOpType.LessUnsigned;
+                        break;
+                    case Token.TokenType.GreaterEqualUnsigned:
+                        type = BinOpType.GreaterEqualUnsigned;
+                        break;
+                    case Token.TokenType.LessEqualUnsigned:
+                        type = BinOpType.LessEqualUnsigned;
                         break;
                     default:
                         throw new ParserError("Invalid token type for binary operation", next);
@@ -955,6 +976,14 @@ namespace PragmaScript
                         return ">=";
                     case BinOpType.LessEqual:
                         return "<=";
+                    case BinOpType.GreaterUnsigned:
+                        return ">\\";
+                    case BinOpType.LessUnsigned:
+                        return "<\\";
+                    case BinOpType.GreaterEqualUnsigned:
+                        return ">=\\";
+                    case BinOpType.LessEqualUnsigned:
+                        return "<=\\";
                     case BinOpType.LeftShift:
                         return "<<";
                     case BinOpType.RightShift:
@@ -1143,6 +1172,7 @@ namespace PragmaScript
         {
             public Node expression;
             public TypeString typeString;
+            public bool unsigned;
 
             public TypeCastOp(Token t, Scope s)
                 : base(t, s)
@@ -1162,7 +1192,7 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return "(T)";
+                return "(T" + (unsigned ? "\\" : "") + ")";
             }
         }
 

@@ -83,7 +83,14 @@ namespace PragmaScript
             Alias,
             SizeOf,
             Extern,
-            Import
+            Import,
+            Unsigned,
+            GreaterUnsigned,
+            LessUnsigned,
+            GreaterEqualUnsigned,
+            LessEqualUnsigned,
+            DivideEqualsUnsigned,
+            DivideUnsigned
         }
 
         public TokenType type { get; private set; }
@@ -132,6 +139,7 @@ namespace PragmaScript
             operators.Add("-", TokenType.Subtract);
             operators.Add("*", TokenType.Multiply);
             operators.Add("/", TokenType.Divide);
+            operators.Add("/\\", TokenType.DivideUnsigned);
             operators.Add("%", TokenType.Remainder);
             operators.Add(",", TokenType.Comma);
             operators.Add(";", TokenType.Semicolon);
@@ -149,6 +157,11 @@ namespace PragmaScript
             operators.Add("<", TokenType.Less);
             operators.Add(">=", TokenType.GreaterEqual);
             operators.Add("<=", TokenType.LessEqual);
+            operators.Add(">\\", TokenType.GreaterUnsigned);
+            operators.Add("<\\", TokenType.LessUnsigned);
+            operators.Add(">=\\", TokenType.GreaterEqualUnsigned);
+            operators.Add("<=\\", TokenType.LessEqualUnsigned);
+            operators.Add("\\", TokenType.Unsigned);
             operators.Add("!", TokenType.LogicalNOT);
             operators.Add("~", TokenType.Complement);
             operators.Add("++", TokenType.Increment);
@@ -159,6 +172,7 @@ namespace PragmaScript
             operators.Add("-=", TokenType.MinusEquals);
             operators.Add("*=", TokenType.MultiplyEquals);
             operators.Add("/=", TokenType.DivideEquals);
+            operators.Add("/\\=", TokenType.DivideEqualsUnsigned);
             operators.Add("%=", TokenType.RemainderEquals);
             operators.Add("&=", TokenType.AndEquals);
             operators.Add("|=", TokenType.OrEquals);
@@ -202,6 +216,7 @@ namespace PragmaScript
                 case TokenType.XorEquals:
                 case TokenType.OrEquals:
                 case TokenType.DivideEquals:
+                case TokenType.DivideEqualsUnsigned:
                 case TokenType.AndEquals:
                 case TokenType.RemainderEquals:
                 case TokenType.MultiplyEquals:

@@ -2,7 +2,7 @@
 var console_input_handle = GetStdHandle(-10);
 let print_string = fun (s: string) => void
 {
- 	WriteFile(console_output_handle, s.data, (u32)s.length, (u32*)nullptr, nullptr);
+ 	WriteFile(console_output_handle, s.data, s.length, (i32*)nullptr, nullptr);
 }
 
 let WS_OVERLAPPEDWINDOW = 13565952;
@@ -11,50 +11,50 @@ let CW_USEDEFAULT = 0x80000000;
 let CS_OWNDC   = 0x0020;
 let CS_HREDRAW = 0x0002;
 let CS_VREDRAW = 0x0001;
-let WM_PAINT = (u32)15;
-let WM_CLOSE = (u32)16;
-let WM_DESTROY = (u32)2;
-let WM_SIZE = (u32)5;
-let WM_QUIT = (u32)18;
-let WM_SYSKEYDOWN = (u32)260;
-let WM_SYSKEYUP = (u32)261;
-let WM_KEYDOWN = (u32)256;
-let WM_KEYUP = (u32)257;
-let WHITENESS = (u32)16711778;
-let BLACKNESS = (u32)66;
-let SRCCOPY = (u32)13369376;
-let DIB_RGB_COLORS = (u32)0;
-let BI_RGB = (u32)0;
-let MEM_COMMIT     = (u32)0x00001000;
-let MEM_RESERVE    = (u32)0x00002000;
-let MEM_RESET      = (u32)0x00008000;
-let MEM_RESET_UNDO = (u32)0x10000000;
-let PAGE_READWRITE = (u32)0x04;
-let MEM_RELEASE = (u32)0x8000;
-let PM_REMOVE = (u32)0x0001;
+let WM_PAINT = 15;
+let WM_CLOSE = 16;
+let WM_DESTROY = 2;
+let WM_SIZE = 5;
+let WM_QUIT = 18;
+let WM_SYSKEYDOWN = 260;
+let WM_SYSKEYUP = 261;
+let WM_KEYDOWN = 256;
+let WM_KEYUP = 257;
+let WHITENESS = 16711778;
+let BLACKNESS = 66;
+let SRCCOPY = 13369376;
+let DIB_RGB_COLORS = 0;
+let BI_RGB = 0;
+let MEM_COMMIT     = 0x00001000;
+let MEM_RESERVE    = 0x00002000;
+let MEM_RESET      = 0x00008000;
+let MEM_RESET_UNDO = 0x10000000;
+let PAGE_READWRITE = 0x04;
+let MEM_RELEASE = 0x8000;
+let PM_REMOVE = 0x0001;
 
-let VK_ESCAPE = (u32)0x1B;
-let VK_UP     = (u32)0x26;
-let VK_DOWN   = (u32)0x28;
-let VK_LEFT   = (u32)0x25;
-let VK_RIGHT  = (u32)0x27;
-let VK_SPACE  = (u32)0x20;
+let VK_ESCAPE = 0x1B;
+let VK_UP     = 0x26;
+let VK_DOWN   = 0x28;
+let VK_LEFT   = 0x25;
+let VK_RIGHT  = 0x27;
+let VK_SPACE  = 0x20;
 
 
 let WNDCLASSEX = struct 
 (
-	cbSize: u32;
-  style: u32;
-  lpfnWndProc: u8*;
+	cbSize: i32;
+  style: i32;
+  lpfnWndProc: i8*;
   cbClsExtra: i32;
   cbWndExtra: i32;
-  hInstance: umm;
-  hIcon: umm;
-  hCursor: umm;
-  hbrBackground: umm;
-  lpszMenuName: u8*;
-  lpszClassName: u8*;
-	hIconSm: umm;
+  hInstance: mm;
+  hIcon: mm;
+  hCursor: mm;
+  hbrBackground: mm;
+  lpszMenuName: i8*;
+  lpszClassName: i8*;
+	hIconSm: mm;
 );
 let POINT = struct 
 (
@@ -63,13 +63,13 @@ let POINT = struct
 );
 let MSG = struct
 (
-	hwnd: umm;
-	message: u32;
-	wParam: umm;
-	lParam: umm;
+	hwnd: mm;
+	message: i32;
+	wParam: mm;
+	lParam: mm;
 	time: i32;
 	pt: POINT;
-  pad: umm;
+  pad: mm;
 );
 let RECT = struct 
 (
@@ -80,38 +80,38 @@ let RECT = struct
 );
 let PAINTSTRUCT = struct
 (
-	hdc: umm;
+	hdc: mm;
 	fErase: i32;
 	rcPaint: RECT;
 	fRestore: i32;
 	fIncUpdate: i32;
-	reserved0: umm;
-	reserved1: umm;
-	reserved2: umm;
-	reserved3: umm;
+	reserved0: mm;
+	reserved1: mm;
+	reserved2: mm;
+	reserved3: mm;
 );
 
 let BITMAPINFOHEADER = struct
 (
-  biSize: u32;
+  biSize: i32;
   biWidth: i32;
   biHeight: i32;
-  biPlanes: u16;
-  biBitCount: u16;
-  biCompression: u32;
-  biSizeImage: u32;
+  biPlanes: i16;
+  biBitCount: i16;
+  biCompression: i32;
+  biSizeImage: i32;
   biXPelsPerMeter: i32;
   biYPelsPerMeter: i32;
-  biClrUsed: u32;
-  biClrImportant: u32;
+  biClrUsed: i32;
+  biClrImportant: i32;
 );
 
 let RGBQUAD = struct 
 (
-  blue: u8;
-  green: u8;
-  red: u8;
-  reserved: u8;
+  blue: i8;
+  green: i8;
+  red: i8;
+  reserved: i8;
 );
 
 let BITMAPINFO = struct
@@ -122,77 +122,77 @@ let BITMAPINFO = struct
 
 let WriteFile = extern fun
 (
-  hFile: umm;
-  lpBuffer: u8*;
-  nNumberOfBytesToWrite: u32;
-  lpNumberOfBytesWritten: u32*;
+  hFile: mm;
+  lpBuffer: i8*;
+  nNumberOfBytesToWrite: i32;
+  lpNumberOfBytesWritten: i32*;
   lpOverlapped: ptr;
 ) => i32;
 
 let ReadFile = extern fun
 (
-  hFile: umm;
+  hFile: mm;
   lpBuffer: ptr;
-  nNumberOfBytesToRead: u32;
-  nNumberOfBytesRead: u32*;
+  nNumberOfBytesToRead: i32;
+  nNumberOfBytesRead: i32*;
   lpOverlapped: ptr;
 ) => i32;
 
-let GetStdHandle = extern fun (nStdHandle: i32) => umm;
-let GetModuleHandleA = extern fun (lpModuleName: umm) => umm;
-let RegisterClassExA = extern fun (window_class: WNDCLASSEX*) => u16;
-let DefWindowProcA = extern fun (window: umm; message: u32; w_param: umm; l_param: umm) => umm;
-let ExitProcess = extern fun(signal: u32) => void;
+let GetStdHandle = extern fun (nStdHandle: i32) => mm;
+let GetModuleHandleA = extern fun (lpModuleName: mm) => mm;
+let RegisterClassExA = extern fun (window_class: WNDCLASSEX*) => i16;
+let DefWindowProcA = extern fun (window: mm; message: i32; w_param: mm; l_param: mm) => mm;
+let ExitProcess = extern fun(signal: i32) => void;
 let CreateWindowExA = extern fun
 (
    dwExStyle: i32;     
-   lpClassName: u8*;
-   lpWindowName: u8*;
+   lpClassName: i8*;
+   lpWindowName: i8*;
    dwStyle: i32;
    x: i32;
    y: i32;
    nWidth: i32;
    nHeight: i32;
-   hWndParent: umm;
-   hMenu: umm;
-   hInstance: umm;
-   lpParam: umm;
-) => umm;
+   hWndParent: mm;
+   hMenu: mm;
+   hInstance: mm;
+   lpParam: mm;
+) => mm;
 let GetMessageA = extern fun
 (
   message: MSG*;
-  hWnd: umm;
-  wMsgFilterMin: u32;
-  wMsgFilterMax: u32;
+  hWnd: mm;
+  wMsgFilterMin: i32;
+  wMsgFilterMax: i32;
 ) => i32;
 let PeekMessageA = extern fun
 (
   message: MSG*;
-  hWnd: umm;
-  wMsgFilterMin: u32;
-  wMsgFilterMax: u32;
-  wRemoveMsg: u32;
+  hWnd: mm;
+  wMsgFilterMin: i32;
+  wMsgFilterMax: i32;
+  wRemoveMsg: i32;
 ) => i32;
 
 let TranslateMessage = extern fun (message: MSG*) => i32;
-let DispatchMessageA = extern fun (message: MSG*) => umm;
-let BeginPaint = extern fun (hwnd: umm; lpPaint: PAINTSTRUCT*) => umm;
-let EndPaint = extern fun (hwnd: umm; lpPaint: PAINTSTRUCT*) => i32;
+let DispatchMessageA = extern fun (message: MSG*) => mm;
+let BeginPaint = extern fun (hwnd: mm; lpPaint: PAINTSTRUCT*) => mm;
+let EndPaint = extern fun (hwnd: mm; lpPaint: PAINTSTRUCT*) => i32;
 let PostQuitMessage = extern fun (nExitCode: i32) => void;
-let GetClientRect = extern fun (hWnd: umm; rect: RECT*) => i32;
+let GetClientRect = extern fun (hWnd: mm; rect: RECT*) => i32;
 let CreateDIBSection = extern fun 
 (
-	hdc: umm;
+	hdc: mm;
 	bitmap: BITMAPINFO*;
-	iUsage: u32;
+	iUsage: i32;
 	ppvBits: ptr*;
-	hSection: umm; 
-	dwOffset: u32
-) => umm;
+	hSection: mm; 
+	dwOffset: i32
+) => mm;
 
 let StretchDIBits = extern fun 
 (
-  hdc: umm;
+  hdc: mm;
   xDest: i32;
   yDest: i32;
   nDestWidth: i32;
@@ -203,106 +203,106 @@ let StretchDIBits = extern fun
   nSrcHeight: i32;
   lpBits: ptr;
   lpBitsInfo: BITMAPINFO*;
-  iUsage: u32;
-  dwRop: u32;
+  iUsage: i32;
+  dwRop: i32;
 ) => i32;
 
 // gdi32.lib
 let PatBlt = extern fun 
 (
-	hdc: umm;
+	hdc: mm;
 	nXLeft: i32;
 	nYLeft: i32;
 	nWidth: i32;
 	nHeight: i32;
-	dwRop: u32;
+	dwRop: i32;
 ) => i32;
 
-let DeleteObject = extern fun (obj: umm) => i32;
-let CreateCompatibleDC = extern fun (hdc: umm) => umm;
-let GetDC = extern fun (hWnd: umm) => umm;
-let ReleaseDC = extern fun (hWnd: umm; hdc: umm) => i32;
-let GetCompatibleDC = extern fun (hdc: umm) => umm;
+let DeleteObject = extern fun (obj: mm) => i32;
+let CreateCompatibleDC = extern fun (hdc: mm) => mm;
+let GetDC = extern fun (hWnd: mm) => mm;
+let ReleaseDC = extern fun (hWnd: mm; hdc: mm) => i32;
+let GetCompatibleDC = extern fun (hdc: mm) => mm;
 let VirtualAlloc = extern fun 
 (
   address: ptr;
-  size: umm;
-  allocation_type: u32;
-  protect: u32;
+  size: mm;
+  allocation_type: i32;
+  protect: i32;
 ) => ptr;
 let VirtualFree = extern fun
 (
   address: ptr;
-  size: umm;
-  free_type: u32;
+  size: mm;
+  free_type: i32;
 ) => i32;
 
-let LoadLibraryA = extern fun(name: u8*) => umm;
-let GetProcAddress = extern fun(lib: umm; name: u8*) => ptr;
+let LoadLibraryA = extern fun(name: i8*) => mm;
+let GetProcAddress = extern fun(lib: mm; name: i8*) => ptr;
 
-let QueryPerformanceCounter = extern fun(result: u64*) => i32;
-let QueryPerformanceFrequency = extern fun(result: u64*) => i32;
+let QueryPerformanceCounter = extern fun(result: i64*) => i32;
+let QueryPerformanceFrequency = extern fun(result: i64*) => i32;
 
 // ********************** XINPUT ********************** 
 
 let XUSER_MAX_COUNT = 4;
-let XINPUT_SUCCESS = (u32)0;
-let XINPUT_DEVICE_NOT_CONNECTED = (u32)1167;
+let XINPUT_SUCCESS = 0;
+let XINPUT_DEVICE_NOT_CONNECTED = 1167;
 let XINPUT_GAMEPAD = struct
 (
-  Buttons: u16; 
-  LeftTrigger: u8;
-  RightTrigger: u8;
-  ThumbLX: u16;
-  ThumbLY: u16;
-  ThumbRX: u16;
-  ThumbRY: u16; // 12
+  Buttons: i16; 
+  LeftTrigger: i8;
+  RightTrigger: i8;
+  ThumbLX: i16;
+  ThumbLY: i16;
+  ThumbRX: i16;
+  ThumbRY: i16; // 12
 );
 
 let XINPUT_STATE = struct
 (
-  PacketNumber: u32;
+  PacketNumber: i32;
   Gamepad: XINPUT_GAMEPAD;
 );
 
 let x_input_get_state = fun 
 (
-  dwUserIndex: u32;
+  dwUserIndex: i32;
   state : XINPUT_STATE*
-) => u32;
+) => i32;
 
 var XInputGetState: fun 
 (
-  dwUserIndex: u32;
+  dwUserIndex: i32;
   state : XINPUT_STATE*
-) => u32;
+) => i32;
 
 
 // ********************** DIRECTSOUND ********************** 
 
 let DS_OK = 0;
-let WAVE_FORMAT_PCM = (u16)1;
-let DSBCAPS_PRIMARYBUFFER = (u32)1;
-let DSBPLAY_LOOPING = (u32)1;
-let DSSCL_PRIORITY = (u32)2;
+let WAVE_FORMAT_PCM = (i16)1;
+let DSBCAPS_PRIMARYBUFFER = 1;
+let DSBPLAY_LOOPING = 1;
+let DSSCL_PRIORITY = 2;
 
 let WAVEFORMATEX = struct
 (
-  formatTag: u16;
-  nChannels: u16;
-  nSamplesPerSec: u32;
-  nAvgBytesPerSec: u32;
-  nBlockAlign: u16;
-  nBitsPerSample: u16;
-  size: u16;
+  formatTag: i16;
+  nChannels: i16;
+  nSamplesPerSec: i32;
+  nAvgBytesPerSec: i32;
+  nBlockAlign: i16;
+  nBitsPerSample: i16;
+  size: i16;
 );
 
 let DSBUFFERDESC = struct
 (
-  size: u32;
-  flags: u32;
-  bufferBytes: u32;
-  reserved: u32;
+  size: i32;
+  flags: i32;
+  bufferBytes: i32;
+  reserved: i32;
   fxFormat: WAVEFORMATEX*;
 ); 
 
@@ -320,8 +320,8 @@ let DirectSoundBufferFunctions = struct
   GetCurrentPosition: fun
   (
     this: IDirectSoundBuffer*;
-    currentPlayCursor: u32*;
-    currentWriteCursor: u32*;
+    currentPlayCursor: i32*;
+    currentWriteCursor: i32*;
   ) => i32;
   _unused4: ptr; // GetFormat
   _unused5: ptr; // GetVolume
@@ -332,20 +332,20 @@ let DirectSoundBufferFunctions = struct
   Lock: fun
   (
     this: IDirectSoundBuffer*;
-    writeCursor: u32;
-    writeBytes: u32;
+    writeCursor: i32;
+    writeBytes: i32;
     audioRegion1: ptr*;
-    audioRegion1Size: u32*;
+    audioRegion1Size: i32*;
     audioRegion2: ptr*;
-    audioRegion2Size: u32*;
-    flags: u32;
+    audioRegion2Size: i32*;
+    flags: i32;
   ) => i32;
   Play: fun
   (
     this: IDirectSoundBuffer*;
-    reserved: u32;
-    priority: u32;
-    flags: u32;
+    reserved: i32;
+    priority: i32;
+    flags: i32;
   ) => i32;
   _usused10: ptr; // SetCurrentPosition
   SetFormat: fun
@@ -361,9 +361,9 @@ let DirectSoundBufferFunctions = struct
   (
     this: IDirectSoundBuffer*;
     audioRegion1: ptr;
-    audioRegion1Size: u32;
+    audioRegion1Size: i32;
     audioRegion2: ptr;
-    audioRegion2Size: u32;
+    audioRegion2Size: i32;
   ) => i32;
   _usused15: ptr;
 );
@@ -390,8 +390,8 @@ let DirectSoundFunctions = struct
   SetCooperativeLevel: fun
   (
     this: IDirectSound*;
-    hwnd: umm;
-    level: u32;
+    hwnd: mm;
+    level: i32;
   ) => i32;
   _unused5: ptr; // Compact
   _unused6: ptr; // GetSpeakerConfig

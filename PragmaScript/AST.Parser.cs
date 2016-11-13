@@ -187,6 +187,7 @@ namespace PragmaScript
 
         public static Node parseFileRoot(ref ParseState ps, Scope scope)
         {
+            ps.SkipWhitespace();
             parseImports(ref ps, scope);
 
             var current = ps.CurrentToken();
@@ -641,6 +642,9 @@ namespace PragmaScript
                         case Token.TokenType.DivideEquals:
                             compound.type = BinOp.BinOpType.Divide;
                             break;
+                        case Token.TokenType.DivideEqualsUnsigned:
+                            compound.type = BinOp.BinOpType.DivideUnsigned;
+                            break;
                         case Token.TokenType.AndEquals:
                             compound.type = BinOp.BinOpType.LogicalAND;
                             break;
@@ -789,6 +793,7 @@ namespace PragmaScript
                 case 2:
                     return tt == Token.TokenType.Multiply
                         || tt == Token.TokenType.Divide
+                        || tt == Token.TokenType.DivideUnsigned
                         || tt == Token.TokenType.Remainder;
                 case 3:
                     return tt == Token.TokenType.Add
@@ -800,7 +805,11 @@ namespace PragmaScript
                     return tt == Token.TokenType.Less
                         || tt == Token.TokenType.Greater
                         || tt == Token.TokenType.LessEqual
-                        || tt == Token.TokenType.GreaterEqual;
+                        || tt == Token.TokenType.GreaterEqual
+                        || tt == Token.TokenType.LessUnsigned
+                        || tt == Token.TokenType.GreaterUnsigned
+                        || tt == Token.TokenType.LessEqualUnsigned
+                        || tt == Token.TokenType.GreaterEqualUnsigned;
                 case 6:
                     return tt == Token.TokenType.Equal
                         || tt == Token.TokenType.NotEquals;
@@ -821,6 +830,7 @@ namespace PragmaScript
                     return tt == Token.TokenType.Assignment
                         || tt == Token.TokenType.MultiplyEquals
                         || tt == Token.TokenType.DivideEquals
+                        || tt == Token.TokenType.DivideEqualsUnsigned
                         || tt == Token.TokenType.RemainderEquals
                         || tt == Token.TokenType.PlusEquals
                         || tt == Token.TokenType.MinusEquals
@@ -922,17 +932,26 @@ namespace PragmaScript
                 temp.NextToken();
                 var type = parseTypeString(ref temp, scope);
                 var peek = temp.PeekToken();
-                if (peek.type == Token.TokenType.CloseBracket)
+                if (peek.type == Token.TokenType.CloseBracket || peek.type == Token.TokenType.Unsigned)
                 {
                     // now we assume its a cast
                     ps = temp;
                     ps.NextToken();
                     ps.NextToken();
-                    var exp = parsePrimary(ref ps, scope);
                     var result = new TypeCastOp(current, scope);
+                    if (peek.type == Token.TokenType.Unsigned)
+                    {
+                        result.unsigned = true;
+                        ps.ExpectCurrentToken(Token.TokenType.CloseBracket);
+                        ps.NextToken();
+                    }
+                    var exp = parsePrimary(ref ps, scope);
+                    
                     // TODO: check if valid type (in type check phase?)
                     result.typeString = type;
                     result.expression = exp;
+                   
+                    
                     return result;
                 }
             }

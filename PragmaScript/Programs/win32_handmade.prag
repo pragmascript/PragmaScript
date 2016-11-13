@@ -29,8 +29,8 @@ let offscreen_buffer = struct
 );
 let window_info = struct 
 (
-	handle: umm;
-	dc: umm;
+	handle: mm;
+	dc: mm;
 	width: i32;
 	height: i32;
 );
@@ -47,22 +47,22 @@ var z_offset = 0;
 let sound_output = struct
 (
 	sound_buffer: IDirectSoundBuffer*;
-	samples_per_second: u32;
-	bytes_per_chunk: u32;
-	buffer_size: u32;
-	latency_byte_count: u32;
+	samples_per_second: i32;
+	bytes_per_chunk: i32;
+	buffer_size: i32;
+	latency_byte_count: i32;
 	
 	tone_hz: f32;
 	tone_volume: i16;
-	sample_index: u32;
+	sample_index: i32;
 	wave_period: f32;
 	t_sine: f32;
 );
 
-let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u32) => IDirectSoundBuffer*
+let init_direct_sound = fun (hwnd: mm; buffer_size: i32; samples_per_second: i32) => IDirectSoundBuffer*
 { 
 	var dsound_library = LoadLibraryA(cstr("dsound.dll\0"));
-	assert((umm)dsound_library != null);
+	assert((mm)dsound_library != null);
 
 	var DirectSoundCreate: fun 
 	(
@@ -71,7 +71,7 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u3
 		unused: ptr;
 	) => i32;
 	*((ptr*)(&DirectSoundCreate)) = (ptr)GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
-	assert((umm)DirectSoundCreate != null);
+	assert((mm)DirectSoundCreate != null);
 
 	var dsound_obj: IDirectSound*;
 	assert(DirectSoundCreate(nullptr, &dsound_obj, nullptr) == DS_OK);
@@ -79,9 +79,9 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u3
 
 	var desc_primary = DSBUFFERDESC { };
 	desc_primary.flags = DSBCAPS_PRIMARYBUFFER;
-	desc_primary.size = (u32)(sizeof(DSBUFFERDESC));
-	desc_primary.bufferBytes = (u32)0;
-	desc_primary.reserved = (u32)0;
+	desc_primary.size = (i32)(sizeof(DSBUFFERDESC));
+	desc_primary.bufferBytes = 0;
+	desc_primary.reserved = 0;
 	desc_primary.fxFormat = (WAVEFORMATEX*)nullptr;
 
 	var primary_buffer: IDirectSoundBuffer*;
@@ -91,16 +91,16 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u3
 	wave_format.formatTag = WAVE_FORMAT_PCM;
 	wave_format.nChannels = 2;
 	wave_format.nBitsPerSample = 16;
-	wave_format.nSamplesPerSec = (u32)samples_per_second;
-	wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / (u16)8;
-	wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * (u32)wave_format.nBlockAlign;
+	wave_format.nSamplesPerSec = samples_per_second;
+	wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / (i16)8;
+	wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * (i32)wave_format.nBlockAlign;
 	wave_format.size = 0;
 	assert(primary_buffer.vtable.SetFormat(primary_buffer, &wave_format) == DS_OK);
 
 	var desc_secondary = DSBUFFERDESC { };
-	desc_secondary.size = (u32)(sizeof(DSBUFFERDESC));
+	desc_secondary.size = (i32)(sizeof(DSBUFFERDESC));
 	desc_secondary.flags = 0;
-	desc_secondary.bufferBytes = (u32)buffer_size;
+	desc_secondary.bufferBytes = buffer_size;
 	desc_secondary.fxFormat = &wave_format;
 	desc_secondary.reserved = 0;
 
@@ -112,13 +112,13 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u3
 let fill_sound_buffer = fun 
 (
 	sound_output: sound_output*;
-	byte_lock_position: u32; bytes_to_write: u32;
+	byte_lock_position: i32; bytes_to_write: i32;
 ) => void 
 {
 		var region1: ptr;
-		var region1_size: u32;
+		var region1_size: i32;
 		var region2: ptr;
-		var region2_size: u32;
+		var region2_size: i32;
 		var sound_buffer = sound_output.sound_buffer;
 		var error = sound_buffer.vtable.Lock(sound_buffer, 
 			byte_lock_position, bytes_to_write, 
@@ -129,7 +129,7 @@ let fill_sound_buffer = fun
 		{
 			var sample = (i16*)region1;
 			var sample_count = region1_size / sound_output.bytes_per_chunk;
-			for (var i: u32 = 0; i < sample_count; ++i) {
+			for (var i: i32 = 0; i < sample_count; ++i) {
 				var x = (i16)(sinf(sound_output.t_sine) * (f32)sound_output.tone_volume);
 				*sample++ = x;
 				*sample++ = x;
@@ -138,7 +138,7 @@ let fill_sound_buffer = fun
 			}
 			sample = (i16*)region2;
 			sample_count = region2_size / sound_output.bytes_per_chunk;
-			for (var i: u32 = 0; i < sample_count; ++i) {
+			for (var i: i32 = 0; i < sample_count; ++i) {
 				var x = (i16)(sinf(sound_output.t_sine) * (f32)sound_output.tone_volume);
 				*sample++ = x;
 				*sample++ = x;
@@ -161,7 +161,7 @@ let load_x_input = fun () => void
 	if (x_input_lib != null) {
 		// var x = (ptr*)(&XInputGetState);
 		*((ptr*)(&XInputGetState)) = (ptr)GetProcAddress(x_input_lib, cstr("XInputGetState\0"));
-		assert((umm)XInputGetState != null);
+		assert((mm)XInputGetState != null);
 	}
 }
 
@@ -169,7 +169,7 @@ let handle_x_input = fun () => void
 {
 	for(var c_idx = 0; c_idx < XUSER_MAX_COUNT; ++c_idx) {
 		var x_state : XINPUT_STATE;
-		var x_result = XInputGetState((u32)c_idx, &x_state); 
+		var x_result = XInputGetState(c_idx, &x_state); 
 		if (x_result == XINPUT_SUCCESS)
 		{
 			// TODO: decode input
@@ -186,17 +186,16 @@ let render_weird_gradient = fun (buffer: offscreen_buffer*; x_offset: i32; y_off
 	var width  = buffer.width;
 	var height = buffer.height;
 	var pitch  = buffer.pitch;
-	var row = (u8*)buffer.memory;
+	var row = (i8*)buffer.memory;
 	for (var j = 0; j < height; ++j) {
-		var pixel = (u32*)row;
+		var pixel = (i32*)row;
 		for (var i = 0; i < width; ++i) {
 			var x = i + x_offset;
 			var y = j + y_offset;
-			var r = (u8)(x^y^z_offset);
-			var g = (u8)y;
-			var b = (u8)x;
-			  
-			*pixel = ((u32)r << 16) | ((u32)g << 8) | (u32)b;
+			var r = (i8)(x^y^z_offset);
+			var g = (i8)y;
+			var b = (i8)x;
+			*pixel = ((i32\)r << 16) | ((i32\)g << 8) | (i32\)b;
 			pixel++;
 		}
 		row += pitch;
@@ -212,12 +211,12 @@ let create_backbuffer = fun (buffer: offscreen_buffer*; width: i32; height: i32)
 	buffer.info.header.biHeight = -height;
 	buffer.info.header.biPlanes = 1;
 	buffer.info.header.biBitCount = 32;
-	buffer.info.header.biCompression = (u32)BI_RGB;
+	buffer.info.header.biCompression = BI_RGB;
 	var bitmap_size = bytes_per_pixel * width * height;
-	if ((umm)buffer.memory != (umm)nullptr) {
+	if ((mm)buffer.memory != (mm)nullptr) {
 		VirtualFree(buffer.memory, null, MEM_RELEASE);
 	}
-	buffer.memory = VirtualAlloc(nullptr, (umm)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
+	buffer.memory = VirtualAlloc(nullptr, (mm)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
 	buffer.pitch = buffer.width * bytes_per_pixel;
 }
 
@@ -240,7 +239,7 @@ let update_window_rect = fun () => void
 }
 
 let main_window_callback =
-fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm 
+fun (window_handle: mm; message: i32; w_param: mm; l_param: mm) => mm 
 {
 	var result = null;
 	if (message == WM_SIZE) {
@@ -263,9 +262,9 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm
 		  || message == WM_KEYDOWN
 		  || message == WM_KEYUP) {
 
-		var vk_code = (u32)w_param;
-		var was_down = (l_param & (umm)(1 << 30)) != 0;
-		var is_down = (l_param & (umm)(1 << 31)) == 0;
+		var vk_code = (i32)w_param;
+		var was_down = (l_param & (mm)(1 << 30)) != 0;
+		var is_down = (l_param & (mm)(1 << 31)) == 0;
 		var key_up = was_down && !is_down;
 		var key_down = !was_down && is_down; 
 
@@ -293,13 +292,13 @@ let main = fun () => void
 {
 
 	// var t0 = _rdtsc();
-	// debug_print_u64("rdtsc", t0);
-	var perf_count_freq: u64;
+	// debug_print_i64("rdtsc", t0);
+	var perf_count_freq: i64;
 	QueryPerformanceFrequency(&perf_count_freq);
 	
 	// HACK: so that LLVM wont optimize cosf, sinf out
 	// how to do that cleanly???
-	if ((umm)cosf == 1234 || (umm)sinf == 1234) {
+	if ((mm)cosf == 1234 || (mm)sinf == 1234) {
 		print_string("");
 	}
 
@@ -311,7 +310,7 @@ let main = fun () => void
 	var instance = GetModuleHandleA(null);
 	var window_class: WNDCLASSEX;
 	window_class.cbSize = 80;
-	window_class.style = (u32)(CS_HREDRAW|CS_VREDRAW);
+	window_class.style = (CS_HREDRAW|CS_VREDRAW);
 	window_class.lpfnWndProc = (ptr)main_window_callback;
 	window_class.cbClsExtra = 0;
 	window_class.cbWndExtra = 0;
@@ -344,7 +343,7 @@ let main = fun () => void
 
 	var sound_output: sound_output;
 	sound_output.samples_per_second = 48000;
-	sound_output.bytes_per_chunk = 2 * (u32)(sizeof(i16)); // 2 channels
+	sound_output.bytes_per_chunk = 2 * (i32)(sizeof(i16)); // 2 channels
 	sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
 	sound_output.latency_byte_count = sound_output.buffer_size / 15; // 66ms latency
 	sound_output.tone_hz = 256;
@@ -362,11 +361,11 @@ let main = fun () => void
 	var last_fps: f32 = 60;
 
 	
-	var current_counter: u64;
-	var last_counter: u64;
+	var current_counter: i64;
+	var last_counter: i64;
 	QueryPerformanceCounter(&last_counter);
 
-	var current_cycle_count: u64;
+	var current_cycle_count: i64;
 	var last_cycle_count = _rdtsc();
 	while (running) {
 		var msg: MSG;
@@ -380,13 +379,13 @@ let main = fun () => void
 
 		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
 
-		var write_cursor: u32;
-		var play_cursor : u32;
+		var write_cursor: i32;
+		var play_cursor : i32;
 		var error = sound_buffer.vtable.GetCurrentPosition(sound_buffer, &play_cursor, &write_cursor);
 		assert(error == DS_OK);
-		var byte_to_lock = ((u32)sound_output.sample_index * sound_output.bytes_per_chunk) % (u32)sound_output.buffer_size;
-		var target_cursor = (play_cursor + sound_output.latency_byte_count) % (u32)sound_output.buffer_size;
-		var bytes_to_write: u32 = 0;
+		var byte_to_lock = (sound_output.sample_index * sound_output.bytes_per_chunk) % sound_output.buffer_size;
+		var target_cursor = (play_cursor + sound_output.latency_byte_count) % sound_output.buffer_size;
+		var bytes_to_write: i32 = 0;
 		if (byte_to_lock > target_cursor) {
 			bytes_to_write = sound_output.buffer_size - byte_to_lock + target_cursor;
 		} else {
