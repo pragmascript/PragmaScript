@@ -2,6 +2,7 @@ output.exe
 output.exe.manifest
 output.ll
 output.o
+output.asm
 output_opt.ll
 
 ## Ignore Visual Studio temporary files, build results, and

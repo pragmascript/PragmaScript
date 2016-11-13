@@ -3,6 +3,22 @@ import "windows.prag"
 
 // https://github.com/ecxr/handmadehero/blob/master/code/win32_handmade.cpp
 
+// TODO: 
+// - Saved game locations
+// - Getting a handle to our own executable file
+// - Asset loading pppath
+// - Threading
+// - Raw input
+// - Sleep/timeBeginPeriod
+// - ClipCursor for multimonitor support
+// - Fullscreen support
+// - WM_SETCURSOR (cursor visibility)
+// - QueryCancelAutoplay
+// - WM_ACTIATEAPP (when we are not active app)
+// - Blit speed improvements (bitblit)
+// - Hardware accelereration
+// - GetKeyboardLayout (for internationalization)
+
 let offscreen_buffer = struct
 (
 	info:   BITMAPINFO;
@@ -19,7 +35,7 @@ let window_info = struct
 	height: i32;
 );
 
-let DEBUG_DRAW_FPS = false;
+let DEBUG_DRAW_FPS = true;
 
 var running = false;
 var backbuffer: offscreen_buffer;
@@ -226,7 +242,6 @@ let update_window_rect = fun () => void
 let main_window_callback =
 fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm 
 {
-	
 	var result = null;
 	if (message == WM_SIZE) {
 		update_window_rect();	

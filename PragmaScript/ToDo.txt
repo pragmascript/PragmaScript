@@ -8,6 +8,8 @@
  - make sure that pointer artihmetic works on deeply nested recursive types
 
  - make structs zero initialize?
+
+ - get rid of signed unsigned types
     
  - switch!
 
@@ -35,7 +37,7 @@
  
   - insert missing return bs not working for non ints
 
- - get rid of signed unsigned types
+ 
  
  - structs global variables with constant initializers
  
