@@ -267,7 +267,7 @@ namespace PragmaScript
 
         static LLVMTypeRef getTypeRef(FrontendPointerType t, int depth)
         {
-            if (depth > 1 &&t.elementType is FrontendStructType)
+            if (depth > 0 &&t.elementType is FrontendStructType)
             {
                 return Const.Int8PointerType;
             }
@@ -499,8 +499,26 @@ namespace PragmaScript
                 LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.floor.f32", fn_type);
                 variables.Add("floor", fn);
             }
-
+            {
+                LLVMTypeRef[] param_types = { Const.Float32Type };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.trunc.f32", fn_type);
+                variables.Add("trunc", fn);
+            }
+            {
+                LLVMTypeRef[] param_types = { Const.Float32Type };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.ceil.f32", fn_type);
+                variables.Add("ceil", fn);
+            }
+            {
+                LLVMTypeRef[] param_types = { Const.Float32Type };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.round.f32", fn_type);
+                variables.Add("round", fn);
+            }
         }
+
 
 
         void addPreamble()
@@ -554,12 +572,27 @@ namespace PragmaScript
             LLVMMemoryBufferRef buf;
             IntPtr msg;
             LLVM.CreateMemoryBufferWithContentsOfFile(RelDir(@"Programs\ll\preamble.ll"), out buf, out msg);
+            if (msg != IntPtr.Zero)
+            {
+                Console.WriteLine(Marshal.PtrToStringAnsi(msg));
+            }
+
+
             var ctx = LLVM.GetGlobalContext();
             LLVM.ParseIRInContext(ctx, buf, out mod, out msg);
 
+            if (msg != IntPtr.Zero)
+            {
+                Console.WriteLine(Marshal.PtrToStringAnsi(msg));
+            }
+            
             var fun = LLVM.GetNamedFunction(mod, "VirtualAlloc");
             Debug.Assert(fun.Pointer != IntPtr.Zero);
             variables.Add("VirtualAlloc", fun);
+
+            fun = LLVM.GetNamedFunction(mod, "_rdtsc");
+            Debug.Assert(fun.Pointer != IntPtr.Zero);
+            variables.Add("_rdtsc", fun);
 
 
 

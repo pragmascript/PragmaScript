@@ -18,6 +18,7 @@ namespace PragmaScript
         public static string inputFilename;
         public static int optimizationLevel;
         public static bool runAfterCompile;
+        public static bool asm = false;
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
@@ -30,10 +31,10 @@ namespace PragmaScript
 
 #if DEBUG
             CompilerOptions.debug = true;
-            CompilerOptions.optimizationLevel = 3;
+            CompilerOptions.optimizationLevel = 0;
             CompilerOptions.runAfterCompile = true;
-            //CompilerOptions.inputFilename = @"Programs\win32_handmade.ps";
-            CompilerOptions.inputFilename = @"Programs\bugs.ps";
+            // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\win32_handmade.prag";
+            CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
 #endif
             if (CompilerOptions.inputFilename == null)
             {
@@ -64,6 +65,7 @@ namespace PragmaScript
             Console.WriteLine("-O0: turn off optimizations");
             Console.WriteLine("-OX: turn on optimization level X in [1..3]");
             Console.WriteLine("-R: run program after compilation");
+            Console.WriteLine("-ASM: output file with generated assembly");
         }
         static void parseARGS(string[] args)
         {
@@ -78,6 +80,9 @@ namespace PragmaScript
                         case "D":
                         case "DEGUG":
                             CompilerOptions.debug = true;
+                            break;
+                        case "ASM":
+                            CompilerOptions.asm = true;
                             break;
                         case "O0":
                             CompilerOptions.optimizationLevel = 0;

@@ -4,12 +4,25 @@
 
 - first add all global varialbes to the scope
   before parsing function blocks!
+ 
+ - make sure that pointer artihmetic works on deeply nested recursive types
+
+ - make structs zero initialize?
     
  - switch!
+
+ - hashtable:
+     https://github.com/PeterScott/murmur3
+	 https://github.com/Cyan4973/xxHash
+	 http://www.reedbeta.com/blog/data-oriented-hash-table/
 
  - rethink recursive types
      list.next.next.next.next
 	 is limited by max depth and shouldnt be.
+	 - in the backend maybe only return the 
+	   1 level deep fullsize types when doing
+	   pointer arithmetic and bitcast or 
+	   use u8* for everything else
 
  - implement assert using optional param, something like:
      assert(value: bool; caller = __FILEPOS__)
@@ -18,22 +31,18 @@
 
  - replace bool with b32
 
- - insert missing return bs not working for non ints
+ 
+ 
+  - insert missing return bs not working for non ints
 
  - get rid of signed unsigned types
  
  - structs global variables with constant initializers
  
- - setup a compilation task
- - - http://code.visualstudio.com/docs/editor/tasks
-
- - make structs zero initialize?
-
  - global variables
  - - strings
  - - structs
-
-
+ 
  - constant strings
  - constant structs
  - constant arrays?

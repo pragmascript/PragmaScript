@@ -657,7 +657,26 @@ namespace PragmaScript
                 }
                 if (!activateReturnPointer(a.left))
                 {
-                    throw new ParserErrorExpected(a.left.GetType().Name, "variable, struct field access, array element access", a.left.token);
+                    if (a.left is VariableReference)
+                    {
+                        var vr = a.left as VariableReference;
+                        if (vr.vd == null)
+                        {
+                            throw new ParserError($"Variable \"{vr.variableName}\" could not be found and this is either constant or missing, and cannot be assigned to", a.left.token);
+                        }
+                        else
+                        {
+                            if (vr.vd.isConstant)
+                            {
+                                throw new ParserError("Variable is constant and cannot be assigned to.", a.left.token);
+                            }
+                        }
+                        throw new ParserError("Cannot assign to constant variable", a.left.token);
+                    }
+                    else
+                    {
+                        throw new ParserErrorExpected(a.left.GetType().Name, "cannot take address of left side for assignment", a.left.token);
+                    }
                 }
             }
             return left;

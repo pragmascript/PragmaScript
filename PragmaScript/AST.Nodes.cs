@@ -470,7 +470,7 @@ namespace PragmaScript
             public bool returnPointer { get; set; }
             public bool CanReturnPointer()
             {
-                return true;
+                return vd == null || !vd.isConstant;
             }
 
             public VariableReference(Token t, Scope s)
@@ -482,15 +482,22 @@ namespace PragmaScript
                 // TODO: this wont work if we "link" to the variable definition
                 // via the scope because the scope pointer wont get updated
                 // and thus fail in the type checking phase.
-                Debug.Assert(vd != null);
+                // Debug.Assert(vd != null);
                 var result = new VariableReference(token, scope);
-                result.vd = new Scope.VariableDefinition();
-                result.vd.isConstant = vd.isConstant;
-                result.vd.isFunctionParameter = vd.isFunctionParameter;
-                result.vd.parameterIdx = vd.parameterIdx;
-                result.vd.name = vd.name;
-                result.vd.node = vd.node;
-                result.vd.type = vd.type;
+                if (vd != null)
+                {
+                    result.vd = new Scope.VariableDefinition();
+                    result.vd.isConstant = vd.isConstant;
+                    result.vd.isFunctionParameter = vd.isFunctionParameter;
+                    result.vd.parameterIdx = vd.parameterIdx;
+                    result.vd.name = vd.name;
+                    result.vd.node = vd.node;
+                    result.vd.type = vd.type;
+                }
+                else
+                {
+                    vd = null;
+                }
                 result.returnPointer = returnPointer;
                 return result;
             }

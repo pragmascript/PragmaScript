@@ -1,5 +1,5 @@
-﻿import "preamble.ps"
-import "windows.ps"
+﻿import "preamble.prag"
+import "windows.prag"
 
 // let sphere = struct
 // {
@@ -119,38 +119,16 @@ let vec = struct
 
 // let digits = "0123456789";
 
-let lerp = fun (a: f32; b: f32; t: f32) => f32
-{
-	return a + (b - a) * t;
-}
-
 let main = fun () => void 
 {
-	// print_string("hello world\n");
-	// print_f64(pi*pi);
-	// print_string("\n");
-	// print_f64(-12);
-	// print_string("\n");
-	// print_f64(-pi);
-	// print_string("\nfumm fumm\n");
-
-	// print_f32(abs(-12));
-	// print_string("\n");
-	// print_f32(abs(12));
-	// print_string("\n");
-	// print_f32(abs(0));
-	// print_string("\n");
-
-	print_f32(cos(0.33));
-	print_string("\n");
-
-	// for (var i = 1; i <= 64; ++i) 
-	// {
-	// 	var t = (f32)i / 64.0;
-	// 	var r = lerp(0, 2*pi_32, t);
-	// 	var x = cos(r);
-	// 	print_f32(x);
-	// 	print_string("\n");
-	// }
+	var x: i32 = 2 + 3;
+	for (var i = 1; i <= 64; ++i) 
+	{
+		var t = (f32)i / 64.0;
+		var r = lerp(0, 2*pi_32, t);
+		var x = cos(r);
+		print_f32(x);
+		print_string("\n");
+	}
 }
 

@@ -1,5 +1,7 @@
-﻿import "preamble.ps"
-import "windows.ps"
+﻿import "preamble.prag"
+import "windows.prag"
+
+// https://github.com/ecxr/handmadehero/blob/master/code/win32_handmade.cpp
 
 let offscreen_buffer = struct
 (
@@ -17,6 +19,8 @@ let window_info = struct
 	height: i32;
 );
 
+let DEBUG_DRAW_FPS = false;
+
 var running = false;
 var backbuffer: offscreen_buffer;
 var window: window_info;
@@ -24,9 +28,23 @@ var x_offset = 0;
 var y_offset = 0;
 var z_offset = 0;
 
+let sound_output = struct
+(
+	sound_buffer: IDirectSoundBuffer*;
+	samples_per_second: u32;
+	bytes_per_chunk: u32;
+	buffer_size: u32;
+	latency_byte_count: u32;
+	
+	tone_hz: f32;
+	tone_volume: i16;
+	sample_index: u32;
+	wave_period: f32;
+	t_sine: f32;
+);
 
-let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u32) => IDirectSoundBuffer* 
-{
+let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u32) => IDirectSoundBuffer*
+{ 
 	var dsound_library = LoadLibraryA(cstr("dsound.dll\0"));
 	assert((umm)dsound_library != null);
 
@@ -41,7 +59,6 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u3
 
 	var dsound_obj: IDirectSound*;
 	assert(DirectSoundCreate(nullptr, &dsound_obj, nullptr) == DS_OK);
-	
 	assert(dsound_obj.vtable.SetCooperativeLevel(dsound_obj, hwnd, DSSCL_PRIORITY) == DS_OK);
 
 	var desc_primary = DSBUFFERDESC { };
@@ -61,7 +78,7 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u3
 	wave_format.nSamplesPerSec = (u32)samples_per_second;
 	wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / (u16)8;
 	wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * (u32)wave_format.nBlockAlign;
-	wave_format.size = (u16)(sizeof(WAVEFORMATEX));
+	wave_format.size = 0;
 	assert(primary_buffer.vtable.SetFormat(primary_buffer, &wave_format) == DS_OK);
 
 	var desc_secondary = DSBUFFERDESC { };
@@ -73,10 +90,50 @@ let init_direct_sound = fun (hwnd: umm; buffer_size: u32; samples_per_second: u3
 
 	var secondary_buffer: IDirectSoundBuffer*;
 	assert(dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_secondary, &secondary_buffer, nullptr) == DS_OK);
-
-	assert(secondary_buffer.vtable.Play(secondary_buffer, 0, 0, DSBPLAY_LOOPING) == DS_OK);
-
 	return secondary_buffer;
+}
+
+let fill_sound_buffer = fun 
+(
+	sound_output: sound_output*;
+	byte_lock_position: u32; bytes_to_write: u32;
+) => void 
+{
+		var region1: ptr;
+		var region1_size: u32;
+		var region2: ptr;
+		var region2_size: u32;
+		var sound_buffer = sound_output.sound_buffer;
+		var error = sound_buffer.vtable.Lock(sound_buffer, 
+			byte_lock_position, bytes_to_write, 
+			&region1, &region1_size,
+			&region2, &region2_size,
+			0);
+		if (error == DS_OK)
+		{
+			var sample = (i16*)region1;
+			var sample_count = region1_size / sound_output.bytes_per_chunk;
+			for (var i: u32 = 0; i < sample_count; ++i) {
+				var x = (i16)(sinf(sound_output.t_sine) * (f32)sound_output.tone_volume);
+				*sample++ = x;
+				*sample++ = x;
+				sound_output.t_sine += sound_output.tone_hz * sound_output.wave_period;
+				++sound_output.sample_index;
+			}
+			sample = (i16*)region2;
+			sample_count = region2_size / sound_output.bytes_per_chunk;
+			for (var i: u32 = 0; i < sample_count; ++i) {
+				var x = (i16)(sinf(sound_output.t_sine) * (f32)sound_output.tone_volume);
+				*sample++ = x;
+				*sample++ = x;
+				sound_output.t_sine += sound_output.tone_hz * sound_output.wave_period;
+				++sound_output.sample_index;
+			}
+			error = sound_output.sound_buffer.vtable.Unlock(sound_buffer,
+				region1, region1_size, 
+				region2, region2_size);
+			assert(error == DS_OK);
+		}
 }
 
 let load_x_input = fun () => void 
@@ -122,6 +179,7 @@ let render_weird_gradient = fun (buffer: offscreen_buffer*; x_offset: i32; y_off
 			var r = (u8)(x^y^z_offset);
 			var g = (u8)y;
 			var b = (u8)x;
+			  
 			*pixel = ((u32)r << 16) | ((u32)g << 8) | (u32)b;
 			pixel++;
 		}
@@ -168,6 +226,7 @@ let update_window_rect = fun () => void
 let main_window_callback =
 fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm 
 {
+	
 	var result = null;
 	if (message == WM_SIZE) {
 		update_window_rect();	
@@ -202,8 +261,10 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm
 		} elif (vk_code == VK_RIGHT) {
 			x_offset -= 10;
 		} elif (vk_code == VK_UP) {
+			// target_sound_hz *= 1.1;
 			y_offset += 10;
 		} elif (vk_code == VK_DOWN) {
+			// target_sound_hz /= 1.1;
 			y_offset -= 10;
 		} 
 	}
@@ -215,6 +276,18 @@ fun (window_handle: umm; message: u32; w_param: umm; l_param: umm) => umm
 
 let main = fun () => void 
 {
+
+	// var t0 = _rdtsc();
+	// debug_print_u64("rdtsc", t0);
+	var perf_count_freq: u64;
+	QueryPerformanceFrequency(&perf_count_freq);
+	
+	// HACK: so that LLVM wont optimize cosf, sinf out
+	// how to do that cleanly???
+	if ((umm)cosf == 1234 || (umm)sinf == 1234) {
+		print_string("");
+	}
+
 	load_x_input();
 	create_backbuffer(&backbuffer, 1244, 705);
 
@@ -253,26 +326,36 @@ let main = fun () => void
 	window.dc = GetDC(window.handle);
 	update_window_rect();
 
-	let samples_per_second: u32 = 48000;
-	let n_channels: u32 = 2;
-	let byte_per_sample: u32 = 2;
-	let bytes_per_chunk = byte_per_sample * n_channels;
-	let seconds: u32 = 2;
-	let buffer_size = (u32)samples_per_second * n_channels * byte_per_sample * seconds;
-	let hz: u32 = 256;
-	let square_wave_half_period = samples_per_second / hz / 2;
-	var square_wave_counter = square_wave_half_period;
-	var volume: i16 = 1000;
 
-	var sound_buffer = init_direct_sound(window.handle, buffer_size, samples_per_second);
-	var write_cursor: u32;
-	var play_cursor : u32;
-	var sample_index: u32 = 0;
+	var sound_output: sound_output;
+	sound_output.samples_per_second = 48000;
+	sound_output.bytes_per_chunk = 2 * (u32)(sizeof(i16)); // 2 channels
+	sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
+	sound_output.latency_byte_count = sound_output.buffer_size / 15; // 66ms latency
+	sound_output.tone_hz = 256;
+	sound_output.tone_volume = 1000;
+	sound_output.wave_period = 2 * pi_32 / (f32)sound_output.samples_per_second;
+	sound_output.sample_index = 0;
+	sound_output.t_sine = 0;
 
+	var sound_buffer: IDirectSoundBuffer* = init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
+	sound_output.sound_buffer = sound_buffer;
+	fill_sound_buffer(&sound_output, 0, sound_output.latency_byte_count);
+	assert(sound_buffer.vtable.Play(sound_buffer, 0, 0, DSBPLAY_LOOPING) == DS_OK);
 	running = true;
+	var frames = 0;
+	var last_fps: f32 = 60;
+
+	
+	var current_counter: u64;
+	var last_counter: u64;
+	QueryPerformanceCounter(&last_counter);
+
+	var current_cycle_count: u64;
+	var last_cycle_count = _rdtsc();
 	while (running) {
 		var msg: MSG;
-		while (PeekMessageA(&msg, null, (u32)0, (u32)0, PM_REMOVE) != 0) {
+		while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE) != 0) {
 			if (msg.message == WM_QUIT) {
 				running = false;
 			}
@@ -280,62 +363,49 @@ let main = fun () => void
 			DispatchMessageA(&msg);
 		}
 
+		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
+
 		var write_cursor: u32;
 		var play_cursor : u32;
 		var error = sound_buffer.vtable.GetCurrentPosition(sound_buffer, &play_cursor, &write_cursor);
 		assert(error == DS_OK);
-
-		var byte_lock_position = (sample_index * bytes_per_chunk) % (u32)buffer_size;
-		var bytes_to_write: u32;
-		if (byte_lock_position > play_cursor) {
-			bytes_to_write = buffer_size - byte_lock_position + play_cursor;
+		var byte_to_lock = ((u32)sound_output.sample_index * sound_output.bytes_per_chunk) % (u32)sound_output.buffer_size;
+		var target_cursor = (play_cursor + sound_output.latency_byte_count) % (u32)sound_output.buffer_size;
+		var bytes_to_write: u32 = 0;
+		if (byte_to_lock > target_cursor) {
+			bytes_to_write = sound_output.buffer_size - byte_to_lock + target_cursor;
 		} else {
-			bytes_to_write = play_cursor - byte_lock_position;
+			bytes_to_write = target_cursor - byte_to_lock;
 		}
-		var region1: ptr;
-		var region1_size: u32;
-		var region2: ptr;
-		var region2_size: u32;
-
-		error = sound_buffer.vtable.Lock(sound_buffer, 
-			byte_lock_position, bytes_to_write, 
-			&region1, &region1_size,
-			&region2, &region2_size,
-			0);
-		if (error == DS_OK)
+		fill_sound_buffer(&sound_output, byte_to_lock, bytes_to_write);
+		if (sound_output.t_sine > 2000) 
 		{
-			var sample = (i16*)region1;
-			var sample_count = region1_size / bytes_per_chunk;
-			for (var i: u32 = 0; i < sample_count; ++i) {
-				if (square_wave_counter == 0) {
-					square_wave_counter = square_wave_half_period;
-					volume = -volume;
-				}
-				*sample++ = volume;
-				*sample++ = volume;
-				square_wave_counter--;
-				sample_index++;
-			}
-			sample = (i16*)region2;
-			sample_count = region2_size / bytes_per_chunk;
-			for (var i: u32 = 0; i < sample_count; ++i) {
-				if (square_wave_counter == 0) {
-					square_wave_counter = square_wave_half_period;
-					volume = -volume;
-				}
-				*sample++ = volume;
-				*sample++ = volume;
-				square_wave_counter--;
-				sample_index++;
-			}
-			error = sound_buffer.vtable.Unlock(sound_buffer,
-				region1, region1_size, 
-				region2, region2_size);
-			assert(error == DS_OK);
+			sound_output.t_sine = remainder(sound_output.t_sine, (2 * pi_32));
 		}
-		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
+
 		blit_to_screen(&backbuffer);
 		z_offset += 1;
+		++frames;
+
+		current_cycle_count = _rdtsc();
+		QueryPerformanceCounter(&current_counter);
+		var counter_elapsed = current_counter - last_counter;
+		var cycles_elapsed = current_cycle_count - last_cycle_count;
+		var frame_ms = 1000.0 * (f64)counter_elapsed / (f64)perf_count_freq;
+		if (DEBUG_DRAW_FPS && (frames % (i32)last_fps == 0))
+		{
+			print_string("\n");
+			print_f64(frame_ms);
+			print_string("ms/f   ");
+			print_f64(1000.0 / frame_ms);
+			last_fps = 0.5 * last_fps + (f32)(0.5 * (1000.0 / frame_ms));
+			print_string("fps   ");
+			print_f64((f64)cycles_elapsed / 1000000.0);
+			print_string("mcycles   ");
+			frames = 0;
+		}
+		last_counter = current_counter;
+		last_cycle_count = current_cycle_count;
 	}
     ExitProcess(0);
 }

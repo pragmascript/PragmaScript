@@ -1,10 +1,12 @@
-﻿import "windows.ps"
+﻿import "windows.prag"
 
 let null = (umm)0;
 let pi: f64 = 3.141592653589793238462643383279502884197;
 let half_pi = pi / 2.0;
 let pi_32 = (f32)pi;
 let half_pi_32 = (f32)half_pi;
+
+let _rdtsc = extern fun () => u64;
 
 let assert = fun (value: bool) => void 
 {
@@ -19,30 +21,48 @@ let cstr = fun(value: string) => u8*
 	return value.data;
 }
 
-// http://forum.devmaster.net/t/fast-and-accurate-sine-cosine/9648/85
+// // https://git.musl-libc.org/cgit/musl/tree/src/math
+// let fmodf = fun(x: f32; y: f32) => f32
+// {
+// 	var result = x / y;
+// 	return 3.0;
+// }
+
+let remainder = fun(x: f32; y: f32) => f32
+{
+	return x - floor(x/y)*y;
+}
+
+
 let sinf = fun(x: f32) => f32 
 {
-    let P = 0.225;
-    let A = 16 * sqrt(P);
-    let B = (1 - P) / sqrt(P);
+    let p = 0.225;
+    let a = 16 * sqrt(p);
+    let b = (1 - p) / sqrt(p);
 
     var y = x / (2 * pi_32);
     y = y - floor(y + 0.5);  // y in range -0.5..0.5
-    y = A * y * (0.5 - abs(y));
-    return y * (B + abs(y));
+    y = a * y * (0.5 - abs(y));
+    return y * (b + abs(y));
 }
 
+// http://forum.devmaster.net/t/fast-and-accurate-sine-cosine/9648/85
 let cosf = fun(value: f32) => f32 
 {
 	var x = half_pi_32 - value;
-    let P = 0.225;
-    let A = 16 * sqrt(P);
-    let B = (1 - P) / sqrt(P);
+    let p = 0.225;
+    let a = 16 * sqrt(p);
+    let b = (1 - p) / sqrt(p);
 
     var y = x / (2 * pi_32);
     y = y - floor(y + 0.5);  // y in range -0.5..0.5
-    y = A * y * (0.5 - abs(y));
-    return y * (B + abs(y));
+    y = a * y * (0.5 - abs(y));
+    return y * (b + abs(y));
+}
+
+let lerp = fun(a: f32; b: f32; t: f32) => f32
+{
+	return a + (b-a)*t;
 }
 
 let abs_i32 = fun (value: i32) => i32
@@ -75,11 +95,23 @@ let print_i64 = fun (value: i64) => void
 	print_string(pd.buffer);
 }
 
+let print_u64 = fun (value: u64) => void
+{
+	var v = value;
+	var pd = print_dest { };
+	pd.buffer = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+	assert(pd.buffer.length == 64); 
+	pd.pos = 0;
+	u64_to_ascii(&pd, v);
+	pd.buffer.length = pd.pos;
+	print_string(pd.buffer);
+}
+ 
+
 let print_f32 = fun (value: f32) => void
 {
 	print_f64(((f64)value));	
 }
-
 
 let print_dest = struct
 (
@@ -121,7 +153,7 @@ let u64_to_ascii = fun (dest: print_dest*; value: u64) => void
 
 let print_f64 = fun (value: f64) => void
 {
-	let precision = 10;
+	let precision = 4;
 
 	var v = value;
 	var pd = print_dest { };
@@ -161,10 +193,39 @@ let print_f64 = fun (value: f64) => void
 	print_string(pd.buffer);
 }
 
-let debug_print = fun (name: string; value: i32) => void
+
+let debug_print_u64 = fun (name: string; value: u64) => void
+{
+	print_string(name);
+	print_string(": ");
+	print_u64(value);
+	print_string("\n");
+}
+let debug_print_i64 = fun (name: string; value: i64) => void
+{
+	print_string(name);
+	print_string(": ");
+	print_i64(value);
+	print_string("\n");
+}
+let debug_print_u32 = fun (name: string; value: u32) => void
+{
+	print_string(name);
+	print_string(": ");
+	print_i64((i64)value);
+	print_string("\n");
+}
+let debug_print_i32 = fun (name: string; value: i32) => void
 {
 	print_string(name);
 	print_string(": ");
 	print_i32(value);
+	print_string("\n");
+}
+let debug_print_f32 = fun (name: string; value: f32) => void
+{
+	print_string(name);
+	print_string(": ");
+	print_f32(value);
 	print_string("\n");
 }

@@ -327,7 +327,7 @@ namespace PragmaScript
                                 result = LLVM.BuildAShr(builder, left, right, "shr_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Remainder:
-                                result = LLVM.BuildSRem(builder, left, right, "srem_tmp");
+                                result = LLVM.BuildURem(builder, left, right, "urem_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Equal:
                                 result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, left, right, "icmp_tmp");
@@ -846,7 +846,7 @@ namespace PragmaScript
 
                 Visit(node.expression);
                 var v = valueStack.Pop();
-                Debug.Assert(LLVM.IsConstant(v));
+                // Debug.Assert(LLVM.IsConstant(v));
                 variables[node.variable.name] = v;
                 return;
             }
@@ -1025,7 +1025,7 @@ namespace PragmaScript
             if (vd.isConstant)
             {
                 result = v;
-                Debug.Assert(LLVM.IsConstant(v));
+                // Debug.Assert(LLVM.IsConstant(v));
             }
             else
             {
@@ -1037,63 +1037,6 @@ namespace PragmaScript
             }
             var ltype = LLVM.TypeOf(result);
             var ltype_string = typeToString(ltype);
-
-            /*
-            switch (node.inc)
-            {
-                case AST.VariableReference.Incrementor.None:
-                    break;
-
-                case AST.VariableReference.Incrementor.preIncrement:
-                    if (isEqualType(ltype, Const.Int32Type))
-                    {
-                        result = LLVM.BuildAdd(builder, result, Const.OneInt32, "preinc");
-                    }
-                    else if (isEqualType(ltype, Const.Float32Type))
-                    {
-                        result = LLVM.BuildFAdd(builder, result, Const.OneFloat32, "preinc");
-                    }
-                    LLVM.BuildStore(builder, result, v);
-                    break;
-                case AST.VariableReference.Incrementor.preDecrement:
-                    if (isEqualType(ltype, Const.Int32Type))
-                    {
-                        result = LLVM.BuildSub(builder, result, Const.OneInt32, "predec");
-                    }
-                    else if (isEqualType(ltype, Const.Float32Type))
-                    {
-                        result = LLVM.BuildFSub(builder, result, Const.OneFloat32, "predec");
-                    }
-                    LLVM.BuildStore(builder, result, v);
-                    break;
-                case AST.VariableReference.Incrementor.postIncrement:
-                    var postinc = default(LLVMValueRef);
-                    if (isEqualType(ltype, Const.Int32Type))
-                    {
-                        postinc = LLVM.BuildAdd(builder, result, Const.OneInt32, "postinc");
-                    }
-                    else if (isEqualType(ltype, Const.Float32Type))
-                    {
-                        postinc = LLVM.BuildFAdd(builder, result, Const.OneFloat32, "postinc");
-                    }
-                    LLVM.BuildStore(builder, postinc, v);
-                    break;
-                case AST.VariableReference.Incrementor.postDecrement:
-                    var postdec = default(LLVMValueRef);
-                    if (isEqualType(ltype, Const.Int32Type))
-                    {
-                        postdec = LLVM.BuildSub(builder, result, Const.OneInt32, "postdec");
-                    }
-                    else if (isEqualType(ltype, Const.Float32Type))
-                    {
-                        postdec = LLVM.BuildFSub(builder, result, Const.OneFloat32, "postdec");
-                    }
-                    LLVM.BuildStore(builder, postdec, v);
-                    break;
-                default:
-                    break;
-            }
-            */
             valueStack.Push(result);
 
         }
@@ -1105,30 +1048,31 @@ namespace PragmaScript
             var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
 
 
-            if (f.IsAFunction().Pointer == IntPtr.Zero)
+            if (LLVM.IsAFunction(f).Pointer == IntPtr.Zero)
             {
-                var fpt = LLVM.TypeOf(f);
-                var spt = LLVM.PointerType(GetTypeRef(feft), 0);
 
-                if (fpt.Pointer != spt.Pointer)
-                {
-                    f = LLVM.BuildBitCast(builder, f, spt, "ptr_hack");
-                }
                 f = LLVM.BuildLoad(builder, f, "fun_ptr_load");
+                
             }
-
             var cnt = node.argumentList.Count;
             LLVMValueRef[] parameters = new LLVMValueRef[Math.Max(1, cnt)];
 
+
+            var ft = LLVM.TypeOf(f);
+            var rt = LLVM.GetReturnType(LLVM.GetElementType(ft));
+            var ps = LLVM.GetElementType(ft).GetParamTypes();
             for (int i = 0; i < node.argumentList.Count; ++i)
             {
                 Visit(node.argumentList[i]);
                 parameters[i] = valueStack.Pop();
+                // HACK: RETHINK THIS NONSENSE SOON
+                if (LLVM.TypeOf(parameters[i]).Pointer != ps[i].Pointer)
+                {
+                    parameters[i] = LLVM.BuildBitCast(builder, parameters[i], ps[i], "fun_param_hack");
+                }
             }
 
-            var ft = LLVM.TypeOf(f);
-            var rt = LLVM.GetReturnType(LLVM.GetElementType(ft));
-
+            
             // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
             if (isEqualType(rt, Const.VoidType))
             {
@@ -1493,6 +1437,15 @@ namespace PragmaScript
                 {
                     v = LLVM.BuildLoad(builder, v, "struct_arrow_load");
                 }
+
+                // HACK: we hit limit of recursive type so just perform bitcast
+                if (LLVM.GetTypeKind(LLVM.GetElementType(LLVM.TypeOf(v))) != LLVMTypeKind.LLVMStructTypeKind)
+                {
+                    var sp = LLVM.PointerType(GetTypeRef(s), 0);
+                    v = LLVM.BuildBitCast(builder, v, sp, "hack_bitcast");
+                }
+
+
                 LLVMValueRef result;
                 var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
                 gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");

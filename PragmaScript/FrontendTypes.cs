@@ -228,10 +228,20 @@ namespace PragmaScript
         }
         public void Bind(FrontendType type)
         {
+            HashSet<FrontendNumberType> visited = new HashSet<FrontendNumberType>();
+            bind(type, visited);
+        }
+
+        void bind(FrontendType type, HashSet<FrontendNumberType> visited)
+        {
+            visited.Add(this);
             boundType = type;
             if (other != null)
             {
-                other.Bind(type);
+                if (!visited.Contains(other))
+                {
+                    other.bind(type, visited);
+                }
             }
         }
 

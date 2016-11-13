@@ -52,7 +52,7 @@ namespace PragmaScript
                 Console.WriteLine($"optimizer... (O{optLevel})");
                 var optProcess = new Process();
                 optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
-                optProcess.StartInfo.Arguments = $"output.ll -O{optLevel} -march={arch} -mcpu=nehalem -S -o output_opt.ll";
+                optProcess.StartInfo.Arguments = $"output.ll -O{optLevel} -march={arch} -mcpu=native -S -o output_opt.ll";
                 optProcess.StartInfo.RedirectStandardInput = false;
                 optProcess.StartInfo.RedirectStandardOutput = false;
                 optProcess.StartInfo.UseShellExecute = false;
@@ -61,12 +61,17 @@ namespace PragmaScript
                 optProcess.Close();
 
             }
-#if false
+            var inp = "output_opt.ll";
+            if (optLevel == 0)
+            {
+                inp = "output.ll";
+            }
+            if (CompilerOptions.asm)
             {
                 Console.WriteLine("assembler...(debug)");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                llcProcess.StartInfo.Arguments = $"output_opt.ll -O{optLevel} -march={arch} -mcpu=nehalem -filetype=asm -o output.asm";
+                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=nehalem -filetype=asm -o output.asm";
                 llcProcess.StartInfo.RedirectStandardInput = false;
                 llcProcess.StartInfo.RedirectStandardOutput = false;
                 llcProcess.StartInfo.UseShellExecute = false;
@@ -74,17 +79,12 @@ namespace PragmaScript
                 llcProcess.WaitForExit();
                 llcProcess.Close();
             }
-#endif
+
             {
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                var inp = "output_opt.ll";
-                if (optLevel == 0)
-                {
-                    inp = "output.ll";
-                }
-                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=nehalem -filetype=obj -o output.o";
+                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=obj -o output.o";
                 llcProcess.StartInfo.RedirectStandardInput = false;
                 llcProcess.StartInfo.RedirectStandardOutput = false;
                 llcProcess.StartInfo.UseShellExecute = false;
@@ -96,7 +96,7 @@ namespace PragmaScript
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
                 lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
-                lldProcess.StartInfo.Arguments = $"kernel32.lib user32.lib gdi32.lib output.o /entry:__init /subsystem:console  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
+                lldProcess.StartInfo.Arguments = $"kernel32.lib user32.lib gdi32.lib output.o /entry:__init /subsystem:WINDOWS  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;

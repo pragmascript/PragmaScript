@@ -108,6 +108,21 @@ namespace PragmaScript
             floor.returnType = FrontendType.f32;
             floor.AddParam("x", FrontendType.f32);
             scope.AddVar("floor", floor, Token.Undefined, isConst: true);
+
+            var trunc = new FrontendFunctionType();
+            trunc.returnType = FrontendType.f32;
+            trunc.AddParam("x", FrontendType.f32);
+            scope.AddVar("trunc", trunc, Token.Undefined, isConst: true);
+
+            var ceil = new FrontendFunctionType();
+            ceil.returnType = FrontendType.f32;
+            ceil.AddParam("x", FrontendType.f32);
+            scope.AddVar("ceil", ceil, Token.Undefined, isConst: true);
+
+            var round = new FrontendFunctionType();
+            round.returnType = FrontendType.f32;
+            round.AddParam("x", FrontendType.f32);
+            scope.AddVar("round", round, Token.Undefined, isConst: true);
         }
 
         static void addBasicConstants(Scope scope, Token token)

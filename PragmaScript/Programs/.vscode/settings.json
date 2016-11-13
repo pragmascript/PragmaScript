@@ -2,7 +2,7 @@
 {
     "workbench.editor.showIcons": true,
 "files.associations": {
-    "*.ps": "csharp"
+    "*.prag": "csharp"
 }
 
 }
