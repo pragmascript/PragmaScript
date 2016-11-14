@@ -1,11 +1,9 @@
-﻿ 
- 
- - make sure that pointer artihmetic works on deeply nested recursive types
+﻿ - make sure that pointer artihmetic works on deeply nested recursive types
 
  - make structs zero initialize?
 
- - first add all global varialbes to the scope
-   before parsing function blocks!
+ - simplify / remove pre_resolved dictionary
+   using the fileRoots dictionary
 
  - emit end of file token such that errors at 
    the end of one file won't get reported on
@@ -31,14 +29,8 @@
 
  - throw error if literal number type exceeds range of late bound integer
 
- - replace bool with b32
+ - insert missing return bs not working for non ints
 
- 
- 
-  - insert missing return bs not working for non ints
-
- 
- 
  - structs global variables with constant initializers
  
  - global variables

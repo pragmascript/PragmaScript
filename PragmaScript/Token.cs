@@ -172,7 +172,7 @@ namespace PragmaScript
             operators.Add("-=", TokenType.MinusEquals);
             operators.Add("*=", TokenType.MultiplyEquals);
             operators.Add("/=", TokenType.DivideEquals);
-            operators.Add("/\\=", TokenType.DivideEqualsUnsigned);
+            operators.Add("/=\\", TokenType.DivideEqualsUnsigned);
             operators.Add("%=", TokenType.RemainderEquals);
             operators.Add("&=", TokenType.AndEquals);
             operators.Add("|=", TokenType.OrEquals);

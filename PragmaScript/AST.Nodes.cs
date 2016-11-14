@@ -1219,6 +1219,7 @@ namespace PragmaScript
             public FunctionTypeString functionTypeString;
             public StructTypeString structTypeString;
 
+
             public TypeString(Token t, Scope s) : base(t, s)
             {
             }

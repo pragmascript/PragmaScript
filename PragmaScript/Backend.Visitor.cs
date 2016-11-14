@@ -10,12 +10,25 @@ namespace PragmaScript
     partial class Backend
     {
 
-        static bool isConstantVariableDefinition(AST.Node node)
+        static bool isConstVariableDefinition(AST.Node node)
         {
 
             if (node is AST.VariableDefinition)
             {
                 if ((node as AST.VariableDefinition).variable.isConstant)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        static bool isGlobalVariableDefinition(AST.Node node)
+        {
+
+            if (node is AST.VariableDefinition)
+            {
+                if ((node as AST.VariableDefinition).variable.isGlobal)
                 {
                     return true;
                 }
@@ -39,20 +52,40 @@ namespace PragmaScript
 
         public void Visit(AST.FileRoot node)
         {
+
+
+            var constVariables = new List<AST.Node>();
+            var functionDefinitions = new List<AST.Node>();
+            var globalVariables = new List<AST.Node>();
+            var other = new List<AST.Node>();
+
             // visit function definitions make prototypes
             foreach (var decl in node.declarations)
             {
-
-                if (isConstantVariableDefinition(decl))
+                if (isConstVariableDefinition(decl))
                 {
-                    Visit(decl);
+                    constVariables.Add(decl);
                 }
-                if (decl is AST.FunctionDefinition)
+                else if (isGlobalVariableDefinition(decl))
                 {
-                    Visit(decl as AST.FunctionDefinition, proto: true);
+                    globalVariables.Add(decl);
+                }
+                else if (decl is AST.FunctionDefinition)
+                {
+                    functionDefinitions.Add(decl);
+                    if (!(decl as AST.FunctionDefinition).external)
+                    {
+                        other.Add(decl);
+                    }
+                }
+                else
+                {
+                    other.Add(decl);
                 }
             }
 
+
+            
             var par_t = new LLVMTypeRef[1];
             var returnType = LLVM.VoidType();
 
@@ -68,22 +101,21 @@ namespace PragmaScript
 
             ctx.Push(new ExecutionContext(function, "__init", entry, vars, global: true));
 
-            // TODO: call main:
-            foreach (var decl in node.declarations)
+            
+            foreach (var decl in functionDefinitions)
             {
-
-                // HACK: DO a prepass with sorting
-                if (decl is AST.FunctionDefinition)
-                {
-                    if ((decl as AST.FunctionDefinition).external)
-                    {
-                        continue;
-                    }
-                }
-                if (isConstantVariableDefinition(decl))
-                {
-                    continue;
-                }
+                Visit(decl as AST.FunctionDefinition, proto: true);
+            }
+            foreach (var decl in constVariables)
+            {
+                Visit(decl as AST.VariableDefinition);
+            }
+            foreach (var decl in globalVariables)
+            {
+                Visit(decl as AST.VariableDefinition);
+            }
+            foreach (var decl in other)
+            {
                 Visit(decl);
             }
 
@@ -417,28 +449,53 @@ namespace PragmaScript
                         }
                         break;
                     case LLVMTypeKind.LLVMPointerTypeKind:
-                        switch (node.type)
                         {
-                            case AST.BinOp.BinOpType.Add:
+                            if (LLVM.GetTypeKind(rightType) == LLVMTypeKind.LLVMIntegerTypeKind)
+                            {
+                                switch (node.type)
                                 {
-                                    var indices = new LLVMValueRef[] { right };
-                                    result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+
+                                    case AST.BinOp.BinOpType.Add:
+                                        {
+                                            var indices = new LLVMValueRef[] { right };
+                                            result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+                                        }
+                                        break;
+                                    case AST.BinOp.BinOpType.Subract:
+                                        {
+                                            var n_right = LLVM.BuildNeg(builder, right, "ptr_add_neg");
+                                            var indices = new LLVMValueRef[] { n_right };
+                                            result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+                                        }
+                                        break;
+                                    default:
+                                        throw new InvalidCodePath();
                                 }
                                 break;
-                            case AST.BinOp.BinOpType.Subract:
+                            }
+                            else if (LLVM.GetTypeKind(rightType) == LLVMTypeKind.LLVMPointerTypeKind)
+                            {
+                                switch (node.type)
                                 {
-                                    var n_right = LLVM.BuildNeg(builder, right, "ptr_add_neg");
-                                    var indices = new LLVMValueRef[] { n_right };
-                                    result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+                                    case AST.BinOp.BinOpType.Subract:
+                                        {
+                                            var li = LLVM.BuildPtrToInt(builder, left, Const.mm, "ptr_to_int");
+                                            var ri = LLVM.BuildPtrToInt(builder, right, Const.mm, "ptr_to_int");
+                                            var sub = LLVM.BuildSub(builder, li, ri, "sub");
+
+                                            result = LLVM.BuildSDiv(builder, sub, LLVM.SizeOf(LLVM.GetElementType(leftType)), "div");
+                                        }
+                                        break;
+                                    default:
+                                        throw new InvalidCodePath();
                                 }
-                                break;
-                            default:
+                            }
+                            else
                                 throw new InvalidCodePath();
                         }
                         break;
                     default:
                         throw new InvalidCodePath();
-
                 }
             }
             valueStack.Push(result);
@@ -527,10 +584,11 @@ namespace PragmaScript
             {
                 var fet = typeChecker.GetNodeType(node.expression);
                 var et = GetTypeRef(fet);
-                var indices = new LLVMValueRef[] { Const.OneInt32 };
-                var size = LLVM.BuildGEP(builder, LLVM.ConstPointerNull(LLVM.PointerType(et, 0)), out indices[0], 1, "size_of_trick");
-                var size_of = LLVM.BuildPtrToInt(builder, size, Const.mm, "size_of_int");
-                valueStack.Push(size_of);
+                //var indices = new LLVMValueRef[] { Const.OneInt32 };
+                //var size = LLVM.BuildGEP(builder, LLVM.ConstPointerNull(LLVM.PointerType(et, 0)), out indices[0], 1, "size_of_trick");
+                //var size_of = LLVM.BuildPtrToInt(builder, size, Const.mm, "size_of_int");
+
+                valueStack.Push(LLVM.SizeOf(et));
                 return;
             }
 
@@ -1000,7 +1058,7 @@ namespace PragmaScript
             // HACK: DO a prepass with sorting
             foreach (var s in node.statements)
             {
-                if (isConstantVariableDefinition(s))
+                if (isConstVariableDefinition(s))
                 {
                     Visit(s);
                     valueStack.Clear();
@@ -1008,7 +1066,7 @@ namespace PragmaScript
             }
             foreach (var s in node.statements)
             {
-                if (!isConstantVariableDefinition(s))
+                if (!isConstVariableDefinition(s))
                 {
                     Visit(s);
                     valueStack.Clear();
@@ -1074,7 +1132,7 @@ namespace PragmaScript
             {
 
                 f = LLVM.BuildLoad(builder, f, "fun_ptr_load");
-                
+
             }
             var cnt = node.argumentList.Count;
             LLVMValueRef[] parameters = new LLVMValueRef[Math.Max(1, cnt)];
@@ -1094,7 +1152,7 @@ namespace PragmaScript
                 }
             }
 
-            
+
             // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
             if (isEqualType(rt, Const.VoidType))
             {

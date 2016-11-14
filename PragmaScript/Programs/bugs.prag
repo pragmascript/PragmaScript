@@ -1,5 +1,5 @@
-﻿// import "preamble.prag"
-// import "windows.prag"
+﻿import "preamble.prag"
+import "windows.prag"
 
 // let sphere = struct
 // {
@@ -9,12 +9,12 @@
 // var s = sphere{};
 // s.pos = vec{1.0,2.0,3.0};
 
-// let vec = struct 
-// (
-// 	x: f32;
-// 	y: f32;
-// 	z: f32;
-// );
+let vec = struct 
+(
+	x: f32;
+	y: f32;
+	z: f32;
+);
 
 // let sphere = struct
 // {
@@ -64,23 +64,31 @@
 
 // let __test_size_of = fun () => void {
 // 	print_string("sizeof(i64): ");
-// 	print_i32((i32)sizeof(i64));
+// 	print_i32((i32)(sizeof(i64)), false);
 // 	print_string("\n");
 
 // 	print_string("sizeof(i32): ");
-// 	print_i32((i32)sizeof(i32));
+// 	print_i32((i32)(sizeof(i32)), false);
 // 	print_string("\n");
 
-// 	print_string("sizeof(u16): ");
-// 	print_i32((i32)sizeof(u16));
+// 	print_string("sizeof(i16): ");
+// 	print_i32((i32)(sizeof(i16)), false);
 // 	print_string("\n");
 
 // 	print_string("sizeof(i8): ");
-// 	print_i32((i32)sizeof(i8));
+// 	print_i32((i32)(sizeof(i8)), false);
+// 	print_string("\n");
+
+// 	print_string("sizeof(mm): ");
+// 	print_i32((i32)(sizeof(mm)), false);
+// 	print_string("\n");
+
+// 	print_string("sizeof(bool): ");
+// 	print_i32((i32)(sizeof(bool)), false);
 // 	print_string("\n");
 
 // 	print_string("sizeof(vec): ");
-// 	print_i32((i32)sizeof(vec));
+// 	print_i32((i32)(sizeof(vec)), false);
 // 	print_string("\n");
 // }
 
@@ -156,6 +164,8 @@
 // {
 // 	var x: i32 = 1 + 0.5;
 // }
+ }
+	
 
 let main = fun () => void 
 {

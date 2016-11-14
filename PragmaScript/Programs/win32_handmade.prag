@@ -1,5 +1,4 @@
-﻿import "preamble.prag"
-import "windows.prag"
+﻿import "handmade.prag"
 
 // https://github.com/ecxr/handmadehero/blob/master/code/win32_handmade.cpp
 
@@ -35,14 +34,20 @@ let window_info = struct
 	height: i32;
 );
 
+let player_input = struct
+(
+	upPressed: bool;
+	leftPressed: bool;
+	rightPressed: bool;
+	downPressed: bool;
+);
+
 let DEBUG_DRAW_FPS = true;
 
 var running = false;
 var backbuffer: offscreen_buffer;
 var window: window_info;
-var x_offset = 0;
-var y_offset = 0;
-var z_offset = 0;
+var player_input: player_input;
 
 let sound_output = struct
 (
@@ -58,6 +63,7 @@ let sound_output = struct
 	wave_period: f32;
 	t_sine: f32;
 );
+
 
 let init_direct_sound = fun (hwnd: mm; buffer_size: i32; samples_per_second: i32) => IDirectSoundBuffer*
 { 
@@ -180,30 +186,12 @@ let handle_x_input = fun () => void
 	}
 }
 
-let bytes_per_pixel = 4;
-let render_weird_gradient = fun (buffer: offscreen_buffer*; x_offset: i32; y_offset: i32; z_offset: i32) => void 
-{
-	var width  = buffer.width;
-	var height = buffer.height;
-	var pitch  = buffer.pitch;
-	var row = (i8*)buffer.memory;
-	for (var j = 0; j < height; ++j) {
-		var pixel = (i32*)row;
-		for (var i = 0; i < width; ++i) {
-			var x = i + x_offset;
-			var y = j + y_offset;
-			var r = (i8)(x^y^z_offset);
-			var g = (i8)y;
-			var b = (i8)x;
-			*pixel = ((i32\)r << 16) | ((i32\)g << 8) | (i32\)b;
-			pixel++;
-		}
-		row += pitch;
-	}
-}
+
+
 
 let create_backbuffer = fun (buffer: offscreen_buffer*; width: i32; height: i32) => void 
 {
+	let bytes_per_pixel = 4;
 	buffer.width = width;
 	buffer.height = height;
 	buffer.info.header.biSize = 40;
@@ -271,15 +259,13 @@ fun (window_handle: mm; message: i32; w_param: mm; l_param: mm) => mm
 		if(vk_code == VK_ESCAPE) {
 			running = false;
 		} elif (vk_code == VK_LEFT) {
-			x_offset += 10;
+			player_input.leftPressed = is_down;
 		} elif (vk_code == VK_RIGHT) {
-			x_offset -= 10;
+			player_input.rightPressed = is_down;
 		} elif (vk_code == VK_UP) {
-			// target_sound_hz *= 1.1;
-			y_offset += 10;
+			player_input.upPressed = is_down;
 		} elif (vk_code == VK_DOWN) {
-			// target_sound_hz /= 1.1;
-			y_offset -= 10;
+			player_input.downPressed = is_down;
 		} 
 	}
 	else {
@@ -288,9 +274,10 @@ fun (window_handle: mm; message: i32; w_param: mm; l_param: mm) => mm
 	return result;
 }
 
+
+
 let main = fun () => void 
 {
-
 	// var t0 = _rdtsc();
 	// debug_print_i64("rdtsc", t0);
 	var perf_count_freq: i64;
@@ -363,10 +350,15 @@ let main = fun () => void
 	
 	var current_counter: i64;
 	var last_counter: i64;
+	var last_counter_debug_stats: i64 = 0;
+
 	QueryPerformanceCounter(&last_counter);
+
 
 	var current_cycle_count: i64;
 	var last_cycle_count = _rdtsc();
+	var dt = 1.0 / 60.0;
+	
 	while (running) {
 		var msg: MSG;
 		while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE) != 0) {
@@ -377,7 +369,7 @@ let main = fun () => void
 			DispatchMessageA(&msg);
 		}
 
-		render_weird_gradient(&backbuffer, x_offset, y_offset, z_offset);
+		game_update_and_render(dt, &player_input, &backbuffer, &sound_output);
 
 		var write_cursor: i32;
 		var play_cursor : i32;
@@ -398,16 +390,17 @@ let main = fun () => void
 		}
 
 		blit_to_screen(&backbuffer);
-		z_offset += 1;
 		++frames;
 
 		current_cycle_count = _rdtsc();
 		QueryPerformanceCounter(&current_counter);
-		var counter_elapsed = current_counter - last_counter;
-		var cycles_elapsed = current_cycle_count - last_cycle_count;
-		var frame_ms = 1000.0 * (f64)counter_elapsed / (f64)perf_count_freq;
-		if (DEBUG_DRAW_FPS && (frames % (i32)last_fps == 0))
+		dt = (f32)((f64)(current_counter - last_counter) / (f64)perf_count_freq); 
+		if (DEBUG_DRAW_FPS && (current_counter - last_counter_debug_stats > perf_count_freq))
 		{
+			last_counter_debug_stats = current_counter;
+			var counter_elapsed = current_counter - last_counter;
+			var cycles_elapsed = current_cycle_count - last_cycle_count;
+			var frame_ms = 1000.0 * (f64)counter_elapsed / (f64)perf_count_freq;
 			print_string("\n");
 			print_f64(frame_ms);
 			print_string("ms/f   ");
@@ -416,6 +409,7 @@ let main = fun () => void
 			print_string("fps   ");
 			print_f64((f64)cycles_elapsed / 1000000.0);
 			print_string("mcycles   ");
+			debug_print_f32("dt", dt);
 			frames = 0;
 		}
 		last_counter = current_counter;

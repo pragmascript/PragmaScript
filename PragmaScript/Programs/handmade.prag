@@ -1,0 +1,67 @@
+import "preamble.prag"
+import "windows.prag"
+import "win32_handmade.prag"
+
+let game_update_and_render = fun
+(
+    dt: f32;
+    input: player_input*;
+    backbuffer: offscreen_buffer*;
+    sound_output: sound_output*;
+) => void
+{
+    handle_player_input(input, dt, sound_output);
+    render_weird_gradient(backbuffer);
+}
+
+var x_offset = 0.0;
+var y_offset = 0.0;
+let handle_player_input = fun 
+(
+    player_input: player_input*; 
+    dt: f32; 
+    sound_output: sound_output*
+) => void 
+{
+	if (player_input.leftPressed) {
+		x_offset += dt * 150.0;
+	}
+	if (player_input.rightPressed) {
+		x_offset -= dt * 150.0;
+	}
+	if (player_input.upPressed) {
+		y_offset += dt * 150.0;
+		sound_output.tone_hz += dt * 20.0;
+	}
+	if (player_input.downPressed) {
+		y_offset -= dt * 150.0;
+		sound_output.tone_hz -= dt * 20;
+		if (sound_output.tone_hz < 0) {
+			sound_output.tone_hz = 0;
+		}
+	}
+}
+
+
+let render_weird_gradient = fun (buffer: offscreen_buffer*) => void 
+{
+    var dx = (i32)x_offset;
+    var dy = (i32)y_offset;
+	var width  = buffer.width;
+	var height = buffer.height;
+	var pitch  = buffer.pitch;
+	var row = (i8*)buffer.memory;
+	for (var j = 0; j < height; ++j) {
+		var pixel = (i32*)row;
+		for (var i = 0; i < width; ++i) {
+			var x = i + dx;
+			var y = j + dy;
+			var r = (i8)(x^y^(x+y));
+			var g = (i8)y;
+			var b = (i8)x;
+			*pixel = ((i32\)r << 16) | ((i32\)g << 8) | (i32\)b;
+			pixel++;
+		}
+		row += pitch;
+	}
+}

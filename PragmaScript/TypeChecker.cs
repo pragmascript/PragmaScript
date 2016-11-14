@@ -25,12 +25,14 @@ namespace PragmaScript
 
     class TypeChecker
     {
+        Dictionary<FrontendType, AST.Node> typeRoots;
         Dictionary<AST.Node, FrontendType> knownTypes;
         Dictionary<AST.Node, UnresolvedType> unresolved;
         Dictionary<AST.Node, FrontendType> pre_resolved;
 
         public TypeChecker()
         {
+            typeRoots = new Dictionary<FrontendType, AST.Node>();
             unresolved = new Dictionary<AST.Node, UnresolvedType>();
             knownTypes = new Dictionary<AST.Node, FrontendType>();
             pre_resolved = new Dictionary<AST.Node, FrontendType>();
@@ -103,6 +105,8 @@ namespace PragmaScript
             Debug.Assert(from != null);
             Debug.Assert(to != null);
             Debug.Assert(from != to);
+            Debug.Assert(!knownTypes.ContainsKey(from));
+            Debug.Assert(!knownTypes.ContainsKey(to));
 
             UnresolvedType u;
             if (!unresolved.TryGetValue(from, out u))
@@ -123,10 +127,19 @@ namespace PragmaScript
 
         void resolve(AST.Node node, FrontendType type)
         {
+            
             Debug.Assert(node != null);
             Debug.Assert(type != null);
 
-            knownTypes.Add(node, type);
+            type.preResolved = false;
+            if (knownTypes.ContainsKey(node))
+            {
+                Console.WriteLine(node);
+            }
+            else
+            {
+                knownTypes.Add(node, type);
+            }
             UnresolvedType u;
             if (unresolved.TryGetValue(node, out u))
             {
@@ -144,6 +157,7 @@ namespace PragmaScript
                 }
             }
 
+            
             if (pre_resolved.ContainsKey(node))
             {
                 pre_resolved.Remove(node);
@@ -446,12 +460,16 @@ namespace PragmaScript
             {
                 result = new FrontendStructType();
                 result.name = node.name;
+                result.preResolved = true;
                 pre_resolve(node, result);
             }
             else
             {
                 result = pre_resolved[node] as FrontendStructType;
-                Debug.Assert(result != null);
+            }
+            if (!typeRoots.ContainsKey(result))
+            {
+                typeRoots.Add(result, node);
             }
 
             List<FrontendType> fieldTypes = new List<FrontendType>();
@@ -472,7 +490,6 @@ namespace PragmaScript
             bool all_fs = fieldTypes.Count == node.fields.Count;
             if (all_fs)
             {
-
                 for (int idx = 0; idx < node.fields.Count; ++idx)
                 {
                     result.AddField(node.fields[idx].name, fieldTypes[idx]);
@@ -545,9 +562,9 @@ namespace PragmaScript
                 {
                     throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
                 }
-                if (!vd.isConstant)
+                if (!vd.isConstant && !vd.isGlobal)
                 {
-                    throw new ParserError("Non constant variables can't be accessesd prior to declaration", node.token);
+                    throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
                 }
                 node.vd = vd;
             }
@@ -709,12 +726,19 @@ namespace PragmaScript
                     throw new ParserError("left side is not a struct type", node.token);
                 }
 
-                var field = st.GetField(node.fieldName);
-                if (field == null)
+                if (st.preResolved)
                 {
-                    throw new ParserError($"struct does not contain field \"{node.fieldName}\"", node.token);
+                    addUnresolved(node, typeRoots[st]);
                 }
-                resolve(node, field);
+                else
+                {
+                    var field = st.GetField(node.fieldName);
+                    if (field == null)
+                    {
+                        throw new ParserError($"struct does not contain field \"{node.fieldName}\"", node.token);
+                    }
+                    resolve(node, field);
+                }
             }
         }
 
@@ -823,7 +847,6 @@ namespace PragmaScript
                         rt = rnt.Default();
                         rnt.Bind(rt);
                     }
-                    // TODO: suppport all integer types here.
                     if (!(FrontendType.IsIntegerType(lt) && FrontendType.IsIntegerType(rt)))
                     {
                         throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lt, rt), node.token);
@@ -836,10 +859,21 @@ namespace PragmaScript
                         throw new ParserError("Only add and subtract are valid pointer arithmetic operations.", node.token);
                     }
 
-                    // TODO: rather use umm and smm???
-                    if (!FrontendType.IsIntegerType(rt))
+                    bool correctType = false;
+                    correctType = correctType || FrontendType.IsIntegerType(rt);
+                    if (rt is FrontendPointerType)
                     {
-                        throw new ParserError($"Right side of pointer arithmetic operation must be of integer type not \"{rt}\".", node.right.token);
+                        var ltp = lt as FrontendPointerType;
+                        var rtp = rt as FrontendPointerType;
+                        if (ltp.elementType.Equals(rtp.elementType))
+                        {
+                            correctType = true;
+                        }
+                    }
+                    // TODO: rather use umm and smm???
+                    if (!correctType)
+                    {
+                        throw new ParserError($"Right side of pointer arithmetic operation is not of supported type.", node.right.token);
                     }
                 }
                 else if (!FrontendType.CompatibleAndLateBind(lt, rt))
@@ -878,8 +912,6 @@ namespace PragmaScript
                     AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned,
                     AST.BinOp.BinOpType.Equal, AST.BinOp.BinOpType.NotEqual))
                 {
-
-
                     resolve(node, FrontendType.bool_);
                 }
                 else
@@ -965,7 +997,6 @@ namespace PragmaScript
                         {
                             throw new ParserError($"Unknown type: \"{node.typeName}\"", node.token);
                         }
-
                         FrontendType base_t = null;
                         if (base_t_def.type != null)
                         {

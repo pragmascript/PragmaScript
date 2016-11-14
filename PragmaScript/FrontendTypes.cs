@@ -26,9 +26,8 @@ namespace PragmaScript
         public static readonly FrontendPointerType ptr = new FrontendPointerType(i8);
 
 
-        
-
         public string name;
+        internal bool preResolved = false;
 
         protected FrontendType()
         {

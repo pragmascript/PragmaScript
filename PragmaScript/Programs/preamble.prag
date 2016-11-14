@@ -29,9 +29,8 @@ let cstr = fun(value: string) => i8*
 // }
 let remainder = fun(x: f32; y: f32) => f32
 {
-	return x - floor(x/y)*y;
+	return x - floor(x / y) * y;
 }
-
 
 let sinf = fun(x: f32) => f32 
 {
@@ -75,12 +74,9 @@ let abs_i32 = fun (value: i32) => i32
 
 let print_i32 = fun (value: i32; signed: bool) => void
 {
-	if (signed)
-	{
+	if (signed) {
 		print_i64((i64)value, true);
-	}
-	else
-	{
+	} else {
 		print_i64((i64\)value, false);
 	}
 }
@@ -128,7 +124,7 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 		var index = v % (i64)base;
 		var digit = decimal_digits[(i32)index];
 		out_char(dest, digit);
-		v /\= (i64)base;
+		v /=\ (i64)base;
 		if (v == 0) {
 			break;
 		}

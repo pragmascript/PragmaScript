@@ -12,6 +12,7 @@ namespace PragmaScript
     {
         public class VariableDefinition
         {
+            public bool isGlobal = false;
             public bool isConstant = false;
             public bool isFunctionParameter;
             public int parameterIdx = -1;
@@ -59,6 +60,7 @@ namespace PragmaScript
         {
             Debug.Assert(node != null);
             VariableDefinition v = new VariableDefinition();
+            v.isGlobal = parent == null;
             v.name = name;
             v.node = node;
             v.isConstant = isConst;
@@ -70,10 +72,11 @@ namespace PragmaScript
             return v;
         }
 
-        public VariableDefinition AddVar(string name, FrontendType @type, Token t, bool isConst = false)
+        public VariableDefinition AddVar(string name, FrontendType @type, Token t, bool isConst = false, bool isGlobal = true)
         {
             Debug.Assert(@type != null);
             VariableDefinition v = new VariableDefinition();
+            v.isGlobal = parent == null;
             v.name = name;
             v.type = @type;
             v.isConstant = isConst;
