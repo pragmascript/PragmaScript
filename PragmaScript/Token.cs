@@ -31,7 +31,7 @@ namespace PragmaScript
         public static readonly Token Undefined = new Token("undefined") { type = TokenType.Undefined, text = "undefined" };
         public static Token NewLine(int pos, int line, string filename)
         {
-            return new Token(filename) { type = TokenType.WhiteSpace, text = Environment.NewLine, length = 1, pos = pos, lineNumber = line };
+            return new Token(filename) { type = TokenType.WhiteSpace, text = Environment.NewLine, length = 1, pos_idx = pos, line_idx = line };
         }
         // public static readonly Token EOF = new Token { type = TokenType.EOF };
         public enum TokenType
@@ -96,8 +96,10 @@ namespace PragmaScript
         public TokenType type { get; private set; }
         public string text { get; private set; }
         public string errorMessage { get; private set; }
-        public int lineNumber { get; private set; }
-        public int pos { get; private set; }
+        private int line_idx;
+        private int pos_idx;
+        public int Line { get { return line_idx + 1; } }
+        public int Pos { get { return pos_idx + 1; } }
         public int length { get; private set; }
         public string filename { get; private set; }
 
@@ -231,8 +233,8 @@ namespace PragmaScript
         {
             var t = new Token(filename);
             t.type = TokenType.Undefined;
-            t.pos = pos;
-            t.lineNumber = lineNumber;
+            t.pos_idx = pos;
+            t.line_idx = lineNumber;
             t.length = 0;
 
             char current = line[pos];
@@ -250,7 +252,7 @@ namespace PragmaScript
                 }
 
                 t.type = TokenType.WhiteSpace;
-                t.text = line.Substring(t.pos, t.length);
+                t.text = line.Substring(t.pos_idx, t.length);
                 return t;
             }
 
@@ -261,7 +263,7 @@ namespace PragmaScript
                     if (line[pos + 1] == '/')
                     {
                         t.type = TokenType.Comment;
-                        t.text = line.Substring(t.pos, line.Length - t.pos);
+                        t.text = line.Substring(t.pos_idx, line.Length - t.pos_idx);
                         t.length = t.text.Length;
                         return t;
                     }
@@ -278,7 +280,7 @@ namespace PragmaScript
                     t.length++;
                     if (pos >= line.Length)
                     {
-                        t.text = line.Substring(t.pos, t.length - 1);
+                        t.text = line.Substring(t.pos_idx, t.length - 1);
                         throw new LexerError("String constant exceeds line!", t);
                     }
                     last = current;
@@ -286,7 +288,7 @@ namespace PragmaScript
                 } while (current != '"' || last == '\\');
                 pos++;
                 t.length++;
-                t.text = line.Substring(t.pos, t.length);
+                t.text = line.Substring(t.pos_idx, t.length);
                 return t;
             }
 
@@ -320,7 +322,7 @@ namespace PragmaScript
                     // only one decimal seperator is allowed
                     if (current == '.' && containsDecimalSeperator)
                     {
-                        t.text = line.Substring(t.pos, t.length);
+                        t.text = line.Substring(t.pos_idx, t.length);
                         throw new LexerError("Only one decimal seperator is allowed!", t);
                     }
                     containsDecimalSeperator |= current == '.';
@@ -332,7 +334,7 @@ namespace PragmaScript
                     current = line[pos];
                 }
                 t.type = containsDecimalSeperator ? TokenType.FloatNumber : TokenType.IntNumber;
-                t.text = line.Substring(t.pos, t.length);
+                t.text = line.Substring(t.pos_idx, t.length);
                 return t;
             }
 
@@ -348,7 +350,7 @@ namespace PragmaScript
                     current = line[pos];
                 }
 
-                var identifier = line.Substring(t.pos, t.length);
+                var identifier = line.Substring(t.pos_idx, t.length);
                 t.text = identifier;
 
                 // check if current identifier is a reserved keyword
@@ -375,7 +377,7 @@ namespace PragmaScript
                 {
                     t.length = ops.Length;
                     t.type = op;
-                    t.text = line.Substring(t.pos, t.length);
+                    t.text = line.Substring(t.pos_idx, t.length);
                 }
                 pos++;
                 if (pos >= line.Length)
@@ -390,7 +392,7 @@ namespace PragmaScript
             }
 
             t.length = 1;
-            t.text = line.Substring(t.pos, t.length);
+            t.text = line.Substring(t.pos_idx, t.length);
             throw new LexerError("Syntax error!", t);
         }
 
@@ -398,11 +400,11 @@ namespace PragmaScript
         {
             if (type != TokenType.Error)
             {
-                return string.Format("({0}, file \"{1}\", line {2}, pos {3}, \"{4}\")", type.ToString(), filename, lineNumber + 1, pos + 1, text);
+                return string.Format("({0}, file \"{1}\", line {2}, pos {3}, \"{4}\")", type.ToString(), filename, Line, Pos, text);
             }
             else
             {
-                return string.Format("({0}, file {1}, line {2}, pos {3}, \"{4}\")", "error: " + errorMessage, filename, lineNumber + 1, pos + 1, text);
+                return string.Format("({0}, file {1}, line {2}, pos {3}, \"{4}\")", "error: " + errorMessage, filename, Line, Pos, text);
             }
 
         }
@@ -428,7 +430,7 @@ namespace PragmaScript
 
             var teof = new Token(filename);
             teof.type = TokenType.EOF;
-            teof.lineNumber = lines.Length;
+            teof.line_idx = lines.Length;
             result.Add(teof);
         }
     }

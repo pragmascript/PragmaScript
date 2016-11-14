@@ -127,19 +127,11 @@ namespace PragmaScript
 
         void resolve(AST.Node node, FrontendType type)
         {
-            
             Debug.Assert(node != null);
             Debug.Assert(type != null);
 
             type.preResolved = false;
-            if (knownTypes.ContainsKey(node))
-            {
-                Console.WriteLine(node);
-            }
-            else
-            {
-                knownTypes.Add(node, type);
-            }
+            knownTypes.Add(node, type);
             UnresolvedType u;
             if (unresolved.TryGetValue(node, out u))
             {
@@ -218,12 +210,11 @@ namespace PragmaScript
             resolve(node, FrontendType.none);
         }
 
-
-
         void checkType(AST.Elif node)
         {
             checkTypeDynamic(node.condition);
             var ct = getType(node.condition);
+
             if (ct != null)
             {
                 if (!ct.Equals(FrontendType.bool_))
@@ -232,21 +223,24 @@ namespace PragmaScript
             }
             else
             {
-                var u = new UnresolvedType(node);
-                var cu = unresolved[node.condition];
-                u.waitingFor.Add(cu);
-                cu.blocking.Add(u);
+                addUnresolved(node, node.condition);
             }
-
             checkTypeDynamic(node.thenBlock);
-
         }
 
         void checkType(AST.IfCondition node)
         {
+
+            int elifsResolved = 0;
+            foreach (var elif in node.elifs)
+            {
+                checkTypeDynamic(elif);
+                elifsResolved++;
+            }
+
             checkTypeDynamic(node.condition);
             var ct = getType(node.condition);
-            if (ct != null)
+            if (ct != null && elifsResolved == node.elifs.Count)
             {
                 if (!ct.Equals(FrontendType.bool_))
                     throw new ParserExpectedType(FrontendType.bool_, ct, node.condition.token);
@@ -259,10 +253,6 @@ namespace PragmaScript
 
             checkTypeDynamic(node.thenBlock);
 
-            foreach (var elif in node.elifs)
-            {
-                checkTypeDynamic(elif);
-            }
 
             if (node.elseBlock != null)
             {
