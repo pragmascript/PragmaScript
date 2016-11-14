@@ -34,20 +34,12 @@ let window_info = struct
 	height: i32;
 );
 
-let player_input = struct
-(
-	upPressed: bool;
-	leftPressed: bool;
-	rightPressed: bool;
-	downPressed: bool;
-);
-
 let DEBUG_DRAW_FPS = true;
 
 var running = false;
 var backbuffer: offscreen_buffer;
 var window: window_info;
-var player_input: player_input;
+var game_input: game_input;
 
 let sound_output = struct
 (
@@ -186,9 +178,6 @@ let handle_x_input = fun () => void
 	}
 }
 
-
-
-
 let create_backbuffer = fun (buffer: offscreen_buffer*; width: i32; height: i32) => void 
 {
 	let bytes_per_pixel = 4;
@@ -259,13 +248,13 @@ fun (window_handle: mm; message: i32; w_param: mm; l_param: mm) => mm
 		if(vk_code == VK_ESCAPE) {
 			running = false;
 		} elif (vk_code == VK_LEFT) {
-			player_input.leftPressed = is_down;
+			game_input.leftPressed = is_down;
 		} elif (vk_code == VK_RIGHT) {
-			player_input.rightPressed = is_down;
+			game_input.rightPressed = is_down;
 		} elif (vk_code == VK_UP) {
-			player_input.upPressed = is_down;
+			game_input.upPressed = is_down;
 		} elif (vk_code == VK_DOWN) {
-			player_input.downPressed = is_down;
+			game_input.downPressed = is_down;
 		} 
 	}
 	else {
@@ -358,6 +347,8 @@ let main = fun () => void
 	var current_cycle_count: i64;
 	var last_cycle_count = _rdtsc();
 	var dt = 1.0 / 60.0;
+
+	
 	
 	while (running) {
 		var msg: MSG;
@@ -369,7 +360,17 @@ let main = fun () => void
 			DispatchMessageA(&msg);
 		}
 
-		game_update_and_render(dt, &player_input, &backbuffer, &sound_output);
+		var game_render_target = game_render_target { };
+		game_render_target.memory = backbuffer.memory;
+		game_render_target.width = backbuffer.width;
+		game_render_target.height = backbuffer.height;
+		game_render_target.pitch = backbuffer.pitch;
+
+		var game_sound_output = game_sound_output { };
+		game_sound_output.samples_per_second = sound_output.samples_per_second;
+		var samples = i16[48000/30] {};
+
+		game_update_and_render(dt, &game_input, &game_render_target, &game_sound_output);
 
 		var write_cursor: i32;
 		var play_cursor : i32;

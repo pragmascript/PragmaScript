@@ -2,48 +2,92 @@ import "preamble.prag"
 import "windows.prag"
 import "win32_handmade.prag"
 
+var x_offset = 0.0;
+var y_offset = 0.0;
+
+var sound_t_sine = 0.0;
+var sound_volume = 0.0;
+var sound_tone_hz = 256.0;
+
+let sound_samples_per_second = 48000;
+let sound_wave_period = 2 * pi_32 / (f32)sound_samples_per_second;
+
+let game_sound_output = struct
+(
+    sample_out: i16*;
+    sample_count: i32;
+    samples_per_second: i32;
+);
+
+let game_input = struct
+(
+	upPressed: bool;
+	leftPressed: bool;
+	rightPressed: bool;
+	downPressed: bool;
+);
+
+let game_render_target = struct 
+(
+    memory: ptr;
+	width:  i32;
+	height: i32;
+	pitch:  i32;
+);
+
 let game_update_and_render = fun
 (
     dt: f32;
-    input: player_input*;
-    backbuffer: offscreen_buffer*;
-    sound_output: sound_output*;
+    input: game_input*;
+    render_target: game_render_target*;
+    sound_output: game_sound_output*;
 ) => void
 {
-    handle_player_input(input, dt, sound_output);
-    render_weird_gradient(backbuffer);
+    handle_player_input(input, dt);
+    output_sound(sound_output);
+    render_weird_gradient(render_target);
 }
 
-var x_offset = 0.0;
-var y_offset = 0.0;
 let handle_player_input = fun 
 (
-    player_input: player_input*; 
+    game_input: game_input*; 
     dt: f32; 
-    sound_output: sound_output*
 ) => void 
 {
-	if (player_input.leftPressed) {
+	if (game_input.leftPressed) {
 		x_offset += dt * 150.0;
 	}
-	if (player_input.rightPressed) {
+	if (game_input.rightPressed) {
 		x_offset -= dt * 150.0;
 	}
-	if (player_input.upPressed) {
+	if (game_input.upPressed) {
 		y_offset += dt * 150.0;
-		sound_output.tone_hz += dt * 20.0;
+		sound_tone_hz += dt * 20.0;
 	}
-	if (player_input.downPressed) {
+	if (game_input.downPressed) {
 		y_offset -= dt * 150.0;
-		sound_output.tone_hz -= dt * 20;
-		if (sound_output.tone_hz < 0) {
-			sound_output.tone_hz = 0;
+		sound_tone_hz -= dt * 20;
+		if (sound_tone_hz < 0) {
+			sound_tone_hz = 0;
 		}
 	}
 }
 
+let output_sound = fun (sound_output: game_sound_output*) => void 
+{
+    var wave_period = 2 * pi_32 / (f32)sound_output.samples_per_second;
+    var sample = sound_output.sample_out;
+    assert((mm)sample != null);
+    var sample_count = sound_output.sample_count;
+    for (var i: i32 = 0; i < sample_count; ++i) {
+        var x = (i16)(32767 * sound_volume * sinf(sound_t_sine));
+        *sample++ = x;
+        *sample++ = x;
+        sound_t_sine += sound_tone_hz * wave_period;
+    }
+}
 
-let render_weird_gradient = fun (buffer: offscreen_buffer*) => void 
+let render_weird_gradient = fun (buffer: game_render_target*) => void 
 {
     var dx = (i32)x_offset;
     var dy = (i32)y_offset;
