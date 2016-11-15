@@ -971,6 +971,19 @@ namespace PragmaScript
                         LLVM.BuildStore(builder, v, result);
                     }
                 }
+                if (node.typeString != null && node.typeString.allocationCount != null)
+                {
+                    var insert = LLVM.GetInsertBlock(builder);
+                    LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
+                    Debug.Assert(node.expression == null);
+                    Visit(node.typeString.allocationCount);
+                    var ac = valueStack.Pop();
+                    var et = LLVM.GetElementType(vType);
+
+                    var alloc = LLVM.BuildArrayAlloca(builder, et, ac, "alloca");
+                    LLVM.BuildStore(builder, alloc, result);
+                    LLVM.PositionBuilderAtEnd(builder, insert);
+                }
                 variables[node.variable.name] = result;
             }
             else // is global

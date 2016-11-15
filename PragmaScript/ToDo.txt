@@ -1,5 +1,13 @@
-﻿ - make sure that pointer artihmetic works on deeply nested recursive types
+﻿ - rethink the i8*64 syntax
+   it would be better if it could also be
+   on the right side of an assignment
+   so you could write
+   str.data = [i8*32];
+ 
+ - make sure that pointer artihmetic works on deeply nested recursive types
 
+ - figure out a way to know if a node is a compile time constant or not
+ 
  - make structs zero initialize?
 
  - simplify / remove pre_resolved dictionary
@@ -36,7 +44,7 @@
  - global variables
  - - strings
  - - structs
- 
+
  - constant strings
  - constant structs
  - constant arrays?

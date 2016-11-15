@@ -6,7 +6,7 @@ var x_offset = 0.0;
 var y_offset = 0.0;
 
 var sound_t_sine = 0.0;
-var sound_volume = 0.0;
+var sound_volume = 0.05;
 var sound_tone_hz = 256.0;
 
 let sound_samples_per_second = 48000;
@@ -56,9 +56,14 @@ let handle_player_input = fun
 {
 	if (game_input.leftPressed) {
 		x_offset += dt * 150.0;
+        sound_volume -= dt * 0.02;
+        if (sound_volume < 0) {
+            sound_volume = 0;
+        }
 	}
 	if (game_input.rightPressed) {
 		x_offset -= dt * 150.0;
+        sound_volume += dt * 0.02;
 	}
 	if (game_input.upPressed) {
 		y_offset += dt * 150.0;
@@ -85,6 +90,7 @@ let output_sound = fun (sound_output: game_sound_output*) => void
         *sample++ = x;
         sound_t_sine += sound_tone_hz * wave_period;
     }
+    sound_t_sine = remainder(sound_t_sine, 2*pi_32);
 }
 
 let render_weird_gradient = fun (buffer: game_render_target*) => void 

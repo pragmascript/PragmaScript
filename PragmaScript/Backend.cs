@@ -569,7 +569,9 @@ namespace PragmaScript
             Debug.Assert(fun.Pointer != IntPtr.Zero);
             variables.Add("_rdtsc", fun);
 
-
+            fun = LLVM.GetNamedFunction(mod, "__chkstk");
+            Debug.Assert(fun.Pointer != IntPtr.Zero);
+            variables.Add("__chkstk", fun);
 
             // Console.WriteLine(Marshal.PtrToStringAnsi(msg));
             //LLVM.LinkModules(mod, m, LLVMLinkerMode.LLVMLinkerDestroySource, out msg);

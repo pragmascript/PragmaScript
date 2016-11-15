@@ -1,13 +1,14 @@
 ﻿import "windows.prag"
 
 let null = (mm)0;
-let pi: f64 = 3.141592653589793238462643383279502884197;
+			  
+let pi: f64 = 3.1415926535897932384626433832795028841971693993751058209749445923078164062;
 let half_pi = pi / 2.0;
 let pi_32 = (f32)pi;
 let half_pi_32 = (f32)half_pi;
 
 let _rdtsc = extern fun () => i64;
-
+let __chkstk = extern fun () => void;
 let assert = fun (value: bool) => void 
 {
 	if (!value) {
@@ -21,6 +22,35 @@ let cstr = fun(value: string) => i8*
 	return value.data;
 }
 
+
+// TODO?????
+// let __chkstk = fun() => void 
+// {
+// 	return;
+// }
+// https://raw.githubusercontent.com/Microsoft/compiler-rt/8902445ef0cb23430ab6d9e3213c02c23752196d/lib/builtins/x86_64/chkstk.S
+// https://github.com/Microsoft/compiler-rt/blob/8902445ef0cb23430ab6d9e3213c02c23752196d/lib/builtins/i386/chkstk.S
+// void __chkstk() 
+// {
+// 	 __asm__ ( "push   %rcx \t\n"
+//                "push   %rax \t\n"
+//                "cmp    $0x1000,%rax \t\n"
+//                "lea    24(%rsp),%rcx \t\n"
+//                "jb     1f \t\n"
+//                "2: \t\n"
+//                "sub    $0x1000,%rcx \t\n"              
+//                "orl    $0,(%rcx) \t\n"
+//                "sub    $0x1000,%rax \t\n"              
+//                "cmp    $0x1000,%rax \t\n"              
+//                "ja     2b \t\n"              
+//                "1: \t\n"
+//                "sub    %rax,%rcx \t\n"
+//                "orl    $0,(%rcx) \t\n"
+//                "pop    %rax \t\n"
+//                "pop    %rcx \t\n"
+//                "ret \t\n"
+//     );
+// }
 // // https://git.musl-libc.org/cgit/musl/tree/src/math
 // let fmodf = fun(x: f32; y: f32) => f32
 // {

@@ -768,6 +768,10 @@ namespace PragmaScript
                 var peek = ps.ExpectPeekToken(Token.TokenType.Assignment, Token.TokenType.Semicolon);
                 if (peek.type == Token.TokenType.Assignment)
                 {
+                    if (result.typeString.allocationCount != null)
+                    {
+                        throw new ParserError("Allocation typestring is implicitly initialized. Explicit initialization is invalid.", peek);
+                    }
                     ps.NextToken();
                     ps.NextToken();
                     result.expression = parseBinOp(ref ps, scope);
@@ -1361,6 +1365,17 @@ namespace PragmaScript
                     {
                         result.pointerLevel++;
                         ps.NextToken();
+                    }
+
+                    if (ps.PeekToken().type != Token.TokenType.CloseBracket 
+                        && ps.PeekToken().type != Token.TokenType.Semicolon
+                        && ps.PeekToken().type != Token.TokenType.OpenCurly
+                        && ps.PeekToken().type != Token.TokenType.Assignment)
+
+                    {
+                        ps.NextToken();
+                        var alloc = parseBinOp(ref ps, scope);
+                        result.allocationCount = alloc;
                     }
                 }
                 return result;

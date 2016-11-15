@@ -164,10 +164,30 @@ let vec = struct
 // {
 // 	var x: i32 = 1 + 0.5;
 // }
- }
+ // }
 	
 
 let main = fun () => void 
 {
+	if ((mm)__chkstk == 1234 || (mm)cosf == 1234 || (mm)sinf == 1234) {
+		print_string("");
+	}
+
+	var samples: i32*4;
+	var x = 77;
+	var y = samples;
+	*y++ = 12;
+	*y++ = 13;
+	*y++ = 14;
+	*y++ = 15;
+	print_i32(*samples++, true);
+	print_string("\n");
+	print_i32(*samples++, true);
+	print_string("\n");
+	print_i32(*samples++, true);
+	print_string("\n");
+	print_i32(*samples++, true);
+	print_string("\n");
+	print_i32(x, true);
 }
 

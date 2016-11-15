@@ -1218,6 +1218,7 @@ namespace PragmaScript
             public TypeKind kind = TypeKind.Other;
             public FunctionTypeString functionTypeString;
             public StructTypeString structTypeString;
+            public Node allocationCount; 
 
 
             public TypeString(Token t, Scope s) : base(t, s)

@@ -837,7 +837,7 @@ namespace PragmaScript
                         rt = rnt.Default();
                         rnt.Bind(rt);
                     }
-                    if (!(FrontendType.IsIntegerType(lt) && FrontendType.IsIntegerType(rt)))
+                    if (!FrontendType.IntegersOrLateBind(lt, rt))
                     {
                         throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lt, rt), node.token);
                     }
@@ -850,7 +850,7 @@ namespace PragmaScript
                     }
 
                     bool correctType = false;
-                    correctType = correctType || FrontendType.IsIntegerType(rt);
+                    correctType = correctType || FrontendType.IsIntegerOrLateBind(rt);
                     if (rt is FrontendPointerType)
                     {
                         var ltp = lt as FrontendPointerType;
@@ -876,21 +876,20 @@ namespace PragmaScript
                 if (node.isEither(AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned,
                     AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned))
                 {
-                    if (lt is FrontendNumberType)
-                    {
-                        var lnt = lt as FrontendNumberType;
-                        lt = lnt.Default();
-                        lnt.Bind(lt);
-                    }
-                    if (rt is FrontendNumberType)
-                    {
-                        var rnt = rt as FrontendNumberType;
-                        rt = rnt.Default();
-                        rnt.Bind(rt);
-                    }
+                    //if (lt is FrontendNumberType)
+                    //{
+                    //    var lnt = lt as FrontendNumberType;
+                    //    lt = lnt.Default();
+                    //    lnt.Bind(lt);
+                    //}
+                    //if (rt is FrontendNumberType)
+                    //{
+                    //    var rnt = rt as FrontendNumberType;
+                    //    rt = rnt.Default();
+                    //    rnt.Bind(rt);
+                    //}
 
-                    // TODO: rather use umm and smm???
-                    if (!(FrontendType.IsIntegerType(lt) && FrontendType.IsIntegerType(rt)))
+                    if (!FrontendType.IntegersOrLateBind(lt, rt))
                     {
                         throw new ParserError($"Unsigned comparison operators are only valid for integer types not \"{lt}\".", node.right.token);
                     }
@@ -908,7 +907,7 @@ namespace PragmaScript
                 {
                     if (node.type == AST.BinOp.BinOpType.DivideUnsigned)
                     {
-                        if (!(FrontendType.IsIntegerType(lt) && FrontendType.IsIntegerType(rt)))
+                        if (!FrontendType.IntegersOrLateBind(lt, rt))
                         {
                             throw new ParserError($"Unsigned division operator is only valid for integer types not \"{lt}\".", node.right.token);
                         }
@@ -978,95 +977,117 @@ namespace PragmaScript
 
         void checkType(AST.TypeString node)
         {
-            switch (node.kind)
+            bool waitingForAllocationCount = false;
+            if (node.allocationCount != null)
             {
-                case AST.TypeString.TypeKind.Other:
+                checkTypeDynamic(node.allocationCount);
+                var act = getType(node.allocationCount);
+                if (act != null)
+                {
+                    // TODO: check for constant
+                    if (!FrontendType.IsIntegerOrLateBind(act))
                     {
-                        var base_t_def = node.scope.GetType(node.typeName);
-                        if (base_t_def == null)
+                        throw new ParserError("Allocation count must be a constant integer", node.allocationCount.token);
+                    }
+
+                }
+                else
+                {
+                    waitingForAllocationCount = true;
+                }
+            }
+            if (!waitingForAllocationCount)
+            {
+                switch (node.kind)
+                {
+                    case AST.TypeString.TypeKind.Other:
                         {
-                            throw new ParserError($"Unknown type: \"{node.typeName}\"", node.token);
-                        }
-                        FrontendType base_t = null;
-                        if (base_t_def.type != null)
-                        {
-                            base_t = base_t_def.type;
-                        }
-                        else
-                        {
-                            if (pre_resolved.ContainsKey(base_t_def.node) && node.isPointerType)
+                            var base_t_def = node.scope.GetType(node.typeName);
+                            if (base_t_def == null)
                             {
-                                base_t = pre_resolved[base_t_def.node];
+                                throw new ParserError($"Unknown type: \"{node.typeName}\"", node.token);
                             }
-                            var nt = getType(base_t_def.node);
-                            if (nt == null)
+                            FrontendType base_t = null;
+                            if (base_t_def.type != null)
                             {
-                                addUnresolved(node, base_t_def.node);
+                                base_t = base_t_def.type;
                             }
                             else
                             {
-                                base_t = nt;
-                            }
-                        }
-                        if (base_t != null)
-                        {
-                            FrontendType result = base_t;
-                            if (node.isArrayType)
-                            {
-                                Debug.Assert(!node.isPointerType);
-                                result = new FrontendArrayType(base_t);
-                            }
-                            else if (node.isPointerType)
-                            {
-                                result = base_t;
-                                for (int i = 0; i < node.pointerLevel; ++i)
+                                if (pre_resolved.ContainsKey(base_t_def.node) && node.isPointerType)
                                 {
-                                    result = new FrontendPointerType(result);
+                                    base_t = pre_resolved[base_t_def.node];
+                                }
+                                var nt = getType(base_t_def.node);
+                                if (nt == null)
+                                {
+                                    addUnresolved(node, base_t_def.node);
+                                }
+                                else
+                                {
+                                    base_t = nt;
                                 }
                             }
-                            resolve(node, result);
-                        }
-                    }
-                    break;
-                case AST.TypeString.TypeKind.Function:
-                    {
-                        var fts = node.functionTypeString;
-                        List<FrontendType> parameterTypes = new List<FrontendType>();
-                        foreach (var p in fts.parameters)
-                        {
-                            checkTypeDynamic(p.typeString);
-                            var pt = getType(p.typeString);
-                            if (pt != null)
+                            if (base_t != null)
                             {
-                                parameterTypes.Add(pt);
-                            }
-                            else
-                            {
-                                addUnresolved(node, p.typeString);
+                                FrontendType result = base_t;
+                                if (node.isArrayType)
+                                {
+                                    Debug.Assert(!node.isPointerType);
+                                    result = new FrontendArrayType(base_t);
+                                }
+                                else if (node.isPointerType)
+                                {
+                                    result = base_t;
+                                    for (int i = 0; i < node.pointerLevel; ++i)
+                                    {
+                                        result = new FrontendPointerType(result);
+                                    }
+                                }
+                                resolve(node, result);
                             }
                         }
-                        bool all_ps = parameterTypes.Count == fts.parameters.Count;
-                        checkTypeDynamic(fts.returnType);
-                        var returnType = getType(fts.returnType);
-                        if (returnType == null)
+                        break;
+                    case AST.TypeString.TypeKind.Function:
                         {
-                            addUnresolved(node, fts.returnType);
-                        }
-                        if (returnType != null && all_ps)
-                        {
-                            var result = new FrontendFunctionType();
-                            for (int idx = 0; idx < fts.parameters.Count; ++idx)
+                            var fts = node.functionTypeString;
+                            List<FrontendType> parameterTypes = new List<FrontendType>();
+                            foreach (var p in fts.parameters)
                             {
-                                result.AddParam(fts.parameters[idx].name, parameterTypes[idx]);
+                                checkTypeDynamic(p.typeString);
+                                var pt = getType(p.typeString);
+                                if (pt != null)
+                                {
+                                    parameterTypes.Add(pt);
+                                }
+                                else
+                                {
+                                    addUnresolved(node, p.typeString);
+                                }
                             }
-                            result.returnType = returnType;
-                            resolve(node, result);
+                            bool all_ps = parameterTypes.Count == fts.parameters.Count;
+                            checkTypeDynamic(fts.returnType);
+                            var returnType = getType(fts.returnType);
+                            if (returnType == null)
+                            {
+                                addUnresolved(node, fts.returnType);
+                            }
+                            if (returnType != null && all_ps)
+                            {
+                                var result = new FrontendFunctionType();
+                                for (int idx = 0; idx < fts.parameters.Count; ++idx)
+                                {
+                                    result.AddParam(fts.parameters[idx].name, parameterTypes[idx]);
+                                }
+                                result.returnType = returnType;
+                                resolve(node, result);
+                            }
                         }
-                    }
-                    break;
-                case AST.TypeString.TypeKind.Struct:
-                    throw new NotImplementedException();
+                        break;
+                    case AST.TypeString.TypeKind.Struct:
+                        throw new NotImplementedException();
 
+                }
             }
         }
 
