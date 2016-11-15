@@ -18,6 +18,9 @@
 // - Hardware accelereration
 // - GetKeyboardLayout (for internationalization)
 
+let HANDMADE_INTERAL = true;
+let DEBUG_DRAW_FPS = false;
+
 let offscreen_buffer = struct
 (
 	info:   BITMAPINFO;
@@ -34,8 +37,6 @@ let window_info = struct
 	height: i32;
 );
 
-let DEBUG_DRAW_FPS = true;
-
 var running = false;
 var backbuffer: offscreen_buffer;
 var window: window_info;
@@ -51,6 +52,23 @@ let sound_output = struct
 	sample_index: i32;
 );
 
+
+let kilobytes = fun (bytes: mm) => mm 
+{
+	return bytes * 1024 ;
+}
+let megabytes = fun (bytes: mm) => mm 
+{
+	return bytes * 1024 * 1024;
+}
+let gigabytes = fun (bytes: mm) => mm
+{
+	return bytes * 1024 * 1024 * 1024;
+}
+let terabytes = fun (bytes: mm) => mm
+{
+	return bytes * 1024 * 1024 * 1024 * 1024 ;
+}
 
 let init_direct_sound = fun (hwnd: mm; buffer_size: i32; samples_per_second: i32) => IDirectSoundBuffer*
 { 
@@ -345,12 +363,28 @@ let main = fun () => void
 	sound_output.bytes_per_chunk = 2 * (i32)(sizeof(i16)); // 2 channels
 	sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
 	sound_output.latency_byte_count = sound_output.buffer_size / 15; // 66ms latency
-	var sound_buffer: IDirectSoundBuffer* = init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
+	var sound_buffer = init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
 	sound_output.sound_buffer = sound_buffer;
 	clear_sound_buffer(&sound_output);
 	var game_sample_buffer = (i16*)VirtualAlloc(nullptr, (mm)sound_output.buffer_size, MEM_COMMIT, PAGE_READWRITE);
 	assert((mm)game_sample_buffer != null);
  
+	var base_address = nullptr;
+	if (HANDMADE_INTERAL) {
+		base_address = (ptr)terabytes(2);
+	} else {
+		base_address = nullptr;
+	}
+	var game_memory = game_memory {}; 
+	game_memory.permanent_size = megabytes(32);
+	game_memory.transient_size = gigabytes(1);
+	var total_size = game_memory.permanent_size + game_memory.transient_size;
+	game_memory.permanent_data = VirtualAlloc(base_address, total_size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+	assert((mm)game_memory.permanent_data != null);
+	
+	game_memory.transient_data = (ptr)((mm)game_memory.permanent_data + (mm)game_memory.permanent_size);
+	assert((mm)game_memory.transient_data != null);
+
 	assert(sound_buffer.vtable.Play(sound_buffer, 0, 0, DSBPLAY_LOOPING) == DS_OK);
 	running = true;
 	var frames = 0;
@@ -397,7 +431,10 @@ let main = fun () => void
 		game_sound_output.sample_count = bytes_to_write / sound_output.bytes_per_chunk;
 		game_sound_output.samples_per_second = sound_output.samples_per_second;
 
-		game_update_and_render(dt, &game_input, &game_render_target, &game_sound_output);
+		var game_time = game_time{};
+		game_time.dt = dt;
+
+		game_update_and_render(&game_memory, &game_time, &game_input, &game_render_target, &game_sound_output);
 
 		fill_sound_buffer(&sound_output, byte_to_lock, bytes_to_write, &game_sound_output);
 	

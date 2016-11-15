@@ -970,8 +970,15 @@ namespace PragmaScript
 
             if (et != null && tt != null)
             {
-                // TODO: cast allowed?
-                resolve(node, tt);
+                if (FrontendType.AllowedTypeCastAndLateBind(et, tt))
+                {
+                    resolve(node, tt);
+                }
+                else
+                {
+                    throw new ParserError("Cast not allowed for types.", node.token);
+                }
+
             }
         }
 

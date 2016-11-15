@@ -23,7 +23,6 @@ let cstr = fun(value: string) => i8*
 }
 
 
-// TODO?????
 // let __chkstk = fun() => void 
 // {
 // 	return;

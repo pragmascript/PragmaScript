@@ -108,8 +108,7 @@ namespace PragmaScript
             result |= t.Equals(f64);
             return result;
         }
-
-        public static void LateBind(FrontendType a, FrontendType b)
+        public static bool AllowedTypeCastAndLateBind(FrontendType a, FrontendType b)
         {
             var a_is_number = a is FrontendNumberType;
             var b_is_number = b is FrontendNumberType;
@@ -117,8 +116,16 @@ namespace PragmaScript
             {
                 if (a_is_number && b_is_number)
                 {
-                    (a as FrontendNumberType).other = b as FrontendNumberType;
-                    (b as FrontendNumberType).other = a as FrontendNumberType;
+                    var an = a as FrontendNumberType;
+                    var bn = b as FrontendNumberType;
+                    an.others.Add(bn);
+                    bn.others.Add(an);
+                    if (an.floatType || bn.floatType)
+                    {
+                        an.floatType = true;
+                        bn.floatType = true;
+                    }
+                    return true;
                 }
 
                 if (a_is_number)
@@ -152,8 +159,9 @@ namespace PragmaScript
                     }
                 }
             }
+            // TODO: actually check if cast is allowed here!
+            return true;
         }
-
         public static bool CompatibleAndLateBind(FrontendType a, FrontendType b)
         {
             var a_is_number = a is FrontendNumberType;
@@ -164,8 +172,8 @@ namespace PragmaScript
                 {
                     var an = a as FrontendNumberType;
                     var bn = b as FrontendNumberType;
-                    an.other = bn;
-                    bn.other = an;
+                    an.others.Add(bn);
+                    bn.others.Add(an);
                     if (an.floatType || bn.floatType)
                     {
                         an.floatType = true;
@@ -240,13 +248,13 @@ namespace PragmaScript
     public class FrontendNumberType : FrontendType
     {
         public FrontendType boundType;
-        public  FrontendNumberType other;
+        public List<FrontendNumberType> others;
         public bool floatType;
 
         public FrontendNumberType(bool floatLiteral)
         {
             name = "$$__number__$$";
-            other = null;
+            others = new List<FrontendNumberType>();
             boundType = null;
             this.floatType = floatLiteral;
         }
@@ -260,7 +268,7 @@ namespace PragmaScript
         {
             visited.Add(this);
             boundType = type;
-            if (other != null)
+            foreach (var other in others)
             {
                 if (!visited.Contains(other))
                 {
@@ -268,14 +276,6 @@ namespace PragmaScript
                 }
             }
         }
-
-        public void SetOther(FrontendType other)
-        {
-            var on = other as FrontendNumberType;
-            Debug.Assert(on != null);
-            Debug.Assert(!Object.ReferenceEquals(this, other));
-        }
-
         public FrontendType Default()
         {
             if (floatType)

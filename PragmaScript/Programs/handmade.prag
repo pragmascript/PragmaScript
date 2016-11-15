@@ -2,15 +2,6 @@ import "preamble.prag"
 import "windows.prag"
 import "win32_handmade.prag"
 
-var x_offset = 0.0;
-var y_offset = 0.0;
-
-var sound_t_sine = 0.0;
-var sound_volume = 0.05;
-var sound_tone_hz = 256.0;
-
-let sound_samples_per_second = 48000;
-let sound_wave_period = 2 * pi_32 / (f32)sound_samples_per_second;
 
 let game_sound_output = struct
 (
@@ -35,68 +26,112 @@ let game_render_target = struct
 	pitch:  i32;
 );
 
-let game_update_and_render = fun
+let game_time = struct
 (
     dt: f32;
+);
+
+let game_memory = struct
+(
+    permanent_size: mm;
+    permanent_data: ptr;
+
+    transient_size: mm;
+    transient_data: ptr;
+);
+
+
+// ******************
+
+let game_state = struct
+(
+    is_initialized: bool;
+    x_offset: f32;
+    y_offset: f32;
+    t_sine: f32;
+    volume: f32;
+    tone_hz: f32;
+);
+
+let game_update_and_render = fun
+(
+    memory: game_memory*;
+    time: game_time*;
     input: game_input*;
     render_target: game_render_target*;
     sound_output: game_sound_output*;
 ) => void
 {
-    handle_player_input(input, dt);
-    output_sound(sound_output);
-    render_weird_gradient(render_target);
+    var game_state = (game_state*)memory.permanent_data;
+    if (!game_state.is_initialized) {
+        game_state.tone_hz = 256;
+        game_state.volume = 0.1;
+        game_state.is_initialized = true;
+    }
+
+    handle_player_input(game_state, input, time.dt);
+    output_sound(game_state, sound_output);
+    render_weird_gradient(game_state, render_target);
 }
 
 let handle_player_input = fun 
 (
+    game_state: game_state*;
     game_input: game_input*; 
     dt: f32; 
 ) => void 
 {
 	if (game_input.leftPressed) {
-		x_offset += dt * 150.0;
-        sound_volume -= dt * 0.02;
-        if (sound_volume < 0) {
-            sound_volume = 0;
+		game_state.x_offset += dt * 150.0;
+        game_state.volume -= dt * 0.02;
+        if (game_state.volume < 0) {
+            game_state.volume = 0;
         }
 	}
 	if (game_input.rightPressed) {
-		x_offset -= dt * 150.0;
-        sound_volume += dt * 0.02;
+		game_state.x_offset -= dt * 150.0;
+        game_state.volume += dt * 0.02;
 	}
 	if (game_input.upPressed) {
-		y_offset += dt * 150.0;
-		sound_tone_hz += dt * 20.0;
+		game_state.y_offset += dt * 150.0;
+		game_state.tone_hz += dt * 20.0;
 	}
 	if (game_input.downPressed) {
-		y_offset -= dt * 150.0;
-		sound_tone_hz -= dt * 20;
-		if (sound_tone_hz < 0) {
-			sound_tone_hz = 0;
+		game_state.y_offset -= dt * 150.0;
+		game_state.tone_hz -= dt * 20;
+		if (game_state.tone_hz < 0) {
+			game_state.tone_hz = 0;
 		}
 	}
 }
 
-let output_sound = fun (sound_output: game_sound_output*) => void 
+let output_sound = fun 
+(
+    game_state: game_state*; 
+    sound_output: game_sound_output*
+) => void 
 {
     var wave_period = 2 * pi_32 / (f32)sound_output.samples_per_second;
     var sample = sound_output.sample_out;
     assert((mm)sample != null);
     var sample_count = sound_output.sample_count;
     for (var i: i32 = 0; i < sample_count; ++i) {
-        var x = (i16)(32767 * sound_volume * sinf(sound_t_sine));
+        var x = (i16)(32767 * game_state.volume * sinf(game_state.t_sine));
         *sample++ = x;
         *sample++ = x;
-        sound_t_sine += sound_tone_hz * wave_period;
+        game_state.t_sine += game_state.tone_hz * wave_period;
     }
-    sound_t_sine = remainder(sound_t_sine, 2*pi_32);
+    game_state.t_sine = remainder(game_state.t_sine, 2*pi_32);
 }
 
-let render_weird_gradient = fun (buffer: game_render_target*) => void 
+let render_weird_gradient = fun 
+(
+    game_state: game_state*; 
+    buffer: game_render_target*
+) => void 
 {
-    var dx = (i32)x_offset;
-    var dy = (i32)y_offset;
+    var dx = (i32)game_state.x_offset;
+    var dy = (i32)game_state.y_offset;
 	var width  = buffer.width;
 	var height = buffer.height;
 	var pitch  = buffer.pitch;
