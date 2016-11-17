@@ -337,7 +337,7 @@ namespace PragmaScript
         public FrontendStructType(string structName)
         {
             this.structName = structName;
-         
+            calcTypeName();
         }
 
         public void AddField(string name, FrontendType type)
@@ -368,7 +368,14 @@ namespace PragmaScript
 
         void calcTypeName()
         {
-            name = structName + "{" + string.Join(",", fields) + "}";
+            if (structName != null)
+            {
+                name = structName;
+            }
+            else
+            {
+                name = "{" + string.Join(",", fields) + "}";
+            }
         }
     }
 

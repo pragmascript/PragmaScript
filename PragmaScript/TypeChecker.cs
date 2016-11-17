@@ -1004,6 +1004,7 @@ namespace PragmaScript
 
         void checkType(AST.TypeString node)
         {
+
             bool waitingForAllocationCount = false;
             if (node.allocationCount != null)
             {

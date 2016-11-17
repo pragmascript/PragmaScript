@@ -243,7 +243,6 @@ let main = fun () => void
 	memset(s.data, 42, 4);
 	print_string(s);
 
-	assert(false, "huh?");
 	print_f64(pi, __test_default_value(1));
 	print_string("\n");
 
