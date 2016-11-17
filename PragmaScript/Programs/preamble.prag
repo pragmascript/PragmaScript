@@ -9,9 +9,25 @@ let half_pi_32 = (f32)half_pi;
 
 let _rdtsc = extern fun () => i64;
 let __chkstk = extern fun () => void;
-let assert = fun (value: bool) => void 
+
+let assert = fun 
+(
+	value: bool; 
+	msg: string = ""; 
+	filepos: string = __file_pos__();
+) => void 
 {
 	if (!value) {
+		print_string("Assertion "); 
+		if (msg.length > 0) 
+		{
+			print_string("\"");
+			print_string(msg);
+			print_string("\" ");
+		}
+		print_string("at: ");
+		print_string(filepos);
+		print_string("\n");
 		*nullptr = 42;
 	}
 }
@@ -61,6 +77,22 @@ let remainder = fun(x: f32; y: f32) => f32
 	return x - floor(x / y) * y;
 }
 
+
+// TODO make a fast version
+let memset = fun
+(
+	dest : ptr;
+	value: i32;
+	count: mm;
+) => ptr
+{
+	var data = dest;
+	while (data != (dest + count)) {
+		*data++ = (i8\)value;
+	}
+	return dest;
+}
+
 let sinf = fun(x: f32) => f32 
 {
     let p = 0.225;
@@ -101,7 +133,7 @@ let abs_i32 = fun (value: i32) => i32
   }
 }
 
-let print_i32 = fun (value: i32; signed: bool) => void
+let print_i32 = fun (value: i32; signed: bool = true) => void
 {
 	if (signed) {
 		print_i64((i64)value, true);
@@ -110,7 +142,7 @@ let print_i32 = fun (value: i32; signed: bool) => void
 	}
 }
 
-let print_i64 = fun (value: i64; signed: bool) => void
+let print_i64 = fun (value: i64; signed: bool = true) => void
 {
 	var v = value;
 	var pd = print_dest { };
@@ -126,9 +158,9 @@ let print_i64 = fun (value: i64; signed: bool) => void
 	print_string(pd.buffer);
 }
 
-let print_f32 = fun (value: f32) => void
+let print_f32 = fun (value: f32; precision: i32 = 4) => void
 {
-	print_f64(((f64)value));	
+	print_f64(((f64)value), precision);	
 }
 
 let print_dest = struct
@@ -169,10 +201,8 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 	}
 }
 
-let print_f64 = fun (value: f64) => void
+let print_f64 = fun (value: f64; precision: i32 = 4) => void
 {
-	let precision = 4;
-
 	var v = value;
 	var pd = print_dest { };
 	pd.buffer = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
@@ -212,7 +242,7 @@ let print_f64 = fun (value: f64) => void
 }
 
 
-let debug_print_i64 = fun (name: string; value: i64; signed: bool) => void
+let debug_print_i64 = fun (name: string; value: i64; signed: bool = true) => void
 {
 	print_string(name);
 	print_string(": ");
@@ -220,17 +250,28 @@ let debug_print_i64 = fun (name: string; value: i64; signed: bool) => void
 	print_string("\n");
 }
 
-let debug_print_i32 = fun (name: string; value: i32; signed: bool) => void
+let debug_print_i32 = fun (name: string; value: i32; signed: bool = true) => void
 {
 	print_string(name);
 	print_string(": ");
 	print_i32(value, signed);
 	print_string("\n");
 }
-let debug_print_f32 = fun (name: string; value: f32) => void
+let debug_print_f32 = fun (name: string; value: f32; precision: i32 = 4) => void
 {
 	print_string(name);
 	print_string(": ");
-	print_f32(value);
+	print_f32(value, precision);
 	print_string("\n");
 }
+
+
+let __hack_reserve_intrinsics = fun () => bool
+{
+	if ((mm)memset == 1234 || (mm)__chkstk == 1234 || (mm)cosf == 1234 || (mm)sinf == 1234) {
+		print_string("");
+		return true;
+	}
+	return false;
+}
+var __intrinsics = __hack_reserve_intrinsics();

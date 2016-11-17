@@ -409,6 +409,11 @@ namespace PragmaScript
 
         }
 
+        public string FilePosBackendString()
+        {
+            return $"(file \"{filename}\", line {Line}, pos {Pos})";
+        }
+
         public static void Tokenize(List<Token> result, string text, string filename)
         {
             var lines = text.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);

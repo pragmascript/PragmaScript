@@ -120,6 +120,23 @@ let BITMAPINFO = struct
 	rgb: RGBQUAD;
 );
 
+let GENERIC_READ    = 0x80000000;
+let GENERIC_WRITE   = 0x40000000;
+let FILE_SHARE_READ = 1;
+let CREATE_ALWAYS   = 2;
+let OPEN_EXISTING   = 3;
+
+let CreateFileA = extern fun
+(
+  FileName: i8*;
+  DesiredAccess: i32;
+  SharedMode: i32;
+  SecurityAttributes: ptr;
+  CreationDisposition: i32;
+  FlagsAndAttributes: i32;
+  TemplateFile: mm;
+) => mm;
+
 let WriteFile = extern fun
 (
   hFile: mm;
@@ -137,6 +154,14 @@ let ReadFile = extern fun
   nNumberOfBytesRead: i32*;
   lpOverlapped: ptr;
 ) => i32;
+
+let GetFileSizeEx = extern fun
+(
+  hFile: mm;
+  FileSizeHigh: i64*;
+) => i32;
+
+
 
 let GetStdHandle = extern fun (nStdHandle: i32) => mm;
 let GetModuleHandleA = extern fun (lpModuleName: mm) => mm;
@@ -218,6 +243,7 @@ let PatBlt = extern fun
 	dwRop: i32;
 ) => i32;
 
+let CloseHandle = extern fun (handle: mm) => i32;
 let DeleteObject = extern fun (obj: mm) => i32;
 let CreateCompatibleDC = extern fun (hdc: mm) => mm;
 let GetDC = extern fun (hWnd: mm) => mm;
@@ -356,7 +382,9 @@ let DirectSoundBufferFunctions = struct
   _usused11: ptr; // SetVolume
   _usused12: ptr; // SetPan
   _usused14: ptr; // SetFrequency
-  _usused15: ptr; // Stop
+  Stop: fun
+  (
+  ) => i32;
   Unlock: fun
   (
     this: IDirectSoundBuffer*;

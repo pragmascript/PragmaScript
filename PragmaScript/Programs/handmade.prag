@@ -10,12 +10,28 @@ let game_sound_output = struct
     samples_per_second: i32;
 );
 
+let game_keyboard_button = struct
+(
+    pressed: bool;
+    down: bool;
+    up: bool;
+);
+
+let game_time = struct
+(
+    dt: f32;
+    t: f32;
+);
+
 let game_input = struct
 (
-	upPressed: bool;
-	leftPressed: bool;
-	rightPressed: bool;
-	downPressed: bool;
+    time: game_time; 
+	up_arrow:    game_keyboard_button;
+	left_arrow:  game_keyboard_button;
+	right_arrow: game_keyboard_button;
+	down_arrow:  game_keyboard_button;
+
+    request_quit: bool;
 );
 
 let game_render_target = struct 
@@ -26,10 +42,6 @@ let game_render_target = struct
 	pitch:  i32;
 );
 
-let game_time = struct
-(
-    dt: f32;
-);
 
 let game_memory = struct
 (
@@ -51,16 +63,51 @@ let game_state = struct
     t_sine: f32;
     volume: f32;
     tone_hz: f32;
+
+    exit: bool;
+    exit_start_time: f32;
+    exit_start_volume: f32;
+    exit_norm_time: f32;
 );
+
+let game_output_sound = fun
+(
+    memory: game_memory*;
+    sound_output: game_sound_output*;
+) => void
+{
+    var game_state = get_game_state(memory);
+    output_sound(game_state, sound_output);
+}
 
 let game_update_and_render = fun
 (
     memory: game_memory*;
-    time: game_time*;
     input: game_input*;
     render_target: game_render_target*;
-    sound_output: game_sound_output*;
-) => void
+    
+) => bool
+{
+    var result = true;
+    var game_state = get_game_state(memory);
+    handle_player_input(game_state, input);
+
+    let exit_duration = 0.25;
+    if (game_state.exit) {
+        if (input.time.t - game_state.exit_start_time > exit_duration) {
+            result = false;
+            game_state.volume = 0.0;
+        } else {
+            var t = (input.time.t - game_state.exit_start_time) / exit_duration;
+            game_state.exit_norm_time = t;
+            game_state.volume = lerp(game_state.exit_start_volume, 0.0, t);
+        }
+    }
+    render_weird_gradient(game_state, render_target);
+    return result;
+}
+
+let get_game_state = fun (memory: game_memory*) => game_state* 
 {
     var game_state = (game_state*)memory.permanent_data;
     if (!game_state.is_initialized) {
@@ -68,35 +115,37 @@ let game_update_and_render = fun
         game_state.volume = 0.1;
         game_state.is_initialized = true;
     }
-
-    handle_player_input(game_state, input, time.dt);
-    output_sound(game_state, sound_output);
-    render_weird_gradient(game_state, render_target);
+    return game_state;
 }
 
 let handle_player_input = fun 
 (
     game_state: game_state*;
     game_input: game_input*; 
-    dt: f32; 
 ) => void 
 {
-	if (game_input.leftPressed) {
+    var dt = game_input.time.dt;
+    if (game_input.request_quit && !game_state.exit) {
+        game_state.exit = true;
+        game_state.exit_start_time = game_input.time.t;
+        game_state.exit_start_volume = game_state.volume;
+    }
+	if (game_input.left_arrow.pressed) {
 		game_state.x_offset += dt * 150.0;
         game_state.volume -= dt * 0.02;
         if (game_state.volume < 0) {
             game_state.volume = 0;
         }
 	}
-	if (game_input.rightPressed) {
+	if (game_input.right_arrow.pressed) {
 		game_state.x_offset -= dt * 150.0;
         game_state.volume += dt * 0.02;
 	}
-	if (game_input.upPressed) {
+	if (game_input.up_arrow.pressed) {
 		game_state.y_offset += dt * 150.0;
 		game_state.tone_hz += dt * 20.0;
 	}
-	if (game_input.downPressed) {
+	if (game_input.down_arrow.pressed) {
 		game_state.y_offset -= dt * 150.0;
 		game_state.tone_hz -= dt * 20;
 		if (game_state.tone_hz < 0) {
@@ -141,9 +190,14 @@ let render_weird_gradient = fun
 		for (var i = 0; i < width; ++i) {
 			var x = i + dx;
 			var y = j + dy;
-			var r = (i8)(x^y^(x+y));
-			var g = (i8)y;
-			var b = (i8)x;
+			var r = (i8\)(x^y^(x+y));
+			var g = (i8\)y;
+			var b = (i8\)x;
+            if (game_state.exit) {
+                r = (i8\)((f32\)r * (1.0-game_state.exit_norm_time));
+                g = (i8\)((f32\)g * (1.0-game_state.exit_norm_time));
+                b = (i8\)((f32\)b * (1.0-game_state.exit_norm_time));
+            }
 			*pixel = ((i32\)r << 16) | ((i32\)g << 8) | (i32\)b;
 			pixel++;
 		}

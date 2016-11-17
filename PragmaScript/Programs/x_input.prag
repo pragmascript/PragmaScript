@@ -1,0 +1,28 @@
+
+let win_load_x_input = fun () => void 
+{
+	var x_input_lib = LoadLibraryA(cstr("xinput1_4.dll\0"));
+	if (x_input_lib == null) {
+		x_input_lib = LoadLibraryA(cstr("xinput1_3.dll\0"));
+	}
+	if (x_input_lib != null) {
+		*((ptr*)(&XInputGetState)) = (ptr)GetProcAddress(x_input_lib, cstr("XInputGetState\0"));
+		assert((mm)XInputGetState != null);
+	}
+}
+
+let win_handle_x_input = fun () => void 
+{
+	for(var c_idx = 0; c_idx < XUSER_MAX_COUNT; ++c_idx) {
+		var x_state : XINPUT_STATE;
+		var x_result = XInputGetState(c_idx, &x_state); 
+		if (x_result == XINPUT_SUCCESS)
+		{
+			// TODO: decode input
+		}
+		elif (x_result == XINPUT_DEVICE_NOT_CONNECTED)
+		{
+		}
+	}
+}
+

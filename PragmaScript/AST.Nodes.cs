@@ -14,6 +14,11 @@ namespace PragmaScript
         {
             public string name;
             public TypeString typeString;
+            public Node defaultValueExpression;
+            public bool isOptional()
+            {
+                return defaultValueExpression != null;
+            }
         }
 
         public abstract class Node
@@ -432,6 +437,8 @@ namespace PragmaScript
         public class FunctionCall : Node
         {
             public Node left;
+
+
             public List<Node> argumentList = new List<Node>();
 
             public FunctionCall(Token t, Scope s)

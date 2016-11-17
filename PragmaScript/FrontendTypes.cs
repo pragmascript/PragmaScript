@@ -37,10 +37,10 @@ namespace PragmaScript
         {
             this.name = name;
         }
-        public override int GetHashCode()
-        {
-            return ToString().GetHashCode();
-        }
+        //public override int GetHashCode()
+        //{
+        //    return ToString().GetHashCode();
+        //}
         public override string ToString()
         {
             return name;
@@ -310,6 +310,7 @@ namespace PragmaScript
     {
         public FrontendType elementType;
         public FrontendArrayType(FrontendType elementType)
+            : base("")
         {
             this.elementType = elementType;
             name = "[" + elementType + "]";
@@ -330,6 +331,14 @@ namespace PragmaScript
             }
         }
         public List<Field> fields = new List<Field>();
+        public string structName;
+
+
+        public FrontendStructType(string structName)
+        {
+            this.structName = structName;
+         
+        }
 
         public void AddField(string name, FrontendType type)
         {
@@ -359,7 +368,7 @@ namespace PragmaScript
 
         void calcTypeName()
         {
-            name = "{" + string.Join(",", fields) + "}";
+            name = structName + "{" + string.Join(",", fields) + "}";
         }
     }
 
@@ -377,6 +386,7 @@ namespace PragmaScript
     {
         public class Param
         {
+            public bool optional;
             public string name;
             public FrontendType type;
             public override string ToString()
@@ -386,10 +396,27 @@ namespace PragmaScript
         }
         public List<Param> parameters = new List<Param>();
         public FrontendType returnType;
+        public string funName;
+        public bool specialFun;
 
-        public void AddParam(string name, FrontendType type)
+        public FrontendFunctionType(string funName)
         {
-            parameters.Add(new Param { name = name, type = type });
+            if (funName != null)
+            {
+                this.funName = funName;
+            }
+            else
+            {
+                this.funName = "";
+            }
+            calcTypeName();
+        }
+
+       
+
+        public void AddParam(string name, FrontendType type, bool optional=false)
+        {
+            parameters.Add(new Param { name = name, type = type, optional=optional });
             calcTypeName();
         }
 
@@ -415,7 +442,7 @@ namespace PragmaScript
 
         void calcTypeName()
         {
-            name = $"({string.Join(",", parameters)}) => {returnType}";
+            name = $"{funName}({string.Join(",", parameters)}) => {returnType}";
         }
     }
 

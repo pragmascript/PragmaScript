@@ -1,8 +1,15 @@
-﻿ - rethink the i8*64 syntax
+﻿ - find out how they do the merging
+   of IL files 
+   http://llvm.org/docs/CommandGuide/llvm-link.html
+
+ 
+ - rethink the i8*64 syntax
    it would be better if it could also be
    on the right side of an assignment
    so you could write
    str.data = i8[32]{};
+
+ - insert missing return bs not working for non ints
  
  - make sure that pointer artihmetic works on deeply nested recursive types
 
@@ -37,7 +44,7 @@
 
  - throw error if literal number type exceeds range of late bound integer
 
- - insert missing return bs not working for non ints
+ 
 
  - structs global variables with constant initializers
  

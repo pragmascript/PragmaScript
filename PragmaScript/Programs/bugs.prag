@@ -214,11 +214,49 @@ let __test_number_types = fun () => void
 	print_string("\n");
 }
 
+// crashes backend
+// let platform_read_file = fun (name: string) => string 
+// {
+// 	var result: string;
+// } 
+
+
+
+var global_x: i32 = 3;
+let weird_add = fun (x: i32) => i32 {
+	return x + global_x++;
+}
+let __test_default_value = fun (x: i32; y: i32 = weird_add(7)) => i32 {
+	print_i32(x + y);
+	print_string("\n");
+	return x + y;
+}
+
+
 let main = fun () => void 
 {
-	if ((mm)__chkstk == 1234 || (mm)cosf == 1234 || (mm)sinf == 1234) {
-		print_string("");
-	}
+	// if ((mm)__chkstk == 1234 || (mm)cosf == 1234 || (mm)sinf == 1234) {
+	// 	print_string("");
+	// }
+	var s = "This is a test of the memset function\n";
+	print_string(s);
+	memset(s.data, 42, 4);
+	print_string(s);
+
+	assert(false, "huh?");
+	print_f64(pi, __test_default_value(1));
+	print_string("\n");
+
+	var running = true;
+	// if (running == false) {
+	// 	print_string("nononono\n");
+	// }
+
+
+
+
+
+
 
 }
 

@@ -212,9 +212,14 @@ namespace PragmaScript
             return ParseString(tmp, t);
         }
 
-        public void Visit(AST.ConstString node)
+        public void Visit(AST.ConstString node, bool needsConversion = true)
         {
-            var str = convertString(node.s, node.token);
+            var str = node.s;
+            if (needsConversion)
+            {
+                str = convertString(node.s, node.token);
+            }
+            
             var bytes = System.Text.ASCIIEncoding.ASCII.GetBytes(str);
 
             var type = FrontendType.string_;
@@ -485,6 +490,24 @@ namespace PragmaScript
 
                                             result = LLVM.BuildSDiv(builder, sub, LLVM.SizeOf(LLVM.GetElementType(leftType)), "div");
                                         }
+                                        break;
+                                    case AST.BinOp.BinOpType.GreaterUnsigned:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntUGT, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.GreaterEqualUnsigned:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntUGE, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.LessUnsigned:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntULT, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.LessEqualUnsigned:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntULE, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.Equal:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.NotEqual:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, left, right, "icmp_tmp");
                                         break;
                                     default:
                                         throw new InvalidCodePath();
@@ -810,7 +833,14 @@ namespace PragmaScript
                             break;
                         case LLVMTypeKind.LLVMDoubleTypeKind:
                         case LLVMTypeKind.LLVMFloatTypeKind:
-                            result = LLVM.BuildFPToSI(builder, v, targetType, "int_cast");
+                            if (!node.unsigned)
+                            {
+                                result = LLVM.BuildFPToSI(builder, v, targetType, "int_cast");
+                            }
+                            else
+                            {
+                                result = LLVM.BuildFPToUI(builder, v, targetType, "int_cast");
+                            }
                             break;
                         case LLVMTypeKind.LLVMPointerTypeKind:
                             result = LLVM.BuildPtrToInt(builder, v, targetType, "int_cast");
@@ -824,7 +854,14 @@ namespace PragmaScript
                     switch (vtk)
                     {
                         case LLVMTypeKind.LLVMIntegerTypeKind:
-                            result = LLVM.BuildSIToFP(builder, v, targetType, "int_to_float_cast");
+                            if (!node.unsigned)
+                            {
+                                result = LLVM.BuildSIToFP(builder, v, targetType, "int_to_float_cast");
+                            }
+                            else
+                            {
+                                result = LLVM.BuildUIToFP(builder, v, targetType, "int_to_float_cast");
+                            }
                             break;
                         case LLVMTypeKind.LLVMDoubleTypeKind:
                         case LLVMTypeKind.LLVMFloatTypeKind:
@@ -1134,20 +1171,40 @@ namespace PragmaScript
 
         }
 
+        public void VisitSpecialFunction(AST.FunctionCall node, FrontendFunctionType feft)
+        {
+            switch (feft.funName)
+            {
+                case "__file_pos__":
+                    {
+                        var s = new AST.ConstString(node.token, node.scope);
+                        var fp = node.left.token.FilePosBackendString();
+                        s.s = fp;
+                        Visit(s, false);
+                    }
+                 break;
+            }
+            
+        }
+
         public void Visit(AST.FunctionCall node)
         {
+            var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
+            if (feft.specialFun)
+            {
+                VisitSpecialFunction(node, feft);
+                return;
+            }
             Visit(node.left);
             var f = valueStack.Pop();
-            var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
-
-
+            
             if (LLVM.IsAFunction(f).Pointer == IntPtr.Zero)
             {
 
                 f = LLVM.BuildLoad(builder, f, "fun_ptr_load");
 
             }
-            var cnt = node.argumentList.Count;
+            var cnt = feft.parameters.Count;
             LLVMValueRef[] parameters = new LLVMValueRef[Math.Max(1, cnt)];
 
 
@@ -1162,6 +1219,17 @@ namespace PragmaScript
                 if (LLVM.TypeOf(parameters[i]).Pointer != ps[i].Pointer)
                 {
                     parameters[i] = LLVM.BuildBitCast(builder, parameters[i], ps[i], "fun_param_hack");
+                }
+            }
+
+            if (node.argumentList.Count < feft.parameters.Count)
+            {
+                var fd = typeChecker.GetFunctionDefinition(feft);
+                var fts = fd.typeString.functionTypeString;
+                for (int idx = node.argumentList.Count; idx < feft.parameters.Count; ++idx)
+                {
+                    Visit(fts.parameters[idx].defaultValueExpression);
+                    parameters[idx] = valueStack.Pop();
                 }
             }
 

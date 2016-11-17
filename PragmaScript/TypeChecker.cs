@@ -71,6 +71,13 @@ namespace PragmaScript
             return getType(node, mustBeBound: true);
         }
 
+        public AST.FunctionDefinition GetFunctionDefinition(FrontendFunctionType fft)
+        {
+            var result = typeRoots[fft] as AST.FunctionDefinition;
+            Debug.Assert(result != null);
+            return result;
+        }
+
         FrontendType getType(AST.Node node, bool mustBeBound = false)
         {
             FrontendType result;
@@ -149,7 +156,7 @@ namespace PragmaScript
                 }
             }
 
-            
+
             if (pre_resolved.ContainsKey(node))
             {
                 pre_resolved.Remove(node);
@@ -362,6 +369,7 @@ namespace PragmaScript
             FrontendType tt = null;
             if (node.typeString != null)
             {
+                node.typeString.typeName = node.funName;
                 checkTypeDynamic(node.typeString);
                 tt = getType(node.typeString);
                 if (tt == null)
@@ -371,6 +379,7 @@ namespace PragmaScript
             }
             if (tt != null)
             {
+                typeRoots.Add(tt, node);
                 resolve(node, tt);
             }
 
@@ -448,8 +457,7 @@ namespace PragmaScript
             FrontendStructType result;
             if (!pre_resolved.ContainsKey(node))
             {
-                result = new FrontendStructType();
-                result.name = node.name;
+                result = new FrontendStructType(node.name);
                 result.preResolved = true;
                 pre_resolve(node, result);
             }
@@ -522,22 +530,31 @@ namespace PragmaScript
             }
             if (f_type != null)
             {
-                if (node.argumentList.Count != f_type.parameters.Count)
+                if (node.argumentList.Count > f_type.parameters.Count)
                 {
                     throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
                 }
-                if (argumentTypes.Count == f_type.parameters.Count)
+                if (argumentTypes.Count == node.argumentList.Count)
                 {
-                    for (int idx = 0; idx < argumentTypes.Count; ++idx)
+                    for (int idx = 0; idx < f_type.parameters.Count; ++idx)
                     {
+                        if (idx >= argumentTypes.Count)
+                        {
+                            if (!f_type.parameters[idx].optional)
+                            {
+                                throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
+                            }
+                            break;
+                        }
                         var arg = argumentTypes[idx];
                         if (!FrontendType.CompatibleAndLateBind(arg, f_type.parameters[idx].type))
                         {
                             throw new ParserExpectedArgumentType(f_type.parameters[idx].type, arg, idx + 1, node.argumentList[idx].token);
                         }
                     }
-                    resolve(node, f_type.returnType);
                 }
+
+                resolve(node, f_type.returnType);
             }
         }
 
@@ -844,9 +861,12 @@ namespace PragmaScript
                 }
                 else if (lt is FrontendPointerType)
                 {
-                    if (!node.isEither(AST.BinOp.BinOpType.Add, AST.BinOp.BinOpType.Subract))
+                    if (!node.isEither(AST.BinOp.BinOpType.Add, AST.BinOp.BinOpType.Subract,
+                                       AST.BinOp.BinOpType.Equal, AST.BinOp.BinOpType.NotEqual,
+                                       AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned,
+                                       AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned))
                     {
-                        throw new ParserError("Only add and subtract are valid pointer arithmetic operations.", node.token);
+                        throw new ParserError("Only add, subtract and unsigned compariosns are valid pointer operations.", node.token);
                     }
 
                     bool correctType = false;
@@ -1059,6 +1079,8 @@ namespace PragmaScript
                         {
                             var fts = node.functionTypeString;
                             List<FrontendType> parameterTypes = new List<FrontendType>();
+                            List<FrontendType> optionalExpressionTypes = new List<FrontendType>();
+                            int optionalCount = 0;
                             foreach (var p in fts.parameters)
                             {
                                 checkTypeDynamic(p.typeString);
@@ -1071,20 +1093,53 @@ namespace PragmaScript
                                 {
                                     addUnresolved(node, p.typeString);
                                 }
+                                if (p.defaultValueExpression != null)
+                                {
+                                    optionalCount++;
+                                    checkTypeDynamic(p.defaultValueExpression);
+                                    var et = getType(p.defaultValueExpression);
+                                    if (et != null)
+                                    {
+                                        optionalExpressionTypes.Add(et);
+                                    }
+                                    else
+                                    {
+                                        addUnresolved(node, p.defaultValueExpression);
+                                    }
+                                }
                             }
                             bool all_ps = parameterTypes.Count == fts.parameters.Count;
+
+                            if (all_ps && optionalCount == optionalExpressionTypes.Count)
+                            {
+                                int o_idx = 0;
+                                for (int i = 0; i < parameterTypes.Count; ++i)
+                                {
+                                    if (fts.parameters[i].defaultValueExpression != null)
+                                    {
+                                        var pt = parameterTypes[i];
+                                        var opt = optionalExpressionTypes[o_idx++];
+                                        if (!FrontendType.CompatibleAndLateBind(opt, pt))
+                                        {
+                                            throw new ParserExpectedArgumentType(pt, opt, i + 1, fts.parameters[i].defaultValueExpression.token);
+                                        }
+                                    }
+                                }
+                            }
+
                             checkTypeDynamic(fts.returnType);
                             var returnType = getType(fts.returnType);
                             if (returnType == null)
                             {
                                 addUnresolved(node, fts.returnType);
                             }
-                            if (returnType != null && all_ps)
+                            if (returnType != null && all_ps && optionalCount == optionalExpressionTypes.Count)
                             {
-                                var result = new FrontendFunctionType();
+                                var result = new FrontendFunctionType(node.typeName);
                                 for (int idx = 0; idx < fts.parameters.Count; ++idx)
                                 {
-                                    result.AddParam(fts.parameters[idx].name, parameterTypes[idx]);
+                                    var optional = fts.parameters[idx].isOptional();
+                                    result.AddParam(fts.parameters[idx].name, parameterTypes[idx], optional);
                                 }
                                 result.returnType = returnType;
                                 resolve(node, result);

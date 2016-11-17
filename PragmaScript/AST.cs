@@ -80,45 +80,54 @@ namespace PragmaScript
 
         static void addIntrinsics(Scope scope)
         {
-            var cos = new FrontendFunctionType();
+            var cos = new FrontendFunctionType("cos");
             cos.returnType = FrontendType.f32;
             cos.AddParam("x", FrontendType.f32);
             scope.AddVar("cos", cos, Token.Undefined, isConst: true);
 
-            var sin = new FrontendFunctionType();
+            var sin = new FrontendFunctionType("sin");
             sin.returnType = FrontendType.f32;
             sin.AddParam("x", FrontendType.f32);
             scope.AddVar("sin", sin, Token.Undefined, isConst: true);
 
-            var abs = new FrontendFunctionType();
+            var abs = new FrontendFunctionType("abs");
             abs.returnType = FrontendType.f32;
             abs.AddParam("x", FrontendType.f32);
             scope.AddVar("abs", abs, Token.Undefined, isConst: true);
 
-            var sqrt = new FrontendFunctionType();
+            var sqrt = new FrontendFunctionType("sqrt");
             sqrt.returnType = FrontendType.f32;
             sqrt.AddParam("x", FrontendType.f32);
             scope.AddVar("sqrt", sqrt, Token.Undefined, isConst: true);
 
-            var floor = new FrontendFunctionType();
+            var floor = new FrontendFunctionType("floor");
             floor.returnType = FrontendType.f32;
             floor.AddParam("x", FrontendType.f32);
             scope.AddVar("floor", floor, Token.Undefined, isConst: true);
 
-            var trunc = new FrontendFunctionType();
+            var trunc = new FrontendFunctionType("trunc");
             trunc.returnType = FrontendType.f32;
             trunc.AddParam("x", FrontendType.f32);
             scope.AddVar("trunc", trunc, Token.Undefined, isConst: true);
 
-            var ceil = new FrontendFunctionType();
+            var ceil = new FrontendFunctionType("ceil");
             ceil.returnType = FrontendType.f32;
             ceil.AddParam("x", FrontendType.f32);
             scope.AddVar("ceil", ceil, Token.Undefined, isConst: true);
 
-            var round = new FrontendFunctionType();
+            var round = new FrontendFunctionType("round");
             round.returnType = FrontendType.f32;
             round.AddParam("x", FrontendType.f32);
             scope.AddVar("round", round, Token.Undefined, isConst: true);
+        }
+
+        static void addSpecialFunctions(Scope scope)
+        {
+            var file_pos = new FrontendFunctionType("__file_pos__");
+            file_pos.returnType = FrontendType.string_;
+            file_pos.specialFun = true;
+            scope.AddVar("__file_pos__", file_pos, Token.Undefined, isConst: true);
+            
         }
 
         static void addBasicConstants(Scope scope, Token token)
@@ -133,6 +142,7 @@ namespace PragmaScript
             addBasicTypes(rootScope, Token.Undefined);
             addBasicConstants(rootScope, Token.Undefined);
             addBasicFunctions(rootScope);
+            addSpecialFunctions(rootScope);
 
             //var main = new Scope.FunctionDefinition { name = "main", returnType = FrontendType.int32 };
             //rootScope.AddFunction(main);

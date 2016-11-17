@@ -950,12 +950,12 @@ namespace PragmaScript
                         ps.NextToken();
                     }
                     var exp = parsePrimary(ref ps, scope);
-                    
+
                     // TODO: check if valid type (in type check phase?)
                     result.typeString = type;
                     result.expression = exp;
-                   
-                    
+
+
                     return result;
                 }
             }
@@ -1367,7 +1367,7 @@ namespace PragmaScript
                         ps.NextToken();
                     }
 
-                    if (ps.PeekToken().type != Token.TokenType.CloseBracket 
+                    if (ps.PeekToken().type != Token.TokenType.CloseBracket
                         && ps.PeekToken().type != Token.TokenType.Semicolon
                         && ps.PeekToken().type != Token.TokenType.OpenCurly
                         && ps.PeekToken().type != Token.TokenType.Assignment)
@@ -1384,6 +1384,8 @@ namespace PragmaScript
         }
 
 
+     
+
         public static List<NamedParameter> parseParamList(ref ParseState ps, Scope scope)
         {
             var result = new List<NamedParameter>();
@@ -1391,6 +1393,7 @@ namespace PragmaScript
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
             var next = ps.PeekToken();
+            bool firstOptionalParameter = false;
             while (next.type != Token.TokenType.CloseBracket)
             {
                 // let foo = struct ( x 
@@ -1408,12 +1411,28 @@ namespace PragmaScript
                 p.typeString = ts;
                 result.Add(p);
 
+                if (ps.PeekToken().type == Token.TokenType.Assignment)
+                {
+                    firstOptionalParameter = true;
+                    ps.NextToken();
+                    ps.NextToken();
+                    var exp = parseBinOp(ref ps, scope);
+                    p.defaultValueExpression = exp;
+                }
+                else
+                {
+                    if (firstOptionalParameter)
+                    {
+                        throw new ParserError("Required parameter after optional parameters is not allowed.", ident);
+                    }
+                }
+
                 // let foo = struct ( x: int32; ... 
                 if (ps.PeekToken().type == Token.TokenType.CloseBracket)
                 {
                     next = ps.PeekToken();
                 }
-                else
+                else 
                 {
                     next = ps.ExpectNextToken(Token.TokenType.Semicolon);
                     next = ps.PeekToken();
