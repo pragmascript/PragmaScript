@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace PragmaScript
@@ -23,6 +24,7 @@ namespace PragmaScript
 
         public abstract class Node
         {
+            public Dictionary<string, string> attributes;
             public Token token;
             public Scope scope;
             public Node(Token t, Scope s)
@@ -34,6 +36,26 @@ namespace PragmaScript
             public virtual IEnumerable<Node> GetChilds()
             {
                 yield break;
+            }
+
+            public void AddAttribute(string key, string value)
+            {
+                if (attributes == null)
+                {
+                    attributes = new Dictionary<string, string>();
+                }
+                attributes.Add(key, value);
+            }
+
+            public string GetAttribute(string key)
+            {
+                if (attributes == null)
+                {
+                    return null;
+                }
+                string result = null;
+                attributes.TryGetValue(key, out result);
+                return result;
             }
 
             public abstract Node DeepCloneTree();
@@ -635,6 +657,46 @@ namespace PragmaScript
             public override string ToString()
             {
                 return s;
+            }
+            public string ConvertString()
+            {
+                var txt = s.Substring(1, s.Length - 2);
+                StringBuilder result = new StringBuilder(txt.Length);
+                int idx = 0;
+                while (idx < txt.Length)
+                {
+                    if (txt[idx] != '\\')
+                    {
+                        result.Append(txt[idx]);
+                    }
+                    else
+                    {
+                        idx++;
+                        Debug.Assert(idx < txt.Length);
+                        // TODO: finish escape sequences
+                        // https://msdn.microsoft.com/en-us/library/h21280bw.aspx
+                        switch (txt[idx])
+                        {
+                            case '\\':
+                                result.Append('\\');
+                                break;
+                            case 'n':
+                                result.Append('\n');
+                                break;
+                            case 't':
+                                result.Append('\t');
+                                break;
+                            case '"':
+                                result.Append('"');
+                                break;
+                            case '0':
+                                result.Append('\0');
+                                break;
+                        }
+                    }
+                    idx++;
+                }
+                return result.ToString();
             }
         }
 

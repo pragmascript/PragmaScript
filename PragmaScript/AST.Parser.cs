@@ -195,6 +195,11 @@ namespace PragmaScript
 
             var next = current;
 
+
+            bool foundAttrib = false;
+            string attribKey = null;
+            string attribValue = null;
+
             while (next.type != Token.TokenType.EOF)
             {
                 Node decl = null;
@@ -203,17 +208,50 @@ namespace PragmaScript
                 if (current.type == Token.TokenType.Var || current.type == Token.TokenType.Let)
                 {
                     decl = parseLetVar(ref ps, scope, ref ignoreSemicolon);
+                    if (attribKey != null)
+                    {
+                        Debug.Assert(attribValue != null);
+                        decl.AddAttribute(attribKey, attribValue);
+                        attribKey = null;
+                        attribValue = null;
+                        foundAttrib = false;
+                    }
+                }
+                else
+                if (current.type == Token.TokenType.OpenSquareBracket)
+                {
+                    ps.NextToken();
+                    var key = parsePrimary(ref ps, scope) as AST.ConstString;
+                    if (key == null)
+                    {
+                        throw new ParserError("Expected string constant in attribute", key.token);
+                    }
+                    ps.ExpectNextToken(Token.TokenType.Colon);
+                    ps.NextToken();
+                    var value = parsePrimary(ref ps, scope) as AST.ConstString;
+                    if (value == null)
+                    {
+                        throw new ParserError("Expected string constant in attribute", key.token);
+                    }
+                    ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
+                    attribKey = key.ConvertString().ToUpper();
+                    attribValue = value.ConvertString().ToUpper();
+                    ignoreSemicolon = true;
+                    foundAttrib = true;
                 }
                 if (!ignoreSemicolon)
                 {
                     ps.NextToken(skipWS: true);
                     ps.ExpectCurrentToken(Token.TokenType.Semicolon);
                 }
-                if (decl == null)
+                if (!foundAttrib && decl == null)
                 {
                     throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
                 }
-                result.declarations.Add(decl);
+                if (!foundAttrib)
+                {
+                    result.declarations.Add(decl);
+                }
 
                 next = ps.NextToken();
             }
@@ -1124,7 +1162,6 @@ namespace PragmaScript
 
         static Node parseStructConstructor(ref ParseState ps, Scope scope)
         {
-
             // var x = vec3_i32
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
 

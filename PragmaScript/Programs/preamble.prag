@@ -10,6 +10,8 @@ let half_pi_32 = (f32)half_pi;
 let _rdtsc = extern fun () => i64;
 let __chkstk = extern fun () => void;
 
+
+["conditional":"debug"]
 let assert = fun 
 (
 	value: bool; 
@@ -18,26 +20,33 @@ let assert = fun
 ) => void 
 {
 	if (!value) {
-		print_string("Assertion "); 
+		print_error("Assertion "); 
 		if (msg.length > 0) 
 		{
-			print_string("\"");
-			print_string(msg);
-			print_string("\" ");
+			print_error("\"");
+			print_error(msg);
+			print_error("\" ");
 		}
-		print_string("at: ");
-		print_string(filepos);
-		print_string("\n");
+		print_error("failed at: ");
+		print_error(filepos);
+		print_error("\n");
 		*nullptr = 42;
 	}
 }
 
-let cstr = fun(value: string) => i8* 
+
+#if DEBUG
+let cstr = fun(value: string; filepos: string = __file_pos__()) => i8* 
 {
-	assert(value[value.length - 1] == 0);
+	assert(value[value.length - 1] == 0, "c-string not null terminated", filepos);
 	return value.data;
 }
-
+#else
+let cstr = fun(value: string) => i8* 
+{
+	return value.data;
+}
+#endif
 
 // let __chkstk = fun() => void 
 // {
@@ -264,7 +273,13 @@ let debug_print_f32 = fun (name: string; value: f32; precision: i32 = 4) => void
 	print_f32(value, precision);
 	print_string("\n");
 }
-
+let debug_print_f64 = fun (name: string; value: f64; precision: i32 = 4) => void
+{
+	print_string(name);
+	print_string(": ");
+	print_f64(value, precision);
+	print_string("\n");
+}
 
 let __hack_reserve_intrinsics = fun () => bool
 {

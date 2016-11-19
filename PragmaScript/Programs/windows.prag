@@ -1,9 +1,21 @@
-﻿var console_output_handle = GetStdHandle(-11);
-var console_input_handle = GetStdHandle(-10);
+﻿	let STD_ERROR_HANDLE  = -12;
+	let STD_OUTPUT_HANDLE = -11;
+	let STD_INPUT_HANDLE  = -10;
+
+var console_output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+var console_input_handle = GetStdHandle(STD_INPUT_HANDLE);
+var console_error_handle = GetStdHandle(STD_ERROR_HANDLE);
+
 let print_string = fun (s: string) => void
 {
  	WriteFile(console_output_handle, s.data, s.length, (i32*)nullptr, nullptr);
 }
+
+let print_error = fun (s: string) => void
+{
+  WriteFile(console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
+}
+
 
 let WS_OVERLAPPEDWINDOW = 13565952;
 let WS_VISIBLE    = 0x10000000; 
@@ -268,6 +280,8 @@ let GetProcAddress = extern fun(lib: mm; name: i8*) => ptr;
 
 let QueryPerformanceCounter = extern fun(result: i64*) => i32;
 let QueryPerformanceFrequency = extern fun(result: i64*) => i32;
+let Sleep = extern fun (ms: i32) => void;
+let timeBeginPeriod = extern fun (ms: i32) => i32;
 
 // ********************** XINPUT ********************** 
 
@@ -304,11 +318,14 @@ var XInputGetState: fun
 ) => i32;
 
 
+
+
 // ********************** DIRECTSOUND ********************** 
 
 let DS_OK = 0;
 let WAVE_FORMAT_PCM = (i16)1;
 let DSBCAPS_PRIMARYBUFFER = 1;
+let DSBCAPS_GETCURRENTPOSITION2 = 0x10000;
 let DSBPLAY_LOOPING = 1;
 let DSSCL_PRIORITY = 2;
 
@@ -426,4 +443,6 @@ let DirectSoundFunctions = struct
   _unused7: ptr; // SetSpeakerConfig
   _unused8: ptr; // Initialize
 );
+
+
 

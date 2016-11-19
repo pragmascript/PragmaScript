@@ -166,58 +166,16 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        public static string ParseString(string txt, Token t)
-        {
-            StringBuilder result = new StringBuilder(txt.Length);
-            int idx = 0;
-            while (idx < txt.Length)
-            {
-                if (txt[idx] != '\\')
-                {
-                    result.Append(txt[idx]);
-                }
-                else
-                {
-                    idx++;
-                    Debug.Assert(idx < txt.Length);
-                    // TODO: finish escape sequences
-                    // https://msdn.microsoft.com/en-us/library/h21280bw.aspx
-                    switch (txt[idx])
-                    {
-                        case '\\':
-                            result.Append('\\');
-                            break;
-                        case 'n':
-                            result.Append('\n');
-                            break;
-                        case 't':
-                            result.Append('\t');
-                            break;
-                        case '"':
-                            result.Append('"');
-                            break;
-                        case '0':
-                            result.Append('\0');
-                            break;
-                    }
-                }
-                idx++;
-            }
-            return result.ToString();
-        }
+        
 
-        string convertString(string s, Token t)
-        {
-            var tmp = s.Substring(1, s.Length - 2);
-            return ParseString(tmp, t);
-        }
+       
 
         public void Visit(AST.ConstString node, bool needsConversion = true)
         {
             var str = node.s;
             if (needsConversion)
             {
-                str = convertString(node.s, node.token);
+                str = node.ConvertString();
             }
             
             var bytes = System.Text.ASCIIEncoding.ASCII.GetBytes(str);
@@ -229,8 +187,11 @@ namespace PragmaScript
             var insert = LLVM.GetInsertBlock(builder);
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
 
+
             var arr_struct_ptr = LLVM.BuildAlloca(builder, arr_struct_type, "arr_struct_alloca");
+
             var elem_type = GetTypeRef(type.elementType);
+            
 
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)bytes.Length, Const.FalseBool);
             var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
@@ -333,7 +294,12 @@ namespace PragmaScript
                     case AST.BinOp.BinOpType.LogicalXOR:
                         result = LLVM.BuildXor(builder, left, right, "or_tmp");
                         break;
-
+                    case AST.BinOp.BinOpType.Equal:
+                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, left, right, "icmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.NotEqual:
+                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, left, right, "icmp_tmp");
+                        break;
                     default:
                         throw new InvalidCodePath();
                 }
@@ -896,19 +862,29 @@ namespace PragmaScript
         public void Visit(AST.StructConstructor node)
         {
             var sc = node;
-            var structType = GetTypeRef(typeChecker.GetNodeType(node));
+            var sft = typeChecker.GetNodeType(node) as FrontendStructType;
+            var structType = GetTypeRef(sft);
 
             var insert = LLVM.GetInsertBlock(builder);
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
             var struct_ptr = LLVM.BuildAlloca(builder, structType, "struct_alloca");
             LLVM.PositionBuilderAtEnd(builder, insert);
 
-            for (int i = 0; i < sc.argumentList.Count; ++i)
+            for (int i = 0; i < sft.fields.Count; ++i)
             {
-                Visit(sc.argumentList[i]);
-                var arg = valueStack.Pop();
-                var arg_ptr = LLVM.BuildStructGEP(builder, struct_ptr, (uint)i, "struct_arg_" + i);
-                LLVM.BuildStore(builder, arg, arg_ptr);
+                if (i < node.argumentList.Count)
+                {
+                    Visit(sc.argumentList[i]);
+                    var arg = valueStack.Pop();
+                    var arg_ptr = LLVM.BuildStructGEP(builder, struct_ptr, (uint)i, "struct_arg_" + i);
+                    LLVM.BuildStore(builder, arg, arg_ptr);
+                }
+                else
+                {
+                    var arg_ptr = LLVM.BuildStructGEP(builder, struct_ptr, (uint)i, "struct_arg_" + i);
+                    var pt = LLVM.GetElementType(LLVM.TypeOf(arg_ptr));
+                    LLVM.BuildStore(builder, LLVM.ConstNull(pt), arg_ptr);
+                }
             }
             valueStack.Push(struct_ptr);
         }
@@ -1168,7 +1144,6 @@ namespace PragmaScript
             var ltype = LLVM.TypeOf(result);
             var ltype_string = typeToString(ltype);
             valueStack.Push(result);
-
         }
 
         public void VisitSpecialFunction(AST.FunctionCall node, FrontendFunctionType feft)
@@ -1177,8 +1152,13 @@ namespace PragmaScript
             {
                 case "__file_pos__":
                     {
-                        var s = new AST.ConstString(node.token, node.scope);
+                        var s = new AST.ConstString(node.left.token, node.left.scope);
                         var fp = node.left.token.FilePosBackendString();
+                        if (ctx.Peek().defaultParameterCallsite != Token.Undefined)
+                        {
+                            fp = ctx.Peek().defaultParameterCallsite.FilePosBackendString();
+                        }
+                        
                         s.s = fp;
                         Visit(s, false);
                     }
@@ -1190,11 +1170,18 @@ namespace PragmaScript
         public void Visit(AST.FunctionCall node)
         {
             var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
+
             if (feft.specialFun)
             {
                 VisitSpecialFunction(node, feft);
                 return;
             }
+
+            if (feft.inactiveConditional)
+            {
+                return;
+            }
+
             Visit(node.left);
             var f = valueStack.Pop();
             
@@ -1228,7 +1215,9 @@ namespace PragmaScript
                 var fts = fd.typeString.functionTypeString;
                 for (int idx = node.argumentList.Count; idx < feft.parameters.Count; ++idx)
                 {
+                    ctx.Peek().defaultParameterCallsite = node.token;
                     Visit(fts.parameters[idx].defaultValueExpression);
+                    ctx.Peek().defaultParameterCallsite = Token.Undefined;
                     parameters[idx] = valueStack.Pop();
                 }
             }
@@ -1456,19 +1445,23 @@ namespace PragmaScript
 
         public void Visit(AST.FunctionDefinition node, bool proto = false)
         {
+            var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
+            if (fun.inactiveConditional)
+            {
+                return;
+            }
             if (proto)
             {
-
                 if (node.external && variables.ContainsKey(node.funName) || node.isFunctionTypeDeclaration())
                 {
                     return;
                 }
-                var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
                 var funType = LLVM.GetElementType(GetTypeRef(fun));
 
                 Debug.Assert(!variables.ContainsKey(node.funName));
                 var function = LLVM.AddFunction(mod, node.funName, funType);
-                LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
+
+             LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i)
                 {
                     LLVMValueRef param = LLVM.GetParam(function, (uint)i);
@@ -1485,6 +1478,8 @@ namespace PragmaScript
                     return;
                 }
                 var function = variables[node.funName];
+
+
                 LLVM.SetLinkage(function, LLVMLinkage.LLVMInternalLinkage);
                 var vars = LLVM.AppendBasicBlock(function, "vars");
                 var entry = LLVM.AppendBasicBlock(function, "entry");
@@ -1499,7 +1494,6 @@ namespace PragmaScript
                     Visit(node.body);
                 }
 
-                var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
                 var returnType = GetTypeRef(fun.returnType);
                 insertMissingReturn(returnType);
 
@@ -1508,7 +1502,12 @@ namespace PragmaScript
 
                 LLVM.PositionBuilderAtEnd(builder, blockTemp);
 
-                LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
+                // var dib = LLVM.NewDIBuilder(mod);
+                //var metas = new LLVMValueRef[] { LLVM.MDString("file.prag", (uint)"file.prag".Length), LLVM.MDString("file.prag", (uint)"file.prag".Length) };
+                //var mdnode = LLVM.MDNodeInContext(LLVM.GetModuleContext(mod), out metas[0], 2);
+                //LLVM.SetMetadata(function, 0, mdnode);
+
+                // LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
 
                 ctx.Pop();
             }

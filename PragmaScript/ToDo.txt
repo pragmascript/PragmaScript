@@ -17,6 +17,8 @@
  
  - make structs zero initialize?
 
+ - make preprocessor respect comments
+
  - simplify / remove pre_resolved dictionary
    using the fileRoots dictionary
 

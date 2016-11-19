@@ -379,7 +379,29 @@ namespace PragmaScript
             }
             if (tt != null)
             {
+                if ((tt as FrontendFunctionType).funName == "assert")
+                {
+                    int breakHere = 42;
+                }
                 typeRoots.Add(tt, node);
+                var cond = node.GetAttribute("CONDITIONAL");
+                if (cond != null)
+                {
+                    if (CompilerOptions.debug)
+                    {
+                        if (cond != "DEBUG")
+                        {
+                            (tt as FrontendFunctionType).inactiveConditional = true;
+                        }
+                    }
+                    else
+                    {
+                        if (cond != "RELEASE")
+                        {
+                            (tt as FrontendFunctionType).inactiveConditional = true;
+                        }
+                    }
+                }
                 resolve(node, tt);
             }
 
@@ -500,7 +522,6 @@ namespace PragmaScript
         void checkType(AST.FunctionCall node)
         {
             FrontendFunctionType f_type = null;
-
 
             checkTypeDynamic(node.left);
             var lt = getType(node.left);

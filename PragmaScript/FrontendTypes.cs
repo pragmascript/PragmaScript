@@ -405,6 +405,7 @@ namespace PragmaScript
         public FrontendType returnType;
         public string funName;
         public bool specialFun;
+        public bool inactiveConditional;
 
         public FrontendFunctionType(string funName)
         {

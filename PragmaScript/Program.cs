@@ -11,7 +11,20 @@ using System.Diagnostics;
 
 namespace PragmaScript
 {
-
+    public static class Extensions
+    {
+        public static char at(this string s, int idx)
+        {
+            if (idx >= 0 && idx < s.Length)
+            {
+                return s[idx];
+            }
+            else
+            {
+                return '\0';
+            }
+        }
+    }
     static class CompilerOptions
     {
         public static bool debug = false;
@@ -33,8 +46,9 @@ namespace PragmaScript
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 0;
             CompilerOptions.runAfterCompile = true;
-            CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
-            // CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
+            // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
+            CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
+            // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\preamble.prag";
 #endif
             if (CompilerOptions.inputFilename == null)
             {
@@ -194,6 +208,102 @@ namespace PragmaScript
         }
 
 
+        static void skipWhitespace(string text, ref int idx)
+        {
+            while (char.IsWhiteSpace(text.at(idx)))
+            {
+                idx++;
+            }
+        }
+
+        class PrepIf
+        {
+            public bool Condition;
+            public bool InElse;
+        }
+        static string preprocess(string text)
+        {
+            HashSet<string> defines = new HashSet<string>();
+            defines.Add("TRUE");
+            if (CompilerOptions.debug)
+            {
+                defines.Add("DEBUG");
+            }
+            else
+            {
+                defines.Add("RELEASE");
+            }
+
+            StringBuilder result = new StringBuilder(text.Length);
+            int idx = 0;
+
+
+            Stack<PrepIf> ifs = new Stack<PrepIf>();
+
+            while (true)
+            {
+                if (text.at(idx) == '#')
+                {
+                    if (char.ToUpper(text.at(idx + 1)) == 'I' && char.ToUpper(text.at(idx + 2)) == 'F')
+                    {
+                        idx += 3;
+                        if (idx >= text.Length)
+                        {
+                            return result.ToString();
+                        }
+                        skipWhitespace(text, ref idx);
+                        if (idx >= text.Length)
+                        {
+                            return result.ToString();
+                        }
+                        int ident_start = idx;
+                        while (Token.isIdentifierChar(text.at(idx++))) { }
+                        int ident_end = idx;
+                        var ident = text.Substring(ident_start, ident_end - ident_start - 1);
+                        var con = defines.Contains(ident);
+                        ifs.Push(new PrepIf { Condition = con, InElse = false});
+                    }
+                    else
+                    {
+                        idx += 1;
+                        if (idx >= text.Length)
+                        {
+                            return result.ToString();
+                        }
+                        int ident_start = idx;
+                        while (Token.isIdentifierChar(text.at(idx++))) { }
+                        int ident_end = idx;
+                        var ident = text.Substring(ident_start, ident_end - ident_start - 1);
+
+                        if (ident.ToUpper() == "ELSE")
+                        {
+                            ifs.Peek().InElse = true;
+                        }
+                        else if (ident.ToUpper() == "ENDIF")
+                        {
+                            ifs.Pop();
+                        }
+                    }
+                }
+                var skip = false;
+                if (ifs.Count > 0)
+                {
+                    var _if = ifs.Peek();
+                    skip = !(_if.Condition ^ _if.InElse);
+                }
+                
+                if (!skip)
+                {
+                    result.Append(text[idx]);
+                }
+                idx++;
+                if (idx >= text.Length)
+                {
+                    return result.ToString();
+                }
+
+            }
+        }
 
         static void compile(string filename)
         {
@@ -217,6 +327,7 @@ namespace PragmaScript
             {
                 var fn = toImport.Dequeue();
                 var text = File.ReadAllText(fn);
+                text = preprocess(text);
                 var tokens = tokenize(text, fn);
 
                 AST.ParseState ps;

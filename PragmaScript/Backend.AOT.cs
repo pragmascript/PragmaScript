@@ -47,6 +47,9 @@ namespace PragmaScript
                 IntPtr error_msg;
                 LLVM.PrintModuleToFile(mod, "output.ll", out error_msg);
             }
+
+            var error = false;
+
             if (optLevel > 0)
             {
                 Console.WriteLine($"optimizer... (O{optLevel})");
@@ -58,15 +61,18 @@ namespace PragmaScript
                 optProcess.StartInfo.UseShellExecute = false;
                 optProcess.Start();
                 optProcess.WaitForExit();
+                if (optProcess.ExitCode != 0)
+                {
+                    error = true;
+                }
                 optProcess.Close();
-
             }
             var inp = "output_opt.ll";
             if (optLevel == 0)
             {
                 inp = "output.ll";
             }
-            if (CompilerOptions.asm)
+            if (!error && CompilerOptions.asm)
             {
                 Console.WriteLine("assembler...(debug)");
                 var llcProcess = new Process();
@@ -77,9 +83,13 @@ namespace PragmaScript
                 llcProcess.StartInfo.UseShellExecute = false;
                 llcProcess.Start();
                 llcProcess.WaitForExit();
+                if (llcProcess.ExitCode != 0)
+                {
+                    error = true;
+                }
                 llcProcess.Close();
             }
-
+            if (!error)
             {
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();
@@ -90,22 +100,31 @@ namespace PragmaScript
                 llcProcess.StartInfo.UseShellExecute = false;
                 llcProcess.Start();
                 llcProcess.WaitForExit();
+                if (llcProcess.ExitCode != 0)
+                {
+                    error = true;
+                }
                 llcProcess.Close();
-            }
+                            }
+            if (!error)
             {
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
                 lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
-                lldProcess.StartInfo.Arguments = $"kernel32.lib user32.lib gdi32.lib output.o /entry:__init /subsystem:CONSOLE  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
+                lldProcess.StartInfo.Arguments = $"kernel32.lib user32.lib gdi32.lib winmm.lib output.o /entry:__init /subsystem:CONSOLE  /libpath:\"C:\\Program Files (x86)\\Windows Kits\\8.1\\Lib\\winv6.3\\um\\x64\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;
                 lldProcess.Start();
                 lldProcess.WaitForExit();
+                if (lldProcess.ExitCode != 0)
+                {
+                    error = true;
+                }
                 lldProcess.Close();
             }
 
-            if (CompilerOptions.runAfterCompile)
+            if (!error && CompilerOptions.runAfterCompile)
             {
                 Console.WriteLine("running...");
                 var outputProcess = new Process();
@@ -118,6 +137,10 @@ namespace PragmaScript
                 outputProcess.StartInfo.UseShellExecute = false;
                 outputProcess.Start();
                 outputProcess.WaitForExit();
+                if (outputProcess.ExitCode != 0)
+                {
+                    error = true;
+                }
                 outputProcess.Close();
             }
 

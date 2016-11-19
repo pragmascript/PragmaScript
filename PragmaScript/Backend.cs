@@ -27,6 +27,8 @@ namespace PragmaScript
             public LLVMBasicBlockRef loopNext;
             public LLVMBasicBlockRef loopEnd;
 
+            public Token defaultParameterCallsite = Token.Undefined;
+
 
             public ExecutionContext(LLVMValueRef function, string functionName, LLVMBasicBlockRef entry, LLVMBasicBlockRef vars, bool global = false)
             {
@@ -438,6 +440,10 @@ namespace PragmaScript
                 LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
                 LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.round.f32", fn_type);
                 variables.Add("round", fn);
+
+
+
+              
             }
         }
 
@@ -492,6 +498,8 @@ namespace PragmaScript
 
                 LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
                 variables.Add("ReadFile", fun);
+
+                
             }
         }
 
