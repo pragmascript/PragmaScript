@@ -133,6 +133,7 @@
     <Compile Include="Backend.AST.cs" />
     <Compile Include="Backend.cs" />
     <Compile Include="Backend.Visitor.cs" />
+    <Compile Include="DeSugar.cs" />
     <Compile Include="Exceptions.cs" />
     <Compile Include="FrontendTypes.cs" />
     <Compile Include="Program.cs" />
