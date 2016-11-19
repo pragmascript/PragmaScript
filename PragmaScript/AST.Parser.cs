@@ -372,7 +372,7 @@ namespace PragmaScript
 
             var result = new WhileLoop(current, scope);
 
-            var loopBodyScope = new Scope(scope);
+            var loopBodyScope = new Scope(scope, scope.function);
 
             // while (i < 10
             ps.NextToken();
@@ -398,7 +398,7 @@ namespace PragmaScript
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
             var result = new ForLoop(current, scope);
-            var loopBodyScope = new Scope(scope);
+            var loopBodyScope = new Scope(scope, scope.function);
 
             // for(int i = 0
             var next = ps.PeekToken();
@@ -1291,7 +1291,7 @@ namespace PragmaScript
 
             if (newScope == null)
             {
-                newScope = new Scope(parentScope);
+                newScope = new Scope(parentScope, parentScope.function);
             }
             var result = new Block(current, newScope);
 
@@ -1518,7 +1518,7 @@ namespace PragmaScript
             Debug.Assert(result.typeString.kind == TypeString.TypeKind.Function);
 
             result.funName = id.text;
-            var funScope = new Scope(scope);
+            var funScope = new Scope(scope, result);
             var idx = 0;
             foreach (var pd in result.typeString.functionTypeString.parameters)
             {

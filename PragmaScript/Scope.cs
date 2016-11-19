@@ -29,12 +29,15 @@ namespace PragmaScript
         }
 
         public Scope parent;
+        public AST.FunctionDefinition function;
+
         public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
         public Dictionary<string, TypeDefinition> types = new Dictionary<string, TypeDefinition>();
 
-        public Scope(Scope parent)
+        public Scope(Scope parent, AST.FunctionDefinition function)
         {
             this.parent = parent;
+            this.function = function;
         }
 
         public VariableDefinition GetVar(string name)

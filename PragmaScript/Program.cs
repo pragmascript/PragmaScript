@@ -381,14 +381,14 @@ namespace PragmaScript
 #endif
             }
 
-            //#if DEBUG
-            //            Console.WriteLine("rendering graph...");
-            //            foreach (var fr in root.files)
-            //            {
-            //                renderGraph(fr, "");
-            //            }
+#if DEBUG
+            Console.WriteLine("rendering graph...");
+            foreach (var fr in root.files)
+            {
+                renderGraph(fr, "");
+            }
 
-            //#endif
+#endif
 
             Console.WriteLine("type checking...");
 

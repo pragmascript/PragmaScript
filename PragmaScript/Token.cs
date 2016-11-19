@@ -90,7 +90,8 @@ namespace PragmaScript
             GreaterEqualUnsigned,
             LessEqualUnsigned,
             DivideEqualsUnsigned,
-            DivideUnsigned
+            DivideUnsigned,
+            At
         }
 
         public TokenType type { get; private set; }
@@ -182,6 +183,7 @@ namespace PragmaScript
             operators.Add("<<=", TokenType.LeftShiftEquals);
             operators.Add(">>=", TokenType.RightShiftEquals);
             operators.Add("[]", TokenType.ArrayTypeBrackets);
+            operators.Add("@", TokenType.At);
 
             foreach (var op in operators.Keys)
             {

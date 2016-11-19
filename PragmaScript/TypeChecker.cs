@@ -379,10 +379,7 @@ namespace PragmaScript
             }
             if (tt != null)
             {
-                if ((tt as FrontendFunctionType).funName == "assert")
-                {
-                    int breakHere = 42;
-                }
+
                 typeRoots.Add(tt, node);
                 var cond = node.GetAttribute("CONDITIONAL");
                 if (cond != null)
@@ -824,23 +821,33 @@ namespace PragmaScript
             {
                 checkTypeDynamic(node.expression);
                 var rt = getType(node.expression);
-                if (rt != null)
-                {
-                    returnType = rt;
-                    // TODO check if right type? get from scope?
-                }
-                else
+                if (rt == null)
                 {
                     addUnresolved(node, node.expression);
                 }
+                returnType = rt;
             }
             else
             {
                 returnType = FrontendType.void_;
             }
-            if (returnType != null)
+
+            var ft = getType(node.scope.function) as FrontendFunctionType;
+            if (ft == null)
             {
-                resolve(node, returnType);
+                addUnresolved(node, node.scope.function);
+            }
+
+            if (returnType != null && ft != null)
+            {
+                if (FrontendType.CompatibleAndLateBind(returnType, ft.returnType))
+                {
+                    resolve(node, returnType);
+                }
+                else
+                {
+                    throw new ParserTypeMismatch(returnType, ft.returnType, node.token);
+                }
             }
         }
 

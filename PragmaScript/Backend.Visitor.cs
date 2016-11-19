@@ -515,6 +515,7 @@ namespace PragmaScript
                 throw new BackendTypeMismatchException(Const.BoolType, LLVM.TypeOf(cor_rhs_tv));
 
             LLVM.BuildBr(builder, cor_end);
+            cor_rhs = LLVM.GetInsertBlock(builder);
 
             // cor.end:
             LLVM.PositionBuilderAtEnd(builder, cor_end);
@@ -552,11 +553,19 @@ namespace PragmaScript
             var cand_rhs_tv = valueStack.Pop();
             if (!isEqualType(LLVM.TypeOf(cand_rhs_tv), Const.BoolType))
                 throw new BackendTypeMismatchException(Const.BoolType, LLVM.TypeOf(cand_rhs_tv));
+           
             LLVM.BuildBr(builder, cand_end);
+            cand_rhs = LLVM.GetInsertBlock(builder);
 
             // cor.end:
             LLVM.PositionBuilderAtEnd(builder, cand_end);
             var phi = LLVM.BuildPhi(builder, Const.BoolType, "candphi");
+
+            //var ic = LLVM.CountIncoming(phi);
+            //for (int i = 0; i < ic; ++i)
+            //{
+
+            //}
 
             LLVMBasicBlockRef[] incomingBlocks = new LLVMBasicBlockRef[2] { block, cand_rhs };
             LLVMValueRef[] incomingValues = new LLVMValueRef[2] { Const.False, cand_rhs_tv };

@@ -280,7 +280,7 @@ let win_fill_sound_buffer = fun
 			sound_output.byte_last_written = (i32)(last_sample - sound_output.buffer_start);
 		}
 
-		// assert(sample_count_2 == 0 || (sample_count_1 != 0 && sample_count_2 != 0));
+		assert(sample_count_2 == 0 || (sample_count_1 != 0 && sample_count_2 != 0));
 		assert(sound_output.byte_last_written >= 0 && sound_output.byte_last_written < sound_output.buffer_size);
 	}
 }
@@ -327,26 +327,22 @@ let win_update_next_sound_write_positon = fun
 	if (play_cursor > last_play_cursor) {
 		if (sound_output.byte_last_written >= last_play_cursor && sound_output.byte_last_written <= play_cursor) {
 			position_to_write = write_cursor;
-			print_string("*");
 		}		
 	}
 	if (play_cursor < last_play_cursor) {
 		if (sound_output.byte_last_written >= last_play_cursor || sound_output.byte_last_written <= play_cursor) {
 			position_to_write = write_cursor;
-			print_string("*");
 		}		
 	}
 
 	if (play_cursor < write_cursor) {
 		if (position_to_write >= play_cursor && position_to_write < write_cursor) {
 			position_to_write = write_cursor;
-			print_string(".");
 		}
 	}
 	if (play_cursor > write_cursor) {
 		if (position_to_write >= play_cursor || position_to_write < write_cursor) {
 			position_to_write = write_cursor;
-			print_string(".");
 		}
 	}
 
@@ -550,7 +546,7 @@ let main = fun () => void
 	RegisterClassExA(&window_class);
 
 	var monitor_hz = 60;
-	var game_update_hz = 30;
+	var game_update_hz = 60;
 	var target_sec_per_frame = 1.0 / (f32)game_update_hz;
 	
 	window.handle = CreateWindowExA(
@@ -574,7 +570,8 @@ let main = fun () => void
 	sound_output.samples_per_second = 48000;
 	sound_output.bytes_per_chunk = 2 * (i32)(sizeof(i16)); // 2 channels
 	sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
-	sound_output.latency_byte_count = sound_output.buffer_size / 15; 
+	sound_output.latency_byte_count = sound_output.buffer_size / 15;
+	debug_print_i32("latency", sound_output.latency_byte_count); 
 	var sound_buffer = win_init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
 	sound_output.sound_buffer = sound_buffer;
 

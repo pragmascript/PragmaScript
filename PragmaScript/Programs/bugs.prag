@@ -1,5 +1,5 @@
-﻿import "preamble.prag"
-import "windows.prag"
+﻿// import "preamble.prag"
+// import "windows.prag"
 
 // let sphere = struct
 // {
@@ -230,6 +230,8 @@ import "windows.prag"
 // 	var result: string;
 // } 
 
+var perf_count_freq: i64;
+
 // type checker error!
 let win_get_duration = fun
 (
@@ -237,17 +239,16 @@ let win_get_duration = fun
 	c1: i64;
 ) => f32
 {
-	return (c0 - c1) / perf_count_freq;
+	return (c0 - c1) / 12;
 }
 
 let main = fun () => void 
 {
-	print_f32((0.3+2.9) % 3.1);
 
-	var a = 12;
-	var b = 0;
-	// var cond = a == 0 || (a != 0 || b != 0);
-	// print_i32((i32)cond);
-	// print_string("\n");
+	// var a = -7;
+	// var b = -12;
+	// var cond = a == 11 && (a != 22 || b != 33);
+	// // print_i32((i32)cond);
+	// // print_string("\n");
 }
 
