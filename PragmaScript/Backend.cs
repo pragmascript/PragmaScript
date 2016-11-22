@@ -553,16 +553,15 @@ namespace PragmaScript
         }
 
 
-        void emit(AST.ProgramRoot root, AST.FunctionDefinition main)
+        public void Emit(AST.ProgramRoot root, AST.FunctionDefinition main)
         {
             prepareModule();
             Visit(root, main);
         }
 
-
-        public void EmitAndAOT(AST.ProgramRoot root, string filename, AST.FunctionDefinition main)
+        public void AOT(string filename)
         {
-            emit(root, main);
+            
             aotModule(filename);
         }
     }

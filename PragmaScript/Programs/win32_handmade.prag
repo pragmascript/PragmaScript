@@ -46,18 +46,18 @@ let sound_output = struct
 	sound_buffer: IDirectSoundBuffer*;
 	samples_per_second: i32;
 	bytes_per_chunk: i32;
+	bytes_per_frame: i32;
 	buffer_size: i32;
-	latency_byte_count: i32;
 	buffer_start: ptr;
+	safety_bytes: i32;
 	
 	byte_last_written: i32;
 	last_play_cursor: i32;
 	last_play_cursor_change_time: i64;
+
 	next_write_positon: i32;
 	next_bytes_to_write: i32;
 	first_write: bool;
-
-	game_time_advance: f32;
 );
 
 
@@ -311,45 +311,50 @@ let win_update_next_sound_write_positon = fun
 		var cursor_dt = (f64)(time - last_play_cursor_change_time) / (f64)perf_count_freq;
 		var d_bytes = sound_output.bytes_per_chunk * (i32)(cursor_dt * (f64)sound_output.samples_per_second);
 		play_cursor += d_bytes;
+		write_cursor += d_bytes;
 		play_cursor = play_cursor % sound_output.buffer_size;
+		write_cursor = write_cursor % sound_output.buffer_size;
 	} else {
 		last_play_cursor = play_cursor;
 		QueryPerformanceCounter(&last_play_cursor_change_time);
 	}
 
-	var position_to_write = byte_last_written - (next_bytes_to_write / 2);
-	if (position_to_write < 0) {
-		position_to_write = buffer_size + position_to_write; 
-	}
+	var position_to_write = byte_last_written;
 
 	if (play_cursor > last_play_cursor) {
 		if (byte_last_written >= last_play_cursor && byte_last_written <= play_cursor) {
 			position_to_write = write_cursor;
+			print_string("1");
 		}		
 	}
 	if (play_cursor < last_play_cursor) {
 		if (byte_last_written >= last_play_cursor || byte_last_written <= play_cursor) {
 			position_to_write = write_cursor;
+			print_string("2");
 		}		
 	}
 
 	if (play_cursor < write_cursor) {
 		if (position_to_write >= play_cursor && position_to_write < write_cursor) {
 			position_to_write = write_cursor;
+			print_string("3");
 		}
 	}
 	if (play_cursor > write_cursor) {
 		if (position_to_write >= play_cursor || position_to_write < write_cursor) {
 			position_to_write = write_cursor;
+			print_string("4");
 		}
 	}
 
-	var bytes_to_write = 0;
-	var target_cursor = (play_cursor + latency_byte_count);
-	if (target_cursor > sound_output.buffer_size) {
-		target_cursor -= sound_output.buffer_size;
+	var target_cursor: i32;
+	target_cursor = write_cursor + bytes_per_frame + sound_output.safety_bytes;
+
+	if (target_cursor > buffer_size) {
+		target_cursor -= buffer_size;
 	}
 
+	var bytes_to_write = 0;
 	if (target_cursor > play_cursor) {
 		if (position_to_write < target_cursor && position_to_write > play_cursor) {
 			bytes_to_write = target_cursor - position_to_write;
@@ -365,15 +370,8 @@ let win_update_next_sound_write_positon = fun
 		}
 	}
 
-	var delta_bytes_advance = position_to_write - next_write_positon;
-	if (delta_bytes_advance < 0) {
-		delta_bytes_advance = buffer_size - next_write_positon;
-		delta_bytes_advance += position_to_write;
-	}
-
-	sound_output.game_time_advance = (f32)delta_bytes_advance / (f32)(sound_output.samples_per_second * sound_output.bytes_per_chunk);
 	sound_output.next_write_positon = position_to_write;
-	sound_output.next_bytes_to_write = 2*bytes_to_write;
+	sound_output.next_bytes_to_write = bytes_to_write;
 
 	if (!sound_output.first_write && bytes_to_write > 0) {
 		sound_output.first_write = true;
@@ -388,9 +386,7 @@ let win_update_next_sound_write_positon = fun
 	// debug_print_i32("wc ", write_cursor);
 	// debug_print_i32("tc ", target_cursor);
 	// debug_print_i32("btw", bytes_to_write);
-	// debug_print_i32("latency bytes", sound_output.latency_byte_count);
-	// debug_print_i32("next pos", position_to_write + bytes_to_write);
-	// debug_print_f32("game_dt", sound_output.game_time_advance);
+	// debug_print_i32("bytes per frame", sound_output.bytes_per_frame);
 	// print_string("---------------------------\n");
 }
 
@@ -519,7 +515,6 @@ let win_get_duration = fun (c0: i64; c1: i64) => f32
 	return (f32)(c0 - c1) / (f32)perf_count_freq;
 }
 
-
 [
 "compile.entry" : "true",
 "compile.debug" : "true",
@@ -551,8 +546,8 @@ let main = fun () => void
 	RegisterClassExA(&window_class);
 
 	var monitor_hz = 60;
-	var game_update_hz = 60;
-	var target_sec_per_frame = 1.0 / (f32)game_update_hz;
+	var game_target_fps = 30;
+	var target_sec_per_frame = 1.0 / (f32)game_target_fps;
 	
 	window.handle = CreateWindowExA(
 		0,
@@ -574,9 +569,11 @@ let main = fun () => void
 	var sound_output: sound_output;
 	sound_output.samples_per_second = 48000;
 	sound_output.bytes_per_chunk = 2 * (i32)(sizeof(i16)); // 2 channels
+	sound_output.bytes_per_frame = sound_output.bytes_per_chunk *sound_output.samples_per_second / game_target_fps;
 	sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
-	sound_output.latency_byte_count = sound_output.buffer_size / 15;
-	debug_print_i32("latency", sound_output.latency_byte_count); 
+	sound_output.safety_bytes = sound_output.bytes_per_frame / 2;
+	
+	 
 	var sound_buffer = win_init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
 	sound_output.sound_buffer = sound_buffer;
 
@@ -613,11 +610,7 @@ let main = fun () => void
 	var last_cycle_count = _rdtsc();
 	var dt = 1.0 / 60.0;
 
-	var write_cursor: i32;
-	var play_cursor : i32;
-	error = sound_buffer.vtable.GetCurrentPosition(sound_buffer, &play_cursor, &write_cursor);
-	assert(error == DS_OK);
-	
+
 	var game_start_time: i64;
 	QueryPerformanceCounter(&game_start_time);
 
@@ -635,18 +628,20 @@ let main = fun () => void
 		game_render_target.height = backbuffer.height;
 		game_render_target.pitch = backbuffer.pitch;
 		
-		win_update_next_sound_write_positon(&sound_output);
-		game_sound_output.sample_count = sound_output.next_bytes_to_write / sound_output.bytes_per_chunk;
-		game_sound_output.sample_start_time += sound_output.game_time_advance;
-
+		
+		
 		var game_time = game_time{};
 		game_time.dt = dt;
 		game_time.t = win_get_duration(last_counter, game_start_time);
 		game_input.time = game_time;
 		game_input.request_quit |= window_requests_quit;
 
-		running = game_update_and_render(&game_memory, &game_input, &game_render_target, &game_sound_output);
-		
+		running = game_update_and_render(&game_memory, &game_input, &game_render_target);
+
+		win_update_next_sound_write_positon(&sound_output);
+		game_sound_output.sample_count = sound_output.next_bytes_to_write / sound_output.bytes_per_chunk;
+		game_output_sound(&game_memory, &game_sound_output);
+
 		win_fill_sound_buffer(&sound_output, &game_sound_output);
 		if (!running) {
 			win_clear_sound_buffer(&sound_output);

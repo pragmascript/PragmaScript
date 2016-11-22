@@ -1,4 +1,8 @@
-﻿using System;
+﻿
+// #define DISPLAY_TIMINGS  
+
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,6 +12,7 @@ using System.Threading;
 using System.Text;
 using static PragmaScript.AST;
 using System.Diagnostics;
+
 
 namespace PragmaScript
 {
@@ -376,7 +381,9 @@ namespace PragmaScript
 
         static void compile(string filename)
         {
-            Console.WriteLine("parsing...");
+            var timer = new Stopwatch();
+            Console.Write("parsing...");
+            timer.Start();
 
             Queue<string> toImport = new Queue<string>();
             HashSet<string> imported = new HashSet<string>();
@@ -460,8 +467,15 @@ namespace PragmaScript
             //}
 
 #endif      
-
-            Console.WriteLine("type checking...");
+            timer.Stop();
+#if DISPLAY_TIMINGS
+            Console.WriteLine($"{timer.ElapsedMilliseconds}ms");
+#else
+            Console.WriteLine();
+#endif
+            Console.Write("type checking...");
+            timer.Reset();
+            timer.Start();
 
             var tc = new TypeChecker();
 
@@ -480,14 +494,38 @@ namespace PragmaScript
                 return;
             }
 
-            Console.WriteLine("de-sugar...");
+            timer.Stop();
+#if DISPLAY_TIMINGS
+            Console.WriteLine($"{timer.ElapsedMilliseconds}ms");
+#else
+            Console.WriteLine();
+#endif
+            Console.Write("de-sugar...");
+            timer.Reset();
+            timer.Start();
+            
             ParseTreeTransformations.Init(root);
             ParseTreeTransformations.Desugar(tc.embeddings, tc);
-            
 
-            Console.WriteLine("backend...");
+            timer.Stop();
+#if DISPLAY_TIMINGS
+            Console.WriteLine($"{timer.ElapsedMilliseconds}ms");
+#else
+            Console.WriteLine();
+#endif
+            Console.Write("backend...");
+            timer.Reset();
+            timer.Start();
             var backend = new Backend(Backend.TargetPlatform.x64, tc);
-            backend.EmitAndAOT(root, "output.o", entry);
+            backend.Emit(root, entry);
+            timer.Stop();
+#if DISPLAY_TIMINGS
+            Console.WriteLine($"{timer.ElapsedMilliseconds}ms");
+#else
+            Console.WriteLine();
+#endif
+
+            backend.AOT("output.o");
 #if DEBUG
             Console.ReadLine();
 #endif
