@@ -197,8 +197,7 @@ namespace PragmaScript
 
 
             bool foundAttrib = false;
-            string attribKey = null;
-            string attribValue = null;
+            List<(string key, string value)> attribs = new List<(string key, string value)>();
 
             while (next.type != Token.TokenType.EOF)
             {
@@ -208,12 +207,13 @@ namespace PragmaScript
                 if (current.type == Token.TokenType.Var || current.type == Token.TokenType.Let)
                 {
                     decl = parseLetVar(ref ps, scope, ref ignoreSemicolon);
-                    if (attribKey != null)
+                    if (attribs.Count > 0)
                     {
-                        Debug.Assert(attribValue != null);
-                        decl.AddAttribute(attribKey, attribValue);
-                        attribKey = null;
-                        attribValue = null;
+                        foreach (var a in attribs)
+                        {
+                            decl.AddAttribute(a.key, a.value);
+                        }
+                        attribs.Clear();
                         foundAttrib = false;
                     }
                 }
@@ -221,21 +221,32 @@ namespace PragmaScript
                 if (current.type == Token.TokenType.OpenSquareBracket)
                 {
                     ps.NextToken();
-                    var key = parsePrimary(ref ps, scope) as AST.ConstString;
-                    if (key == null)
+
+                    while (true)
                     {
-                        throw new ParserError("Expected string constant in attribute", key.token);
+                        var key = parsePrimary(ref ps, scope) as AST.ConstString;
+                        if (key == null)
+                        {
+                            throw new ParserError("Expected string constant in attribute", key.token);
+                        }
+                        ps.ExpectNextToken(Token.TokenType.Colon);
+                        ps.NextToken();
+                        var value = parsePrimary(ref ps, scope) as AST.ConstString;
+                        if (value == null)
+                        {
+                            throw new ParserError("Expected string constant in attribute", key.token);
+                        }
+                        var a_key = key.Vebatim().ToUpper();
+                        var a_value = value.Vebatim();
+                        attribs.Add((a_key, a_value));
+
+                        ps.ExpectNextToken(Token.TokenType.CloseSquareBracket, Token.TokenType.Comma);
+                        if (ps.CurrentToken().type == Token.TokenType.CloseSquareBracket)
+                        {
+                            break;
+                        }
+                        ps.NextToken();
                     }
-                    ps.ExpectNextToken(Token.TokenType.Colon);
-                    ps.NextToken();
-                    var value = parsePrimary(ref ps, scope) as AST.ConstString;
-                    if (value == null)
-                    {
-                        throw new ParserError("Expected string constant in attribute", key.token);
-                    }
-                    ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
-                    attribKey = key.ConvertString().ToUpper();
-                    attribValue = value.ConvertString().ToUpper();
                     ignoreSemicolon = true;
                     foundAttrib = true;
                 }
@@ -1241,7 +1252,7 @@ namespace PragmaScript
             result.returnPointer = returnPointer;
 
             var vd = scope.GetVar(current.text);
-            if (scope.GetVar(current.text) != null)
+            if (vd != null)
             {
                 result.vd = vd;
             }
@@ -1383,7 +1394,6 @@ namespace PragmaScript
             {
                 result.kind = TypeString.TypeKind.Struct;
                 throw new System.NotImplementedException();
-                return result;
             }
             else
             {
@@ -1433,8 +1443,17 @@ namespace PragmaScript
             bool firstOptionalParameter = false;
             while (next.type != Token.TokenType.CloseBracket)
             {
+                var p = new AST.NamedParameter();
                 // let foo = struct ( x 
-                var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
+                var at = ps.ExpectNextToken(Token.TokenType.Identifier, Token.TokenType.At);
+
+                if (next.type == Token.TokenType.At)
+                {
+                    p.embed = true;
+                    ps.ExpectNextToken(Token.TokenType.Identifier);
+                }
+                var ident = ps.CurrentToken();
+               
 
                 // let foo = struct ( x: 
                 ps.ExpectNextToken(Token.TokenType.Colon);
@@ -1443,7 +1462,7 @@ namespace PragmaScript
                 ps.NextToken();
                 var ts = parseTypeString(ref ps, scope);
 
-                var p = new AST.NamedParameter();
+                
                 p.name = ident.text;
                 p.typeString = ts;
                 result.Add(p);

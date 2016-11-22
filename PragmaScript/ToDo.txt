@@ -2,6 +2,9 @@
    of IL files 
    http://llvm.org/docs/CommandGuide/llvm-link.html
 
+
+- functions should be frontend pointer types!
+  so stuff like assert(foo != nullptr) works!
  
  - rethink the i8*64 syntax
    it would be better if it could also be
@@ -18,6 +21,9 @@
  - make structs zero initialize?
 
  - make preprocessor respect comments
+
+ - define string literals as constant globals and then memset them
+   into "string" struct data.
 
  - simplify / remove pre_resolved dictionary
    using the fileRoots dictionary
@@ -46,6 +52,7 @@
 
  - throw error if literal number type exceeds range of late bound integer
 
+ 
  
 
  - structs global variables with constant initializers

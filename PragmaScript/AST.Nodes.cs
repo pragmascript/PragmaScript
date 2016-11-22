@@ -15,6 +15,7 @@ namespace PragmaScript
         {
             public string name;
             public TypeString typeString;
+            public bool embed;
             public Node defaultValueExpression;
             public bool isOptional()
             {
@@ -25,10 +26,12 @@ namespace PragmaScript
         public abstract class Node
         {
             public Dictionary<string, string> attributes;
+            public Node parent;
             public Token token;
             public Scope scope;
             public Node(Token t, Scope s)
             {
+                parent = null;
                 token = t;
                 scope = s;
             }
@@ -47,18 +50,18 @@ namespace PragmaScript
                 attributes.Add(key, value);
             }
 
-            public string GetAttribute(string key)
+            public string GetAttribute(string key, bool upperCase = true)
             {
                 if (attributes == null)
                 {
                     return null;
                 }
-                string result = null;
-                attributes.TryGetValue(key, out result);
-                return result;
+                attributes.TryGetValue(key, out string result);
+                return upperCase ? result?.ToUpper() : result;
             }
 
             public abstract Node DeepCloneTree();
+            public abstract void Replace(Node old, Node @new);
         }
 
         public interface ICanReturnPointer
@@ -92,6 +95,11 @@ namespace PragmaScript
             {
                 return node.ToString();
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                node.Replace(old, @new);
+            }
         }
 
 
@@ -116,6 +124,12 @@ namespace PragmaScript
                 foreach (var f in files)
                     yield return f;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return "ProgramRoot";
@@ -143,6 +157,12 @@ namespace PragmaScript
                 foreach (var s in declarations)
                     yield return s;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return "FileRoot";
@@ -170,6 +190,12 @@ namespace PragmaScript
                 foreach (var s in statements)
                     yield return s;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return "Block";
@@ -197,6 +223,12 @@ namespace PragmaScript
                 yield return new AnnotatedNode(condition, scope, "condition");
                 yield return thenBlock;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return "elif";
@@ -241,6 +273,11 @@ namespace PragmaScript
             public override string ToString()
             {
                 return "if";
+            }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -295,6 +332,11 @@ namespace PragmaScript
             {
                 return "for";
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         public class WhileLoop : Node
@@ -318,6 +360,12 @@ namespace PragmaScript
                 yield return new AnnotatedNode(condition, scope, "condition");
                 yield return new AnnotatedNode(loopBody, scope, "body");
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return "while";
@@ -356,6 +404,23 @@ namespace PragmaScript
                     + variable.name + " = ";
 
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                if (expression == old)
+                {
+                    expression = @new;
+                }
+                else if (typeString == old)
+                {
+                    Debug.Assert(@new is TypeString);
+                    typeString = @new as TypeString;
+                }
+                else
+                {
+                    throw new InvalidCodePath();
+                }
+            }
         }
 
         public class FunctionDefinition : Node
@@ -393,6 +458,11 @@ namespace PragmaScript
                 string result = (external ? "extern " : "") + funName + "(...)";
                 return result;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         public class StructConstructor : Node
@@ -425,12 +495,19 @@ namespace PragmaScript
             {
                 return structName + "{ }";
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                var idx = argumentList.IndexOf(old);
+                Debug.Assert(idx != -1);
+                argumentList[idx] = @new;
+            }
         }
 
         public class StructDeclaration : Node
         {
             public string name;
-            
+
             public List<NamedParameter> fields = new List<NamedParameter>();
 
             public StructDeclaration(Token t, Scope s)
@@ -454,6 +531,10 @@ namespace PragmaScript
                 return name + " = struct { }";
             }
 
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         public class FunctionCall : Node
@@ -479,6 +560,7 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
+                yield return new AnnotatedNode(left, scope, "left");
                 foreach (var exp in argumentList)
                 {
                     yield return exp;
@@ -487,6 +569,13 @@ namespace PragmaScript
             public override string ToString()
             {
                 return "call()";
+            }
+
+            public override void Replace(Node old, Node @new)
+            {
+                var idx = argumentList.IndexOf(old);
+                Debug.Assert(idx != -1);
+                argumentList[idx] = @new;
             }
         }
 
@@ -512,6 +601,8 @@ namespace PragmaScript
                 // via the scope because the scope pointer wont get updated
                 // and thus fail in the type checking phase.
                 // Debug.Assert(vd != null);
+
+
                 var result = new VariableReference(token, scope);
                 if (vd != null)
                 {
@@ -528,6 +619,7 @@ namespace PragmaScript
                     vd = null;
                 }
                 result.returnPointer = returnPointer;
+                result.variableName = variableName;
                 return result;
             }
             public override string ToString()
@@ -540,6 +632,10 @@ namespace PragmaScript
                 return name + (returnPointer ? " (p)" : "");
             }
 
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         public class Assignment : Node, ICanReturnPointer
@@ -573,6 +669,19 @@ namespace PragmaScript
             {
                 return " = " + (returnPointer ? " (p)" : "");
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                if (left == old)
+                {
+                    left = @new;
+                }
+                else if (right == old)
+                {
+                    right = @new;
+                }
+                else throw new InvalidCodePath();
+            }
         }
 
         public class ConstInt : Node
@@ -589,6 +698,12 @@ namespace PragmaScript
                 result.number = number;
                 return result;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return number.ToString();
@@ -608,6 +723,12 @@ namespace PragmaScript
                 result.number = number;
                 return result;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return number.ToString("F2", CultureInfo.InvariantCulture);
@@ -634,6 +755,12 @@ namespace PragmaScript
                 result.value = value;
                 return result;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return value.ToString();
@@ -657,6 +784,10 @@ namespace PragmaScript
             public override string ToString()
             {
                 return s;
+            }
+            public string Vebatim()
+            {
+                return s.Substring(1, s.Length - 2);
             }
             public string ConvertString()
             {
@@ -698,6 +829,11 @@ namespace PragmaScript
                 }
                 return result.ToString();
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         public class ArrayConstructor : Node
@@ -726,6 +862,14 @@ namespace PragmaScript
                     yield return new AnnotatedNode(x, scope, "elem_" + idx++);
                 }
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                var idx = elements.IndexOf(old);
+                Debug.Assert(idx != -1);
+                elements[idx] = @new;
+            }
+
             public override string ToString()
             {
                 return "[]";
@@ -793,6 +937,18 @@ namespace PragmaScript
             {
                 return (IsArrow ? "->" : ".") + fieldName + (returnPointer ? " (p)" : "");
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                if (left == old)
+                {
+                    left = @new;
+                }
+                else
+                {
+                    throw new InvalidCodePath();
+                }
+            }
         }
 
         public class ArrayElementAccess : Node, ICanReturnPointer
@@ -826,6 +982,22 @@ namespace PragmaScript
             {
                 return "[]" + (returnPointer ? " (p)" : "");
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                if (index == old)
+                {
+                    index = @new;
+                }
+                else if (left == old)
+                {
+                    left = @new;
+                }
+                else
+                {
+                    throw new InvalidCodePath();
+                }
+            }
         }
 
         public class BreakLoop : Node
@@ -839,6 +1011,12 @@ namespace PragmaScript
                 var result = new BreakLoop(token, scope);
                 return result;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return "break";
@@ -856,6 +1034,12 @@ namespace PragmaScript
                 var result = new ContinueLoop(token, scope);
                 return result;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString()
             {
                 return "continue";
@@ -883,6 +1067,19 @@ namespace PragmaScript
                     yield return expression;
                 }
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                if (expression == old)
+                {
+                    expression = @new;
+                }
+                else
+                {
+                    throw new InvalidCodePath();
+                }
+            }
+
             public override string ToString()
             {
                 return "return";
@@ -891,7 +1088,9 @@ namespace PragmaScript
 
         public class BinOp : Node
         {
-            public enum BinOpType { Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Remainder,
+            public enum BinOpType
+            {
+                Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Remainder,
                 GreaterEqualUnsigned,
                 LessEqualUnsigned,
                 GreaterUnsigned,
@@ -1023,6 +1222,8 @@ namespace PragmaScript
                         return "*";
                     case BinOpType.Divide:
                         return "/";
+                    case BinOpType.DivideUnsigned:
+                        return "/\\";
                     case BinOpType.ConditionalOR:
                         return "||";
                     case BinOpType.ConditionaAND:
@@ -1061,6 +1262,22 @@ namespace PragmaScript
                         return "%";
                     default:
                         throw new InvalidCodePath();
+                }
+            }
+
+            public override void Replace(Node old, Node @new)
+            {
+                if (left == old)
+                {
+                    left = @new;
+                }
+                else if (right == old)
+                {
+                    right = @new;
+                }
+                else
+                {
+                    throw new InvalidCodePath();
                 }
             }
         }
@@ -1235,6 +1452,18 @@ namespace PragmaScript
                 }
                 return result;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                if (expression == old)
+                {
+                    expression = @new;
+                }
+                else
+                {
+                    throw new InvalidCodePath();
+                }
+            }
         }
 
         public class TypeCastOp : Node
@@ -1259,6 +1488,20 @@ namespace PragmaScript
                 yield return expression;
                 yield return typeString;
             }
+
+            public override void Replace(Node old, Node @new)
+            {
+                if (expression == old)
+                {
+                    expression = @new;
+                }
+                else if (typeString == old)
+                {
+                    Debug.Assert(@new is TypeString);
+                    typeString = @new as TypeString;
+                }
+            }
+
             public override string ToString()
             {
                 return "(T" + (unsigned ? "\\" : "") + ")";
@@ -1287,7 +1530,7 @@ namespace PragmaScript
             public TypeKind kind = TypeKind.Other;
             public FunctionTypeString functionTypeString;
             public StructTypeString structTypeString;
-            public Node allocationCount; 
+            public Node allocationCount;
 
 
             public TypeString(Token t, Scope s) : base(t, s)
@@ -1366,6 +1609,11 @@ namespace PragmaScript
                     }
                 }
                 return result;
+            }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
             }
         }
     }

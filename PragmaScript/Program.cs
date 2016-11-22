@@ -32,6 +32,8 @@ namespace PragmaScript
         public static int optimizationLevel;
         public static bool runAfterCompile;
         public static bool asm = false;
+        public static List<string> libs = new List<string>();
+        public static List<string> lib_path = new List<string>();
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
@@ -46,8 +48,8 @@ namespace PragmaScript
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 0;
             CompilerOptions.runAfterCompile = true;
-            // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
-            CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
+            CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
+            // CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
             // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\preamble.prag";
 #endif
             if (CompilerOptions.inputFilename == null)
@@ -261,7 +263,7 @@ namespace PragmaScript
                         int ident_end = idx;
                         var ident = text.Substring(ident_start, ident_end - ident_start - 1);
                         var con = defines.Contains(ident);
-                        ifs.Push(new PrepIf { Condition = con, InElse = false});
+                        ifs.Push(new PrepIf { Condition = con, InElse = false });
                     }
                     else
                     {
@@ -291,7 +293,7 @@ namespace PragmaScript
                     var _if = ifs.Peek();
                     skip = !(_if.Condition ^ _if.InElse);
                 }
-                
+
                 if (!skip)
                 {
                     result.Append(text[idx]);
@@ -303,6 +305,73 @@ namespace PragmaScript
                 }
 
             }
+        }
+
+        static FunctionDefinition findEntryPoint(ProgramRoot root)
+        {
+            FunctionDefinition result = null;
+            foreach (var fr in root.files)
+            {
+                foreach (var d in fr.declarations)
+                {
+                    if (d.GetAttribute("COMPILE.ENTRY") == "TRUE")
+                    {
+                        if (!(d is FunctionDefinition))
+                        {
+                            throw new ParserError("COMPILE.ENTRY attribute can only be on function definitions", d.token);
+                        }
+                        if (result != null)
+                        {
+                            throw new ParserError("Entry point already defined.", d.token);
+                        }
+                        result = d as FunctionDefinition;
+                        var debug = d.GetAttribute("COMPILE.DEBUG");
+                        if (debug == "TRUE")
+                        {
+                            CompilerOptions.debug = true;
+                        }
+                        else if (debug == "FALSE")
+                        {
+                            CompilerOptions.debug = false;
+                        }
+
+                        var opt = d.GetAttribute("COMPILE.OPT");
+                        if (int.TryParse(opt, out int opt_level))
+                        {
+                            CompilerOptions.optimizationLevel = opt_level;
+                        }
+
+                        var run = d.GetAttribute("COMPILE.RUN");
+                        if (run == "TRUE")
+                        {
+                            CompilerOptions.runAfterCompile = true;
+                        }
+                        else if (run == "FALSE")
+                        {
+                            CompilerOptions.runAfterCompile = false;
+                        }
+
+                        var libs = d.GetAttribute("COMPILE.LIBS", upperCase: false);
+                        if (libs != null)
+                        {
+                            var ls = libs.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (var lib in ls)
+                            {
+                                var tlib = lib.Trim();
+                                CompilerOptions.libs.Add(tlib);
+                            }
+                        }
+
+                        var lib_path = d.GetAttribute("COMPILE.PATH", upperCase: false);
+                        if (lib_path != null)
+                        {
+                            CompilerOptions.lib_path.Add(lib_path);
+                        }
+
+                    }
+                }
+            }
+            return result;
         }
 
         static void compile(string filename)
@@ -381,14 +450,16 @@ namespace PragmaScript
 #endif
             }
 
-#if DEBUG
-            Console.WriteLine("rendering graph...");
-            foreach (var fr in root.files)
-            {
-                renderGraph(fr, "");
-            }
+            var entry = findEntryPoint(root);
 
-#endif
+#if DEBUG
+            //Console.WriteLine("rendering graph...");
+            //foreach (var fr in root.files)
+            //{
+            //    renderGraph(fr, "");
+            //}
+
+#endif      
 
             Console.WriteLine("type checking...");
 
@@ -409,9 +480,14 @@ namespace PragmaScript
                 return;
             }
 
+            Console.WriteLine("de-sugar...");
+            ParseTreeTransformations.Init(root);
+            ParseTreeTransformations.Desugar(tc.embeddings, tc);
+            
+
             Console.WriteLine("backend...");
             var backend = new Backend(Backend.TargetPlatform.x64, tc);
-            backend.EmitAndAOT(root, "output.o");
+            backend.EmitAndAOT(root, "output.o", entry);
 #if DEBUG
             Console.ReadLine();
 #endif

@@ -30,12 +30,15 @@ namespace PragmaScript
         Dictionary<AST.Node, UnresolvedType> unresolved;
         Dictionary<AST.Node, FrontendType> pre_resolved;
 
+        public List<AST.VariableReference> embeddings;
+
         public TypeChecker()
         {
             typeRoots = new Dictionary<FrontendType, AST.Node>();
             unresolved = new Dictionary<AST.Node, UnresolvedType>();
             knownTypes = new Dictionary<AST.Node, FrontendType>();
             pre_resolved = new Dictionary<AST.Node, FrontendType>();
+            embeddings = new List<AST.VariableReference>();
         }
 
 
@@ -53,22 +56,17 @@ namespace PragmaScript
             {
                 throw new ParserError($"Cannot resolve type: {unresolved.First().Key}", unresolved.First().Key.token);
             }
-
-            // TODO: cycle detection!
-            //    HashSet<AST.Node> blocker = new HashSet<AST.Node>();
-            //foreach (var v in unresolved.Values)
-            //{
-            //    getRootBlocker(v, blocker);
-            //}
-            //foreach (var n in blocker)
-            //{
-            //    throw new ParserError($"Cannot resolve type of \"{n}\"", n.token);
-            //}
+            
         }
 
         public FrontendType GetNodeType(AST.Node node)
         {
             return getType(node, mustBeBound: true);
+        }
+
+        public void ResolveNode(AST.Node node,FrontendType ft)
+        {
+            resolve(node, ft);
         }
 
         public AST.FunctionDefinition GetFunctionDefinition(FrontendFunctionType fft)
@@ -379,8 +377,7 @@ namespace PragmaScript
             }
             if (tt != null)
             {
-
-                typeRoots.Add(tt, node);
+                // TODO: put this somewhere it makes more sense.
                 var cond = node.GetAttribute("CONDITIONAL");
                 if (cond != null)
                 {
@@ -399,7 +396,56 @@ namespace PragmaScript
                         }
                     }
                 }
-                resolve(node, tt);
+
+                List<(int i, int j, FrontendStructType.Field field)> embeddingFields = new List<(int, int, FrontendStructType.Field)>();
+
+                bool waitForStructResolve = false;
+                for (int i = 0; i < node.typeString.functionTypeString.parameters.Count; ++i)
+                {
+                    var p = node.typeString.functionTypeString.parameters[i];
+                    if (p.embed)
+                    {
+                        var stn = getType(p.typeString);
+                        Debug.Assert(stn != null);
+                        if (stn is FrontendPointerType pt)
+                        {
+                            stn = pt.elementType;
+                        }
+                        Debug.Assert(stn is FrontendStructType);
+                        var st = stn as FrontendStructType;
+                        if (st.preResolved)
+                        {
+                            addUnresolved(node, typeRoots[st]);
+                            waitForStructResolve = true;
+                            break;
+                        }
+                        else
+                        {
+                            for (int j = 0; j < st.fields.Count; ++j)
+                            {
+                                embeddingFields.Add((i, j, st.fields[j]));
+                            }
+                        }
+                        if (waitForStructResolve)
+                        {
+                            break;
+                        }
+                    }
+                }
+                if (!waitForStructResolve)
+                {
+                    foreach (var ef in embeddingFields)
+                    {
+                        var field = ef.field;
+                        var vd = node.body.scope.AddVar(field.name, field.type, node.typeString.token);
+                        vd.isFunctionParameter = true;
+                        vd.parameterIdx = ef.i;
+                        vd.isEmbedded = true;
+                        vd.embeddingIdx = ef.j;
+                    }
+                    typeRoots.Add(tt, node);
+                    resolve(node, tt);
+                }
             }
 
             // TODO: find out why this has to come last
@@ -578,51 +624,76 @@ namespace PragmaScript
 
         void checkType(AST.VariableReference node)
         {
-            Scope.VariableDefinition vd;
+            Scope.VariableDefinition vd = null;
             if (node.vd == null)
             {
-                Debug.Assert(node.variableName != null);
-                vd = node.scope.GetVar(node.variableName);
-                if (vd == null)
+
+                bool functionResolved = false;
+                if (node.scope.function != null)
                 {
-                    throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
+                    Debug.Assert(node.variableName != null);
+                    var fun = node.scope.function;
+                    var ftn = getType(fun);
+                    if (ftn == null)
+                    {
+                        // in order to resolve @ embeddings we need to resolve the function first
+                        addUnresolved(node, fun);
+                    }
+                    else
+                    {
+                        functionResolved = true;
+                    }
                 }
-                if (!vd.isConstant && !vd.isGlobal)
+                if (node.scope.function == null || functionResolved)
                 {
-                    throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
+                    vd = node.scope.GetVar(node.variableName);
+                    if (vd == null)
+                    {
+                        throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
+                    }
+                    if (vd.isEmbedded)
+                    {
+                        embeddings.Add(node);
+                    }
+                    else if (!vd.isConstant && !vd.isGlobal)
+                    {
+                        throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
+                    }
+                    node.vd = vd;
                 }
-                node.vd = vd;
             }
             else
             {
                 vd = node.vd;
             }
 
-            Debug.Assert(vd != null);
 
-            if (vd.type != null)
+            if (vd != null)
             {
-                resolve(node, vd.type);
-            }
-            else
-            {
-                var vt = getType(vd.node);
-                if (vt != null)
+                if (vd.type != null)
                 {
-                    if (vd.isFunctionParameter)
-                    {
-                        var ft = vt as FrontendFunctionType;
-                        var pt = ft.parameters[vd.parameterIdx].type;
-                        resolve(node, pt);
-                    }
-                    else
-                    {
-                        resolve(node, vt);
-                    }
+                    resolve(node, vd.type);
                 }
                 else
                 {
-                    addUnresolved(node, vd.node);
+                    var vt = getType(vd.node);
+                    if (vt != null)
+                    {
+                        if (vd.isFunctionParameter)
+                        {
+                            var ft = vt as FrontendFunctionType;
+                            var pt = ft.parameters[vd.parameterIdx].type;
+                            resolve(node, pt);
+                        }
+                        else
+                        {
+                            resolve(node, vt);
+                        }
+                    }
+                    else
+                    {
+                        addUnresolved(node, vd.node);
+                    }
                 }
             }
         }
@@ -719,10 +790,6 @@ namespace PragmaScript
             }
         }
 
-        //void checkType(AST.UninitializedArray node)
-        //{
-        //    throw new NotImplementedException();
-        //}
 
         void checkType(AST.StructFieldAccess node)
         {
@@ -924,19 +991,6 @@ namespace PragmaScript
                 if (node.isEither(AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned,
                     AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned))
                 {
-                    //if (lt is FrontendNumberType)
-                    //{
-                    //    var lnt = lt as FrontendNumberType;
-                    //    lt = lnt.Default();
-                    //    lnt.Bind(lt);
-                    //}
-                    //if (rt is FrontendNumberType)
-                    //{
-                    //    var rnt = rt as FrontendNumberType;
-                    //    rt = rnt.Default();
-                    //    rnt.Bind(rt);
-                    //}
-
                     if (!FrontendType.IntegersOrLateBind(lt, rt))
                     {
                         throw new ParserError($"Unsigned comparison operators are only valid for integer types not \"{lt}\".", node.right.token);
@@ -1026,7 +1080,6 @@ namespace PragmaScript
                 {
                     throw new ParserError("Cast not allowed for types.", node.token);
                 }
-
             }
         }
 

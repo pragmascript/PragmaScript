@@ -1,20 +1,12 @@
-﻿	let STD_ERROR_HANDLE  = -12;
-	let STD_OUTPUT_HANDLE = -11;
-	let STD_INPUT_HANDLE  = -10;
+﻿
+
+let STD_ERROR_HANDLE  = -12;
+let STD_OUTPUT_HANDLE = -11;
+let STD_INPUT_HANDLE  = -10;
 
 var console_output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 var console_input_handle = GetStdHandle(STD_INPUT_HANDLE);
 var console_error_handle = GetStdHandle(STD_ERROR_HANDLE);
-
-let print_string = fun (s: string) => void
-{
- 	WriteFile(console_output_handle, s.data, s.length, (i32*)nullptr, nullptr);
-}
-
-let print_error = fun (s: string) => void
-{
-  WriteFile(console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
-}
 
 
 let WS_OVERLAPPEDWINDOW = 13565952;
@@ -275,8 +267,8 @@ let VirtualFree = extern fun
   free_type: i32;
 ) => i32;
 
-let LoadLibraryA = extern fun(name: i8*) => mm;
-let GetProcAddress = extern fun(lib: mm; name: i8*) => ptr;
+let LoadLibraryA = extern fun(name: i8*) => ptr;
+let GetProcAddress = extern fun(lib: ptr; name: i8*) => ptr;
 
 let QueryPerformanceCounter = extern fun(result: i64*) => i32;
 let QueryPerformanceFrequency = extern fun(result: i64*) => i32;

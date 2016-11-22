@@ -4,7 +4,7 @@
     "version": "0.1.0",
     "command": "..\\bin\\x64\\Release\\pragma.exe",
     "isShellCommand": true,
-    "args": ["-O0", "${file}", "-run", "-D"],
+    "args": ["${file}"],
     "showOutput": "always",
     "problemMatcher": {
         // "owner": "ps",

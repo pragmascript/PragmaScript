@@ -115,36 +115,36 @@ let get_game_state = fun (memory: game_memory*) => game_state*
 
 let handle_player_input = fun 
 (
-    game_state: game_state*;
-    game_input: game_input*; 
+    @game_state: game_state*;
+    @game_input: game_input*; 
 ) => void 
 {
-    var dt = game_input.time.dt;
-    if (game_input.request_quit && !game_state.exit) {
-        game_state.exit = true;
-        game_state.exit_start_time = game_input.time.t;
-        game_state.exit_start_volume = game_state.volume;
+    var dt = time.dt;
+    if (request_quit && !exit) {
+        exit = true;
+        exit_start_time = time.t;
+        exit_start_volume = volume;
     }
-	if (game_input.left_arrow.pressed) {
-		game_state.x_offset += dt * 150.0;
-        game_state.target_volume -= dt * 0.02;
-        if (game_state.target_volume < 0) {
-            game_state.target_volume = 0;
+	if (left_arrow.pressed) {
+		x_offset += dt * 150.0;
+        target_volume -= dt * 0.02;
+        if (target_volume < 0) {
+            target_volume = 0;
         }
 	}
-	if (game_input.right_arrow.pressed) {
-		game_state.x_offset -= dt * 150.0;
-        game_state.target_volume += dt * 0.02;
+	if (right_arrow.pressed) {
+		x_offset -= dt * 150.0;
+        target_volume += dt * 0.02;
 	}
 	if (game_input.up_arrow.pressed) {
-		game_state.y_offset += dt * 150.0;
-		game_state.target_tone_hz += dt * 20.0;
+		y_offset += dt * 150.0;
+		target_tone_hz += dt * 20.0;
 	}
 	if (game_input.down_arrow.pressed) {
-		game_state.y_offset -= dt * 150.0;
-		game_state.target_tone_hz -= dt * 20;
-		if (game_state.target_tone_hz < 0) {
-			game_state.target_tone_hz = 0;
+		y_offset -= dt * 150.0;
+		target_tone_hz -= dt * 20;
+		if (target_tone_hz < 0) {
+			target_tone_hz = 0;
 		}
 	}
 }
@@ -153,22 +153,20 @@ let handle_player_input = fun
 let output_sound = fun 
 (
     game_state: game_state*; 
-    sound_output: game_sound_output*;
+    @sound_output: game_sound_output*;
 ) => void 
 {
     var wave_period = 2 * pi_32;
-    var sample = sound_output.sample_out;
-    assert((mm)sample != null);
+    var sample = sample_out;
+    assert((ptr)sample != nullptr);
 
-    var t_sine = sound_output.sample_start_time;
+    var t_sine = sample_start_time;
 
-    var sample_count = sound_output.sample_count;
-    
     var phase_shift = 2*pi_32*t_sine * (game_state.tone_hz - game_state.target_tone_hz)
                       + game_state.phase_shift;
     game_state.tone_hz = game_state.target_tone_hz;
 
-    var delta_t = 1.0 / (f32)sound_output.samples_per_second;
+    var delta_t = 1.0 / (f32)samples_per_second;
     for (var i: i32 = 0; i < sample_count; ++i) {
         var t = (f32)i / (f32)(sample_count - 1);
         var v = lerp(game_state.volume, game_state.target_volume, t);
@@ -177,7 +175,7 @@ let output_sound = fun
         var x = (i16)(32767 * v * sinf(p + phase_shift));
         *sample++ = x;
         *sample++ = x;
-        t_sine = sound_output.sample_start_time + (f32)i * delta_t;
+        t_sine = sample_start_time + (f32)i * delta_t;
     }
     game_state.phase_shift = phase_shift;
     game_state.volume = game_state.target_volume;

@@ -1,5 +1,6 @@
 ﻿import "windows.prag"
 
+
 let null = (mm)0;
 			  
 let pi: f64 = 3.1415926535897932384626433832795028841971693993751058209749445923078164062;
@@ -9,6 +10,16 @@ let half_pi_32 = (f32)half_pi;
 
 let _rdtsc = extern fun () => i64;
 let __chkstk = extern fun () => void;
+
+let print_string = fun (s: string) => void
+{
+ 	WriteFile(console_output_handle, s.data, s.length, (i32*)nullptr, nullptr);
+}
+
+let print_error = fun (s: string) => void
+{
+  WriteFile(console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
+}
 
 
 ["conditional":"debug"]

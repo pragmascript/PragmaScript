@@ -16,6 +16,8 @@ namespace PragmaScript
             public bool isConstant = false;
             public bool isFunctionParameter;
             public int parameterIdx = -1;
+            public bool isEmbedded;
+            public int embeddingIdx = -1;
             public string name;
             public AST.Node node;
             public FrontendType type;

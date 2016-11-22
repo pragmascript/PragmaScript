@@ -1,5 +1,5 @@
-﻿// import "preamble.prag"
-// import "windows.prag"
+﻿import "preamble.prag"
+import "windows.prag"
 
 // let sphere = struct
 // {
@@ -9,12 +9,12 @@
 // var s = sphere{};
 // s.pos = vec{1.0,2.0,3.0};
 
-// let vec = struct 
-// (
-// 	x: f32;
-// 	y: f32;
-// 	z: f32;
-// );
+let vec = struct 
+(
+	x: f32;
+	y: f32;
+	z: f32;
+);
 
 // let sphere = struct
 // {
@@ -239,13 +239,41 @@ let win_get_duration = fun
 	c1: i64;
 ) => f32
 {
-	return (c0 - c1) / 12;
+	return (f32)((c0 - c1) / 12);
 }
 
+// crashes backend and parse tree is wrong!
+//	a += b += c += 7;
+
+let embedding_test = fun
+(
+	@v: vec*;
+) => void
+{
+	debug_print_f32("x: ", x);
+	debug_print_f32("y: ", y);
+	debug_print_f32("z: ", z);
+}
+
+
+[
+	"compile.entry" : "true",
+	"compile.debug" : "true",
+ 	"compile.opt"   : "0",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib"
+]
 let main = fun () => void 
 {
+	var a = 1;
+	var b = 2;
+	var c = 3;
 
-	// var a = -7;
+	var v = vec { 1.0, 2.0, 3.0 };
+	embedding_test(&v);
+
+
+		// var a = -7;
 	// var b = -12;
 	// var cond = a == 11 && (a != 22 || b != 33);
 	// // print_i32((i32)cond);

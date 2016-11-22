@@ -37,8 +37,9 @@ namespace PragmaScript
         }
 
 
-        public void Visit(AST.ProgramRoot node)
+        public void Visit(AST.ProgramRoot node, AST.FunctionDefinition main)
         {
+            // HACK:
             AST.FileRoot merge = new AST.FileRoot(Token.Undefined, node.scope);
             foreach (var fr in node.files)
             {
@@ -47,10 +48,10 @@ namespace PragmaScript
                     merge.declarations.Add(decl);
                 }
             }
-            Visit(merge);
+            Visit(merge, main);
         }
 
-        public void Visit(AST.FileRoot node)
+        public void Visit(AST.FileRoot node, AST.FunctionDefinition main)
         {
 
 
@@ -120,8 +121,7 @@ namespace PragmaScript
             }
 
             LLVM.PositionBuilderAtEnd(builder, entry);
-            Debug.Assert(variables.ContainsKey("main"));
-            var mf = variables["main"];
+            var mf = variables[main.funName];
             var par = new LLVMValueRef[1];
             LLVM.BuildCall(builder, mf, out par[0], 0, "");
 
