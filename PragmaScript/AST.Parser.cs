@@ -329,17 +329,19 @@ namespace PragmaScript
 
         static Node parseLetVar(ref ParseState ps, Scope scope, ref bool ignoreSemicolon)
         {
-            ps.ExpectCurrentToken(Token.TokenType.Let, Token.TokenType.Var);
+            var current = ps.ExpectCurrentToken(Token.TokenType.Let, Token.TokenType.Var);
             Node result = null;
 
             var tempState = ps;
-            tempState.ExpectNextToken(Token.TokenType.Identifier);
+            var ident = tempState.ExpectNextToken(Token.TokenType.Identifier);
+
+            TypeString typeString = null;
 
             if (tempState.PeekToken().type == Token.TokenType.Colon)
             {
                 tempState.NextToken();
                 tempState.NextToken();
-                parseTypeString(ref tempState, scope);
+                typeString = parseTypeString(ref tempState, scope);
             }
             if (tempState.PeekToken().type == Token.TokenType.Assignment)
             {
@@ -365,6 +367,15 @@ namespace PragmaScript
                 {
                     ignoreSemicolon = true;
                 }
+            }
+            else if (next.type == Token.TokenType.OpenCurly || next.type == Token.TokenType.Extern)
+            {
+                result = parseFunctionDefinition(ref ps, scope);
+                if (typeString == null)
+                {
+                    throw new ParserError("Function definitions without \"fun\" keyword must supply a :TypeString prior to the assignment.", next);
+                }
+                ignoreSemicolon = true;
             }
             else
             {
@@ -1431,7 +1442,7 @@ namespace PragmaScript
         }
 
 
-     
+
 
         public static List<NamedParameter> parseParamList(ref ParseState ps, Scope scope)
         {
@@ -1453,7 +1464,7 @@ namespace PragmaScript
                     ps.ExpectNextToken(Token.TokenType.Identifier);
                 }
                 var ident = ps.CurrentToken();
-               
+
 
                 // let foo = struct ( x: 
                 ps.ExpectNextToken(Token.TokenType.Colon);
@@ -1462,7 +1473,7 @@ namespace PragmaScript
                 ps.NextToken();
                 var ts = parseTypeString(ref ps, scope);
 
-                
+
                 p.name = ident.text;
                 p.typeString = ts;
                 result.Add(p);
@@ -1488,7 +1499,7 @@ namespace PragmaScript
                 {
                     next = ps.PeekToken();
                 }
-                else 
+                else
                 {
                     next = ps.ExpectNextToken(Token.TokenType.Semicolon);
                     next = ps.PeekToken();
@@ -1498,6 +1509,8 @@ namespace PragmaScript
 
             return result;
         }
+
+
 
         public static Node parseFunctionDefinition(ref ParseState ps, Scope scope)
         {
@@ -1514,8 +1527,15 @@ namespace PragmaScript
             var id = ps.ExpectNextToken(Token.TokenType.Identifier);
 
             // let foo = 
-            ps.ExpectNextToken(Token.TokenType.Assignment);
+            var next = ps.ExpectNextToken(Token.TokenType.Assignment, Token.TokenType.Colon);
 
+            TypeString typeString = null;
+            if (next.type == Token.TokenType.Colon)
+            {
+                ps.NextToken();
+                typeString = parseTypeString(ref ps, scope);
+            }
+            result.typeString = typeString;
 
             // let foo = [extern]
             if (ps.PeekToken().type == Token.TokenType.Extern)
@@ -1533,17 +1553,26 @@ namespace PragmaScript
             }
 
             ps.NextToken();
-            result.typeString = parseTypeString(ref ps, scope);
-            Debug.Assert(result.typeString.kind == TypeString.TypeKind.Function);
+
+            if (result.typeString == null)
+            {
+                result.typeString = parseTypeString(ref ps, scope);
+                Debug.Assert(result.typeString.kind == TypeString.TypeKind.Function);
+            }
 
             result.funName = id.text;
             var funScope = new Scope(scope, result);
-            var idx = 0;
-            foreach (var pd in result.typeString.functionTypeString.parameters)
-            {
-                funScope.AddFunctionParameter(pd.name, result, idx);
-                idx++;
-            }
+          
+            //if (result.typeString.functionTypeString != null)
+            //{
+            //    var idx = 0;
+            //    foreach (var pd in result.typeString.functionTypeString.parameters)
+            //    {
+            //        funScope.AddFunctionParameter(pd.name, result, idx);
+            //        idx++;
+            //    }
+            //}
+
             if (!result.external)
             {
                 if (ps.PeekToken().type != Token.TokenType.Semicolon)

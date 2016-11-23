@@ -39,6 +39,8 @@ namespace PragmaScript
         public static bool asm = false;
         public static List<string> libs = new List<string>();
         public static List<string> lib_path = new List<string>();
+        public static bool dll = false;
+        public static string output = "output.exe";
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
@@ -53,6 +55,8 @@ namespace PragmaScript
             CompilerOptions.debug = true;
             CompilerOptions.optimizationLevel = 0;
             CompilerOptions.runAfterCompile = true;
+
+            CompilerOptions.dll = true;
             CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
             // CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
             // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\preamble.prag";
@@ -90,8 +94,9 @@ namespace PragmaScript
         }
         static void parseARGS(string[] args)
         {
-            foreach (var arg in args)
+            for (int i = 0; i < args.Length; ++i)
             {
+                var arg = args[i];
                 if (arg.TrimStart().StartsWith("-"))
                 {
                     var x = arg.TrimStart().Remove(0, 1);
@@ -125,6 +130,13 @@ namespace PragmaScript
                         case "R":
                         case "RUN":
                             CompilerOptions.runAfterCompile = true;
+                            break;
+                        case "DLL":
+                            CompilerOptions.dll = true;
+                            break;
+                        case "O":
+                        case "OUTPUT":
+                            CompilerOptions.output = args[++i];
                             break;
                         default:
                             writeError("Unknown command line option");
@@ -264,23 +276,19 @@ namespace PragmaScript
                             return result.ToString();
                         }
                         int ident_start = idx;
-                        while (Token.isIdentifierChar(text.at(idx++))) { }
+                        idx--;
+                        while (Token.isIdentifierChar(text.at(++idx))) { }
                         int ident_end = idx;
-                        var ident = text.Substring(ident_start, ident_end - ident_start - 1);
+                        var ident = text.Substring(ident_start, ident_end - ident_start);
                         var con = defines.Contains(ident);
                         ifs.Push(new PrepIf { Condition = con, InElse = false });
                     }
                     else
                     {
-                        idx += 1;
-                        if (idx >= text.Length)
-                        {
-                            return result.ToString();
-                        }
-                        int ident_start = idx;
-                        while (Token.isIdentifierChar(text.at(idx++))) { }
+                        int ident_start = idx + 1;
+                        while (Token.isIdentifierChar(text.at(++idx))) { }
                         int ident_end = idx;
-                        var ident = text.Substring(ident_start, ident_end - ident_start - 1);
+                        var ident = text.Substring(ident_start, ident_end - ident_start);
 
                         if (ident.ToUpper() == "ELSE")
                         {
@@ -299,7 +307,8 @@ namespace PragmaScript
                     skip = !(_if.Condition ^ _if.InElse);
                 }
 
-                if (!skip)
+                // HACK: keep newlines for error reporting
+                if (!skip || text[idx] == '\r' || text[idx] == '\n')
                 {
                     result.Append(text[idx]);
                 }
@@ -330,6 +339,13 @@ namespace PragmaScript
                             throw new ParserError("Entry point already defined.", d.token);
                         }
                         result = d as FunctionDefinition;
+
+                        var output = d.GetAttribute("COMPILE.OUTPUT", false);
+                        if (output != null)
+                        {
+                            CompilerOptions.output = output;
+                        }
+
                         var debug = d.GetAttribute("COMPILE.DEBUG");
                         if (debug == "TRUE")
                         {
@@ -503,7 +519,7 @@ namespace PragmaScript
             Console.Write("de-sugar...");
             timer.Reset();
             timer.Start();
-            
+
             ParseTreeTransformations.Init(root);
             ParseTreeTransformations.Desugar(tc.embeddings, tc);
 
@@ -513,6 +529,12 @@ namespace PragmaScript
 #else
             Console.WriteLine();
 #endif
+
+            if (entry == null)
+            {
+                Console.WriteLine("warning: No program entry point defined.");
+            }
+
             Console.Write("backend...");
             timer.Reset();
             timer.Start();
@@ -525,7 +547,7 @@ namespace PragmaScript
             Console.WriteLine();
 #endif
 
-            backend.AOT("output.o");
+            backend.AOT();
 #if DEBUG
             Console.ReadLine();
 #endif

@@ -2,21 +2,45 @@
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
     "version": "0.1.0",
-    "command": "..\\bin\\x64\\Release\\pragma.exe",
+    "command": "cmd.exe",
     "isShellCommand": true,
-    "args": ["${file}"],
+    "suppressTaskName": true,
     "showOutput": "always",
-    "problemMatcher": {
-        // "owner": "ps",
-        "fileLocation":  "absolute",
-        "pattern":{
-            "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
-            "message": 1,
-            "file": 2,
-            "line": 3,
-            "column": 4
+    "args": ["/C"],
+    "tasks": 
+    [
+        {
+            "isBuildCommand": true,
+            "taskName": "current",
+            "args": ["\"..\\bin\\x64\\Release\\pragma.exe\"", "${file}"],
+            "problemMatcher": {
+                // "owner": "ps",
+                "fileLocation":  "absolute",
+                "pattern":{
+                    "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
+                    "message": 1,
+                    "file": 2,
+                    "line": 3,
+                    "column": 4
+                }
+             }
+        },
+        {
+            "isTestCommand": true,
+            "taskName": "handmade",
+            "args": ["\"..\\bin\\x64\\Release\\pragma.exe\"", "handmade.prag", "-DLL", "&",
+                     "\"..\\bin\\x64\\Release\\pragma.exe\"", "win32_handmade.prag"],
+            "problemMatcher": {
+                // "owner": "ps",
+                "fileLocation":  "absolute",
+                "pattern":{
+                    "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
+                    "message": 1,
+                    "file": 2,
+                    "line": 3,
+                    "column": 4
+                }
+            }
         }
-
-    }
-    
+    ]
 }

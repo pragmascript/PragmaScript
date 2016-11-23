@@ -1,13 +1,10 @@
-﻿
-
-let STD_ERROR_HANDLE  = -12;
+﻿let STD_ERROR_HANDLE  = -12;
 let STD_OUTPUT_HANDLE = -11;
 let STD_INPUT_HANDLE  = -10;
 
 var console_output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 var console_input_handle = GetStdHandle(STD_INPUT_HANDLE);
 var console_error_handle = GetStdHandle(STD_ERROR_HANDLE);
-
 
 let WS_OVERLAPPEDWINDOW = 13565952;
 let WS_VISIBLE    = 0x10000000; 
@@ -166,7 +163,7 @@ let GetFileSizeEx = extern fun
 ) => i32;
 
 
-
+let GetLastError = extern fun () => i32;
 let GetStdHandle = extern fun (nStdHandle: i32) => mm;
 let GetModuleHandleA = extern fun (lpModuleName: mm) => mm;
 let RegisterClassExA = extern fun (window_class: WNDCLASSEX*) => i16;

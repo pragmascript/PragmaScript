@@ -86,11 +86,17 @@ namespace PragmaScript
             }
 
 
-            
             var par_t = new LLVMTypeRef[1];
             var returnType = LLVM.VoidType();
-
             var funType = LLVM.FunctionType(returnType, out par_t[0], (uint)0, Const.FalseBool);
+
+            if (CompilerOptions.dll)
+            {
+                par_t = new LLVMTypeRef[3] { Const.mm, Const.Int32Type, Const.Int8PointerType };
+                returnType = LLVM.Int32Type();
+                funType = LLVM.FunctionType(returnType, out par_t[0], (uint)3, Const.FalseBool);
+            }
+
             var function = LLVM.AddFunction(mod, "__init", funType);
 
             var vars = LLVM.AppendBasicBlock(function, "vars");
@@ -102,7 +108,7 @@ namespace PragmaScript
 
             ctx.Push(new ExecutionContext(function, "__init", entry, vars, global: true));
 
-            
+
             foreach (var decl in functionDefinitions)
             {
                 Visit(decl as AST.FunctionDefinition, proto: true);
@@ -121,16 +127,29 @@ namespace PragmaScript
             }
 
             LLVM.PositionBuilderAtEnd(builder, entry);
-            var mf = variables[main.funName];
-            var par = new LLVMValueRef[1];
-            LLVM.BuildCall(builder, mf, out par[0], 0, "");
 
-            insertMissingReturn(returnType);
+            if (main != null)
+            {
+                var mf = variables[main.funName];
+                var par = new LLVMValueRef[1];
+                LLVM.BuildCall(builder, mf, out par[0], 0, "");
+            }
+
+            if (CompilerOptions.dll)
+            {
+                LLVM.BuildRet(builder, Const.OneInt32);
+            }
+            else
+            {
+                LLVM.BuildRetVoid(builder);
+            }
 
             LLVM.PositionBuilderAtEnd(builder, vars);
             LLVM.BuildBr(builder, entry);
 
             LLVM.PositionBuilderAtEnd(builder, blockTemp);
+            
+
             LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
 
             ctx.Pop();
@@ -166,9 +185,9 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        
 
-       
+
+
 
         public void Visit(AST.ConstString node, bool needsConversion = true)
         {
@@ -177,7 +196,7 @@ namespace PragmaScript
             {
                 str = node.ConvertString();
             }
-            
+
             var bytes = System.Text.ASCIIEncoding.ASCII.GetBytes(str);
 
             var type = FrontendType.string_;
@@ -191,7 +210,7 @@ namespace PragmaScript
             var arr_struct_ptr = LLVM.BuildAlloca(builder, arr_struct_type, "arr_struct_alloca");
 
             var elem_type = GetTypeRef(type.elementType);
-            
+
 
             var size = LLVM.ConstInt(Const.Int32Type, (ulong)bytes.Length, Const.FalseBool);
             var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
@@ -553,7 +572,7 @@ namespace PragmaScript
             var cand_rhs_tv = valueStack.Pop();
             if (!isEqualType(LLVM.TypeOf(cand_rhs_tv), Const.BoolType))
                 throw new BackendTypeMismatchException(Const.BoolType, LLVM.TypeOf(cand_rhs_tv));
-           
+
             LLVM.BuildBr(builder, cand_end);
             cand_rhs = LLVM.GetInsertBlock(builder);
 
@@ -1167,13 +1186,13 @@ namespace PragmaScript
                         {
                             fp = ctx.Peek().defaultParameterCallsite.FilePosBackendString();
                         }
-                        
+
                         s.s = fp;
                         Visit(s, false);
                     }
-                 break;
+                    break;
             }
-            
+
         }
 
         public void Visit(AST.FunctionCall node)
@@ -1193,7 +1212,7 @@ namespace PragmaScript
 
             Visit(node.left);
             var f = valueStack.Pop();
-            
+
             if (LLVM.IsAFunction(f).Pointer == IntPtr.Zero)
             {
 
@@ -1469,8 +1488,10 @@ namespace PragmaScript
 
                 Debug.Assert(!variables.ContainsKey(node.funName));
                 var function = LLVM.AddFunction(mod, node.funName, funType);
+                
+                
 
-             LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
+                LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i)
                 {
                     LLVMValueRef param = LLVM.GetParam(function, (uint)i);
@@ -1488,8 +1509,16 @@ namespace PragmaScript
                 }
                 var function = variables[node.funName];
 
+                if (!CompilerOptions.dll)
+                {
+                    LLVM.SetLinkage(function, LLVMLinkage.LLVMInternalLinkage);
+                }
 
-                LLVM.SetLinkage(function, LLVMLinkage.LLVMInternalLinkage);
+                if (CompilerOptions.dll)
+                {
+                    LLVM.SetDLLStorageClass(function, LLVMDLLStorageClass.LLVMDLLExportStorageClass);
+                }
+
                 var vars = LLVM.AppendBasicBlock(function, "vars");
                 var entry = LLVM.AppendBasicBlock(function, "entry");
 

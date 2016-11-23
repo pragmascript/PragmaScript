@@ -1,60 +1,6 @@
 import "preamble.prag"
-import "windows.prag"
-import "win32_handmade.prag"
+import "handmade_interface.prag"
 
-
-let game_sound_output = struct
-(
-    sample_out: i16*;
-    sample_count: i32;
-    samples_per_second: i32;
-    sample_start_time: f32;
-);
-
-let game_keyboard_button = struct
-(
-    pressed: bool;
-    down: bool;
-    up: bool;
-);
-
-let game_time = struct
-(
-    dt: f32;
-    t: f32;
-);
-
-let game_input = struct
-(
-    time: game_time; 
-	up_arrow:    game_keyboard_button;
-	left_arrow:  game_keyboard_button;
-	right_arrow: game_keyboard_button;
-	down_arrow:  game_keyboard_button;
-
-    request_quit: bool;
-);
-
-let game_render_target = struct 
-(
-    memory: ptr;
-	width:  i32;
-	height: i32;
-	pitch:  i32;
-);
-
-
-let game_memory = struct
-(
-    permanent_size: mm;
-    permanent_data: ptr;
-
-    transient_size: mm;
-    transient_data: ptr;
-);
-
-
-// ******************
 
 let game_state = struct
 (
@@ -74,12 +20,7 @@ let game_state = struct
     exit_norm_time: f32;
 );
 
-let game_update_and_render = fun
-(
-    memory: game_memory*;
-    input: game_input*;
-    render_target: game_render_target*;
-) => bool
+let game_update_and_render: game_update_and_render =
 {
     var result = true;
     var game_state = get_game_state(memory);
@@ -179,11 +120,7 @@ let consume_button = fun
     up = false;
 }
 
-let game_output_sound = fun 
-(
-    game_memory: game_memory*; 
-    @sound_output: game_sound_output*;
-) => void 
+let game_output_sound: game_output_sound = 
 {
     var game_state = get_game_state(game_memory);
 
@@ -244,4 +181,18 @@ let render_weird_gradient = fun
 		}
 		row += pitch;
 	}
+}
+
+
+[
+"compile.entry" : "true",
+"compile.output": "handmade.dll",
+"compile.debug" : "true",
+"compile.opt"   : "0",
+"compile.run"   : "false",
+"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
+"compile.libs"  : "kernel32.lib"
+]
+let main = fun () => void  
+{
 }

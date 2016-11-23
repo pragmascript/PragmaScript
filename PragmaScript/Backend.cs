@@ -559,10 +559,9 @@ namespace PragmaScript
             Visit(root, main);
         }
 
-        public void AOT(string filename)
+        public void AOT()
         {
-            
-            aotModule(filename);
+            aotModule();
         }
     }
 }

@@ -1,6 +1,5 @@
 ﻿import "windows.prag"
 
-
 let null = (mm)0;
 			  
 let pi: f64 = 3.1415926535897932384626433832795028841971693993751058209749445923078164062;
@@ -18,7 +17,7 @@ let print_string = fun (s: string) => void
 
 let print_error = fun (s: string) => void
 {
-  WriteFile(console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
+	WriteFile(console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
 }
 
 
@@ -212,7 +211,7 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 	}
 	var end = &dest.buffer[dest.pos];
 	
-	while((mm)start < (mm)end) {
+	while(start <\ end) {
 		--end;
 		var temp = *end;
 		*end = *start;

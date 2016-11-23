@@ -56,7 +56,7 @@ namespace PragmaScript
             {
                 throw new ParserError($"Cannot resolve type: {unresolved.First().Key}", unresolved.First().Key.token);
             }
-            
+
         }
 
         public FrontendType GetNodeType(AST.Node node)
@@ -64,7 +64,7 @@ namespace PragmaScript
             return getType(node, mustBeBound: true);
         }
 
-        public void ResolveNode(AST.Node node,FrontendType ft)
+        public void ResolveNode(AST.Node node, FrontendType ft)
         {
             resolve(node, ft);
         }
@@ -377,6 +377,12 @@ namespace PragmaScript
             }
             if (tt != null)
             {
+                var ft = tt as FrontendFunctionType;
+                Debug.Assert(ft != null);
+                if (node.typeString.functionTypeString == null)
+                {
+                    int breakHere = 42;
+                }
                 // TODO: put this somewhere it makes more sense.
                 var cond = node.GetAttribute("CONDITIONAL");
                 if (cond != null)
@@ -400,12 +406,12 @@ namespace PragmaScript
                 List<(int i, int j, FrontendStructType.Field field)> embeddingFields = new List<(int, int, FrontendStructType.Field)>();
 
                 bool waitForStructResolve = false;
-                for (int i = 0; i < node.typeString.functionTypeString.parameters.Count; ++i)
+                for (int i = 0; i < ft.parameters.Count; ++i)
                 {
-                    var p = node.typeString.functionTypeString.parameters[i];
+                    var p = ft.parameters[i];
                     if (p.embed)
                     {
-                        var stn = getType(p.typeString);
+                        var stn = p.type;
                         Debug.Assert(stn != null);
                         if (stn is FrontendPointerType pt)
                         {
@@ -434,25 +440,37 @@ namespace PragmaScript
                 }
                 if (!waitForStructResolve)
                 {
-                    foreach (var ef in embeddingFields)
+                    if (node.body != null)
                     {
-                        var field = ef.field;
-                        var vd = node.body.scope.AddVar(field.name, field.type, node.typeString.token);
-                        vd.isFunctionParameter = true;
-                        vd.parameterIdx = ef.i;
-                        vd.isEmbedded = true;
-                        vd.embeddingIdx = ef.j;
+                        var idx = 0;
+                        foreach (var p in ft.parameters)
+                        {
+                            var vd = node.body.scope.AddVar(p.name, p.type, node.typeString.token);
+                            vd.isFunctionParameter = true;
+                            vd.parameterIdx = idx++;
+                        }
+                        foreach (var ef in embeddingFields)
+                        {
+                            var field = ef.field;
+                            var vd = node.body.scope.AddVar(field.name, field.type, node.typeString.token);
+                            vd.isFunctionParameter = true;
+                            vd.parameterIdx = ef.i;
+                            vd.isEmbedded = true;
+                            vd.embeddingIdx = ef.j;
+                        }
                     }
-                    typeRoots.Add(tt, node);
+                    if (!typeRoots.ContainsKey(tt))
+                    {
+                        typeRoots.Add(tt, node);
+                    }
                     resolve(node, tt);
                 }
-            }
-
-            // TODO: find out why this has to come last
-            // weird errors occur if this is further up!
-            if (node.body != null)
-            {
-                checkTypeDynamic(node.body);
+                // TODO: find out why this has to come last
+                // weird errors occur if this is further up!
+                if (node.body != null)
+                {
+                    checkTypeDynamic(node.body);
+                }
             }
         }
 
@@ -655,7 +673,7 @@ namespace PragmaScript
                     {
                         embeddings.Add(node);
                     }
-                    else if (!vd.isConstant && !vd.isGlobal)
+                    else if (!vd.isConstant && !vd.isGlobal && !vd.isFunctionParameter)
                     {
                         throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
                     }
@@ -961,7 +979,7 @@ namespace PragmaScript
                                        AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned,
                                        AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned))
                     {
-                        throw new ParserError("Only add, subtract and unsigned compariosns are valid pointer operations.", node.token);
+                        throw new ParserError("Only add, subtract and unsigned comparisons are valid pointer operations.", node.token);
                     }
 
                     bool correctType = false;
@@ -986,14 +1004,15 @@ namespace PragmaScript
                     throw new ParserTypeMismatch(lt, rt, node.token);
                 }
 
-
-
                 if (node.isEither(AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned,
                     AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned))
                 {
-                    if (!FrontendType.IntegersOrLateBind(lt, rt))
+                    if (!(lt is FrontendPointerType))
                     {
-                        throw new ParserError($"Unsigned comparison operators are only valid for integer types not \"{lt}\".", node.right.token);
+                        if (!FrontendType.IntegersOrLateBind(lt, rt))
+                        {
+                            throw new ParserError($"Unsigned comparison operators are only valid for integer or pointer types not \"{lt}\".", node.right.token);
+                        }
                     }
                 }
 
@@ -1220,8 +1239,8 @@ namespace PragmaScript
                                 var result = new FrontendFunctionType(node.typeName);
                                 for (int idx = 0; idx < fts.parameters.Count; ++idx)
                                 {
-                                    var optional = fts.parameters[idx].isOptional();
-                                    result.AddParam(fts.parameters[idx].name, parameterTypes[idx], optional);
+                                    var p = fts.parameters[idx];
+                                    result.AddParam(p.name, parameterTypes[idx], p.isOptional(), p.embed);
                                 }
                                 result.returnType = returnType;
                                 resolve(node, result);

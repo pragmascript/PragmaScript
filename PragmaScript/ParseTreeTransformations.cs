@@ -21,8 +21,12 @@ namespace PragmaScript
         {
             foreach (var e in embeddings)
             {
-                var p = e.scope.function.typeString.functionTypeString.parameters[e.vd.parameterIdx];
-                var pt = tc.GetNodeType(p.typeString);
+                var ft = tc.GetNodeType(e.scope.function) as FrontendFunctionType;
+                Debug.Assert(ft != null);
+
+                var p = ft.parameters[e.vd.parameterIdx];
+                var pt = p.type;
+                // var pt = tc.GetNodeType(p.typeString);
               
                 var vr = new AST.VariableReference(e.token, e.scope);
                 vr.variableName = p.name;
@@ -30,7 +34,7 @@ namespace PragmaScript
                 vr.vd.isFunctionParameter = true;
                 vr.vd.parameterIdx = e.vd.parameterIdx;
                 vr.vd.name = p.name;
-                tc.ResolveNode(vr, tc.GetNodeType(p.typeString));
+                tc.ResolveNode(vr, pt);
 
                 var f = new AST.StructFieldAccess(e.token, e.scope);
                 f.fieldName = e.variableName;

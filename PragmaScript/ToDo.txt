@@ -12,6 +12,8 @@
    so you could write
    str.data = i8[32]{};
 
+ - preprocessor fucks with line numbers
+
  - insert missing return bs not working for non ints
  
  - make sure that pointer artihmetic works on deeply nested recursive types

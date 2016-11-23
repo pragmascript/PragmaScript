@@ -394,6 +394,7 @@ namespace PragmaScript
         public class Param
         {
             public bool optional;
+            public bool embed;
             public string name;
             public FrontendType type;
             public override string ToString()
@@ -420,11 +421,11 @@ namespace PragmaScript
             calcTypeName();
         }
 
-       
 
-        public void AddParam(string name, FrontendType type, bool optional=false)
+
+        public void AddParam(string name, FrontendType type, bool optional = false, bool embed = false)
         {
-            parameters.Add(new Param { name = name, type = type, optional=optional });
+            parameters.Add(new Param { name = name, type = type, optional = optional, embed = embed });
             calcTypeName();
         }
 
