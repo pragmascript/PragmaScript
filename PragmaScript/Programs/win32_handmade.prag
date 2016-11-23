@@ -1,6 +1,7 @@
 ﻿import "preamble.prag"
 import "handmade_interface.prag"
 
+
 // https://github.com/ecxr/handmadehero/blob/master/code/win32_handmade.cpp
 
 // TODO: 
@@ -42,9 +43,6 @@ var backbuffer: offscreen_buffer;
 var window: window_info;
 var window_requests_quit = false;
 
-var game_update_and_render: game_update_and_render;
-var game_output_sound: game_output_sound;
-
 let sound_output = struct
 (
 	sound_buffer: IDirectSoundBuffer*;
@@ -81,7 +79,29 @@ let terabytes = fun (bytes: mm) => mm
 	return bytes * 1024 * 1024 * 1024 * 1024;
 }
 
-let platform_read_file = fun (name: string) => i8[] 
+let platform_write_file: platform_write_file = 
+{
+	var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
+	if (handle == null) {
+		CloseHandle(handle);
+		return false;
+	}
+	var bytes_written: i32 = 0;
+	var result = WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
+	if (result != 0) {
+		CloseHandle(handle);
+		assert(buffer.length == bytes_written);
+		return true;
+	} else {
+		CloseHandle(handle);
+		return false;
+	}
+
+	CloseHandle(handle);
+	return false;
+}
+
+let platform_read_file: platform_read_file =  
 {
 	var result: i8[];
 	result.data = nullptr;
@@ -120,39 +140,39 @@ let platform_read_file = fun (name: string) => i8[]
 	return result;
 } 
 
-let platform_free_file_memory = fun (mem: ptr) => void {
+let platform_free_file_memory: platform_free_file_memory =  
+{
 	VirtualFree(mem, null, MEM_RELEASE);
 }
 
-let platform_write_file = fun (name: string; buffer: i8[]) => bool {
-	var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
-	if (handle == null) {
-		CloseHandle(handle);
-		return false;
-	}
-	var bytes_written: i32 = 0;
-	var result = WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
-	if (result != 0) {
-		CloseHandle(handle);
-		assert(buffer.length == bytes_written);
-		return true;
-	} else {
-		CloseHandle(handle);
-		return false;
-	}
+let game_interface = struct
+(
+	library: mm;
+    update_and_render: game_update_and_render;
+    output_sound: game_output_sound;
+	is_loaded: bool;
+);
 
-	CloseHandle(handle);
-	return false;
+let win_load_game_dll = fun () => game_interface
+{
+	var result = game_interface{};
+	result.library = LoadLibraryA(cstr("handmade.dll\0"));
+	result.update_and_render = (game_update_and_render)GetProcAddress(result.library, cstr("game_update_and_render\0"));
+	assert((ptr)result.update_and_render != nullptr);
+	result.output_sound = (game_output_sound)GetProcAddress(result.library, cstr("game_output_sound\0"));
+	assert((ptr)result.output_sound != nullptr);
+	result.is_loaded = true;
+	return result;
 }
 
-let win_load_game_dll = fun () => void
+let win_unload_game_dll = fun (@interface: game_interface*) => void
 {
-	var handmade_library = LoadLibraryA(cstr("handmade.dll\0"));
-	game_update_and_render = (game_update_and_render)GetProcAddress(handmade_library, cstr("game_update_and_render\0"));
-	assert((ptr)game_update_and_render != nullptr);
-	game_output_sound = (game_output_sound)GetProcAddress(handmade_library, cstr("game_output_sound\0"));
-	assert((ptr)game_output_sound != nullptr);
-	print_string("dll loaded\n");
+	if (is_loaded) {
+		FreeLibrary(library);
+	}
+	update_and_render = (game_update_and_render)nullptr;
+	output_sound = (game_output_sound)nullptr;
+	is_loaded = false;
 }
 
 let win_init_direct_sound = fun 
@@ -163,7 +183,7 @@ let win_init_direct_sound = fun
 ) => IDirectSoundBuffer*
 { 
 	var dsound_library = LoadLibraryA(cstr("dsound.dll\0"));
-	assert(dsound_library != nullptr);
+	assert(dsound_library != null);
 
 	var DirectSoundCreate: fun 
 	(
@@ -537,9 +557,8 @@ let win_get_duration = fun (c0: i64; c1: i64) => f32
 
 
 [
-"compile.entry" : "true",
+"compile.entry",
 "compile.output": "win_handmade.exe",
-"compile.debug" : "true",
 "compile.opt"   : "0",
 "compile.run"   : "true",
 "compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
@@ -605,6 +624,12 @@ let main = fun () => void
 	} else {
 		base_address = nullptr;
 	}
+
+	var platform = platform_interface {};
+	platform.write_file = platform_write_file;
+	platform.read_file = platform_read_file;
+	platform.free_file_memory = platform_free_file_memory;
+
 	var game_memory = game_memory {}; 
 	game_memory.permanent_size = megabytes(1);
 	game_memory.transient_size = 0;
@@ -613,11 +638,9 @@ let main = fun () => void
 	assert(game_memory.permanent_data != nullptr);
 	game_memory.transient_data = game_memory.permanent_data + game_memory.permanent_size;
 	assert(game_memory.transient_data != nullptr);
+	game_memory.platform = &platform;
 	
-	win_load_game_dll();
-	assert((ptr)game_update_and_render != nullptr);
-	assert((ptr)game_output_sound != nullptr);
-	
+	var game = win_load_game_dll(); 
 	win_clear_sound_buffer(&sound_output);
 	error = sound_buffer.vtable.Play(sound_buffer, 0, 0, DSBPLAY_LOOPING);
 	assert(error == DS_OK);
@@ -634,7 +657,6 @@ let main = fun () => void
 	var last_cycle_count = _rdtsc();
 	var dt = 1.0 / 60.0;
 
-
 	var game_start_time: i64;
 	QueryPerformanceCounter(&game_start_time);
 
@@ -642,8 +664,6 @@ let main = fun () => void
 	var game_sound_output = game_sound_output { };
 	game_sound_output.sample_out = game_sample_buffer;
 	game_sound_output.samples_per_second = sound_output.samples_per_second;
-
-	
 
 	while (running) {
 		win_process_pending_messages(&game_input);
@@ -654,19 +674,20 @@ let main = fun () => void
 		game_render_target.height = backbuffer.height;
 		game_render_target.pitch = backbuffer.pitch;
 		
-		
-		
 		var game_time = game_time{};
 		game_time.dt = dt;
 		game_time.t = win_get_duration(last_counter, game_start_time);
 		game_input.time = game_time;
 		game_input.request_quit |= window_requests_quit;
 
-		running = game_update_and_render(&game_memory, &game_input, &game_render_target);
+		assert(game.is_loaded);
+		running = game.update_and_render(&game_memory, &game_input, &game_render_target);
 
 		win_update_next_sound_write_positon(&sound_output);
 		game_sound_output.sample_count = sound_output.next_bytes_to_write / sound_output.bytes_per_chunk;
-		game_output_sound(&game_memory, &game_sound_output);
+
+		assert(game.is_loaded);
+		game.output_sound(&game_memory, &game_sound_output);
 
 		win_fill_sound_buffer(&sound_output, &game_sound_output);
 		if (!running) {

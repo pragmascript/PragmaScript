@@ -56,8 +56,8 @@ namespace PragmaScript
             CompilerOptions.optimizationLevel = 0;
             CompilerOptions.runAfterCompile = true;
 
-            CompilerOptions.dll = true;
-            CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
+            CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\win32_handmade.prag";
+            // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
             // CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
             // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\preamble.prag";
 #endif
@@ -151,7 +151,7 @@ namespace PragmaScript
         }
 
 
-#if DEBUG
+#if FALSE
         static Graph getRenderGraph(Graph g, AST.Node node, string id)
         {
             var ns = NodeStatement.For(id);
@@ -259,9 +259,15 @@ namespace PragmaScript
 
             Stack<PrepIf> ifs = new Stack<PrepIf>();
 
+            bool inside_line_comment = false;
+
             while (true)
             {
-                if (text.at(idx) == '#')
+                if (text.at(idx - 1) == '/' && text.at(idx) == '/')
+                {
+                    inside_line_comment = true;
+                }
+                if (!inside_line_comment && text.at(idx) == '#')
                 {
                     if (char.ToUpper(text.at(idx + 1)) == 'I' && char.ToUpper(text.at(idx + 2)) == 'F')
                     {
@@ -310,6 +316,10 @@ namespace PragmaScript
                 // HACK: keep newlines for error reporting
                 if (!skip || text[idx] == '\r' || text[idx] == '\n')
                 {
+                    if (text[idx] == '\n')
+                    {
+                        inside_line_comment = false;
+                    }
                     result.Append(text[idx]);
                 }
                 idx++;

@@ -1509,14 +1509,14 @@ namespace PragmaScript
                 }
                 var function = variables[node.funName];
 
-                if (!CompilerOptions.dll)
-                {
-                    LLVM.SetLinkage(function, LLVMLinkage.LLVMInternalLinkage);
-                }
 
-                if (CompilerOptions.dll)
+                if (node.HasAttribute("DLL.EXPORT"))
                 {
                     LLVM.SetDLLStorageClass(function, LLVMDLLStorageClass.LLVMDLLExportStorageClass);
+                }
+                else
+                {
+                    LLVM.SetLinkage(function, LLVMLinkage.LLVMInternalLinkage);
                 }
 
                 var vars = LLVM.AppendBasicBlock(function, "vars");

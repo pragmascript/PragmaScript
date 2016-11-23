@@ -264,8 +264,9 @@ let VirtualFree = extern fun
   free_type: i32;
 ) => i32;
 
-let LoadLibraryA = extern fun(name: i8*) => ptr;
-let GetProcAddress = extern fun(lib: ptr; name: i8*) => ptr;
+let LoadLibraryA = extern fun (name: i8*) => mm;
+let FreeLibrary = extern fun (lib: mm) => i32;
+let GetProcAddress = extern fun(lib: mm; name: i8*) => ptr;
 
 let QueryPerformanceCounter = extern fun(result: i64*) => i32;
 let QueryPerformanceFrequency = extern fun(result: i64*) => i32;

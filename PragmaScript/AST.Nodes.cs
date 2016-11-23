@@ -50,6 +50,15 @@ namespace PragmaScript
                 attributes.Add(key, value);
             }
 
+            public void AddAttribte(string key)
+            {
+                if (attributes == null)
+                {
+                    attributes = new Dictionary<string, string>();
+                }
+                attributes.Add(key, "TRUE");
+            }
+
             public string GetAttribute(string key, bool upperCase = true)
             {
                 if (attributes == null)
@@ -58,6 +67,20 @@ namespace PragmaScript
                 }
                 attributes.TryGetValue(key, out string result);
                 return upperCase ? result?.ToUpper() : result;
+            }
+
+            public bool HasAttribute(string key)
+            {
+                if (attributes == null || !attributes.ContainsKey(key))
+                {
+                    return false;
+                }
+                var attr = attributes[key];
+                if (attr != "FALSE")
+                {
+                    return true;
+                }
+                return false;
             }
 
             public abstract Node DeepCloneTree();
@@ -69,39 +92,6 @@ namespace PragmaScript
             bool returnPointer { get; set; }
             bool CanReturnPointer();
         }
-
-        public class AnnotatedNode : Node
-        {
-            Node node;
-            public string annotation;
-            public AnnotatedNode(Node n, Scope s, string annotation)
-                : base(n.token, s)
-            {
-                node = n;
-                this.annotation = annotation;
-            }
-            public override Node DeepCloneTree()
-            {
-                throw new InvalidCodePath();
-            }
-            public override IEnumerable<Node> GetChilds()
-            {
-                foreach (var n in node.GetChilds())
-                {
-                    yield return n;
-                }
-            }
-            public override string ToString()
-            {
-                return node.ToString();
-            }
-
-            public override void Replace(Node old, Node @new)
-            {
-                node.Replace(old, @new);
-            }
-        }
-
 
         public class ProgramRoot : Node
         {
@@ -220,7 +210,7 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(condition, scope, "condition");
+                yield return condition;
                 yield return thenBlock;
             }
 
@@ -259,17 +249,18 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(condition, scope, "condition");
-                yield return new AnnotatedNode(thenBlock, scope, "then");
+                yield return condition;
+                yield return thenBlock;
                 foreach (var elif in elifs)
                 {
-                    yield return new AnnotatedNode(elif, scope, "elif");
+                    yield return elif;
                 }
                 if (elseBlock != null)
                 {
-                    yield return new AnnotatedNode(elseBlock, scope, "else");
+                    yield return elseBlock;
                 }
             }
+
             public override string ToString()
             {
                 return "if";
@@ -277,7 +268,34 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                throw new NotImplementedException();
+                var found = false;
+                if (old == condition)
+                {
+                    condition = @new;
+                    found = true;
+                }
+                else if (old == thenBlock)
+                {
+                    thenBlock = @new;
+                    found = true;
+                }
+                else if (old == elseBlock)
+                {
+                    elseBlock = @new;
+                }
+                else
+                {
+                    var idx = elifs.IndexOf(old);
+                    if (idx != -1)
+                    {
+                        elifs[idx] = @new;
+                        found = true;
+                    }
+                }
+                if (!found)
+                {
+                    throw new InvalidCodePath();
+                }
             }
         }
 
@@ -313,20 +331,19 @@ namespace PragmaScript
                 int idx = 1;
                 foreach (var init in initializer)
                 {
-                    yield return new AnnotatedNode(init, scope, "init_" + idx);
+                    yield return init;
                     idx++;
                 }
 
-                yield return new AnnotatedNode(condition, scope, "condition");
+                yield return condition;
 
                 idx = 1;
                 foreach (var it in iterator)
                 {
-                    yield return new AnnotatedNode(it, scope, "iter_" + idx);
+                    yield return it;
                     idx++;
                 }
-
-                yield return new AnnotatedNode(loopBody, scope, "body");
+                yield return loopBody;
             }
             public override string ToString()
             {
@@ -357,8 +374,8 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(condition, scope, "condition");
-                yield return new AnnotatedNode(loopBody, scope, "body");
+                yield return condition;
+                yield return loopBody;
             }
 
             public override void Replace(Node old, Node @new)
@@ -523,7 +540,11 @@ namespace PragmaScript
             {
                 foreach (var f in fields)
                 {
-                    yield return new AnnotatedNode(f.typeString, scope, f.name);
+                    yield return f.typeString;
+                    if (f.defaultValueExpression != null)
+                    {
+                        yield return f.defaultValueExpression;
+                    }
                 }
             }
             public override string ToString()
@@ -560,7 +581,7 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(left, scope, "left");
+                yield return left;
                 foreach (var exp in argumentList)
                 {
                     yield return exp;
@@ -859,7 +880,7 @@ namespace PragmaScript
                 var idx = 0;
                 foreach (var x in elements)
                 {
-                    yield return new AnnotatedNode(x, scope, "elem_" + idx++);
+                    yield return x;
                 }
             }
 
@@ -975,8 +996,8 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                yield return new AnnotatedNode(left, scope, "array");
-                yield return new AnnotatedNode(index, scope, "index");
+                yield return left;
+                yield return index;
             }
             public override string ToString()
             {
@@ -1553,6 +1574,7 @@ namespace PragmaScript
                         var np = new AST.NamedParameter();
                         np.name = p.name;
                         np.typeString = p.typeString.DeepCloneTree() as TypeString;
+                        np.defaultValueExpression = p.defaultValueExpression.DeepCloneTree();
                         fts.parameters.Add(np);
                     }
                     result.functionTypeString = fts;
@@ -1571,14 +1593,22 @@ namespace PragmaScript
                     case TypeKind.Function:
                         foreach (var p in functionTypeString.parameters)
                         {
-                            yield return new AnnotatedNode(p.typeString, scope, p.name);
+                            yield return p.typeString;
+                            if (p.defaultValueExpression != null)
+                            {
+                                yield return p.defaultValueExpression;
+                            }
                         }
-                        yield return new AnnotatedNode(functionTypeString.returnType, scope, "return");
+                        yield return functionTypeString.returnType;
                         break;
                     case TypeKind.Struct:
                         yield break;
                     case TypeKind.Other:
-                        yield break;
+                        if (allocationCount != null)
+                        {
+                            yield return allocationCount;
+                        }
+                        break;
                 }
             }
 

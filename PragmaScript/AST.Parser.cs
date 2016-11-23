@@ -211,7 +211,14 @@ namespace PragmaScript
                     {
                         foreach (var a in attribs)
                         {
-                            decl.AddAttribute(a.key, a.value);
+                            if (a.value != null)
+                            {
+                                decl.AddAttribute(a.key, a.value);
+                            }
+                            else
+                            {
+                                decl.AddAttribte(a.key);
+                            }
                         }
                         attribs.Clear();
                         foundAttrib = false;
@@ -229,17 +236,23 @@ namespace PragmaScript
                         {
                             throw new ParserError("Expected string constant in attribute", key.token);
                         }
-                        ps.ExpectNextToken(Token.TokenType.Colon);
-                        ps.NextToken();
-                        var value = parsePrimary(ref ps, scope) as AST.ConstString;
-                        if (value == null)
-                        {
-                            throw new ParserError("Expected string constant in attribute", key.token);
-                        }
-                        var a_key = key.Vebatim().ToUpper();
-                        var a_value = value.Vebatim();
-                        attribs.Add((a_key, a_value));
 
+                        string a_value = null;
+                        if (ps.PeekToken().type == Token.TokenType.Colon)
+                        {
+                            ps.ExpectNextToken(Token.TokenType.Colon);
+                            ps.NextToken();
+                            var value = parsePrimary(ref ps, scope) as AST.ConstString;
+                            if (value == null)
+                            {
+                                throw new ParserError("Expected string constant in attribute", key.token);
+                            }
+                            a_value = value.Vebatim();
+                        }
+
+                        var a_key = key.Vebatim().ToUpper();
+                        attribs.Add((a_key, a_value));
+                        
                         ps.ExpectNextToken(Token.TokenType.CloseSquareBracket, Token.TokenType.Comma);
                         if (ps.CurrentToken().type == Token.TokenType.CloseSquareBracket)
                         {
@@ -1562,7 +1575,7 @@ namespace PragmaScript
 
             result.funName = id.text;
             var funScope = new Scope(scope, result);
-          
+
             //if (result.typeString.functionTypeString != null)
             //{
             //    var idx = 0;
