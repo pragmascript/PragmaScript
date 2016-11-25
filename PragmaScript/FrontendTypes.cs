@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 namespace PragmaScript
 {
 
+
+
     public class FrontendType
     {
         public static readonly FrontendType none = new FrontendType("$$__none__$$");
@@ -429,10 +431,10 @@ namespace PragmaScript
             calcTypeName();
         }
 
-        public FrontendType GetParam(string name)
+        public Param GetParam(string name)
         {
             var f = parameters.Where(x => x.name == name).FirstOrDefault();
-            return f != null ? f.type : null;
+            return f;
         }
 
         public int GetParamIndex(string name)

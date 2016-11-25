@@ -80,7 +80,6 @@ namespace PragmaScript
             Dot,
             Struct,
             ArrayTypeBrackets,
-            Alias,
             SizeOf,
             Extern,
             Import,
@@ -91,7 +90,9 @@ namespace PragmaScript
             LessEqualUnsigned,
             DivideEqualsUnsigned,
             DivideUnsigned,
-            At
+            At,
+            Namespace,
+            With
         }
 
         public TokenType type { get; private set; }
@@ -115,7 +116,7 @@ namespace PragmaScript
             keywords.Add("var", TokenType.Var);
             keywords.Add("struct", TokenType.Struct);
             keywords.Add("fun", TokenType.Fun);
-            keywords.Add("alias", TokenType.Alias);
+            // keywords.Add("alias", TokenType.Alias);
             keywords.Add("return", TokenType.Return);
             keywords.Add("true", TokenType.True);
             keywords.Add("false", TokenType.False);
@@ -126,9 +127,11 @@ namespace PragmaScript
             keywords.Add("while", TokenType.While);
             keywords.Add("break", TokenType.Break);
             keywords.Add("continue", TokenType.Continue);
-            keywords.Add("sizeof", TokenType.SizeOf);
+            keywords.Add("size_of", TokenType.SizeOf);
             keywords.Add("extern", TokenType.Extern);
             keywords.Add("import", TokenType.Import);
+            keywords.Add("namespace", TokenType.Namespace);
+            keywords.Add("with", TokenType.With);
 
             operators = new Dictionary<string, TokenType>();
             operators.Add("=", TokenType.Assignment);

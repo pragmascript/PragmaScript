@@ -15,6 +15,9 @@ namespace PragmaScript
         {
             public string name;
             public TypeString typeString;
+
+            public int allocationCount;
+
             public bool embed;
             public Node defaultValueExpression;
             public bool isOptional()
@@ -158,6 +161,40 @@ namespace PragmaScript
                 return "FileRoot";
             }
         }
+
+        public class Namespace : Node
+        {
+            public List<Node> declarations = new List<Node>();
+            public Namespace(Token t, Scope s)
+                : base(t, s)
+            {
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new FileRoot(token, scope);
+                foreach (var d in declarations)
+                {
+                    result.declarations.Add(d.DeepCloneTree());
+                }
+                return result;
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                foreach (var s in declarations)
+                    yield return s;
+            }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override string ToString()
+            {
+                return scope.namesp.name;
+            }
+        }
+
 
         public class Block : Node
         {
@@ -603,13 +640,11 @@ namespace PragmaScript
         public class VariableReference : Node, ICanReturnPointer
         {
             public string variableName;
-            public Scope.VariableDefinition vd;
-
             // HACK: returnPointer is a HACK remove this?????
             public bool returnPointer { get; set; }
             public bool CanReturnPointer()
             {
-                return vd == null || !vd.isConstant;
+                return true;
             }
 
             public VariableReference(Token t, Scope s)
@@ -625,20 +660,6 @@ namespace PragmaScript
 
 
                 var result = new VariableReference(token, scope);
-                if (vd != null)
-                {
-                    result.vd = new Scope.VariableDefinition();
-                    result.vd.isConstant = vd.isConstant;
-                    result.vd.isFunctionParameter = vd.isFunctionParameter;
-                    result.vd.parameterIdx = vd.parameterIdx;
-                    result.vd.name = vd.name;
-                    result.vd.node = vd.node;
-                    result.vd.type = vd.type;
-                }
-                else
-                {
-                    vd = null;
-                }
                 result.returnPointer = returnPointer;
                 result.variableName = variableName;
                 return result;
@@ -646,10 +667,6 @@ namespace PragmaScript
             public override string ToString()
             {
                 string name = variableName;
-                if (name == null)
-                {
-                    name = vd.name;
-                }
                 return name + (returnPointer ? " (p)" : "");
             }
 
@@ -923,8 +940,10 @@ namespace PragmaScript
         //    }
         //}
 
-        public class StructFieldAccess : Node, ICanReturnPointer
+        public class FieldAccess : Node, ICanReturnPointer
         {
+            public enum AccessKind { Struct, Namespace };
+            public AccessKind kind;
             public Node left;
             public string fieldName;
             public bool IsArrow = false;
@@ -935,14 +954,14 @@ namespace PragmaScript
                 return true;
             }
 
-            public StructFieldAccess(Token t, Scope s) :
+            public FieldAccess(Token t, Scope s) :
                 base(t, s)
             {
 
             }
             public override Node DeepCloneTree()
             {
-                var result = new StructFieldAccess(token, scope);
+                var result = new FieldAccess(token, scope);
                 result.left = left.DeepCloneTree();
                 result.fieldName = fieldName;
                 result.IsArrow = IsArrow;
@@ -1544,7 +1563,10 @@ namespace PragmaScript
             {
             }
 
-            public string typeName;
+    
+
+
+            public Scope.FullyQualifiedName fullyQualifiedName = new Scope.FullyQualifiedName();
             public bool isArrayType = false;
             public bool isPointerType = false;
             public int pointerLevel = 0;
@@ -1560,7 +1582,7 @@ namespace PragmaScript
             public override Node DeepCloneTree()
             {
                 var result = new TypeString(token, scope);
-                result.typeName = typeName;
+                result.fullyQualifiedName = fullyQualifiedName;
                 result.isArrayType = isArrayType;
                 result.isPointerType = isPointerType;
                 result.pointerLevel = pointerLevel;
@@ -1624,7 +1646,7 @@ namespace PragmaScript
                         result = "struct ()";
                         break;
                     case TypeKind.Other:
-                        result = typeName;
+                        result = fullyQualifiedName.ToString();
                         break;
                     default:
                         break;

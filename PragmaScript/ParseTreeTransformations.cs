@@ -17,6 +17,18 @@ namespace PragmaScript
             fixupParents(null, root);
         }
 
+        public static void Desugar(List<(AST.FieldAccess fa, Scope.Namespace ns)> namespaceAccesses, TypeChecker tc)
+        {
+            foreach (var na in namespaceAccesses)
+            {
+                Debug.Assert(na.fa.kind == FieldAccess.AccessKind.Namespace);
+                var result = new VariableReference(na.fa.token, na.ns.scope);
+                result.variableName = na.fa.fieldName;
+                tc.ResolveNode(result, tc.GetNodeType(na.fa));
+                na.fa.parent.Replace(na.fa, result);
+            }
+        }
+
         public static void Desugar(List<VariableReference> embeddings, TypeChecker tc)
         {
             foreach (var e in embeddings)
@@ -24,19 +36,17 @@ namespace PragmaScript
                 var ft = tc.GetNodeType(e.scope.function) as FrontendFunctionType;
                 Debug.Assert(ft != null);
 
-                var p = ft.parameters[e.vd.parameterIdx];
+                var vd = e.scope.GetVar(e.variableName);
+
+                var p = ft.parameters[vd.parameterIdx];
                 var pt = p.type;
                 // var pt = tc.GetNodeType(p.typeString);
-              
+
                 var vr = new AST.VariableReference(e.token, e.scope);
                 vr.variableName = p.name;
-                vr.vd = new Scope.VariableDefinition();
-                vr.vd.isFunctionParameter = true;
-                vr.vd.parameterIdx = e.vd.parameterIdx;
-                vr.vd.name = p.name;
                 tc.ResolveNode(vr, pt);
 
-                var f = new AST.StructFieldAccess(e.token, e.scope);
+                var f = new AST.FieldAccess(e.token, e.scope);
                 f.fieldName = e.variableName;
                 f.left = vr;
                 f.parent = e.parent;
@@ -53,7 +63,7 @@ namespace PragmaScript
                     st = pt as FrontendStructType;
                 }
                 Debug.Assert(st != null);
-                tc.ResolveNode(f, st.fields[e.vd.embeddingIdx].type);
+                tc.ResolveNode(f, st.fields[vd.embeddingIdx].type);
                 vr.parent = f;
 
 
@@ -67,6 +77,8 @@ namespace PragmaScript
             foreach (var c in node.GetChilds())
             {
                 fixupParents(node, c);
+
+                
             }
         }
 

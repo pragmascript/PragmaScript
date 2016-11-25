@@ -31,6 +31,7 @@ namespace PragmaScript
         Dictionary<AST.Node, FrontendType> pre_resolved;
 
         public List<AST.VariableReference> embeddings;
+        public List<(AST.FieldAccess fa, Scope.Namespace ns)> namespaceAccesses;
 
         public TypeChecker()
         {
@@ -39,6 +40,7 @@ namespace PragmaScript
             knownTypes = new Dictionary<AST.Node, FrontendType>();
             pre_resolved = new Dictionary<AST.Node, FrontendType>();
             embeddings = new List<AST.VariableReference>();
+            namespaceAccesses = new List<(AST.FieldAccess fa, Scope.Namespace ns)>();
         }
 
 
@@ -187,6 +189,15 @@ namespace PragmaScript
         }
 
         void checkType(AST.FileRoot node)
+        {
+            foreach (var n in node.declarations)
+            {
+                checkTypeDynamic(n);
+            }
+            resolve(node, FrontendType.none);
+        }
+
+        void checkType(AST.Namespace node)
         {
             foreach (var n in node.declarations)
             {
@@ -367,7 +378,7 @@ namespace PragmaScript
             FrontendType tt = null;
             if (node.typeString != null)
             {
-                node.typeString.typeName = node.funName;
+                // node.typeString.fullyQualifiedName.name = node.funName;
                 checkTypeDynamic(node.typeString);
                 tt = getType(node.typeString);
                 if (tt == null)
@@ -379,10 +390,6 @@ namespace PragmaScript
             {
                 var ft = tt as FrontendFunctionType;
                 Debug.Assert(ft != null);
-                if (node.typeString.functionTypeString == null)
-                {
-                    int breakHere = 42;
-                }
                 // TODO: put this somewhere it makes more sense.
                 var cond = node.GetAttribute("CONDITIONAL");
                 if (cond != null)
@@ -459,11 +466,21 @@ namespace PragmaScript
                             vd.embeddingIdx = ef.j;
                         }
                     }
+
+
+                    var result = new FrontendFunctionType(node.funName);
+                    result.inactiveConditional = ft.inactiveConditional;
+                    result.parameters = ft.parameters;
+                    result.returnType = ft.returnType;
+                    result.specialFun = ft.specialFun;
+                    result.preResolved = ft.preResolved;
+
+
                     if (!typeRoots.ContainsKey(tt))
                     {
-                        typeRoots.Add(tt, node);
+                        typeRoots.Add(result, node);
                     }
-                    resolve(node, tt);
+                    resolve(node, result);
                 }
                 // TODO: find out why this has to come last
                 // weird errors occur if this is further up!
@@ -643,48 +660,42 @@ namespace PragmaScript
         void checkType(AST.VariableReference node)
         {
             Scope.VariableDefinition vd = null;
-            if (node.vd == null)
+            Scope.Namespace ns = null;
+            bool functionResolved = false;
+            if (node.scope.function != null)
             {
-
-                bool functionResolved = false;
-                if (node.scope.function != null)
+                Debug.Assert(node.variableName != null);
+                var fun = node.scope.function;
+                var ftn = getType(fun);
+                if (ftn == null)
                 {
-                    Debug.Assert(node.variableName != null);
-                    var fun = node.scope.function;
-                    var ftn = getType(fun);
-                    if (ftn == null)
-                    {
-                        // in order to resolve @ embeddings we need to resolve the function first
-                        addUnresolved(node, fun);
-                    }
-                    else
-                    {
-                        functionResolved = true;
-                    }
+                    // in order to resolve @ embeddings we need to resolve the function first
+                    addUnresolved(node, fun);
                 }
-                if (node.scope.function == null || functionResolved)
+                else
                 {
-                    vd = node.scope.GetVar(node.variableName);
-                    if (vd == null)
-                    {
-                        throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
-                    }
-                    if (vd.isEmbedded)
-                    {
-                        embeddings.Add(node);
-                    }
-                    else if (!vd.isConstant && !vd.isGlobal && !vd.isFunctionParameter)
-                    {
-                        throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
-                    }
-                    node.vd = vd;
+                    functionResolved = true;
                 }
             }
-            else
+            if (node.scope.function == null || functionResolved)
             {
-                vd = node.vd;
+                vd = node.scope.GetVar(node.variableName);
+                ns = node.scope.GetNamespace(node.variableName);
+                if (vd == null && ns == null)
+                {
+                    throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
+                }
+                if (vd != null && vd.isEmbedded)
+                {
+                    embeddings.Add(node);
+                }
+                else
+                // TODO: How to do this???
+                if (false)
+                {
+                    throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
+                }
             }
-
 
             if (vd != null)
             {
@@ -713,6 +724,10 @@ namespace PragmaScript
                         addUnresolved(node, vd.node);
                     }
                 }
+            }
+            else if (ns != null)
+            {
+                resolve(node, FrontendType.none);
             }
         }
 
@@ -809,7 +824,7 @@ namespace PragmaScript
         }
 
 
-        void checkType(AST.StructFieldAccess node)
+        void checkType(AST.FieldAccess node)
         {
             checkTypeDynamic(node.left);
             var lt = getType(node.left);
@@ -819,7 +834,7 @@ namespace PragmaScript
             }
             else
             {
-                var st = lt as FrontendStructType;
+                FrontendStructType st = lt as FrontendStructType;
                 if (st == null)
                 {
                     if (lt is FrontendPointerType)
@@ -831,24 +846,63 @@ namespace PragmaScript
                         }
                     }
                 }
-                if (st == null)
-                {
-                    throw new ParserError("left side is not a struct type", node.token);
-                }
 
-                if (st.preResolved)
+                bool isNamespace = false;
+                if (st != null)
                 {
-                    addUnresolved(node, typeRoots[st]);
+                    node.kind = AST.FieldAccess.AccessKind.Struct;
+                    if (st.preResolved)
+                    {
+                        addUnresolved(node, typeRoots[st]);
+                    }
+                    else
+                    {
+                        var field = st.GetField(node.fieldName);
+                        if (field == null)
+                        {
+                            throw new ParserError($"struct does not contain field \"{node.fieldName}\"", node.token);
+                        }
+                        resolve(node, field);
+                    }
+
                 }
                 else
                 {
-                    var field = st.GetField(node.fieldName);
-                    if (field == null)
+                    // assume its a namespace
+                    if (lt.Equals(FrontendType.none))
                     {
-                        throw new ParserError($"struct does not contain field \"{node.fieldName}\"", node.token);
+                        var ns = node.scope.GetNamespace(node.left.token.text);
+                        if (ns != null)
+                        {
+                            isNamespace = true;
+                            node.kind = AST.FieldAccess.AccessKind.Namespace;
+                            var vd = ns.scope.GetVar(node.fieldName);
+                            if (vd.type != null)
+                            {
+                                resolve(node, vd.type);
+                            }
+                            else
+                            {
+                                var vt = getType(vd.node);
+                                if (vt != null)
+                                {
+                                    namespaceAccesses.Add((node, ns));
+                                    Debug.Assert(vd.isFunctionParameter == false);
+                                    resolve(node, vt);
+                                }
+                                else
+                                {
+                                    addUnresolved(node, vd.node);
+                                }
+                            }
+                        }
                     }
-                    resolve(node, field);
                 }
+                if (st == null && !isNamespace)
+                {
+                    throw new ParserError("left side is not a struct type or namespace", node.token);
+                }
+
             }
         }
 
@@ -1130,10 +1184,10 @@ namespace PragmaScript
                 {
                     case AST.TypeString.TypeKind.Other:
                         {
-                            var base_t_def = node.scope.GetType(node.typeName);
+                            var base_t_def = node.scope.GetType(node.fullyQualifiedName);
                             if (base_t_def == null)
                             {
-                                throw new ParserError($"Unknown type: \"{node.typeName}\"", node.token);
+                                throw new ParserError($"Unknown type: \"{node.fullyQualifiedName}\"", node.token);
                             }
                             FrontendType base_t = null;
                             if (base_t_def.type != null)
@@ -1236,7 +1290,7 @@ namespace PragmaScript
                             }
                             if (returnType != null && all_ps && optionalCount == optionalExpressionTypes.Count)
                             {
-                                var result = new FrontendFunctionType(node.typeName);
+                                var result = new FrontendFunctionType(null);
                                 for (int idx = 0; idx < fts.parameters.Count; ++idx)
                                 {
                                     var p = fts.parameters[idx];

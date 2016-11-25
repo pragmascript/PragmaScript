@@ -2,6 +2,7 @@
    of IL files 
    http://llvm.org/docs/CommandGuide/llvm-link.html
 
+- move returnPointer nonsense after typechecking phase
 
 - functions should be frontend pointer types!
   so stuff like assert(foo != nullptr) works!
@@ -35,6 +36,10 @@
    the next file.
 
  - switch!
+
+ - make all the types immutable classes
+
+
 
  - hashtable:
      https://github.com/PeterScott/murmur3

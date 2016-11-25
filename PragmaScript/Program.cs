@@ -56,9 +56,9 @@ namespace PragmaScript
             CompilerOptions.optimizationLevel = 0;
             CompilerOptions.runAfterCompile = true;
 
-            CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\win32_handmade.prag";
+            // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\win32_handmade.prag";
             // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
-            // CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
+            CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
             // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\preamble.prag";
 #endif
             if (CompilerOptions.inputFilename == null)
@@ -382,6 +382,17 @@ namespace PragmaScript
                             CompilerOptions.runAfterCompile = false;
                         }
 
+                        var dll = d.GetAttribute("COMPILE.DLL");
+                        if (dll == "TRUE")
+                        {
+                            CompilerOptions.dll = true;
+                        }
+                        else if (dll == "FALSE")
+                        {
+                            CompilerOptions.dll = false;
+                        }
+
+
                         var libs = d.GetAttribute("COMPILE.LIBS", upperCase: false);
                         if (libs != null)
                         {
@@ -432,7 +443,7 @@ namespace PragmaScript
                 text = preprocess(text);
                 var tokens = tokenize(text, fn);
 
-                AST.ParseState ps;
+                AST.ParseState ps = new ParseState();
                 ps.pos = 0;
                 ps.tokens = tokens;
 
@@ -464,7 +475,7 @@ namespace PragmaScript
             }
             foreach (var tokens in toCompile)
             {
-                AST.ParseState ps;
+                AST.ParseState ps = new ParseState();
                 ps.pos = 0;
                 ps.tokens = tokens;
 #if !DEBUG
@@ -532,6 +543,7 @@ namespace PragmaScript
 
             ParseTreeTransformations.Init(root);
             ParseTreeTransformations.Desugar(tc.embeddings, tc);
+            ParseTreeTransformations.Desugar(tc.namespaceAccesses, tc);
 
             timer.Stop();
 #if DISPLAY_TIMINGS

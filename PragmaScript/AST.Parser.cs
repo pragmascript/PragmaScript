@@ -13,6 +13,10 @@ namespace PragmaScript
             public Token[] tokens;
             public int pos;
 
+            public bool foundAttrib;
+            public List<(string key, string value)> attribs;
+
+
             public Token CurrentToken()
             {
                 return tokens[pos];
@@ -184,6 +188,119 @@ namespace PragmaScript
             return result;
         }
 
+        public static Node parseNamespace(ref ParseState ps, Scope scope)
+        {
+            var current = ps.ExpectCurrentToken(Token.TokenType.Namespace);
+            var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
+            var ns = scope.AddNamespace(ident.text);
+            var result = new AST.Namespace(current, ns.scope);
+
+            ps.ExpectNextToken(Token.TokenType.OpenCurly);
+            ps.NextToken();
+            while (ps.CurrentToken().type != Token.TokenType.CloseCurly)
+            {
+                var decl = parseDeclaration(ref ps, ns.scope);
+                result.declarations.Add(decl);
+            }
+            return result;
+        }
+
+        public static Node parseDeclaration(ref ParseState ps, Scope scope)
+        {
+            var current = ps.CurrentToken();
+            Node result = null;
+            bool ignoreSemicolon = false;
+
+            do
+            {
+                switch (current.type)
+                {
+                    case Token.TokenType.Var:
+                    case Token.TokenType.Let:
+                        {
+                            result = parseLetVar(ref ps, scope, ref ignoreSemicolon);
+                            if (ps.attribs?.Count > 0)
+                            {
+                                foreach (var a in ps.attribs)
+                                {
+                                    if (a.value != null)
+                                    {
+                                        result.AddAttribute(a.key, a.value);
+                                    }
+                                    else
+                                    {
+                                        result.AddAttribte(a.key);
+                                    }
+                                }
+                                ps.attribs.Clear();
+                                ps.foundAttrib = false;
+                            }
+                        }
+                        break;
+                    case Token.TokenType.Namespace:
+                        {
+                            result = parseNamespace(ref ps, scope);
+                            ignoreSemicolon = true;
+                        }
+                        break;
+                    case Token.TokenType.OpenSquareBracket:
+                        {
+                            ps.NextToken();
+
+                            while (true)
+                            {
+                                var key = parsePrimary(ref ps, scope) as AST.ConstString;
+                                if (key == null)
+                                {
+                                    throw new ParserError("Expected string constant in attribute", key.token);
+                                }
+
+                                string a_value = null;
+                                if (ps.PeekToken().type == Token.TokenType.Colon)
+                                {
+                                    ps.ExpectNextToken(Token.TokenType.Colon);
+                                    ps.NextToken();
+                                    var value = parsePrimary(ref ps, scope) as AST.ConstString;
+                                    if (value == null)
+                                    {
+                                        throw new ParserError("Expected string constant in attribute", key.token);
+                                    }
+                                    a_value = value.Vebatim();
+                                }
+
+                                var a_key = key.Vebatim().ToUpper();
+                                if (ps.attribs == null)
+                                {
+                                    ps.attribs = new List<(string key, string value)>();
+                                }
+                                ps.attribs.Add((a_key, a_value));
+
+                                ps.ExpectNextToken(Token.TokenType.CloseSquareBracket, Token.TokenType.Comma);
+                                if (ps.CurrentToken().type == Token.TokenType.CloseSquareBracket)
+                                {
+                                    break;
+                                }
+                                ps.NextToken();
+                            }
+                            current = ps.NextToken();
+                            ps.foundAttrib = true;
+                        }
+                        break;
+                }
+            } while (ps.foundAttrib);
+            if (result == null)
+            {
+                throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
+            }
+            if (!ignoreSemicolon)
+            {
+                ps.ExpectNextToken(Token.TokenType.Semicolon);
+            }
+            ps.NextToken();
+            
+
+            return result;
+        }
 
         public static Node parseFileRoot(ref ParseState ps, Scope scope)
         {
@@ -193,91 +310,10 @@ namespace PragmaScript
             var current = ps.CurrentToken();
             var result = new FileRoot(current, scope);
 
-            var next = current;
-
-
-            bool foundAttrib = false;
-            List<(string key, string value)> attribs = new List<(string key, string value)>();
-
-            while (next.type != Token.TokenType.EOF)
+            while (ps.CurrentToken().type != Token.TokenType.EOF)
             {
-                Node decl = null;
-                current = ps.CurrentToken();
-                bool ignoreSemicolon = false;
-                if (current.type == Token.TokenType.Var || current.type == Token.TokenType.Let)
-                {
-                    decl = parseLetVar(ref ps, scope, ref ignoreSemicolon);
-                    if (attribs.Count > 0)
-                    {
-                        foreach (var a in attribs)
-                        {
-                            if (a.value != null)
-                            {
-                                decl.AddAttribute(a.key, a.value);
-                            }
-                            else
-                            {
-                                decl.AddAttribte(a.key);
-                            }
-                        }
-                        attribs.Clear();
-                        foundAttrib = false;
-                    }
-                }
-                else
-                if (current.type == Token.TokenType.OpenSquareBracket)
-                {
-                    ps.NextToken();
-
-                    while (true)
-                    {
-                        var key = parsePrimary(ref ps, scope) as AST.ConstString;
-                        if (key == null)
-                        {
-                            throw new ParserError("Expected string constant in attribute", key.token);
-                        }
-
-                        string a_value = null;
-                        if (ps.PeekToken().type == Token.TokenType.Colon)
-                        {
-                            ps.ExpectNextToken(Token.TokenType.Colon);
-                            ps.NextToken();
-                            var value = parsePrimary(ref ps, scope) as AST.ConstString;
-                            if (value == null)
-                            {
-                                throw new ParserError("Expected string constant in attribute", key.token);
-                            }
-                            a_value = value.Vebatim();
-                        }
-
-                        var a_key = key.Vebatim().ToUpper();
-                        attribs.Add((a_key, a_value));
-                        
-                        ps.ExpectNextToken(Token.TokenType.CloseSquareBracket, Token.TokenType.Comma);
-                        if (ps.CurrentToken().type == Token.TokenType.CloseSquareBracket)
-                        {
-                            break;
-                        }
-                        ps.NextToken();
-                    }
-                    ignoreSemicolon = true;
-                    foundAttrib = true;
-                }
-                if (!ignoreSemicolon)
-                {
-                    ps.NextToken(skipWS: true);
-                    ps.ExpectCurrentToken(Token.TokenType.Semicolon);
-                }
-                if (!foundAttrib && decl == null)
-                {
-                    throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
-                }
-                if (!foundAttrib)
-                {
-                    result.declarations.Add(decl);
-                }
-
-                next = ps.NextToken();
+                var decl = parseDeclaration(ref ps, scope);
+                result.declarations.Add(decl);
             }
             return result;
         }
@@ -736,19 +772,20 @@ namespace PragmaScript
                 {
                     if (a.left is VariableReference)
                     {
-                        var vr = a.left as VariableReference;
-                        if (vr.vd == null)
-                        {
-                            throw new ParserError($"Variable \"{vr.variableName}\" could not be found and this is either constant or missing, and cannot be assigned to", a.left.token);
-                        }
-                        else
-                        {
-                            if (vr.vd.isConstant)
-                            {
-                                throw new ParserError("Variable is constant and cannot be assigned to.", a.left.token);
-                            }
-                        }
                         throw new ParserError("Cannot assign to constant variable", a.left.token);
+                        //var vr = a.left as VariableReference;
+                        //if (vr.vd == null)
+                        //{
+                        //    throw new ParserError($"Variable \"{vr.variableName}\" could not be found and this is either constant or missing, and cannot be assigned to", a.left.token);
+                        //}
+                        //else
+                        //{
+                        //    if (vr.vd.isConstant)
+                        //    {
+                        //        throw new ParserError("Variable is constant and cannot be assigned to.", a.left.token);
+                        //    }
+                        //}
+                        //throw new ParserError("Cannot assign to constant variable", a.left.token);
                     }
                     else
                     {
@@ -1241,7 +1278,7 @@ namespace PragmaScript
             var fieldName = ps.NextToken();
             expectTokenType(fieldName, Token.TokenType.Identifier);
 
-            var result = new StructFieldAccess(current, scope);
+            var result = new FieldAccess(current, scope);
             result.returnPointer = returnPointer;
             result.left = left;
             result.fieldName = fieldName.text;
@@ -1274,16 +1311,7 @@ namespace PragmaScript
 
             VariableReference result = new VariableReference(current, scope);
             result.returnPointer = returnPointer;
-
-            var vd = scope.GetVar(current.text);
-            if (vd != null)
-            {
-                result.vd = vd;
-            }
-            else
-            {
-                result.variableName = current.text;
-            }
+            result.variableName = current.text;
 
             return result;
         }
@@ -1422,8 +1450,16 @@ namespace PragmaScript
             else
             {
                 result.kind = TypeString.TypeKind.Other;
+                result.fullyQualifiedName.path.Add(current.text);
+
                 var next = ps.PeekToken();
-                result.typeName = current.text;
+                while (next.type == Token.TokenType.Dot)
+                {
+                    ps.NextToken();
+                    var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
+                    result.fullyQualifiedName.path.Add(current.text);
+                }
+
                 if (next.type == Token.TokenType.ArrayTypeBrackets)
                 {
                     result.isArrayType = true;
@@ -1445,7 +1481,8 @@ namespace PragmaScript
 
                     {
                         ps.NextToken();
-                        var alloc = parseBinOp(ref ps, scope);
+                        
+                        var alloc = parsePrimary(ref ps, scope);
                         result.allocationCount = alloc;
                     }
                 }
@@ -1575,16 +1612,6 @@ namespace PragmaScript
 
             result.funName = id.text;
             var funScope = new Scope(scope, result);
-
-            //if (result.typeString.functionTypeString != null)
-            //{
-            //    var idx = 0;
-            //    foreach (var pd in result.typeString.functionTypeString.parameters)
-            //    {
-            //        funScope.AddFunctionParameter(pd.name, result, idx);
-            //        idx++;
-            //    }
-            //}
 
             if (!result.external)
             {

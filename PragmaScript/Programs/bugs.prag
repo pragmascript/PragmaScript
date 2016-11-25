@@ -9,12 +9,13 @@ import "windows.prag"
 // var s = sphere{};
 // s.pos = vec{1.0,2.0,3.0};
 
-let vec = struct 
-(
-	x: f32;
-	y: f32;
-	z: f32;
-);
+
+// let vec = struct
+// (
+// 	x: f32;
+// 	y: f32;
+// 	z: f32;
+// );
 
 // let sphere = struct
 // {
@@ -230,53 +231,57 @@ let vec = struct
 // 	var result: string;
 // } 
 
-var perf_count_freq: i64;
 
-// type checker error!
-let win_get_duration = fun
-(
-	c0: i64;
-	c1: i64;
-) => f32
-{
-	return (f32)((c0 - c1) / 12);
-}
+// let embedding_test = fun
+// (
+// 	@v: vec*;
+// ) => void
+// {
+// 	debug_print_f32("x: ", x);
+// 	debug_print_f32("y: ", y);
+// 	debug_print_f32("z: ", z);
+// }
 
 // crashes backend and parse tree is wrong!
 //	a += b += c += 7;
 
-let embedding_test = fun
-(
-	@v: vec*;
-) => void
+
+namespace foo
 {
-	debug_print_f32("x: ", x);
-	debug_print_f32("y: ", y);
-	debug_print_f32("z: ", z);
+	let bar = struct 
+	(
+		foo: i32;
+		str: i8*;
+	);
+
+	var fumm = 12;
+	var bar = bar { 17, nullptr };
 }
 
 
 [
+	"compile.output": "bugs.exe",
 	"compile.entry" : "true",
 	"compile.debug" : "true",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
- 	"compile.libs"  : "kernel32.lib"
+ 	"compile.libs"  : "kernel32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64"
 ]
 let main = fun () => void 
 {
-	var a = 1;
-	var b = 2;
-	var c = 3;
 
-	var v = vec { 1.0, 2.0, 3.0 };
-	embedding_test(&v);
+	var zz = foo.bar{};
 
+	var y = foo.fumm;
 
-		// var a = -7;
-	// var b = -12;
-	// var cond = a == 11 && (a != 22 || b != 33);
-	// // print_i32((i32)cond);
-	// // print_string("\n");
+	print_i32(y);
+	print_string("\n");
+
+	print_i32(foo.bar.foo);
+	print_string("\n");
+	var x = 2;
+	var z = x^(x*2+3);
+	debug_print_i32("x", x);
 }
 

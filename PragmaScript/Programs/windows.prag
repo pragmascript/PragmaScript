@@ -147,6 +147,13 @@ let WriteFile = extern fun
   lpOverlapped: ptr;
 ) => i32;
 
+let CopyFileA = extern fun
+(
+  source: i8*;
+  dest: i8*;
+  fail_if_exists: i32;
+) => i32;
+
 let ReadFile = extern fun
 (
   hFile: mm;
@@ -154,6 +161,38 @@ let ReadFile = extern fun
   nNumberOfBytesToRead: i32;
   nNumberOfBytesRead: i32*;
   lpOverlapped: ptr;
+) => i32;
+
+let GetFileTime = extern fun 
+(
+  hFile: mm;
+  CreationTime: i64*;
+  LastAccessTime: i64*;
+  LastWriteTime: i64*;
+) => i32;
+
+let WIN32_FIND_DATA = struct
+(
+  FileAttributes: i32;
+  CreationTime: i64;
+  LastAccessTime: i64;
+  LastWriteTime: i64;
+  FileSize: i64;
+  Reserved: i64;
+  FileName: i8*260;
+  AlternateFileName: i8*14;
+); 
+
+
+let FindFirstFileA = extern fun
+(
+  FileName: i8*;
+  FindData: WIN32_FIND_DATA*;
+) => mm;
+
+let FindClose = extern fun 
+(
+  handle: mm;
 ) => i32;
 
 let GetFileSizeEx = extern fun
@@ -306,8 +345,6 @@ var XInputGetState: fun
   dwUserIndex: i32;
   state : XINPUT_STATE*
 ) => i32;
-
-
 
 
 // ********************** DIRECTSOUND ********************** 

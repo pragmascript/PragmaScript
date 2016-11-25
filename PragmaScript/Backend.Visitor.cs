@@ -155,6 +155,14 @@ namespace PragmaScript
             ctx.Pop();
         }
 
+        public void Visit(AST.Namespace node)
+        {
+            foreach (var d in node.declarations)
+            {
+                Visit(d);
+            }
+        }
+
         public void Visit(AST.ConstInt node)
         {
             var ct = GetTypeRef(typeChecker.GetNodeType(node));
@@ -1132,7 +1140,7 @@ namespace PragmaScript
         public void Visit(AST.VariableReference node)
         {
 
-            var vd = node.vd;
+            var vd = node.scope.GetVar(node.variableName);
             // if variable is function paramter just return it immediately
             if (vd.isFunctionParameter)
             {
@@ -1142,16 +1150,7 @@ namespace PragmaScript
             }
             LLVMValueRef v;
             var nt = typeChecker.GetNodeType(node);
-            string varName;
-            if (node.variableName != null)
-            {
-                varName = node.variableName;
-            }
-            else
-            {
-                varName = node.vd.name;
-            }
-            v = variables[varName];
+            v = variables[node.variableName];
             var v_type = typeToString(GetTypeRef(nt));
             LLVMValueRef result;
             bool is_global = LLVM.IsAGlobalVariable(v).Pointer != IntPtr.Zero;
@@ -1474,6 +1473,10 @@ namespace PragmaScript
         public void Visit(AST.FunctionDefinition node, bool proto = false)
         {
             var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
+            if (node.funName == "assert")
+            {
+                int breakHere = 42;
+            }
             if (fun.inactiveConditional)
             {
                 return;
@@ -1604,7 +1607,7 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        public void Visit(AST.StructFieldAccess node)
+        public void Visit(AST.FieldAccess node)
         {
 
             Visit(node.left);
@@ -1684,6 +1687,7 @@ namespace PragmaScript
 
         public void Visit(AST.StructDeclaration node)
         {
+
         }
 
 

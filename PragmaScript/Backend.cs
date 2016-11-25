@@ -182,7 +182,8 @@ namespace PragmaScript
             LLVMTypeRef[] ets = new LLVMTypeRef[t.fields.Count];
             for (int i = 0; i < ets.Length; ++i)
             {
-                ets[i] = getTypeRef(t.fields[i].type, depth + 1);
+                var f = t.fields[i];
+                ets[i] = getTypeRef(f.type, depth + 1);
             }
 
             // TODO packed?

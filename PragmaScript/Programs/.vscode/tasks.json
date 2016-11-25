@@ -12,7 +12,7 @@
         {
             "isBuildCommand": true,
             "taskName": "current",
-            "args": ["\"..\\bin\\x64\\Release\\pragma.exe\"", "${file}"],
+            "args": ["\"..\\bin\\x64\\Release\\pragma.exe\"", "${file}", "-D"],
             "problemMatcher": {
                 // "owner": "ps",
                 "fileLocation":  "absolute",

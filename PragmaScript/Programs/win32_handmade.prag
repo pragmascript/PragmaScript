@@ -151,28 +151,66 @@ let game_interface = struct
     update_and_render: game_update_and_render;
     output_sound: game_output_sound;
 	is_loaded: bool;
+	dll_last_write_time: i64;
 );
+
+let win_refresh_game_dll = fun
+(
+	game: game_interface*;
+) => void
+{
+	var current_write_time = win_get_last_write_time("handmade.dll\0");
+	if (current_write_time != game.dll_last_write_time) {
+		win_unload_game_dll(game);
+		*game = win_load_game_dll();
+	}
+}
 
 let win_load_game_dll = fun () => game_interface
 {
+	var source_str = "handmade.dll\0";
+	var temp_str = "handmade_temp.dll\0";
 	var result = game_interface{};
-	result.library = LoadLibraryA(cstr("handmade.dll\0"));
+
+	result.dll_last_write_time = win_get_last_write_time(source_str);
+	var copy_result = CopyFileA(cstr(source_str), cstr(temp_str), 0);
+	assert(copy_result != 0);
+	result.library = LoadLibraryA(cstr(temp_str));
 	result.update_and_render = (game_update_and_render)GetProcAddress(result.library, cstr("game_update_and_render\0"));
 	assert((ptr)result.update_and_render != nullptr);
 	result.output_sound = (game_output_sound)GetProcAddress(result.library, cstr("game_output_sound\0"));
 	assert((ptr)result.output_sound != nullptr);
 	result.is_loaded = true;
+	print_string("dll loaded.");
+
 	return result;
 }
 
 let win_unload_game_dll = fun (@interface: game_interface*) => void
 {
-	if (is_loaded) {
-		FreeLibrary(library);
+	if (library != null) {
+		var result = FreeLibrary(library);
+		assert(result != 0);
+		print_string("free library\n");
 	}
 	update_and_render = (game_update_and_render)nullptr;
 	output_sound = (game_output_sound)nullptr;
 	is_loaded = false;
+	library = null;
+}
+
+let win_get_last_write_time = fun
+(
+	filename: string;
+) => i64
+{
+	var cs = cstr(filename);
+	// TODO: replace this HACK with actual syntax
+	var data: i8*260;
+	var find_data: WIN32_FIND_DATA* = (WIN32_FIND_DATA*)(&data);
+	var handle = FindFirstFileA(cs, find_data);
+	FindClose(handle);
+	return find_data.LastWriteTime;
 }
 
 let win_init_direct_sound = fun 
@@ -202,7 +240,7 @@ let win_init_direct_sound = fun
 
 	var desc_primary = DSBUFFERDESC { };
 	desc_primary.flags = DSBCAPS_PRIMARYBUFFER;
-	desc_primary.size = (i32)(sizeof(DSBUFFERDESC));
+	desc_primary.size = (i32)(size_of(DSBUFFERDESC));
 	desc_primary.bufferBytes = 0;
 	desc_primary.reserved = 0;
 	desc_primary.fxFormat = (WAVEFORMATEX*)nullptr;
@@ -223,7 +261,7 @@ let win_init_direct_sound = fun
 	assert(error == DS_OK);
 	
 	var desc_secondary = DSBUFFERDESC { };
-	desc_secondary.size = (i32)(sizeof(DSBUFFERDESC));
+	desc_secondary.size = (i32)(size_of(DSBUFFERDESC));
 	desc_secondary.flags = DSBCAPS_GETCURRENTPOSITION2;
 	desc_secondary.bufferBytes = buffer_size;
 	desc_secondary.fxFormat = &wave_format;
@@ -363,7 +401,6 @@ let win_update_next_sound_write_positon = fun
 			position_to_write = write_cursor;
 		}		
 	}
-
 
 	var delta_cursor: i32;
 	if (play_cursor < write_cursor) {
@@ -558,14 +595,18 @@ let win_get_duration = fun (c0: i64; c1: i64) => f32
 
 [
 "compile.entry",
+"compile.debug" : "true",
 "compile.output": "win_handmade.exe",
 "compile.opt"   : "0",
-"compile.run"   : "true",
+"compile.run"   : "false",
 "compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
 "compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib"
 ]
 let main = fun () => void 
 {
+	debug_print_i32("sizeof find_data", (i32)(size_of(WIN32_FIND_DATA)));
+
+
 	QueryPerformanceFrequency(&perf_count_freq);
 	var error = 0;
 
@@ -579,7 +620,7 @@ let main = fun () => void
 	var window_name = cstr("handmade-pragmascript\0");
 	var instance = GetModuleHandleA(null);
 	var window_class = WNDCLASSEX {};
-	window_class.cbSize = (i32)(sizeof(WNDCLASSEX));
+	window_class.cbSize = (i32)(size_of(WNDCLASSEX));
 	window_class.style = (CS_HREDRAW|CS_VREDRAW);
 	window_class.lpfnWndProc = (ptr)win_main_window_callback;
 	window_class.hInstance = instance;
@@ -609,7 +650,7 @@ let main = fun () => void
 
 	var sound_output: sound_output;
 	sound_output.samples_per_second = 48000;
-	sound_output.bytes_per_chunk = 2 * (i32)(sizeof(i16)); // 2 channels
+	sound_output.bytes_per_chunk = 2 * (i32)(size_of(i16)); // 2 channels
 	sound_output.bytes_per_frame = sound_output.bytes_per_chunk *sound_output.samples_per_second / game_target_fps;
 	sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
 	
@@ -713,19 +754,25 @@ let main = fun () => void
 
 		frames++;
 
-		if (DEBUG_DRAW_STATS && (current_counter - last_counter_debug_stats > perf_count_freq)) {
-			last_counter_debug_stats = current_counter;
-			var cycles_elapsed = current_cycle_count - last_cycle_count;
-			var frame_ms = 1000.0 * dt;
-			print_string("\n");
-			print_f32(frame_ms);
-			print_string("ms/f   ");
-			print_f32(1000.0 / frame_ms);
-			last_fps = 0.5 * last_fps + (1000.0 / frame_ms);
-			print_string("fps   ");
-			print_f64((f64)cycles_elapsed / 1000000.0);
-			print_string("mcycles   ");
-			debug_print_f32("dt", dt);
+		if (current_counter - last_counter_debug_stats > perf_count_freq) {
+			if (DEBUG_DRAW_STATS) {
+				last_counter_debug_stats = current_counter;
+				var cycles_elapsed = current_cycle_count - last_cycle_count;
+				var frame_ms = 1000.0 * dt;
+				print_string("\n");
+				print_f32(frame_ms);
+				print_string("ms/f   ");
+				print_f32(1000.0 / frame_ms);
+				last_fps = 0.5 * last_fps + (1000.0 / frame_ms);
+				print_string("fps   ");
+				print_f64((f64)cycles_elapsed / 1000000.0);
+				print_string("mcycles   ");
+				debug_print_f32("dt", dt);
+			}
+
+			win_refresh_game_dll(&game);
+			// win_unload_game_dll(&game);
+			// game = win_load_game_dll();
 		}
 		
 		last_cycle_count = current_cycle_count;
