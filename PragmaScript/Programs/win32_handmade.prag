@@ -2,780 +2,784 @@
 import "handmade_interface.prag"
 
 
-// https://github.com/ecxr/handmadehero/blob/master/code/win32_handmade.cpp
-
-// TODO: 
-// - Saved game locations
-// - Getting a handle to our own executable file
-// - Asset loading pppath
-// - Threading
-// - Raw input
-// - Sleep/timeBeginPeriod
-// - ClipCursor for multimonitor support
-// - Fullscreen support
-// - WM_SETCURSOR (cursor visibility)
-// - QueryCancelAutoplay
-// - WM_ACTIATEAPP (when we are not active app)
-// - Blit speed improvements (bitblit)
-// - Hardware accelereration
-// - GetKeyboardLayout (for internationalization)
-
-let HANDMADE_INTERAL = true;
-let DEBUG_DRAW_STATS = true;
-
-let offscreen_buffer = struct
-(
-	info:   BITMAPINFO;
-	memory: ptr;
-	width:  i32;
-	height: i32;
-	pitch:  i32;
-);
-let window_info = struct 
-(
-	handle: mm;
-	dc: mm;
-	width: i32;
-	height: i32;
-);
-
-var backbuffer: offscreen_buffer;
-var window: window_info;
-var window_requests_quit = false;
-
-let sound_output = struct
-(
-	sound_buffer: IDirectSoundBuffer*;
-	samples_per_second: i32;
-	bytes_per_chunk: i32;
-	bytes_per_frame: i32;
-	buffer_size: i32;
-	buffer_start: ptr;
-	
-	byte_last_written: i32;
-	last_play_cursor: i32;
-	last_play_cursor_change_time: i64;
-
-	next_write_positon: i32;
-	next_bytes_to_write: i32;
-	first_write: bool;
-);
-
-
-let kilobytes = fun (bytes: mm) => mm 
+namespace Handmade.Platform
 {
-	return bytes * 1024 ;
-}
-let megabytes = fun (bytes: mm) => mm 
-{
-	return bytes * 1024 * 1024;
-}
-let gigabytes = fun (bytes: mm) => mm
-{
-	return bytes * 1024 * 1024 * 1024;
-}
-let terabytes = fun (bytes: mm) => mm
-{
-	return bytes * 1024 * 1024 * 1024 * 1024;
-}
 
-let platform_write_file: platform_write_file = 
-{
-	var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
-	if (handle == null) {
-		CloseHandle(handle);
-		return false;
-	}
-	var bytes_written: i32 = 0;
-	var result = WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
-	if (result != 0) {
-		CloseHandle(handle);
-		assert(buffer.length == bytes_written);
-		return true;
-	} else {
-		CloseHandle(handle);
-		return false;
-	}
+	// https://github.com/ecxr/handmadehero/blob/master/code/win32_handmade.cpp
 
-	CloseHandle(handle);
-	return false;
-}
+	// TODO: 
+	// - Saved game locations
+	// - Getting a handle to our own executable file
+	// - Asset loading pppath
+	// - Threading
+	// - Raw input
+	// - Sleep/timeBeginPeriod
+	// - ClipCursor for multimonitor support
+	// - Fullscreen support
+	// - WM_SETCURSOR (cursor visibility)
+	// - QueryCancelAutoplay
+	// - WM_ACTIATEAPP (when we are not active app)
+	// - Blit speed improvements (bitblit)
+	// - Hardware accelereration
+	// - GetKeyboardLayout (for internationalization)
 
-let platform_read_file: platform_read_file =  
-{
-	var result: i8[];
-	result.data = nullptr;
-	result.length = 0;
-	var handle = CreateFileA(cstr(name), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, 0);
-	if (handle == null) {
-		return result;
-	}
+	let HANDMADE_INTERAL = true;
+	let DEBUG_DRAW_STATS = true;
 
-	var size: i64 = 0;
-	var fsr = GetFileSizeEx(handle, &size);
-	if (fsr == 0 || size == 0) {
-		CloseHandle(handle);
-		return result;
-	}
-
-	var buffer = VirtualAlloc(nullptr, (mm)size, MEM_COMMIT, PAGE_READWRITE);
-	if ((mm)buffer == null) {
-		CloseHandle(handle);
-		return result;
-	}
-	assert((mm)size <=\ gigabytes(4));
-	var size_32 = (i32)size;
-	var bytes_read: i32;
-	var rfr = ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
-	assert(bytes_read == size_32);
-	if (rfr == 0) {
-		VirtualFree(buffer, null, MEM_RELEASE);
-		CloseHandle(handle);
-		return result;		
-	}
-
-	result.data = buffer;
-	result.length = size_32;
-	CloseHandle(handle);
-	return result;
-} 
-
-let platform_free_file_memory: platform_free_file_memory =  
-{
-	VirtualFree(mem, null, MEM_RELEASE);
-}
-
-let game_interface = struct
-(
-	library: mm;
-    update_and_render: game_update_and_render;
-    output_sound: game_output_sound;
-	is_loaded: bool;
-	dll_last_write_time: i64;
-);
-
-let win_refresh_game_dll = fun
-(
-	game: game_interface*;
-) => void
-{
-	var current_write_time = win_get_last_write_time("handmade.dll\0");
-	if (current_write_time != game.dll_last_write_time) {
-		win_unload_game_dll(game);
-		*game = win_load_game_dll();
-	}
-}
-
-let win_load_game_dll = fun () => game_interface
-{
-	var source_str = "handmade.dll\0";
-	var temp_str = "handmade_temp.dll\0";
-	var result = game_interface{};
-
-	result.dll_last_write_time = win_get_last_write_time(source_str);
-	var copy_result = CopyFileA(cstr(source_str), cstr(temp_str), 0);
-	assert(copy_result != 0);
-	result.library = LoadLibraryA(cstr(temp_str));
-	result.update_and_render = (game_update_and_render)GetProcAddress(result.library, cstr("game_update_and_render\0"));
-	assert((ptr)result.update_and_render != nullptr);
-	result.output_sound = (game_output_sound)GetProcAddress(result.library, cstr("game_output_sound\0"));
-	assert((ptr)result.output_sound != nullptr);
-	result.is_loaded = true;
-	print_string("dll loaded.");
-
-	return result;
-}
-
-let win_unload_game_dll = fun (@interface: game_interface*) => void
-{
-	if (library != null) {
-		var result = FreeLibrary(library);
-		assert(result != 0);
-		print_string("free library\n");
-	}
-	update_and_render = (game_update_and_render)nullptr;
-	output_sound = (game_output_sound)nullptr;
-	is_loaded = false;
-	library = null;
-}
-
-let win_get_last_write_time = fun
-(
-	filename: string;
-) => i64
-{
-	var cs = cstr(filename);
-	// TODO: replace this HACK with actual syntax
-	var data: i8*260;
-	var find_data: WIN32_FIND_DATA* = (WIN32_FIND_DATA*)(&data);
-	var handle = FindFirstFileA(cs, find_data);
-	FindClose(handle);
-	return find_data.LastWriteTime;
-}
-
-let win_init_direct_sound = fun 
-(
-	hwnd: mm; 
-	buffer_size: i32; 
-	samples_per_second: i32;
-) => IDirectSoundBuffer*
-{ 
-	var dsound_library = LoadLibraryA(cstr("dsound.dll\0"));
-	assert(dsound_library != null);
-
-	var DirectSoundCreate: fun 
+	let offscreen_buffer = struct
 	(
-		GuidDevice: ptr;
-		ds: IDirectSound**;
-		unused: ptr;
-	) => i32;
-	*((ptr*)(&DirectSoundCreate)) = (ptr)GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
-	assert((ptr)DirectSoundCreate != nullptr);
+		info:   Windows.BITMAPINFO;
+		memory: ptr;
+		width:  i32;
+		height: i32;
+		pitch:  i32;
+	);
+	let window_info = struct 
+	(
+		handle: mm;
+		dc: mm;
+		width: i32;
+		height: i32;
+	);
 
-	var dsound_obj: IDirectSound*;
-	var error = DirectSoundCreate(nullptr, &dsound_obj, nullptr); 
-	assert(error == DS_OK);
-	error = dsound_obj.vtable.SetCooperativeLevel(dsound_obj, hwnd, DSSCL_PRIORITY);
-	assert(error == DS_OK);
+	var backbuffer: offscreen_buffer;
+	var window: window_info;
+	var window_requests_quit = false;
 
-	var desc_primary = DSBUFFERDESC { };
-	desc_primary.flags = DSBCAPS_PRIMARYBUFFER;
-	desc_primary.size = (i32)(size_of(DSBUFFERDESC));
-	desc_primary.bufferBytes = 0;
-	desc_primary.reserved = 0;
-	desc_primary.fxFormat = (WAVEFORMATEX*)nullptr;
+	let sound_output = struct
+	(
+		sound_buffer: Windows.IDirectSoundBuffer*;
+		samples_per_second: i32;
+		bytes_per_chunk: i32;
+		bytes_per_frame: i32;
+		buffer_size: i32;
+		buffer_start: ptr;
+		
+		byte_last_written: i32;
+		last_play_cursor: i32;
+		last_play_cursor_change_time: i64;
 
-	var primary_buffer: IDirectSoundBuffer*;
-	error = dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_primary, &primary_buffer, nullptr);
-	assert(error == DS_OK);
+		next_write_positon: i32;
+		next_bytes_to_write: i32;
+		first_write: bool;
+	);
 
-	var wave_format = WAVEFORMATEX {};
-	wave_format.formatTag = WAVE_FORMAT_PCM;
-	wave_format.nChannels = 2;
-	wave_format.nBitsPerSample = 16;
-	wave_format.nSamplesPerSec = samples_per_second;
-	wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / (i16)8;
-	wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * (i32)wave_format.nBlockAlign;
-	wave_format.size = 0;
-	error = primary_buffer.vtable.SetFormat(primary_buffer, &wave_format);
-	assert(error == DS_OK);
-	
-	var desc_secondary = DSBUFFERDESC { };
-	desc_secondary.size = (i32)(size_of(DSBUFFERDESC));
-	desc_secondary.flags = DSBCAPS_GETCURRENTPOSITION2;
-	desc_secondary.bufferBytes = buffer_size;
-	desc_secondary.fxFormat = &wave_format;
-	desc_secondary.reserved = 0;
 
-	var secondary_buffer: IDirectSoundBuffer*;
-	error = dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_secondary, &secondary_buffer, nullptr);
-	assert(error == DS_OK);
-	return secondary_buffer;
-}
-
-let win_clear_sound_buffer = fun
-(
-	@sound_output: sound_output*;
-) => void
-{
-	var region1: ptr;
-	var region1_size: i32;
-	var region2: ptr;
-	var region2_size: i32;
-	
-	var error = sound_buffer.vtable.Lock(sound_buffer, 
-		0, buffer_size, 
-		&region1, &region1_size,
-		&region2, &region2_size,
-		0);
-	assert(error == DS_OK);
-	var dest_sample = (i32*)region1;
-	var sample_count = region1_size / bytes_per_chunk;
-	for (var i: i32 = 0; i < sample_count; ++i) {
-		*dest_sample++ = 0;
-	}
-	buffer_start = region1;
-	assert(region2_size == 0);
-
-	error = sound_buffer.vtable.Unlock(sound_buffer,
-		region1, region1_size, 
-		region2, region2_size);
-	assert(error == DS_OK);
-}
-
-let win_fill_sound_buffer = fun 
-(
-	@sound_output: sound_output*;
-	game_sound_output: game_sound_output*;
-) => void 
-{
-	var byte_lock_position = next_write_positon;
-	var bytes_to_write = next_bytes_to_write;
-	var region1: ptr;
-	var region1_size: i32;
-	var region2: ptr;
-	var region2_size: i32;
-
-	var error = sound_buffer.vtable.Lock(sound_buffer, 
-		byte_lock_position, bytes_to_write, 
-		&region1, &region1_size,
-		&region2, &region2_size,
-		0);
-	var sample_count_1 = region1_size / sound_output.bytes_per_chunk;
-	var sample_count_2 = region2_size / sound_output.bytes_per_chunk;
-	
-	if (error == DS_OK)
+	let kilobytes = fun (bytes: mm) => mm 
 	{
-		assert(sample_count_1 + sample_count_2 == game_sound_output.sample_count);
-		var source_sample = game_sound_output.sample_out;
-		var dest_sample = (i16*)region1;
-		for (var i: i32 = 0; i < sample_count_1; ++i) {
-			*dest_sample++ = *source_sample++;
-			*dest_sample++ = *source_sample++;
+		return bytes * 1024 ;
+	}
+	let megabytes = fun (bytes: mm) => mm 
+	{
+		return bytes * 1024 * 1024;
+	}
+	let gigabytes = fun (bytes: mm) => mm
+	{
+		return bytes * 1024 * 1024 * 1024;
+	}
+	let terabytes = fun (bytes: mm) => mm
+	{
+		return bytes * 1024 * 1024 * 1024 * 1024;
+	}
+
+	let platform_write_file: platform_write_file = 
+	{
+		var handle = Windows.CreateFileA(cstr(name), Windows.GENERIC_WRITE, 0, nullptr, Windows.CREATE_ALWAYS, 0, 0);
+		if (handle == null) {
+			Windows.CloseHandle(handle);
+			return false;
 		}
-		dest_sample = (i16*)region2;
-		for (var i: i32 = 0; i < sample_count_2; ++i) {
-			*dest_sample++ = *source_sample++;
-			*dest_sample++ = *source_sample++;
+		var bytes_written: i32 = 0;
+		var result = Windows.WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
+		if (result != 0) {
+			Windows.CloseHandle(handle);
+			assert(buffer.length == bytes_written);
+			return true;
+		} else {
+			Windows.CloseHandle(handle);
+			return false;
 		}
-		error = sound_output.sound_buffer.vtable.Unlock(sound_buffer,
+
+		Windows.CloseHandle(handle);
+		return false;
+	}
+
+	let platform_read_file: platform_read_file =  
+	{
+		var result: i8[];
+		result.data = nullptr;
+		result.length = 0;
+		var handle = Windows.CreateFileA(cstr(name), Windows.GENERIC_READ, Windows.FILE_SHARE_READ, nullptr, Windows.OPEN_EXISTING, 0, 0);
+		if (handle == null) {
+			return result;
+		}
+
+		var size: i64 = 0;
+		var fsr = Windows.GetFileSizeEx(handle, &size);
+		if (fsr == 0 || size == 0) {
+			Windows.CloseHandle(handle);
+			return result;
+		}
+
+		var buffer = Windows.VirtualAlloc(nullptr, (mm)size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+		if ((mm)buffer == null) {
+			Windows.CloseHandle(handle);
+			return result;
+		}
+		assert((mm)size <=\ gigabytes(4));
+		var size_32 = (i32)size;
+		var bytes_read: i32;
+		var rfr = Windows.ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
+		assert(bytes_read == size_32);
+		if (rfr == 0) {
+			Windows.VirtualFree(buffer, null, Windows.MEM_RELEASE);
+			Windows.CloseHandle(handle);
+			return result;		
+		}
+
+		result.data = buffer;
+		result.length = size_32;
+		Windows.CloseHandle(handle);
+		return result;
+	} 
+
+	let platform_free_file_memory: platform_free_file_memory =  
+	{
+		Windows.VirtualFree(mem, null, Windows.MEM_RELEASE);
+	}
+
+	let game_interface = struct
+	(
+		library: mm;
+		update_and_render: game_update_and_render;
+		output_sound: game_output_sound;
+		is_loaded: bool;
+		dll_last_write_time: i64;
+	);
+
+	let win_refresh_game_dll = fun
+	(
+		game: game_interface*;
+	) => void
+	{
+		var current_write_time = win_get_last_write_time("handmade.dll\0");
+		if (current_write_time != game.dll_last_write_time) {
+			win_unload_game_dll(game);
+			*game = win_load_game_dll();
+		}
+	}
+
+	let win_load_game_dll = fun () => game_interface
+	{
+		var source_str = "handmade.dll\0";
+		var temp_str = "handmade_temp.dll\0";
+		var result = game_interface{};
+
+		result.dll_last_write_time = win_get_last_write_time(source_str);
+		var copy_result = Windows.CopyFileA(cstr(source_str), cstr(temp_str), 0);
+		assert(copy_result != 0);
+		result.library = Windows.LoadLibraryA(cstr(temp_str));
+		result.update_and_render = (game_update_and_render)Windows.GetProcAddress(result.library, cstr("game_update_and_render\0"));
+		assert((ptr)result.update_and_render != nullptr);
+		result.output_sound = (game_output_sound)Windows.GetProcAddress(result.library, cstr("game_output_sound\0"));
+		assert((ptr)result.output_sound != nullptr);
+		result.is_loaded = true;
+		print_string("dll loaded.");
+
+		return result;
+	}
+
+	let win_unload_game_dll = fun (@interface: game_interface*) => void
+	{
+		if (library != null) {
+			var result = Windows.FreeLibrary(library);
+			assert(result != 0);
+			print_string("free library\n");
+		}
+		update_and_render = (game_update_and_render)nullptr;
+		output_sound = (game_output_sound)nullptr;
+		is_loaded = false;
+		library = null;
+	}
+
+	let win_get_last_write_time = fun
+	(
+		filename: string;
+	) => i64
+	{
+		var cs = cstr(filename);
+		// TODO: replace this HACK with actual syntax
+		var data: i8*260;
+		var find_data: Windows.WIN32_FIND_DATA* = (Windows.WIN32_FIND_DATA*)(&data);
+		var handle = Windows.FindFirstFileA(cs, find_data);
+		Windows.FindClose(handle);
+		return find_data.LastWriteTime;
+	}
+
+	let win_init_direct_sound = fun 
+	(
+		hwnd: mm; 
+		buffer_size: i32; 
+		samples_per_second: i32;
+	) => Windows.IDirectSoundBuffer*
+	{ 
+		var dsound_library = Windows.LoadLibraryA(cstr("dsound.dll\0"));
+		assert(dsound_library != null);
+
+		var DirectSoundCreate: fun 
+		(
+			GuidDevice: ptr;
+			ds: Windows.IDirectSound**;
+			unused: ptr;
+		) => i32;
+		*((ptr*)(&DirectSoundCreate)) = (ptr)Windows.GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
+		assert((ptr)DirectSoundCreate != nullptr);
+
+		var dsound_obj: Windows.IDirectSound*;
+		var error = DirectSoundCreate(nullptr, &dsound_obj, nullptr); 
+		assert(error == Windows.DS_OK);
+		error = dsound_obj.vtable.SetCooperativeLevel(dsound_obj, hwnd, Windows.DSSCL_PRIORITY);
+		assert(error == Windows.DS_OK);
+
+		var desc_primary = Windows.DSBUFFERDESC { };
+		desc_primary.flags = Windows.DSBCAPS_PRIMARYBUFFER;
+		desc_primary.size = (i32)(size_of(Windows.DSBUFFERDESC));
+		desc_primary.bufferBytes = 0;
+		desc_primary.reserved = 0;
+		desc_primary.fxFormat = (Windows.WAVEFORMATEX*)nullptr;
+
+		var primary_buffer: Windows.IDirectSoundBuffer*;
+		error = dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_primary, &primary_buffer, nullptr);
+		assert(error == Windows.DS_OK);
+
+		var wave_format = Windows.WAVEFORMATEX {};
+		wave_format.formatTag = Windows.WAVE_FORMAT_PCM;
+		wave_format.nChannels = 2;
+		wave_format.nBitsPerSample = 16;
+		wave_format.nSamplesPerSec = samples_per_second;
+		wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / (i16)8;
+		wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * (i32)wave_format.nBlockAlign;
+		wave_format.size = 0;
+		error = primary_buffer.vtable.SetFormat(primary_buffer, &wave_format);
+		assert(error == Windows.DS_OK);
+		
+		var desc_secondary = Windows.DSBUFFERDESC { };
+		desc_secondary.size = (i32)(size_of(Windows.DSBUFFERDESC));
+		desc_secondary.flags = Windows.DSBCAPS_GETCURRENTPOSITION2;
+		desc_secondary.bufferBytes = buffer_size;
+		desc_secondary.fxFormat = &wave_format;
+		desc_secondary.reserved = 0;
+
+		var secondary_buffer: Windows.IDirectSoundBuffer*;
+		error = dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_secondary, &secondary_buffer, nullptr);
+		assert(error == Windows.DS_OK);
+		return secondary_buffer;
+	}
+
+	let win_clear_sound_buffer = fun
+	(
+		@sound_output: sound_output*;
+	) => void
+	{
+		var region1: ptr;
+		var region1_size: i32;
+		var region2: ptr;
+		var region2_size: i32;
+		
+		var error = sound_buffer.vtable.Lock(sound_buffer, 
+			0, buffer_size, 
+			&region1, &region1_size,
+			&region2, &region2_size,
+			0);
+		assert(error == Windows.DS_OK);
+		var dest_sample = (i32*)region1;
+		var sample_count = region1_size / bytes_per_chunk;
+		for (var i: i32 = 0; i < sample_count; ++i) {
+			*dest_sample++ = 0;
+		}
+		buffer_start = region1;
+		assert(region2_size == 0);
+
+		error = sound_buffer.vtable.Unlock(sound_buffer,
 			region1, region1_size, 
 			region2, region2_size);
-		assert(error == DS_OK);
+		assert(error == Windows.DS_OK);
+	}
+
+	let win_fill_sound_buffer = fun 
+	(
+		@sound_output: sound_output*;
+		game_sound_output: game_sound_output*;
+	) => void 
+	{
+		var byte_lock_position = next_write_positon;
+		var bytes_to_write = next_bytes_to_write;
+		var region1: ptr;
+		var region1_size: i32;
+		var region2: ptr;
+		var region2_size: i32;
+
+		var error = sound_buffer.vtable.Lock(sound_buffer, 
+			byte_lock_position, bytes_to_write, 
+			&region1, &region1_size,
+			&region2, &region2_size,
+			0);
+		var sample_count_1 = region1_size / sound_output.bytes_per_chunk;
+		var sample_count_2 = region2_size / sound_output.bytes_per_chunk;
 		
-		if (sample_count_2 > 0) {
-			var last_sample = (i8*)((i32*)region2 + sample_count_2);
-			byte_last_written = (i32)(last_sample - sound_output.buffer_start);
-		}
-		elif (sample_count_1 > 0) {
-			var last_sample = (i8*)((i32*)region1 + sample_count_1);
-			byte_last_written = (i32)(last_sample - sound_output.buffer_start);
-		}
+		if (error == Windows.DS_OK)
+		{
+			assert(sample_count_1 + sample_count_2 == game_sound_output.sample_count);
+			var source_sample = game_sound_output.sample_out;
+			var dest_sample = (i16*)region1;
+			for (var i: i32 = 0; i < sample_count_1; ++i) {
+				*dest_sample++ = *source_sample++;
+				*dest_sample++ = *source_sample++;
+			}
+			dest_sample = (i16*)region2;
+			for (var i: i32 = 0; i < sample_count_2; ++i) {
+				*dest_sample++ = *source_sample++;
+				*dest_sample++ = *source_sample++;
+			}
+			error = sound_output.sound_buffer.vtable.Unlock(sound_buffer,
+				region1, region1_size, 
+				region2, region2_size);
+			assert(error == Windows.DS_OK);
+			
+			if (sample_count_2 > 0) {
+				var last_sample = (i8*)((i32*)region2 + sample_count_2);
+				byte_last_written = (i32)(last_sample - sound_output.buffer_start);
+			}
+			elif (sample_count_1 > 0) {
+				var last_sample = (i8*)((i32*)region1 + sample_count_1);
+				byte_last_written = (i32)(last_sample - sound_output.buffer_start);
+			}
 
-		assert(sample_count_2 == 0 || (sample_count_1 != 0 && sample_count_2 != 0));
-		assert(byte_last_written >= 0 && byte_last_written < buffer_size);
-	}
-}
-
-let win_update_next_sound_write_positon = fun 
-(
-	@sound_output: sound_output*;
-) => void  
-{
-	var play_cursor: i32;
-	var write_cursor: i32;
-	var error = sound_buffer.vtable.GetCurrentPosition(sound_buffer, &play_cursor, &write_cursor);
-	assert(error == DS_OK);
-
-	if (play_cursor == write_cursor) {
-		return;
-	}
-	// we haven't written anything yet
-	if (!first_write) {
-		byte_last_written = write_cursor;
-		QueryPerformanceCounter(&last_play_cursor_change_time);
-	}
-
-	if (play_cursor == last_play_cursor) {
-		var time: i64;
-		QueryPerformanceCounter(&time);
-		var cursor_dt = (f64)(time - last_play_cursor_change_time) / (f64)perf_count_freq;
-		var d_bytes = sound_output.bytes_per_chunk * (i32)(cursor_dt * (f64)sound_output.samples_per_second);
-		play_cursor += d_bytes;
-		write_cursor += d_bytes;
-		play_cursor = play_cursor % sound_output.buffer_size;
-		write_cursor = write_cursor % sound_output.buffer_size;
-	} else {
-		last_play_cursor = play_cursor;
-		QueryPerformanceCounter(&last_play_cursor_change_time);
-	}
-
-	var position_to_write = byte_last_written;
-	if (play_cursor > last_play_cursor) {
-		if (byte_last_written >= last_play_cursor && byte_last_written <= play_cursor) {
-			position_to_write = write_cursor;
-		}		
-	}
-	if (play_cursor < last_play_cursor) {
-		if (byte_last_written >= last_play_cursor || byte_last_written <= play_cursor) {
-			position_to_write = write_cursor;
-		}		
-	}
-
-	var delta_cursor: i32;
-	if (play_cursor < write_cursor) {
-		if (position_to_write >= play_cursor && position_to_write < write_cursor) {
-			position_to_write = write_cursor;
-		}
-		delta_cursor = write_cursor - play_cursor;
-	}
-	if (play_cursor > write_cursor) {
-		if (position_to_write >= play_cursor || position_to_write < write_cursor) {
-			position_to_write = write_cursor;
-		}
-		delta_cursor = (buffer_size - play_cursor) + write_cursor;
-	}
-	assert(delta_cursor > 0);
-
-	var target_cursor: i32;
-	var safety_bytes = bytes_per_frame / 2;
-	target_cursor = write_cursor;
-	
-	while (target_cursor <= write_cursor + delta_cursor) {
-		target_cursor += bytes_per_frame;
-	}
-	target_cursor += safety_bytes;
-	if (target_cursor > buffer_size) {
-		target_cursor -= buffer_size;
-	}
-
-	var bytes_to_write = 0;
-	if (target_cursor > play_cursor) {
-		if (position_to_write < target_cursor && position_to_write > play_cursor) {
-			bytes_to_write = target_cursor - position_to_write;
-		}
-	}
-	if (target_cursor < play_cursor) {
-		if (position_to_write > play_cursor) {
-			bytes_to_write = buffer_size - position_to_write;
-			bytes_to_write += target_cursor;
-		}
-		if (position_to_write < target_cursor) {
-			bytes_to_write = target_cursor - position_to_write;
+			assert(sample_count_2 == 0 || (sample_count_1 != 0 && sample_count_2 != 0));
+			assert(byte_last_written >= 0 && byte_last_written < buffer_size);
 		}
 	}
 
-	sound_output.next_write_positon = position_to_write;
-	sound_output.next_bytes_to_write = bytes_to_write;
+	let win_update_next_sound_write_positon = fun 
+	(
+		@sound_output: sound_output*;
+	) => void  
+	{
+		var play_cursor: i32;
+		var write_cursor: i32;
+		var error = sound_buffer.vtable.GetCurrentPosition(sound_buffer, &play_cursor, &write_cursor);
+		assert(error == Windows.DS_OK);
 
-	if (!sound_output.first_write && bytes_to_write > 0) {
-		sound_output.first_write = true;
-	}
+		if (play_cursor == write_cursor) {
+			return;
+		}
+		// we haven't written anything yet
+		if (!first_write) {
+			byte_last_written = write_cursor;
+			Windows.QueryPerformanceCounter(&last_play_cursor_change_time);
+		}
 
-
-
-	// if (oops) {
-	// 	print_string("oops\n");
-	// }
-	// debug_print_i32("pc ", play_cursor);
-	// debug_print_i32("last pos", sound_output.byte_last_written);
-	// debug_print_i32("ptw", position_to_write);
-	// debug_print_i32("wc ", write_cursor);
-	// debug_print_i32("tc ", target_cursor);
-	// debug_print_i32("btw", bytes_to_write);
-	// debug_print_i32("bytes per frame", sound_output.bytes_per_frame);
-	// print_string("---------------------------\n");
-}
-
-let win_create_backbuffer = fun (@buffer: offscreen_buffer*; target_width: i32; target_height: i32) => void 
-{
-	let bytes_per_pixel = 4;
-	width = target_width;
-	height = target_height;
-	info.header.biSize = 40;
-	info.header.biWidth = width;
-	info.header.biHeight = -height;
-	info.header.biPlanes = 1;
-	info.header.biBitCount = 32;
-	info.header.biCompression = BI_RGB;
-	var bitmap_size = bytes_per_pixel * width * height;
-	if (memory != nullptr) {
-		VirtualFree(buffer.memory, null, MEM_RELEASE);
-	}
-	memory = VirtualAlloc(nullptr, (mm\)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
-	pitch = buffer.width * bytes_per_pixel;
-}
-
-let win_blit_to_screen = fun (buffer: offscreen_buffer*) => void 
-{
-    StretchDIBits(window.dc,
-		0, 0, window.width, window.height,
-		0, 0, buffer.width, buffer.height,
-		buffer.memory, &buffer.info,
-		DIB_RGB_COLORS, SRCCOPY
-		);
-}
-
-let win_update_window_rect = fun () => void 
-{
-	var rect: RECT;
-	GetClientRect(window.handle, &rect); 
-	window.width = rect.right - rect.left;
-	window.height = rect.bottom - rect.top;
-}
-
-let win_main_window_callback = fun 
-(
-	window_handle: mm;
-	message: i32;
-	w_param: mm;
-	l_param: mm;
-) => mm 
-{
-	var result = null;
-	if (message == WM_SIZE) {
-		win_update_window_rect();	
-	}
-	elif (message == WM_CLOSE) {
-		window_requests_quit = true;
-	}
-	elif (message == WM_DESTROY) {
-		window_requests_quit = true;
-	}
-	elif (message == WM_PAINT) {
-		var paint: PAINTSTRUCT;
-		var context = BeginPaint(window_handle, &paint);
-		win_blit_to_screen(&backbuffer);
-		EndPaint(window_handle, &paint);
-	} 
-	else {
-		result = DefWindowProcA(window_handle, message, w_param, l_param);
-	} 
-	return result;
-}
-
-let win_process_pending_messages = fun 
-(
-	@game_input: game_input*
-) => void 
-{
-	var msg: MSG;
-	while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE) != 0) {
-		var message = msg.message;
-		if (message == WM_QUIT) {
-			game_input.request_quit = true;
-		} 
-		elif (message == WM_SYSKEYDOWN
-		 	|| message == WM_SYSKEYUP
-		 	|| message == WM_KEYDOWN
-		 	|| message == WM_KEYUP) {
-
-			var w_param = (i32)(msg.wParam >> (mm)32);
-			var l_param = (i32)(msg.lParam >> (mm)32);
-			var vk_code = w_param;
-
-			var was_down = (l_param & (1 << 30)) != 0;
-			var is_down = (l_param & (1 << 31)) == 0;
-			var key_up = was_down && !is_down;
-			var key_down = !was_down && is_down; 
-
-			if(vk_code == VK_ESCAPE) {
-				request_quit = true;
-			} elif (vk_code == VK_LEFT) {
-				left_arrow.pressed = is_down;
-				left_arrow.down = key_down;
-				left_arrow.up = key_up;
-			} elif (vk_code == VK_RIGHT) {
-				right_arrow.pressed = is_down;
-				right_arrow.down = key_down;
-				right_arrow.up = key_up;
-			} elif (vk_code == VK_UP) {
-				up_arrow.pressed = is_down;
-				up_arrow.down = key_down;
-				up_arrow.up = key_up;
-
-			} elif (vk_code == VK_DOWN) {
-				down_arrow.pressed = is_down;
-				down_arrow.down = key_down;
-				down_arrow.up = key_up;
-			} 
+		if (play_cursor == last_play_cursor) {
+			var time: i64;
+			Windows.QueryPerformanceCounter(&time);
+			var cursor_dt = (f64)(time - last_play_cursor_change_time) / (f64)perf_count_freq;
+			var d_bytes = sound_output.bytes_per_chunk * (i32)(cursor_dt * (f64)sound_output.samples_per_second);
+			play_cursor += d_bytes;
+			write_cursor += d_bytes;
+			play_cursor = play_cursor % sound_output.buffer_size;
+			write_cursor = write_cursor % sound_output.buffer_size;
 		} else {
-			TranslateMessage(&msg);
-			DispatchMessageA(&msg);
-		}
-	}
-}
-
-var perf_count_freq: i64;
-let win_get_duration = fun (c0: i64; c1: i64) => f32
-{
-	return (f32)(c0 - c1) / (f32)perf_count_freq;
-}
-
-
-[
-"compile.entry",
-"compile.debug" : "true",
-"compile.output": "win_handmade.exe",
-"compile.opt"   : "0",
-"compile.run"   : "false",
-"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
-"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib"
-]
-let main = fun () => void 
-{
-	debug_print_i32("sizeof find_data", (i32)(size_of(WIN32_FIND_DATA)));
-
-
-	QueryPerformanceFrequency(&perf_count_freq);
-	var error = 0;
-
-	let desired_sheduler_granularity = 1;
-	error = timeBeginPeriod(desired_sheduler_granularity);
-	assert(error == 0);
-
-	win_create_backbuffer(&backbuffer, 1244, 705);
-
-	var class_name  = cstr("PragmaScriptWindowClass\0");
-	var window_name = cstr("handmade-pragmascript\0");
-	var instance = GetModuleHandleA(null);
-	var window_class = WNDCLASSEX {};
-	window_class.cbSize = (i32)(size_of(WNDCLASSEX));
-	window_class.style = (CS_HREDRAW|CS_VREDRAW);
-	window_class.lpfnWndProc = (ptr)win_main_window_callback;
-	window_class.hInstance = instance;
-	window_class.lpszClassName = class_name;
-	RegisterClassExA(&window_class);
-
-	var monitor_hz = 60;
-	var game_target_fps = 60;
-	var target_sec_per_frame = 1.0 / (f32)game_target_fps;
-	
-	window.handle = CreateWindowExA(
-		0,
-		class_name,
-		window_name,
-		WS_OVERLAPPEDWINDOW|WS_VISIBLE,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		null,
-		null,
-		instance,
-		null
-	);
-	window.dc = GetDC(window.handle);
-	win_update_window_rect();
-
-	var sound_output: sound_output;
-	sound_output.samples_per_second = 48000;
-	sound_output.bytes_per_chunk = 2 * (i32)(size_of(i16)); // 2 channels
-	sound_output.bytes_per_frame = sound_output.bytes_per_chunk *sound_output.samples_per_second / game_target_fps;
-	sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
-	
-	var sound_buffer = win_init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
-	sound_output.sound_buffer = sound_buffer;
-
-	var game_sample_buffer = (i16*)VirtualAlloc(nullptr, (mm)sound_output.buffer_size, MEM_COMMIT, PAGE_READWRITE);
-	assert((ptr)game_sample_buffer != nullptr);
-	var base_address = nullptr;
-	if (HANDMADE_INTERAL) {
-		base_address = (ptr)terabytes(2);
-	} else {
-		base_address = nullptr;
-	}
-
-	var platform = platform_interface {};
-	platform.write_file = platform_write_file;
-	platform.read_file = platform_read_file;
-	platform.free_file_memory = platform_free_file_memory;
-
-	var game_memory = game_memory {}; 
-	game_memory.permanent_size = megabytes(1);
-	game_memory.transient_size = 0;
-	var total_size = game_memory.permanent_size + game_memory.transient_size;
-	game_memory.permanent_data = VirtualAlloc(base_address, total_size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-	assert(game_memory.permanent_data != nullptr);
-	game_memory.transient_data = game_memory.permanent_data + game_memory.permanent_size;
-	assert(game_memory.transient_data != nullptr);
-	game_memory.platform = &platform;
-	
-	var game = win_load_game_dll(); 
-	win_clear_sound_buffer(&sound_output);
-	error = sound_buffer.vtable.Play(sound_buffer, 0, 0, DSBPLAY_LOOPING);
-	assert(error == DS_OK);
-		
-	var running = true;
-	var frames = 0;
-	var last_fps: f32 = 60;
-	var current_counter: i64;
-	var last_counter: i64;
-	var last_counter_debug_stats: i64 = 0;
-	QueryPerformanceCounter(&last_counter);
-
-	var current_cycle_count: i64;
-	var last_cycle_count = _rdtsc();
-	var dt = 1.0 / 60.0;
-
-	var game_start_time: i64;
-	QueryPerformanceCounter(&game_start_time);
-
-	var game_input = game_input {};
-	var game_sound_output = game_sound_output { };
-	game_sound_output.sample_out = game_sample_buffer;
-	game_sound_output.samples_per_second = sound_output.samples_per_second;
-
-	while (running) {
-		win_process_pending_messages(&game_input);
-
-		var game_render_target = game_render_target { };
-		game_render_target.memory = backbuffer.memory;
-		game_render_target.width = backbuffer.width;
-		game_render_target.height = backbuffer.height;
-		game_render_target.pitch = backbuffer.pitch;
-		
-		var game_time = game_time{};
-		game_time.dt = dt;
-		game_time.t = win_get_duration(last_counter, game_start_time);
-		game_input.time = game_time;
-		game_input.request_quit |= window_requests_quit;
-
-		assert(game.is_loaded);
-		running = game.update_and_render(&game_memory, &game_input, &game_render_target);
-
-		win_update_next_sound_write_positon(&sound_output);
-		game_sound_output.sample_count = sound_output.next_bytes_to_write / sound_output.bytes_per_chunk;
-
-		assert(game.is_loaded);
-		game.output_sound(&game_memory, &game_sound_output);
-
-		win_fill_sound_buffer(&sound_output, &game_sound_output);
-		if (!running) {
-			win_clear_sound_buffer(&sound_output);
-			sound_output.sound_buffer.vtable.Stop();
+			last_play_cursor = play_cursor;
+			Windows.QueryPerformanceCounter(&last_play_cursor_change_time);
 		}
 
-		win_blit_to_screen(&backbuffer);
+		var position_to_write = byte_last_written;
+		if (play_cursor > last_play_cursor) {
+			if (byte_last_written >= last_play_cursor && byte_last_written <= play_cursor) {
+				position_to_write = write_cursor;
+			}		
+		}
+		if (play_cursor < last_play_cursor) {
+			if (byte_last_written >= last_play_cursor || byte_last_written <= play_cursor) {
+				position_to_write = write_cursor;
+			}		
+		}
 
-		current_cycle_count = _rdtsc();
-		QueryPerformanceCounter(&current_counter);
-		var wait_time = win_get_duration(current_counter, last_counter);
-		while (wait_time < target_sec_per_frame) {
-			var sleep_ms = (i32)(1000.0 * (target_sec_per_frame - wait_time));
-			if (sleep_ms > 0) {
-				Sleep(sleep_ms);
+		var delta_cursor: i32;
+		if (play_cursor < write_cursor) {
+			if (position_to_write >= play_cursor && position_to_write < write_cursor) {
+				position_to_write = write_cursor;
 			}
-			QueryPerformanceCounter(&current_counter);
-			wait_time = win_get_duration(current_counter, last_counter);
+			delta_cursor = write_cursor - play_cursor;
 		}
-		dt = wait_time;
-		last_counter = current_counter;
+		if (play_cursor > write_cursor) {
+			if (position_to_write >= play_cursor || position_to_write < write_cursor) {
+				position_to_write = write_cursor;
+			}
+			delta_cursor = (buffer_size - play_cursor) + write_cursor;
+		}
+		assert(delta_cursor > 0);
 
-		frames++;
+		var target_cursor: i32;
+		var safety_bytes = bytes_per_frame / 2;
+		target_cursor = write_cursor;
+		
+		while (target_cursor <= write_cursor + delta_cursor) {
+			target_cursor += bytes_per_frame;
+		}
+		target_cursor += safety_bytes;
+		if (target_cursor > buffer_size) {
+			target_cursor -= buffer_size;
+		}
 
-		if (current_counter - last_counter_debug_stats > perf_count_freq) {
-			if (DEBUG_DRAW_STATS) {
-				last_counter_debug_stats = current_counter;
-				var cycles_elapsed = current_cycle_count - last_cycle_count;
-				var frame_ms = 1000.0 * dt;
-				print_string("\n");
-				print_f32(frame_ms);
-				print_string("ms/f   ");
-				print_f32(1000.0 / frame_ms);
-				last_fps = 0.5 * last_fps + (1000.0 / frame_ms);
-				print_string("fps   ");
-				print_f64((f64)cycles_elapsed / 1000000.0);
-				print_string("mcycles   ");
-				debug_print_f32("dt", dt);
+		var bytes_to_write = 0;
+		if (target_cursor > play_cursor) {
+			if (position_to_write < target_cursor && position_to_write > play_cursor) {
+				bytes_to_write = target_cursor - position_to_write;
+			}
+		}
+		if (target_cursor < play_cursor) {
+			if (position_to_write > play_cursor) {
+				bytes_to_write = buffer_size - position_to_write;
+				bytes_to_write += target_cursor;
+			}
+			if (position_to_write < target_cursor) {
+				bytes_to_write = target_cursor - position_to_write;
+			}
+		}
+
+		sound_output.next_write_positon = position_to_write;
+		sound_output.next_bytes_to_write = bytes_to_write;
+
+		if (!sound_output.first_write && bytes_to_write > 0) {
+			sound_output.first_write = true;
+		}
+
+
+
+		// if (oops) {
+		// 	print_string("oops\n");
+		// }
+		// debug_print_i32("pc ", play_cursor);
+		// debug_print_i32("last pos", sound_output.byte_last_written);
+		// debug_print_i32("ptw", position_to_write);
+		// debug_print_i32("wc ", write_cursor);
+		// debug_print_i32("tc ", target_cursor);
+		// debug_print_i32("btw", bytes_to_write);
+		// debug_print_i32("bytes per frame", sound_output.bytes_per_frame);
+		// print_string("---------------------------\n");
+	}
+
+	let win_create_backbuffer = fun (@buffer: offscreen_buffer*; target_width: i32; target_height: i32) => void 
+	{
+		let bytes_per_pixel = 4;
+		width = target_width;
+		height = target_height;
+		info.header.biSize = 40;
+		info.header.biWidth = width;
+		info.header.biHeight = -height;
+		info.header.biPlanes = 1;
+		info.header.biBitCount = 32;
+		info.header.biCompression = Windows.BI_RGB;
+		var bitmap_size = bytes_per_pixel * width * height;
+		if (memory != nullptr) {
+			Windows.VirtualFree(buffer.memory, null, Windows.MEM_RELEASE);
+		}
+		memory = Windows.VirtualAlloc(nullptr, (mm\)bitmap_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+		pitch = buffer.width * bytes_per_pixel;
+	}
+
+	let win_blit_to_screen = fun (buffer: offscreen_buffer*) => void 
+	{
+		Windows.StretchDIBits(window.dc,
+			0, 0, window.width, window.height,
+			0, 0, buffer.width, buffer.height,
+			buffer.memory, &buffer.info,
+			Windows.DIB_RGB_COLORS, Windows.SRCCOPY
+			);
+	}
+
+	let win_update_window_rect = fun () => void 
+	{
+		var rect: Windows.RECT;
+		Windows.GetClientRect(window.handle, &rect); 
+		window.width = rect.right - rect.left;
+		window.height = rect.bottom - rect.top;
+	}
+
+	let win_main_window_callback = fun 
+	(
+		window_handle: mm;
+		message: i32;
+		w_param: mm;
+		l_param: mm;
+	) => mm 
+	{
+		var result = null;
+		if (message == Windows.WM_SIZE) {
+			win_update_window_rect();	
+		}
+		elif (message == Windows.WM_CLOSE) {
+			window_requests_quit = true;
+		}
+		elif (message == Windows.WM_DESTROY) {
+			window_requests_quit = true;
+		}
+		elif (message == Windows.WM_PAINT) {
+			var paint: Windows.PAINTSTRUCT;
+			var context = Windows.BeginPaint(window_handle, &paint);
+			win_blit_to_screen(&backbuffer);
+			Windows.EndPaint(window_handle, &paint);
+		} 
+		else {
+			result = Windows.DefWindowProcA(window_handle, message, w_param, l_param);
+		} 
+		return result;
+	}
+
+	let win_process_pending_messages = fun 
+	(
+		@game_input: game_input*
+	) => void 
+	{
+		var msg: Windows.MSG;
+		while (Windows.PeekMessageA(&msg, null, 0, 0, Windows.PM_REMOVE) != 0) {
+			var message = msg.message;
+			if (message == Windows.WM_QUIT) {
+				game_input.request_quit = true;
+			} 
+			elif (message == Windows.WM_SYSKEYDOWN
+				|| message == Windows.WM_SYSKEYUP
+				|| message == Windows.WM_KEYDOWN
+				|| message == Windows.WM_KEYUP) {
+
+				var w_param = (i32)(msg.wParam >> (mm)32);
+				var l_param = (i32)(msg.lParam >> (mm)32);
+				var vk_code = w_param;
+
+				var was_down = (l_param & (1 << 30)) != 0;
+				var is_down = (l_param & (1 << 31)) == 0;
+				var key_up = was_down && !is_down;
+				var key_down = !was_down && is_down; 
+
+				if(vk_code == Windows.VK_ESCAPE) {
+					request_quit = true;
+				} elif (vk_code == Windows.VK_LEFT) {
+					left_arrow.pressed = is_down;
+					left_arrow.down = key_down;
+					left_arrow.up = key_up;
+				} elif (vk_code == Windows.VK_RIGHT) {
+					right_arrow.pressed = is_down;
+					right_arrow.down = key_down;
+					right_arrow.up = key_up;
+				} elif (vk_code == Windows.VK_UP) {
+					up_arrow.pressed = is_down;
+					up_arrow.down = key_down;
+					up_arrow.up = key_up;
+
+				} elif (vk_code == Windows.VK_DOWN) {
+					down_arrow.pressed = is_down;
+					down_arrow.down = key_down;
+					down_arrow.up = key_up;
+				} 
+			} else {
+				Windows.TranslateMessage(&msg);
+				Windows.DispatchMessageA(&msg);
+			}
+		}
+	}
+
+	var perf_count_freq: i64;
+	let win_get_duration = fun (c0: i64; c1: i64) => f32
+	{
+		return (f32)(c0 - c1) / (f32)perf_count_freq;
+	}
+
+
+	[
+	"compile.entry",
+	"compile.debug" : "true",
+	"compile.output": "win_handmade.exe",
+	"compile.opt"   : "0",
+	"compile.run"   : "false",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
+	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib"
+	]
+	let main = fun () => void 
+	{
+		debug_print_i32("sizeof find_data", (i32)(size_of(Windows.WIN32_FIND_DATA)));
+
+
+		Windows.QueryPerformanceFrequency(&perf_count_freq);
+		var error = 0;
+
+		let desired_sheduler_granularity = 1;
+		error = Windows.timeBeginPeriod(desired_sheduler_granularity);
+		assert(error == 0);
+
+		win_create_backbuffer(&backbuffer, 1244, 705);
+
+		var class_name  = cstr("PragmaScriptWindowClass\0");
+		var window_name = cstr("handmade-pragmascript\0");
+		var instance = Windows.GetModuleHandleA(null);
+		var window_class = Windows.WNDCLASSEX {};
+		window_class.cbSize = (i32)(size_of(Windows.WNDCLASSEX));
+		window_class.style = (Windows.CS_HREDRAW|Windows.CS_VREDRAW);
+		window_class.lpfnWndProc = (ptr)win_main_window_callback;
+		window_class.hInstance = instance;
+		window_class.lpszClassName = class_name;
+		Windows.RegisterClassExA(&window_class);
+
+		var monitor_hz = 60;
+		var game_target_fps = 60;
+		var target_sec_per_frame = 1.0 / (f32)game_target_fps;
+		
+		window.handle = Windows.CreateWindowExA(
+			0,
+			class_name,
+			window_name,
+			Windows.WS_OVERLAPPEDWINDOW|Windows.WS_VISIBLE,
+			Windows.CW_USEDEFAULT,
+			Windows.CW_USEDEFAULT,
+			Windows.CW_USEDEFAULT,
+			Windows.CW_USEDEFAULT,
+			null,
+			null,
+			instance,
+			null
+		);
+		window.dc = Windows.GetDC(window.handle);
+		win_update_window_rect();
+
+		var sound_output: sound_output;
+		sound_output.samples_per_second = 48000;
+		sound_output.bytes_per_chunk = 2 * (i32)(size_of(i16)); // 2 channels
+		sound_output.bytes_per_frame = sound_output.bytes_per_chunk *sound_output.samples_per_second / game_target_fps;
+		sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
+		
+		var sound_buffer = win_init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
+		sound_output.sound_buffer = sound_buffer;
+
+		var game_sample_buffer = (i16*)Windows.VirtualAlloc(nullptr, (mm)sound_output.buffer_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+		assert((ptr)game_sample_buffer != nullptr);
+		var base_address = nullptr;
+		if (HANDMADE_INTERAL) {
+			base_address = (ptr)terabytes(2);
+		} else {
+			base_address = nullptr;
+		}
+
+		var platform = platform_interface {};
+		platform.write_file = platform_write_file;
+		platform.read_file = platform_read_file;
+		platform.free_file_memory = platform_free_file_memory;
+
+		var game_memory = game_memory {}; 
+		game_memory.permanent_size = megabytes(1);
+		game_memory.transient_size = 0;
+		var total_size = game_memory.permanent_size + game_memory.transient_size;
+		game_memory.permanent_data = Windows.VirtualAlloc(base_address, total_size, Windows.MEM_RESERVE|Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+		assert(game_memory.permanent_data != nullptr);
+		game_memory.transient_data = game_memory.permanent_data + game_memory.permanent_size;
+		assert(game_memory.transient_data != nullptr);
+		game_memory.platform = &platform;
+		
+		var game = win_load_game_dll(); 
+		win_clear_sound_buffer(&sound_output);
+		error = sound_buffer.vtable.Play(sound_buffer, 0, 0, Windows.DSBPLAY_LOOPING);
+		assert(error == Windows.DS_OK);
+			
+		var running = true;
+		var frames = 0;
+		var last_fps: f32 = 60;
+		var current_counter: i64;
+		var last_counter: i64;
+		var last_counter_debug_stats: i64 = 0;
+		Windows.QueryPerformanceCounter(&last_counter);
+
+		var current_cycle_count: i64;
+		var last_cycle_count = _rdtsc();
+		var dt = 1.0 / 60.0;
+
+		var game_start_time: i64;
+		Windows.QueryPerformanceCounter(&game_start_time);
+
+		var game_input = game_input {};
+		var game_sound_output = game_sound_output { };
+		game_sound_output.sample_out = game_sample_buffer;
+		game_sound_output.samples_per_second = sound_output.samples_per_second;
+
+		while (running) {
+			win_process_pending_messages(&game_input);
+
+			var game_render_target = game_render_target { };
+			game_render_target.memory = backbuffer.memory;
+			game_render_target.width = backbuffer.width;
+			game_render_target.height = backbuffer.height;
+			game_render_target.pitch = backbuffer.pitch;
+			
+			var game_time = game_time{};
+			game_time.dt = dt;
+			game_time.t = win_get_duration(last_counter, game_start_time);
+			game_input.time = game_time;
+			game_input.request_quit |= window_requests_quit;
+
+			assert(game.is_loaded);
+			running = game.update_and_render(&game_memory, &game_input, &game_render_target);
+
+			win_update_next_sound_write_positon(&sound_output);
+			game_sound_output.sample_count = sound_output.next_bytes_to_write / sound_output.bytes_per_chunk;
+
+			assert(game.is_loaded);
+			game.output_sound(&game_memory, &game_sound_output);
+
+			win_fill_sound_buffer(&sound_output, &game_sound_output);
+			if (!running) {
+				win_clear_sound_buffer(&sound_output);
+				sound_output.sound_buffer.vtable.Stop();
 			}
 
-			win_refresh_game_dll(&game);
-			// win_unload_game_dll(&game);
-			// game = win_load_game_dll();
+			win_blit_to_screen(&backbuffer);
+
+			current_cycle_count = _rdtsc();
+			Windows.QueryPerformanceCounter(&current_counter);
+			var wait_time = win_get_duration(current_counter, last_counter);
+			while (wait_time < target_sec_per_frame) {
+				var sleep_ms = (i32)(1000.0 * (target_sec_per_frame - wait_time));
+				if (sleep_ms > 0) {
+					Windows.Sleep(sleep_ms);
+				}
+				Windows.QueryPerformanceCounter(&current_counter);
+				wait_time = win_get_duration(current_counter, last_counter);
+			}
+			dt = wait_time;
+			last_counter = current_counter;
+
+			frames++;
+
+			if (current_counter - last_counter_debug_stats > perf_count_freq) {
+				if (DEBUG_DRAW_STATS) {
+					last_counter_debug_stats = current_counter;
+					var cycles_elapsed = current_cycle_count - last_cycle_count;
+					var frame_ms = 1000.0 * dt;
+					print_string("\n");
+					print_f32(frame_ms);
+					print_string("ms/f   ");
+					print_f32(1000.0 / frame_ms);
+					last_fps = 0.5 * last_fps + (1000.0 / frame_ms);
+					print_string("fps   ");
+					print_f64((f64)cycles_elapsed / 1000000.0);
+					print_string("mcycles   ");
+					debug_print_f32("dt", dt);
+				}
+
+				win_refresh_game_dll(&game);
+				// win_unload_game_dll(&game);
+				// game = win_load_game_dll();
+			}
+			
+			last_cycle_count = current_cycle_count;
 		}
-		
-		last_cycle_count = current_cycle_count;
+		Windows.ExitProcess(0);
 	}
-    ExitProcess(0);
 }

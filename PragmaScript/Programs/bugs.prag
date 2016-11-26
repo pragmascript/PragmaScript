@@ -246,16 +246,18 @@ import "windows.prag"
 //	a += b += c += 7;
 
 
-namespace foo
+namespace Foo
 {
-	let bar = struct 
-	(
-		foo: i32;
-		str: i8*;
-	);
-
+	namespace Bar
+	{
+		let bar = struct 
+		(
+			foo: i32;
+			str: i8*;
+		);
+	}
 	var fumm = 12;
-	var bar = bar { 17, nullptr };
+	var bar = Bar.bar { 17, nullptr };
 }
 
 
@@ -270,15 +272,15 @@ namespace foo
 ]
 let main = fun () => void 
 {
+	var zz = Foo.Bar.bar{};
+	zz.foo = 177;
+	debug_print_i32("zz", zz.foo);
 
-	var zz = foo.bar{};
-
-	var y = foo.fumm;
-
+	var y = Foo.fumm;
 	print_i32(y);
 	print_string("\n");
 
-	print_i32(foo.bar.foo);
+	print_i32(Foo.bar.foo);
 	print_string("\n");
 	var x = 2;
 	var z = x^(x*2+3);

@@ -521,7 +521,7 @@ namespace PragmaScript
 
         public class StructConstructor : Node
         {
-            public string structName;
+            public TypeString typeString;
             public List<Node> argumentList = new List<Node>();
 
             public StructConstructor(Token t, Scope s)
@@ -531,7 +531,7 @@ namespace PragmaScript
             public override Node DeepCloneTree()
             {
                 var result = new StructConstructor(token, scope);
-                result.structName = structName;
+                result.typeString = typeString.DeepCloneTree() as TypeString;
                 foreach (var arg in argumentList)
                 {
                     result.argumentList.Add(arg.DeepCloneTree());
@@ -540,6 +540,7 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
+                yield return typeString;
                 foreach (var a in argumentList)
                 {
                     yield return a;
@@ -547,14 +548,23 @@ namespace PragmaScript
             }
             public override string ToString()
             {
-                return structName + "{ }";
+                return "{ }";
             }
 
             public override void Replace(Node old, Node @new)
             {
-                var idx = argumentList.IndexOf(old);
-                Debug.Assert(idx != -1);
-                argumentList[idx] = @new;
+                if (old == typeString)
+                {
+                    Debug.Assert(@new is TypeString);
+                    typeString = @new as TypeString;
+                }
+                else
+                {
+                    var idx = argumentList.IndexOf(old);
+                    Debug.Assert(idx != -1);
+                    argumentList[idx] = @new;
+                }
+                
             }
         }
 
@@ -631,9 +641,16 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                var idx = argumentList.IndexOf(old);
-                Debug.Assert(idx != -1);
-                argumentList[idx] = @new;
+                if (old == left)
+                {
+                    left = @new;
+                }
+                else
+                {
+                    var idx = argumentList.IndexOf(old);
+                    Debug.Assert(idx != -1);
+                    argumentList[idx] = @new;
+                }
             }
         }
 
@@ -1573,7 +1590,7 @@ namespace PragmaScript
             public TypeKind kind = TypeKind.Other;
             public FunctionTypeString functionTypeString;
             public StructTypeString structTypeString;
-            public Node allocationCount;
+            public int allocationCount;
 
 
             public TypeString(Token t, Scope s) : base(t, s)
@@ -1625,12 +1642,6 @@ namespace PragmaScript
                         break;
                     case TypeKind.Struct:
                         yield break;
-                    case TypeKind.Other:
-                        if (allocationCount != null)
-                        {
-                            yield return allocationCount;
-                        }
-                        break;
                 }
             }
 

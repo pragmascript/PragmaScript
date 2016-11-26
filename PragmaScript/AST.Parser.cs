@@ -191,8 +191,30 @@ namespace PragmaScript
         public static Node parseNamespace(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Namespace);
+
+            
+
             var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
-            var ns = scope.AddNamespace(ident.text);
+
+            var path = new List<string>();
+            path.Add(ident.text);
+
+            
+            while (true)
+            {
+                if (ps.PeekToken().type == Token.TokenType.Dot)
+                {
+                    ps.NextToken();
+                    ident = ps.NextToken();
+                    path.Add(ident.text);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            var ns = scope.AddNamespace(path);
             var result = new AST.Namespace(current, ns.scope);
 
             ps.ExpectNextToken(Token.TokenType.OpenCurly);
@@ -234,7 +256,20 @@ namespace PragmaScript
                                 }
                                 ps.attribs.Clear();
                                 ps.foundAttrib = false;
+
+                                if (result.HasAttribute("COMPILE.ENTRY"))
+                                {
+                                    if (result is FunctionDefinition)
+                                    {
+                                        if (CompilerOptions.entry != null)
+                                        {
+                                            throw new ParserError("Program entry point already defined!", result.token);
+                                        }
+                                        CompilerOptions.entry = result as FunctionDefinition;
+                                    }
+                                }
                             }
+                            
                         }
                         break;
                     case Token.TokenType.Namespace:
@@ -878,7 +913,7 @@ namespace PragmaScript
                 var peek = ps.ExpectPeekToken(Token.TokenType.Assignment, Token.TokenType.Semicolon);
                 if (peek.type == Token.TokenType.Assignment)
                 {
-                    if (result.typeString.allocationCount != null)
+                    if (result.typeString.allocationCount > 0)
                     {
                         throw new ParserError("Allocation typestring is implicitly initialized. Explicit initialization is invalid.", peek);
                     }
@@ -1133,9 +1168,47 @@ namespace PragmaScript
         static Node parsePrimaryIdent(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
-
             bool exit = false;
             Node result = null;
+
+
+            // try to parse a struct constructor
+            {
+                var temp = ps;
+                var typeString = parseTypeString(ref temp, scope);
+
+                // oki we found a struct constructor
+                if (temp.PeekToken().type == Token.TokenType.OpenCurly)
+                {
+                    ps = temp;
+                    ps.NextToken();
+                    result = new StructConstructor(current, scope);
+                    (result as StructConstructor).typeString = typeString;
+
+                    var next = ps.PeekToken();
+                    if (next.type != Token.TokenType.CloseCurly)
+                    {
+                        while (true)
+                        {
+                            ps.NextToken();
+                            var exp = parseBinOp(ref ps, scope);
+                            (result as StructConstructor).argumentList.Add(exp);
+                            next = ps.PeekToken();
+                            if (next.type != Token.TokenType.Comma)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                // skip comma
+                                ps.NextToken();
+                            }
+                        }
+                    }
+                    ps.ExpectNextToken(Token.TokenType.CloseCurly);
+                }
+            }
+
             while (!exit)
             {
                 var peek = ps.PeekToken();
@@ -1189,9 +1262,9 @@ namespace PragmaScript
                         next = parseArrayElementAccess(ref ps, scope, result, false);
                         break;
 
-                    case Token.TokenType.OpenCurly:
-                        next = parseStructConstructor(ref ps, scope);
-                        break;
+                    //case Token.TokenType.OpenCurly:
+                    //    next = parseStructConstructor(ref ps, scope);
+                    //    break;
                     case Token.TokenType.ArrayTypeBrackets:
                         next = parseUninitializedArray(ref ps, scope);
                         break;
@@ -1232,43 +1305,44 @@ namespace PragmaScript
             return result;
         }
 
-        static Node parseStructConstructor(ref ParseState ps, Scope scope)
-        {
-            // var x = vec3_i32
-            var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
+        //static Node parseStructConstructor(ref ParseState ps, Scope scope)
+        //{
 
-            var result = new StructConstructor(current, scope);
+        //    // var x = vec3_i32
+        //    var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
 
-            result.structName = current.text;
+        //    var result = new StructConstructor(current, scope);
 
-            // var x = vec3_i32 {
-            var oc = ps.NextToken();
-            expectTokenType(oc, Token.TokenType.OpenCurly);
+        //    result.structName = current.text;
 
-            var next = ps.PeekToken();
-            if (next.type != Token.TokenType.CloseCurly)
-            {
-                while (true)
-                {
-                    ps.NextToken();
-                    var exp = parseBinOp(ref ps, scope);
-                    result.argumentList.Add(exp);
-                    next = ps.PeekToken();
-                    if (next.type != Token.TokenType.Comma)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        // skip comma
-                        ps.NextToken();
-                    }
-                }
-            }
+        //    // var x = vec3_i32 {
+        //    var oc = ps.NextToken();
+        //    expectTokenType(oc, Token.TokenType.OpenCurly);
 
-            ps.ExpectNextToken(Token.TokenType.CloseCurly);
-            return result;
-        }
+        //    var next = ps.PeekToken();
+        //    if (next.type != Token.TokenType.CloseCurly)
+        //    {
+        //        while (true)
+        //        {
+        //            ps.NextToken();
+        //            var exp = parseBinOp(ref ps, scope);
+        //            result.argumentList.Add(exp);
+        //            next = ps.PeekToken();
+        //            if (next.type != Token.TokenType.Comma)
+        //            {
+        //                break;
+        //            }
+        //            else
+        //            {
+        //                // skip comma
+        //                ps.NextToken();
+        //            }
+        //        }
+        //    }
+
+        //    ps.ExpectNextToken(Token.TokenType.CloseCurly);
+        //    return result;
+        //}
 
 
         static Node parseStructFieldAccess(ref ParseState ps, Scope scope, Node left, bool returnPointer = false)
@@ -1457,7 +1531,8 @@ namespace PragmaScript
                 {
                     ps.NextToken();
                     var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
-                    result.fullyQualifiedName.path.Add(current.text);
+                    result.fullyQualifiedName.path.Add(ident.text);
+                    next = ps.PeekToken();
                 }
 
                 if (next.type == Token.TokenType.ArrayTypeBrackets)
@@ -1481,8 +1556,11 @@ namespace PragmaScript
 
                     {
                         ps.NextToken();
-                        
-                        var alloc = parsePrimary(ref ps, scope);
+                        int alloc = 0;
+                        if (ps.CurrentToken().type == Token.TokenType.IntNumber)
+                        {
+                            alloc = int.Parse(ps.CurrentToken().text);
+                        }
                         result.allocationCount = alloc;
                     }
                 }
@@ -1570,8 +1648,8 @@ namespace PragmaScript
 
             var result = new FunctionDefinition(current, scope);
 
-            if (scope.parent != null)
-                throw new ParserError("functions can only be defined in the primary block for now!", current);
+            if (scope.function != null)
+                throw new ParserError("nested functions not supported yet.", current);
 
             // let foo
             var id = ps.ExpectNextToken(Token.TokenType.Identifier);

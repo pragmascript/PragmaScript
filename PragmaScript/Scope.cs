@@ -22,6 +22,31 @@ namespace PragmaScript
                 scope = new Scope(parentScope, null);
                 scope.namesp = this;
             }
+
+            public string GetPath()
+            {
+                List<Namespace> ns = new List<Namespace>();
+
+                var current = this;
+                while (true)
+                {
+                    ns.Add(current);
+                    Debug.Assert(current.scope.parent != null);
+                    current = current.scope.parent.namesp;
+                    if (current == null)
+                    {
+                        break;
+                    }
+                }
+
+                ns.Reverse();
+                return string.Join(".", ns.Select(nns => nns.name));
+            }
+
+            public override string ToString()
+            {
+                return GetPath();
+            }
         }
 
         public class VariableDefinition
@@ -135,11 +160,33 @@ namespace PragmaScript
         }
 
 
-        // TODO: implement
         public TypeDefinition GetType(FullyQualifiedName typeName)
         {
-            var result = GetType(typeName.GetName());
-            return result;
+            if (typeName.path.Count == 1)
+            {
+                var result = GetType(typeName.GetName());
+                return result;
+            }
+            else
+            {
+                var ns_name = string.Join(".", typeName.path.Take(typeName.path.Count - 1));
+                var ns = GetNamespace(ns_name);
+                if (ns == null && namesp != null)
+                {
+                    var path = $"{namesp.GetPath()}.{ns_name}";
+                    ns = GetNamespace(path);
+                }
+                if (ns != null)
+                {
+                    return ns.scope.GetType(typeName.GetName());
+                }
+                else
+                {
+
+                    return null;
+                }
+
+            }
         }
 
         public TypeDefinition GetType(string typeName)
@@ -180,25 +227,56 @@ namespace PragmaScript
             types.Add(td.name, td);
         }
 
-        public Namespace AddNamespace(string name)
+        public Namespace AddNamespace(List<string> path)
         {
-            if (namespaces.ContainsKey(name))
-            {
-                return namespaces[name];
-            }
-            else
-            {
+            Debug.Assert(path.Count > 0);
 
+            var path_string = "";
+            if (namesp != null)
+            {
+                path_string = namesp.GetPath();
             }
-            var result = new Namespace(name, this);
-            namespaces.Add(name, result);
+            Scope parentScope = this;
+            Namespace lastNamespace = namesp;
+
+            foreach (var p in path)
+            {
+                Debug.Assert(!string.IsNullOrWhiteSpace(p));
+                if (string.IsNullOrWhiteSpace(path_string))
+                {
+                    path_string = p;
+                }
+                else
+                {
+                    path_string = $"{path_string}.{p}";
+                }
+                if (!namespaces.ContainsKey(path_string))
+                {
+                    var n = new Namespace(p, parentScope);
+                    namespaces.Add(path_string, n);
+                    parentScope = n.scope;
+                    lastNamespace = n;
+                }
+                else
+                {
+                    lastNamespace = namespaces[path_string];
+                    parentScope = lastNamespace.scope;
+                }
+            }
+            return lastNamespace;
+        }
+
+        public Namespace GetNamespace(List<string> path)
+        {
+            namespaces.TryGetValue(string.Join(".", path), out Namespace result);
             return result;
         }
 
-        public Namespace GetNamespace(string name)
+        public Namespace GetNamespace(string path)
         {
-            namespaces.TryGetValue(name, out Namespace result);
+            namespaces.TryGetValue(string.Join(".", path), out Namespace result);
             return result;
+
         }
 
         public void AddTypeAlias(FrontendType t, Token token, string alias)
@@ -228,6 +306,6 @@ namespace PragmaScript
             types.Add(td.name, td);
         }
 
-        
+
     }
 }

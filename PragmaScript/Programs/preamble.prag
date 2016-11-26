@@ -12,12 +12,12 @@ let __chkstk = extern fun () => void;
 
 let print_string = fun (s: string) => void
 {
- 	WriteFile(console_output_handle, s.data, s.length, (i32*)nullptr, nullptr);
+ 	Windows.WriteFile(Windows.console_output_handle, s.data, s.length, (i32*)nullptr, nullptr);
 }
 
 let print_error = fun (s: string) => void
 {
-	WriteFile(console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
+	Windows.WriteFile(Windows.console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
 }
 
 

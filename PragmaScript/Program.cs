@@ -41,6 +41,8 @@ namespace PragmaScript
         public static List<string> lib_path = new List<string>();
         public static bool dll = false;
         public static string output = "output.exe";
+
+        internal static FunctionDefinition entry;
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
@@ -56,9 +58,9 @@ namespace PragmaScript
             CompilerOptions.optimizationLevel = 0;
             CompilerOptions.runAfterCompile = true;
 
-            // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\win32_handmade.prag";
+            CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\win32_handmade.prag";
             // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
-            CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
+            // CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
             // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\preamble.prag";
 #endif
             if (CompilerOptions.inputFilename == null)
@@ -331,89 +333,71 @@ namespace PragmaScript
             }
         }
 
-        static FunctionDefinition findEntryPoint(ProgramRoot root)
+        static void setEntryPoint(FunctionDefinition entry)
         {
-            FunctionDefinition result = null;
-            foreach (var fr in root.files)
+
+            Debug.Assert(entry.GetAttribute("COMPILE.ENTRY") == "TRUE");
+            var d = entry;
+
+            var output = d.GetAttribute("COMPILE.OUTPUT", false);
+            if (output != null)
             {
-                foreach (var d in fr.declarations)
+                CompilerOptions.output = output;
+            }
+
+            var debug = d.GetAttribute("COMPILE.DEBUG");
+            if (debug == "TRUE")
+            {
+                CompilerOptions.debug = true;
+            }
+            else if (debug == "FALSE")
+            {
+                CompilerOptions.debug = false;
+            }
+
+            var opt = d.GetAttribute("COMPILE.OPT");
+            if (int.TryParse(opt, out int opt_level))
+            {
+                CompilerOptions.optimizationLevel = opt_level;
+            }
+
+            var run = d.GetAttribute("COMPILE.RUN");
+            if (run == "TRUE")
+            {
+                CompilerOptions.runAfterCompile = true;
+            }
+            else if (run == "FALSE")
+            {
+                CompilerOptions.runAfterCompile = false;
+            }
+
+            var dll = d.GetAttribute("COMPILE.DLL");
+            if (dll == "TRUE")
+            {
+                CompilerOptions.dll = true;
+            }
+            else if (dll == "FALSE")
+            {
+                CompilerOptions.dll = false;
+            }
+
+
+            var libs = d.GetAttribute("COMPILE.LIBS", upperCase: false);
+            if (libs != null)
+            {
+                var ls = libs.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var lib in ls)
                 {
-                    if (d.GetAttribute("COMPILE.ENTRY") == "TRUE")
-                    {
-                        if (!(d is FunctionDefinition))
-                        {
-                            throw new ParserError("COMPILE.ENTRY attribute can only be on function definitions", d.token);
-                        }
-                        if (result != null)
-                        {
-                            throw new ParserError("Entry point already defined.", d.token);
-                        }
-                        result = d as FunctionDefinition;
-
-                        var output = d.GetAttribute("COMPILE.OUTPUT", false);
-                        if (output != null)
-                        {
-                            CompilerOptions.output = output;
-                        }
-
-                        var debug = d.GetAttribute("COMPILE.DEBUG");
-                        if (debug == "TRUE")
-                        {
-                            CompilerOptions.debug = true;
-                        }
-                        else if (debug == "FALSE")
-                        {
-                            CompilerOptions.debug = false;
-                        }
-
-                        var opt = d.GetAttribute("COMPILE.OPT");
-                        if (int.TryParse(opt, out int opt_level))
-                        {
-                            CompilerOptions.optimizationLevel = opt_level;
-                        }
-
-                        var run = d.GetAttribute("COMPILE.RUN");
-                        if (run == "TRUE")
-                        {
-                            CompilerOptions.runAfterCompile = true;
-                        }
-                        else if (run == "FALSE")
-                        {
-                            CompilerOptions.runAfterCompile = false;
-                        }
-
-                        var dll = d.GetAttribute("COMPILE.DLL");
-                        if (dll == "TRUE")
-                        {
-                            CompilerOptions.dll = true;
-                        }
-                        else if (dll == "FALSE")
-                        {
-                            CompilerOptions.dll = false;
-                        }
-
-
-                        var libs = d.GetAttribute("COMPILE.LIBS", upperCase: false);
-                        if (libs != null)
-                        {
-                            var ls = libs.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                            foreach (var lib in ls)
-                            {
-                                var tlib = lib.Trim();
-                                CompilerOptions.libs.Add(tlib);
-                            }
-                        }
-
-                        var lib_path = d.GetAttribute("COMPILE.PATH", upperCase: false);
-                        if (lib_path != null)
-                        {
-                            CompilerOptions.lib_path.Add(lib_path);
-                        }
-
-                    }
+                    var tlib = lib.Trim();
+                    CompilerOptions.libs.Add(tlib);
                 }
             }
-            return result;
+
+            var lib_path = d.GetAttribute("COMPILE.PATH", upperCase: false);
+            if (lib_path != null)
+            {
+                CompilerOptions.lib_path.Add(lib_path);
+            }
         }
 
         static void compile(string filename)
@@ -494,7 +478,12 @@ namespace PragmaScript
 #endif
             }
 
-            var entry = findEntryPoint(root);
+            var entry = CompilerOptions.entry;
+            if (entry != null)
+            {
+                setEntryPoint(entry);
+            }
+            
 
 #if DEBUG
             //Console.WriteLine("rendering graph...");
@@ -503,7 +492,7 @@ namespace PragmaScript
             //    renderGraph(fr, "");
             //}
 
-#endif      
+#endif
             timer.Stop();
 #if DISPLAY_TIMINGS
             Console.WriteLine($"{timer.ElapsedMilliseconds}ms");

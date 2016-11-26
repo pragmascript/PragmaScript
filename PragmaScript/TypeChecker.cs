@@ -493,35 +493,29 @@ namespace PragmaScript
 
         void checkType(AST.StructConstructor node)
         {
-            var td = node.scope.GetType(node.structName);
-
-            if (td == null)
-            {
-                throw new ParserError($"Unknown type: \"{node.structName}\"", node.token);
-            }
+            //var td = node.scope.GetType(node.structName);
+            //if (td == null)
+            //{
+            //    throw new ParserError($"Unknown type: \"{node.structName}\"", node.token);
+            //}
 
             FrontendStructType structType = null;
-            if (td.type == null)
+            checkTypeDynamic(node.typeString);
+            var ts = getType(node.typeString);
+
+            if (ts == null)
             {
-                var t = getType(td.node);
-                if (t == null)
-                {
-                    addUnresolved(node, td.node);
-                }
-                else
-                {
-                    if (!(t is FrontendStructType))
-                    {
-                        throw new ParserErrorExpected("struct type", t.name, node.token);
-                    }
-                    structType = t as FrontendStructType;
-                }
+                addUnresolved(node, node.typeString);
             }
             else
             {
-                Debug.Assert(td.type is FrontendStructType);
-                structType = td.type as FrontendStructType;
+                if (!(ts is FrontendStructType))
+                {
+                    throw new ParserErrorExpected("struct type", ts.name, node.token);
+                }
+                structType = ts as FrontendStructType;
             }
+
 
             List<FrontendType> argTypes = new List<FrontendType>();
             foreach (var arg in node.argumentList)
@@ -877,6 +871,12 @@ namespace PragmaScript
                             isNamespace = true;
                             node.kind = AST.FieldAccess.AccessKind.Namespace;
                             var vd = ns.scope.GetVar(node.fieldName);
+
+                            if (vd == null)
+                            {
+                                throw new ParserError($"Unknown variable \"{node.fieldName}\" in namespace \"{ns}\"", node.token);
+                            }
+
                             if (vd.type != null)
                             {
                                 resolve(node, vd.type);
@@ -1159,152 +1159,130 @@ namespace PragmaScript
         void checkType(AST.TypeString node)
         {
 
-            bool waitingForAllocationCount = false;
-            if (node.allocationCount != null)
+            switch (node.kind)
             {
-                checkTypeDynamic(node.allocationCount);
-                var act = getType(node.allocationCount);
-                if (act != null)
-                {
-                    // TODO: check for constant
-                    if (!FrontendType.IsIntegerOrLateBind(act))
+                case AST.TypeString.TypeKind.Other:
                     {
-                        throw new ParserError("Allocation count must be a constant integer", node.allocationCount.token);
-                    }
-
-                }
-                else
-                {
-                    waitingForAllocationCount = true;
-                }
-            }
-            if (!waitingForAllocationCount)
-            {
-                switch (node.kind)
-                {
-                    case AST.TypeString.TypeKind.Other:
+                        var base_t_def = node.scope.GetType(node.fullyQualifiedName);
+                        if (base_t_def == null)
                         {
-                            var base_t_def = node.scope.GetType(node.fullyQualifiedName);
-                            if (base_t_def == null)
+                            throw new ParserError($"Unknown type: \"{node.fullyQualifiedName}\"", node.token);
+                        }
+                        FrontendType base_t = null;
+                        if (base_t_def.type != null)
+                        {
+                            base_t = base_t_def.type;
+                        }
+                        else
+                        {
+                            if (pre_resolved.ContainsKey(base_t_def.node) && node.isPointerType)
                             {
-                                throw new ParserError($"Unknown type: \"{node.fullyQualifiedName}\"", node.token);
+                                base_t = pre_resolved[base_t_def.node];
                             }
-                            FrontendType base_t = null;
-                            if (base_t_def.type != null)
+                            var nt = getType(base_t_def.node);
+                            if (nt == null)
                             {
-                                base_t = base_t_def.type;
+                                addUnresolved(node, base_t_def.node);
                             }
                             else
                             {
-                                if (pre_resolved.ContainsKey(base_t_def.node) && node.isPointerType)
-                                {
-                                    base_t = pre_resolved[base_t_def.node];
-                                }
-                                var nt = getType(base_t_def.node);
-                                if (nt == null)
-                                {
-                                    addUnresolved(node, base_t_def.node);
-                                }
-                                else
-                                {
-                                    base_t = nt;
-                                }
-                            }
-                            if (base_t != null)
-                            {
-                                FrontendType result = base_t;
-                                if (node.isArrayType)
-                                {
-                                    Debug.Assert(!node.isPointerType);
-                                    result = new FrontendArrayType(base_t);
-                                }
-                                else if (node.isPointerType)
-                                {
-                                    result = base_t;
-                                    for (int i = 0; i < node.pointerLevel; ++i)
-                                    {
-                                        result = new FrontendPointerType(result);
-                                    }
-                                }
-                                resolve(node, result);
+                                base_t = nt;
                             }
                         }
-                        break;
-                    case AST.TypeString.TypeKind.Function:
+                        if (base_t != null)
                         {
-                            var fts = node.functionTypeString;
-                            List<FrontendType> parameterTypes = new List<FrontendType>();
-                            List<FrontendType> optionalExpressionTypes = new List<FrontendType>();
-                            int optionalCount = 0;
-                            foreach (var p in fts.parameters)
+                            FrontendType result = base_t;
+                            if (node.isArrayType)
                             {
-                                checkTypeDynamic(p.typeString);
-                                var pt = getType(p.typeString);
-                                if (pt != null)
+                                Debug.Assert(!node.isPointerType);
+                                result = new FrontendArrayType(base_t);
+                            }
+                            else if (node.isPointerType)
+                            {
+                                result = base_t;
+                                for (int i = 0; i < node.pointerLevel; ++i)
                                 {
-                                    parameterTypes.Add(pt);
+                                    result = new FrontendPointerType(result);
+                                }
+                            }
+                            resolve(node, result);
+                        }
+                    }
+                    break;
+                case AST.TypeString.TypeKind.Function:
+                    {
+                        var fts = node.functionTypeString;
+                        List<FrontendType> parameterTypes = new List<FrontendType>();
+                        List<FrontendType> optionalExpressionTypes = new List<FrontendType>();
+                        int optionalCount = 0;
+                        foreach (var p in fts.parameters)
+                        {
+                            checkTypeDynamic(p.typeString);
+                            var pt = getType(p.typeString);
+                            if (pt != null)
+                            {
+                                parameterTypes.Add(pt);
+                            }
+                            else
+                            {
+                                addUnresolved(node, p.typeString);
+                            }
+                            if (p.defaultValueExpression != null)
+                            {
+                                optionalCount++;
+                                checkTypeDynamic(p.defaultValueExpression);
+                                var et = getType(p.defaultValueExpression);
+                                if (et != null)
+                                {
+                                    optionalExpressionTypes.Add(et);
                                 }
                                 else
                                 {
-                                    addUnresolved(node, p.typeString);
+                                    addUnresolved(node, p.defaultValueExpression);
                                 }
-                                if (p.defaultValueExpression != null)
-                                {
-                                    optionalCount++;
-                                    checkTypeDynamic(p.defaultValueExpression);
-                                    var et = getType(p.defaultValueExpression);
-                                    if (et != null)
-                                    {
-                                        optionalExpressionTypes.Add(et);
-                                    }
-                                    else
-                                    {
-                                        addUnresolved(node, p.defaultValueExpression);
-                                    }
-                                }
-                            }
-                            bool all_ps = parameterTypes.Count == fts.parameters.Count;
-
-                            if (all_ps && optionalCount == optionalExpressionTypes.Count)
-                            {
-                                int o_idx = 0;
-                                for (int i = 0; i < parameterTypes.Count; ++i)
-                                {
-                                    if (fts.parameters[i].defaultValueExpression != null)
-                                    {
-                                        var pt = parameterTypes[i];
-                                        var opt = optionalExpressionTypes[o_idx++];
-                                        if (!FrontendType.CompatibleAndLateBind(opt, pt))
-                                        {
-                                            throw new ParserExpectedArgumentType(pt, opt, i + 1, fts.parameters[i].defaultValueExpression.token);
-                                        }
-                                    }
-                                }
-                            }
-
-                            checkTypeDynamic(fts.returnType);
-                            var returnType = getType(fts.returnType);
-                            if (returnType == null)
-                            {
-                                addUnresolved(node, fts.returnType);
-                            }
-                            if (returnType != null && all_ps && optionalCount == optionalExpressionTypes.Count)
-                            {
-                                var result = new FrontendFunctionType(null);
-                                for (int idx = 0; idx < fts.parameters.Count; ++idx)
-                                {
-                                    var p = fts.parameters[idx];
-                                    result.AddParam(p.name, parameterTypes[idx], p.isOptional(), p.embed);
-                                }
-                                result.returnType = returnType;
-                                resolve(node, result);
                             }
                         }
-                        break;
-                    case AST.TypeString.TypeKind.Struct:
-                        throw new NotImplementedException();
+                        bool all_ps = parameterTypes.Count == fts.parameters.Count;
 
-                }
+                        if (all_ps && optionalCount == optionalExpressionTypes.Count)
+                        {
+                            int o_idx = 0;
+                            for (int i = 0; i < parameterTypes.Count; ++i)
+                            {
+                                if (fts.parameters[i].defaultValueExpression != null)
+                                {
+                                    var pt = parameterTypes[i];
+                                    var opt = optionalExpressionTypes[o_idx++];
+                                    if (!FrontendType.CompatibleAndLateBind(opt, pt))
+                                    {
+                                        throw new ParserExpectedArgumentType(pt, opt, i + 1, fts.parameters[i].defaultValueExpression.token);
+                                    }
+                                }
+                            }
+                        }
+
+                        checkTypeDynamic(fts.returnType);
+                        var returnType = getType(fts.returnType);
+                        if (returnType == null)
+                        {
+                            addUnresolved(node, fts.returnType);
+                        }
+                        if (returnType != null && all_ps && optionalCount == optionalExpressionTypes.Count)
+                        {
+                            var result = new FrontendFunctionType(null);
+                            for (int idx = 0; idx < fts.parameters.Count; ++idx)
+                            {
+                                var p = fts.parameters[idx];
+                                result.AddParam(p.name, parameterTypes[idx], p.isOptional(), p.embed);
+                            }
+                            result.returnType = returnType;
+                            resolve(node, result);
+                        }
+                    }
+                    break;
+                case AST.TypeString.TypeKind.Struct:
+                    throw new NotImplementedException();
+
             }
         }
 

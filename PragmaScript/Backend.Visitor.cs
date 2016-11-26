@@ -157,9 +157,53 @@ namespace PragmaScript
 
         public void Visit(AST.Namespace node)
         {
-            foreach (var d in node.declarations)
+            var functionDefinitions = new List<AST.Node>();
+            var constVariables = new List<AST.Node>();
+            var variables = new List<AST.Node>();
+            var other = new List<AST.Node>();
+
+            // visit function definitions make prototypes
+            foreach (var decl in node.declarations)
             {
-                Visit(d);
+                if (decl is AST.VariableDefinition vd)
+                {
+                    if (vd.variable.isConstant)
+                    {
+                        constVariables.Add(decl);
+                    }
+                    else
+                    {
+                        variables.Add(decl);
+                    }
+                }
+                else if (decl is AST.FunctionDefinition)
+                {
+                    functionDefinitions.Add(decl);
+                    if (!(decl as AST.FunctionDefinition).external)
+                    {
+                        other.Add(decl);
+                    }
+                }
+                else
+                {
+                    other.Add(decl);
+                }
+            }
+            foreach (var decl in functionDefinitions)
+            {
+                Visit(decl as AST.FunctionDefinition, proto: true);
+            }
+            foreach (var decl in constVariables)
+            {
+                Visit(decl as AST.VariableDefinition);
+            }
+            foreach (var decl in variables)
+            {
+                Visit(decl as AST.VariableDefinition);
+            }
+            foreach (var decl in other)
+            {
+                Visit(decl);
             }
         }
 
@@ -1020,13 +1064,13 @@ namespace PragmaScript
                         LLVM.BuildStore(builder, v, result);
                     }
                 }
-                if (node.typeString != null && node.typeString.allocationCount != null)
+                if (node.typeString != null && node.typeString.allocationCount > 0)
                 {
                     var insert = LLVM.GetInsertBlock(builder);
                     LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
                     Debug.Assert(node.expression == null);
-                    Visit(node.typeString.allocationCount);
-                    var ac = valueStack.Pop();
+
+                    var ac = LLVM.ConstInt(LLVM.Int32Type(), (ulong)node.typeString.allocationCount, false);
                     var et = LLVM.GetElementType(vType);
 
                     var alloc = LLVM.BuildArrayAlloca(builder, et, ac, "alloca");
