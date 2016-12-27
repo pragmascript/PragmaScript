@@ -1,19 +1,21 @@
 import "preamble.prag"
 import "handmade_interface.prag"
+import "handmade_math.prag"
 
 namespace Handmade.Game
 {
     let game_state = struct
     (
         is_initialized: bool;
-        x_offset: f32;
-        y_offset: f32;
+
         volume: f32;
         target_volume: f32;
         tone_hz: f32;
         target_tone_hz: f32;
         phase_shift: f32;
         t_sine: f32;
+
+        last_seconds: i32;
 
         exit: bool;
         exit_start_time: f32;
@@ -22,7 +24,12 @@ namespace Handmade.Game
     );
 
     ["dll.export"]
-    let game_update_and_render: game_update_and_render =
+    let game_update_and_render = fun
+    (
+        memory: game_memory*;
+        input: game_input*;
+        render_target: game_render_target*;
+    ) => bool
     {
         var result = true;
         var game_state = get_game_state(memory);
@@ -36,41 +43,57 @@ namespace Handmade.Game
             } else {
                 var t = (input.time.t - game_state.exit_start_time) / exit_duration;
                 game_state.exit_norm_time = t;
-                game_state.target_volume = lerp(game_state.exit_start_volume, 0.0, t);
+                game_state.target_volume = Math.lerp(game_state.exit_start_volume, 0.0, t);
             }
         }
-        render_weird_gradient(game_state, input, render_target);
+        // render_player((i32)input.mouse_x, (i32)input.mouse_y, input, render_target);
+        let size = 15;
+
+        var background_color = color { 0.2, 0.2, 0.2, 1.0 };
+        var red = color {1.0, 0.0, 0.0, 1.0};
+        
+        draw_rectangle(render_target, min_max_rect(0, 0, render_target.width, render_target.height), background_color);
+        
+        // draw mouse cursor
+        if (!input.left_mb.pressed) {
+            draw_rectangle(render_target, center_half_size_rect(input.mouse_x, input.mouse_y, size), red);
+        } else {
+            draw_rectangle(render_target, center_half_size_rect(input.mouse_x, input.mouse_y, 20), red);   
+        }
+        
+        consume_buttons(input);
         return result;
     }
 
     ["dll.export"]
-    let game_output_sound: game_output_sound = 
+    let game_output_sound = fun
+    (
+        game_memory: game_memory*; 
+        @sound_output: game_sound_output*;
+    ) => void
     {
         var game_state = get_game_state(game_memory);
-
-        var wave_period = 2 * pi_32;
+        var wave_period = 2 * Math.pi_32;
         var sample = sample_out;
         assert((ptr)sample != nullptr);
 
         var t_sine = game_state.t_sine;
-
-        var phase_shift = 2*pi_32*t_sine * (game_state.tone_hz - game_state.target_tone_hz)
+        var phase_shift = 2*Math.pi_32*t_sine * (game_state.tone_hz - game_state.target_tone_hz)
                         + game_state.phase_shift;
         game_state.tone_hz = game_state.target_tone_hz;
-
-        
         var delta_t = 1.0 / (f32)samples_per_second;
         for (var i: i32 = 0; i < sample_count; ++i) {
             var t = (f32)i / (f32)(sample_count - 1);
-            var v = lerp(game_state.volume, game_state.target_volume, t);
+            var v = Math.lerp(game_state.volume, game_state.target_volume, t);
             var p = game_state.tone_hz * wave_period * t_sine;
             
-            var x = (i16)(32767 * v * sinf(p + phase_shift));
+            var x = (i16)(32767 * v * Math.sinf(p + phase_shift));
             *sample++ = x;
             *sample++ = x;
             t_sine += delta_t;
         }
-        game_state.t_sine = remainder(t_sine, wave_period);
+        
+        game_state.t_sine = t_sine;
         game_state.phase_shift = phase_shift;
         game_state.volume = game_state.target_volume;
     }
@@ -79,9 +102,9 @@ namespace Handmade.Game
     {
         var game_state = (game_state*)memory.permanent_data;
         if (!game_state.is_initialized) {
-            game_state.tone_hz = 128;
+            game_state.tone_hz = 256;
             game_state.target_tone_hz = 128;
-            game_state.target_volume = 0.05;
+            game_state.target_volume = 0.0;
             game_state.is_initialized = true;
         }
         return game_state;
@@ -93,45 +116,11 @@ namespace Handmade.Game
         @game_input: game_input*; 
     ) => void 
     {
-        var dt = time.dt;
         if (request_quit && !exit) {
             exit = true;
             exit_start_time = time.t;
             exit_start_volume = volume;
         }
-        if (left_arrow.pressed) {
-            x_offset += dt * 150.0;
-            target_volume -= dt * 0.02;
-            if (target_volume < 0) {
-                target_volume = 0;
-            }
-        }
-        if (right_arrow.pressed) {
-            x_offset -= dt * 150.0;
-            target_volume += dt * 0.02;
-        }
-        if (up_arrow.pressed) {
-            y_offset += dt * 150.0;
-            // target_tone_hz += dt * 60.0;
-        }
-        if (down_arrow.pressed) {
-            y_offset -= dt * 150.0;
-            // target_tone_hz -= dt * 60;
-            // if (target_tone_hz < 0) {
-            // 	target_tone_hz = 0;
-            // }
-        }
-        if (down_arrow.down) {
-            target_tone_hz -= 25;
-            if (target_tone_hz < 0) {
-                target_tone_hz = 0;
-            }
-        }
-        if (up_arrow.down) {
-            target_tone_hz += 25;
-        }
-
-        consume_buttons(game_input);
     }
 
     let consume_buttons = fun
@@ -143,51 +132,67 @@ namespace Handmade.Game
         consume_button(&down_arrow);
         consume_button(&left_arrow);
         consume_button(&right_arrow);
+        consume_button(&left_mb);
+        consume_button(&right_mb);
+        consume_button(&middle_mb);
     }
 
     let consume_button = fun
     (
-        @button: game_keyboard_button*;
+        @button: game_button*;
     ) => void
     {
         down = false;
         up = false;
     }
 
-    let render_weird_gradient = fun 
+
+    let draw_rectangle = fun
     (
-        game_state: game_state*; 
-        input: game_input*;
-        buffer: game_render_target*
-    ) => void 
+        buffer: game_render_target*;
+        rect: rectangle;
+        color: color;
+    ) => void
     {
-            
-        var t = (i32)(input.time.t * 2);
-        var dx = (i32)game_state.x_offset;
-        var dy = (i32)game_state.y_offset;
-        var width  = buffer.width;
-        var height = buffer.height;
-        var pitch  = buffer.pitch;
-        var row = (i8*)buffer.memory;
-        for (var j = 0; j < height; ++j) {
+        var min_x_p = (i32)round(rect.pos.x);
+        var min_y_p = (i32)round(rect.pos.y);
+        var max_x_p = (i32)round(rect.pos.x + rect.size.x);
+        var max_y_p = (i32)round(rect.pos.y + rect.size.y);
+        if (min_x_p < 0) {
+            min_x_p = 0;
+        }
+        if (min_y_p < 0) {
+            min_y_p = 0;
+        }
+        if (max_x_p > buffer.width) {
+            max_x_p = buffer.width;
+        }
+        if (max_y_p > buffer.height) {
+            max_y_p = buffer.height;
+        }
+
+        var r = (i32)round(color.r * 255);
+        r = Math.clamp_i32(r, 0, 255);
+        var g = (i32)round(color.g * 255);
+        g = Math.clamp_i32(g, 0, 255);
+        var b = (i32)round(color.b * 255);
+        b = Math.clamp_i32(b, 0, 255);
+        var c = (r << 16) | (g << 8) | (b << 0);
+
+        var row: i8* = buffer.memory;
+        row += min_y_p * buffer.pitch;
+        row += 4 * min_x_p;
+        for (var y = min_y_p; y < max_y_p; ++y)
+        {
             var pixel = (i32*)row;
-            for (var i = 0; i < width; ++i) {
-                var x = i + dx;
-                var y = j + dy;
-                var r = (i8)(x^y^(1*t*t));
-                var g = (i8)y; 
-                var b = (i8)x;
-                if (game_state.exit) {
-                    r = (i8)((f32\)r * (1.0-game_state.exit_norm_time));
-                    g = (i8)((f32\)g * (1.0-game_state.exit_norm_time));
-                    b = (i8)((f32\)b * (1.0-game_state.exit_norm_time));
-                }
-                *pixel = ((i32\)r << 16) | ((i32\)g << 8) | (i32\)b;
-                pixel++;
-            }
-            row += pitch;
+            for (var x = min_x_p; x < max_x_p; ++x)
+            {
+                *pixel++ = c;    
+            }    
+            row += buffer.pitch;
         }
     }
+
     [
     "compile.entry",
     "compile.dll"   : "true",

@@ -27,7 +27,7 @@ namespace PragmaScript
             public LLVMBasicBlockRef loopNext;
             public LLVMBasicBlockRef loopEnd;
 
-            public Token defaultParameterCallsite = Token.Undefined;
+            public AST.Node defaultParameterCallsite = null;
 
 
             public ExecutionContext(LLVMValueRef function, string functionName, LLVMBasicBlockRef entry, LLVMBasicBlockRef vars, bool global = false)
@@ -387,6 +387,13 @@ namespace PragmaScript
             }
         }
 
+        void BuildMemCpy(LLVMValueRef dest, LLVMValueRef source, LLVMValueRef count)
+        {
+            var args = new LLVMValueRef[] { dest, source, count, Const.ZeroInt32, Const.False };
+            LLVM.BuildCall(builder, variables["memcpy"], out args[0], 5, "");
+        }
+
+
         // http://stackoverflow.com/questions/11985247/llvm-insert-intrinsic-function-cos
         // http://stackoverflow.com/questions/27681500/generate-call-to-intrinsic-using-llvm-c-api
         void addIntrinsics()
@@ -441,11 +448,14 @@ namespace PragmaScript
                 LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
                 LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.round.f32", fn_type);
                 variables.Add("round", fn);
-
-
-
-              
             }
+            {
+                LLVMTypeRef[] param_types = { Const.Int8PointerType, Const.Int8PointerType, Const.Int32Type, Const.Int32Type, Const.BoolType };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.VoidType, out param_types[0], 5, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.memcpy.p0i8.p0i8.i32", fn_type);
+                variables.Add("memcpy", fn);
+            }
+
         }
 
         void addSpecialFuncitons()
@@ -459,49 +469,6 @@ namespace PragmaScript
 
         void addPreamble()
         {
-
-            var byte_ptr_type = LLVM.PointerType(LLVM.Int8Type(), 0);
-            {
-                LLVMTypeRef[] param_types = {
-                    LLVM.Int64Type(),    // 0
-                    byte_ptr_type,       // 1
-                    LLVM.Int32Type(),    // 2
-                    LLVM.PointerType(LLVM.Int32Type(), 0),       // 3
-                    byte_ptr_type,       // 4
-                };
-                LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int32Type(), param_types, Const.FalseBool);
-                var fun = LLVM.AddFunction(mod, "WriteFile", fun_type);
-
-                var p1 = LLVM.GetParam(fun, 1);
-                LLVM.AddAttribute(p1, LLVMAttribute.LLVMNoCaptureAttribute);
-                var p3 = LLVM.GetParam(fun, 3);
-                LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
-
-                LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
-                variables.Add("WriteFile", fun);
-            }
-
-            {
-                LLVMTypeRef[] param_types = {
-                    LLVM.Int64Type(),   // 0
-                    byte_ptr_type,      // 1
-                    LLVM.Int32Type(),   // 2
-                    LLVM.PointerType(LLVM.Int32Type(), 0),       // 3
-                    byte_ptr_type,      // 4
-                };
-                LLVMTypeRef fun_type = LLVM.FunctionType(LLVM.Int32Type(), param_types, Const.FalseBool);
-                var fun = LLVM.AddFunction(mod, "ReadFile", fun_type);
-
-                var p1 = LLVM.GetParam(fun, 1);
-                LLVM.AddAttribute(p1, LLVMAttribute.LLVMNoCaptureAttribute);
-                var p3 = LLVM.GetParam(fun, 3);
-                LLVM.AddAttribute(p3, LLVMAttribute.LLVMNoCaptureAttribute);
-
-                LLVM.AddFunctionAttr(fun, LLVMAttribute.LLVMNoUnwindAttribute);
-                variables.Add("ReadFile", fun);
-
-                
-            }
         }
 
         void prepareModule()
@@ -537,10 +504,6 @@ namespace PragmaScript
             variables.Add("__chkstk", fun);
 
             
-
-            // Console.WriteLine(Marshal.PtrToStringAnsi(msg));
-            //LLVM.LinkModules(mod, m, LLVMLinkerMode.LLVMLinkerDestroySource, out msg);
-            //Console.WriteLine(Marshal.PtrToStringAnsi(msg));
             addIntrinsics();
             addSpecialFuncitons();
             addPreamble();

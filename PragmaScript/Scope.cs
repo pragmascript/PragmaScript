@@ -99,6 +99,8 @@ namespace PragmaScript
         public Scope parent;
         public AST.FunctionDefinition function;
         public Namespace namesp;
+        public List<Namespace> importedNamespaces = new List<Namespace>();
+
         public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
         public Dictionary<string, TypeDefinition> types = new Dictionary<string, TypeDefinition>();
 
@@ -108,7 +110,7 @@ namespace PragmaScript
             this.function = function;
         }
 
-        public VariableDefinition GetVar(string name)
+        public VariableDefinition GetVar(string name, Token from, bool recurse = true)
         {
             VariableDefinition result;
 
@@ -116,10 +118,33 @@ namespace PragmaScript
             {
                 return result;
             }
-
-            if (parent != null)
+            Namespace result_ns = null;
+            foreach (var ns in importedNamespaces)
             {
-                return parent.GetVar(name);
+
+                if (ns.scope.variables.TryGetValue(name, out var vd))
+                {
+                    if (result != null)
+                    {
+                        var p0 = $"\"{result_ns.GetPath()}.{name}\"";
+                        var p1 = $"\"{ns.GetPath()}.{name}\"";
+                        throw new ParserError($"Access to variable is ambigious between {p0} and {p1}.", from);
+                    }
+                    else
+                    {
+                        result = vd;
+                        result_ns = ns;
+                    }
+                }
+            }
+            if (result != null)
+            {
+                return result;
+            }
+
+            if (recurse && parent != null)
+            {
+                return parent.GetVar(name, from);
             }
             else
             {
@@ -160,11 +185,13 @@ namespace PragmaScript
         }
 
 
-        public TypeDefinition GetType(FullyQualifiedName typeName)
+        public TypeDefinition GetType(FullyQualifiedName typeName, Token from)
         {
             if (typeName.path.Count == 1)
             {
-                var result = GetType(typeName.GetName());
+                var name = typeName.GetName();
+                var result = getType(name, true, from);
+               
                 return result;
             }
             else
@@ -178,7 +205,7 @@ namespace PragmaScript
                 }
                 if (ns != null)
                 {
-                    return ns.scope.GetType(typeName.GetName());
+                    return ns.scope.getType(typeName.GetName(), false, from);
                 }
                 else
                 {
@@ -189,13 +216,22 @@ namespace PragmaScript
             }
         }
 
-        public TypeDefinition GetType(string typeName)
+        TypeDefinition getType(string typeName, bool recursive, Token from)
         {
-            var result = this.getTypeRec(typeName);
+            TypeDefinition result;
+            if (recursive)
+            {
+                result = this.getTypeRec(typeName, from);
+            }
+            else
+            {
+                types.TryGetValue(typeName, out result);
+
+            }
             return result;
         }
 
-        TypeDefinition getTypeRec(string typeName)
+        TypeDefinition getTypeRec(string typeName, Token from)
         {
             TypeDefinition result;
 
@@ -204,9 +240,34 @@ namespace PragmaScript
                 return result;
             }
 
+            if (result == null)
+            {
+                Namespace result_ns = null;
+                foreach (var ns in importedNamespaces)
+                {
+                    if (ns.scope.types.TryGetValue(typeName, out var td))
+                    {
+                        if (result != null)
+                        {
+                            var p0 = $"\"{result_ns.GetPath()}.{typeName}\"";
+                            var p1 = $"\"{ns.GetPath()}.{typeName}\"";
+                            throw new ParserError($"Access to variable is ambigious between {p0} and {p1}.", from);
+                        }
+                        else
+                        {
+                            result = td;
+                            result_ns = ns;
+                        }
+                    }
+                }
+                if (result != null)
+                {
+                    return result;
+                }
+            }
             if (parent != null)
             {
-                return parent.getTypeRec(typeName);
+                return parent.getTypeRec(typeName, from);
             }
             else
             {
@@ -227,16 +288,37 @@ namespace PragmaScript
             types.Add(td.name, td);
         }
 
-        public Namespace AddNamespace(List<string> path)
+        public Scope GetRootScope()
+        {
+            Scope result = this;
+            while (result.parent != null)
+            {
+                result = result.parent;
+            }
+            return result;
+        }
+
+        public Namespace AddNamespace(List<string> path, bool root = false)
         {
             Debug.Assert(path.Count > 0);
 
-            var path_string = "";
-            if (namesp != null)
+            string path_string = null;
+            Scope root_scope;
+            if (root)
             {
-                path_string = namesp.GetPath();
+                root_scope = GetRootScope();
+                path_string = "";
             }
-            Scope parentScope = this;
+            else
+            {
+                root_scope = this;
+                if (namesp != null)
+                {
+                    path_string = namesp.GetPath();
+                }
+            }
+
+            Scope parentScope = root_scope;
             Namespace lastNamespace = namesp;
 
             foreach (var p in path)

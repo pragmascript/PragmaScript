@@ -673,7 +673,7 @@ namespace PragmaScript
             }
             if (node.scope.function == null || functionResolved)
             {
-                vd = node.scope.GetVar(node.variableName);
+                vd = node.scope.GetVar(node.variableName, node.token);
                 ns = node.scope.GetNamespace(node.variableName);
                 if (vd == null && ns == null)
                 {
@@ -870,11 +870,11 @@ namespace PragmaScript
                         {
                             isNamespace = true;
                             node.kind = AST.FieldAccess.AccessKind.Namespace;
-                            var vd = ns.scope.GetVar(node.fieldName);
+                            var vd = ns.scope.GetVar(node.fieldName, node.token, recurse:false);
 
                             if (vd == null)
                             {
-                                throw new ParserError($"Unknown variable \"{node.fieldName}\" in namespace \"{ns}\"", node.token);
+                                new ParserError($"Unknown variable \"{node.fieldName}\" in namespace \"{ns}\"", node.token);
                             }
 
                             if (vd.type != null)
@@ -1163,7 +1163,7 @@ namespace PragmaScript
             {
                 case AST.TypeString.TypeKind.Other:
                     {
-                        var base_t_def = node.scope.GetType(node.fullyQualifiedName);
+                        var base_t_def = node.scope.GetType(node.fullyQualifiedName, node.token);
                         if (base_t_def == null)
                         {
                             throw new ParserError($"Unknown type: \"{node.fullyQualifiedName}\"", node.token);

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -171,7 +172,7 @@ namespace PragmaScript
         public static List<string> parseImports(ref ParseState ps, Scope scope)
         {
             var result = new List<string>();
-
+            ps.SkipWhitespace();
             while (true)
             {
                 if (ps.CurrentToken().type == Token.TokenType.Import)
@@ -192,14 +193,9 @@ namespace PragmaScript
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Namespace);
 
-            
-
             var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
-
             var path = new List<string>();
             path.Add(ident.text);
-
-            
             while (true)
             {
                 if (ps.PeekToken().type == Token.TokenType.Dot)
@@ -213,7 +209,6 @@ namespace PragmaScript
                     break;
                 }
             }
-
             var ns = scope.AddNamespace(path);
             var result = new AST.Namespace(current, ns.scope);
 
@@ -232,9 +227,10 @@ namespace PragmaScript
             var current = ps.CurrentToken();
             Node result = null;
             bool ignoreSemicolon = false;
-
+            bool foundWith = false;
             do
             {
+                foundWith = false;
                 switch (current.type)
                 {
                     case Token.TokenType.Var:
@@ -276,6 +272,32 @@ namespace PragmaScript
                         {
                             result = parseNamespace(ref ps, scope);
                             ignoreSemicolon = true;
+                        }
+                        break;
+                    case Token.TokenType.With:
+                        {
+                            ps.ExpectCurrentToken(Token.TokenType.With);
+                            var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
+                            var path = new List<string>();
+                            path.Add(ident.text);
+                            while (true)
+                            {
+                                if (ps.PeekToken().type == Token.TokenType.Dot)
+                                {
+                                    ps.NextToken();
+                                    ident = ps.NextToken();
+                                    path.Add(ident.text);
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            var ns = scope.AddNamespace(path, root:true);
+                            scope.importedNamespaces.Add(ns);
+                            foundWith = true;
+                            ps.ExpectNextToken(Token.TokenType.Semicolon);
+                            current = ps.NextToken();
                         }
                         break;
                     case Token.TokenType.OpenSquareBracket:
@@ -322,7 +344,7 @@ namespace PragmaScript
                         }
                         break;
                 }
-            } while (ps.foundAttrib);
+            } while (ps.foundAttrib || foundWith);
             if (result == null)
             {
                 throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
