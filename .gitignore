@@ -1,5 +1,6 @@
 *.exe
 *.dll
+*.lib
 *.manifest
 
 ## Ignore Visual Studio temporary files, build results, and

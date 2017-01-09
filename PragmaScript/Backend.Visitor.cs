@@ -279,7 +279,7 @@ namespace PragmaScript
                 var at = LLVM.ArrayType(elem_type, str_length);
                 // if we are in a "global" scope dont allocate on the stack
                 arr_elem_ptr = LLVM.AddGlobal(mod, LLVM.ArrayType(elem_type, str_length), "str_arr");
-                LLVM.SetLinkage(arr_elem_ptr, LLVMLinkage.LLVMPrivateLinkage);
+                LLVM.SetLinkage(arr_elem_ptr, LLVMLinkage.LLVMInternalLinkage);
 
                 //LLVMValueRef[] bytes = new LLVMValueRef[str.Length];
                 //if (str.Length == 0)
@@ -1110,7 +1110,7 @@ namespace PragmaScript
                     var structType = GetTypeRef(typeChecker.GetNodeType(sc));
 
                     var v = LLVM.AddGlobal(mod, structType, node.variable.name);
-                    LLVM.SetLinkage(v, LLVMLinkage.LLVMPrivateLinkage);
+                    LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                     variables[node.variable.name] = v;
                     LLVM.SetInitializer(v, LLVM.ConstNull(structType));
 
@@ -1135,7 +1135,7 @@ namespace PragmaScript
                         var resultType = LLVM.TypeOf(result);
                         var v = LLVM.AddGlobal(mod, resultType, node.variable.name);
                         variables[node.variable.name] = v;
-                        LLVM.SetLinkage(v, LLVMLinkage.LLVMPrivateLinkage);
+                        LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                         if (LLVM.IsConstant(result))
                         {
                             LLVM.SetInitializer(v, result);
@@ -1152,7 +1152,7 @@ namespace PragmaScript
                         var vType = GetTypeRef(typeChecker.GetNodeType(node.typeString));
                         var v = LLVM.AddGlobal(mod, vType, node.variable.name);
                         variables[node.variable.name] = v;
-                        LLVM.SetLinkage(v, LLVMLinkage.LLVMPrivateLinkage);
+                        LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                         LLVM.SetInitializer(v, LLVM.ConstNull(vType));
                     }
                 }
@@ -1591,7 +1591,7 @@ namespace PragmaScript
                 }
                 else
                 {
-                    LLVM.SetLinkage(function, LLVMLinkage.LLVMPrivateLinkage);
+                    LLVM.SetLinkage(function, LLVMLinkage.LLVMInternalLinkage);
                 }
 
                 var vars = LLVM.AppendBasicBlock(function, "vars");

@@ -129,14 +129,14 @@ namespace PragmaScript
                 var flags = "/entry:__init";
                 if (CompilerOptions.dll)
                 {
-                    flags += $" /dll /out:{ox(".dll")}";
+                    flags += $" /dll /out:\"{ox(".dll")}\"";
                 }
                 else
                 {
                     flags += $" /subsystem:CONSOLE /out:{ox(".exe")}";
                 }
 
-                lldProcess.StartInfo.Arguments = $"{libs} {oxt(".o")} {flags} /libpath:\"{lib_path}\"";
+                lldProcess.StartInfo.Arguments = $"{libs} \"{oxt(".o")}\" {flags} /libpath:\"{lib_path}\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;

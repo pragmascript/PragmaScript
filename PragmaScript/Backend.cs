@@ -476,7 +476,7 @@ namespace PragmaScript
             // mod = LLVM.ModuleCreateWithName("WhatIsThisIDontEven");
             LLVMMemoryBufferRef buf;
             IntPtr msg;
-            LLVM.CreateMemoryBufferWithContentsOfFile(RelDir(@"Programs\ll\preamble.ll"), out buf, out msg);
+            LLVM.CreateMemoryBufferWithContentsOfFile(RelDir(@"External\preamble.ll"), out buf, out msg);
             if (msg != IntPtr.Zero)
             {
                 Console.WriteLine(Marshal.PtrToStringAnsi(msg));

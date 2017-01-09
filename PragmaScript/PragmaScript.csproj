@@ -151,6 +151,9 @@
       <SubType>Designer</SubType>
     </None>
     <Compile Include="Backend.AOT.cs" />
+    <None Include="External\preamble.ll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config">
       <SubType>Designer</SubType>
     </None>
