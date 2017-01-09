@@ -64,6 +64,7 @@ namespace PragmaScript
             // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "bugs.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "preamable.prag");
+
 #endif
             if (CompilerOptions.inputFilename == null)
             {
