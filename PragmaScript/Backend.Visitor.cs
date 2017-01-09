@@ -1567,11 +1567,11 @@ namespace PragmaScript
                 {
                     LLVMValueRef param = LLVM.GetParam(function, (uint)i);
                     LLVM.SetValueName(param, fun.parameters[i].name);
-                    var p = node.typeString.functionTypeString.parameters[i].typeString;
-                    if (p.HasAttribute("LLVM.NOCAPTURE"))
-                    {
-                        LLVM.AddAttribute(param, LLVMAttribute.LLVMNoCaptureAttribute);
-                    }
+                    //var p = node.typeString.functionTypeString.parameters[i].typeString;
+                    //if (p.HasAttribute("LLVM.NOCAPTURE"))
+                    //{
+                    //    LLVM.AddAttribute(param, LLVMAttribute.LLVMNoCaptureAttribute);
+                    //}
                     // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
                 }
                 variables.Add(node.funName, function);
