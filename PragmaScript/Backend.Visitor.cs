@@ -148,7 +148,7 @@ namespace PragmaScript
             LLVM.BuildBr(builder, entry);
 
             LLVM.PositionBuilderAtEnd(builder, blockTemp);
-            
+
 
             LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
 
@@ -237,9 +237,7 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-
-
-
+        Dictionary<string, LLVMValueRef> stringTable = new Dictionary<string, LLVMValueRef>();
 
         public void Visit(AST.ConstString node, bool needsConversion = true)
         {
@@ -249,29 +247,61 @@ namespace PragmaScript
                 str = node.ConvertString();
             }
 
-            var bytes = System.Text.ASCIIEncoding.ASCII.GetBytes(str);
-
+            LLVMValueRef str_ptr = new LLVMValueRef();
+            // if (node.scope.function != null)
+            {
+                if (!stringTable.TryGetValue(str, out str_ptr))
+                {
+                    str_ptr = LLVM.BuildGlobalStringPtr(builder, str, "str");
+                    stringTable.Add(str, str_ptr);
+                }
+            }
+            
             var type = FrontendType.string_;
-
             var arr_struct_type = GetTypeRef(type);
-
             var insert = LLVM.GetInsertBlock(builder);
             LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
 
 
             var arr_struct_ptr = LLVM.BuildAlloca(builder, arr_struct_type, "arr_struct_alloca");
-
+            var str_length = (uint)str.Length;
             var elem_type = GetTypeRef(type.elementType);
+            var size = LLVM.ConstInt(Const.Int32Type, str_length, Const.FalseBool);
 
+            LLVMValueRef arr_elem_ptr = new LLVMValueRef();
+            // arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
+            if (node.scope.function != null)
+            {
+                arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
+            }
+            else
+            {
+                var at = LLVM.ArrayType(elem_type, str_length);
+                // if we are in a "global" scope dont allocate on the stack
+                arr_elem_ptr = LLVM.AddGlobal(mod, LLVM.ArrayType(elem_type, str_length), "str_arr");
+                LLVM.SetLinkage(arr_elem_ptr, LLVMLinkage.LLVMPrivateLinkage);
 
-            var size = LLVM.ConstInt(Const.Int32Type, (ulong)bytes.Length, Const.FalseBool);
-            var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
+                //LLVMValueRef[] bytes = new LLVMValueRef[str.Length];
+                //if (str.Length == 0)
+                //{
+                //    bytes = new LLVMValueRef[1];
+                //}
+                //for (int i = 0; i < str.Length; ++i)
+                //{
+                //    bytes[i] = LLVM.ConstInt(elem_type, (ulong)str[i], false);
+                //}
+                // LLVM.SetInitializer(arr_elem_ptr, LLVM.ConstArray(elem_type, out bytes[0], (uint)str.Length));
+                LLVM.SetInitializer(arr_elem_ptr, LLVM.ConstNull(at));
+                arr_elem_ptr = LLVM.BuildBitCast(builder, arr_elem_ptr, LLVM.PointerType(elem_type, 0), "str_ptr");
+            }
+            BuildMemCpy(arr_elem_ptr, str_ptr, size);
+
             // LLVM.SetAlignment(arr_elem_ptr, 4);
 
             // set array length in struct
             var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.ZeroInt32 };
             var gep_arr_length = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
-            LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int32Type, (ulong)bytes.Length, true), gep_arr_length);
+            LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int32Type, str_length, true), gep_arr_length);
 
             // set array elem pointer in struct
             var gep_idx_1 = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32 };
@@ -279,28 +309,21 @@ namespace PragmaScript
             LLVM.BuildStore(builder, arr_elem_ptr, gep_arr_elem_ptr);
 
 
-            for (int i = 0; i < bytes.Length; ++i)
-            {
-                var c = bytes[i];
-                var gep_idx = new LLVMValueRef[] { LLVM.ConstInt(Const.Int32Type, (ulong)i, Const.FalseBool) };
-                var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_" + i);
 
-                var store = LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int8Type, (ulong)c, true), gep);
-
-                // LLVM.SetAlignment(store, 4);
-            }
+            //for (int i = 0; i < bytes.Length; ++i)
+            //{
+            //    var c = bytes[i];
+            //    var gep_idx = new LLVMValueRef[] { LLVM.ConstInt(Const.Int32Type, (ulong)i, Const.FalseBool) };
+            //    var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_" + i);
+            //    var store = LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int8Type, (ulong)c, true), gep);
+            //    // LLVM.SetAlignment(store, 4);
+            //}
 
             var arr_struct = LLVM.BuildLoad(builder, arr_struct_ptr, "arr_struct_load");
-
             valueStack.Push(arr_struct);
 
             LLVM.PositionBuilderAtEnd(builder, insert);
-
-            // TODO: use memcopy intrinsic here use
-            // http://stackoverflow.com/questions/27681500/generate-call-to-intrinsic-using-llvm-c-api
-            // with
-            // http://llvm.org/docs/LangRef.html#standard-c-library-intrinsics
-
+            
         }
 
         //public void Visit(AST.UninitializedArray node)
@@ -1087,7 +1110,7 @@ namespace PragmaScript
                     var structType = GetTypeRef(typeChecker.GetNodeType(sc));
 
                     var v = LLVM.AddGlobal(mod, structType, node.variable.name);
-                    LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
+                    LLVM.SetLinkage(v, LLVMLinkage.LLVMPrivateLinkage);
                     variables[node.variable.name] = v;
                     LLVM.SetInitializer(v, LLVM.ConstNull(structType));
 
@@ -1112,7 +1135,7 @@ namespace PragmaScript
                         var resultType = LLVM.TypeOf(result);
                         var v = LLVM.AddGlobal(mod, resultType, node.variable.name);
                         variables[node.variable.name] = v;
-                        LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
+                        LLVM.SetLinkage(v, LLVMLinkage.LLVMPrivateLinkage);
                         if (LLVM.IsConstant(result))
                         {
                             LLVM.SetInitializer(v, result);
@@ -1129,7 +1152,7 @@ namespace PragmaScript
                         var vType = GetTypeRef(typeChecker.GetNodeType(node.typeString));
                         var v = LLVM.AddGlobal(mod, vType, node.variable.name);
                         variables[node.variable.name] = v;
-                        LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
+                        LLVM.SetLinkage(v, LLVMLinkage.LLVMPrivateLinkage);
                         LLVM.SetInitializer(v, LLVM.ConstNull(vType));
                     }
                 }
@@ -1184,7 +1207,7 @@ namespace PragmaScript
         public void Visit(AST.VariableReference node)
         {
 
-            var vd = node.scope.GetVar(node.variableName);
+            var vd = node.scope.GetVar(node.variableName, node.token);
             // if variable is function paramter just return it immediately
             if (vd.isFunctionParameter)
             {
@@ -1223,11 +1246,12 @@ namespace PragmaScript
             {
                 case "__file_pos__":
                     {
-                        var s = new AST.ConstString(node.left.token, node.left.scope);
+                        var callsite = ctx.Peek().defaultParameterCallsite;
+                        var s = new AST.ConstString(node.left.token, callsite.scope);
                         var fp = node.left.token.FilePosBackendString();
-                        if (ctx.Peek().defaultParameterCallsite != Token.Undefined)
+                        if (callsite != null)
                         {
-                            fp = ctx.Peek().defaultParameterCallsite.FilePosBackendString();
+                            fp = callsite.token.FilePosBackendString();
                         }
 
                         s.s = fp;
@@ -1240,6 +1264,10 @@ namespace PragmaScript
 
         public void Visit(AST.FunctionCall node)
         {
+            if (node.token.Line == 55)
+            {
+                int breakHere = 42;
+            }
             var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
 
             if (feft.specialFun)
@@ -1286,9 +1314,9 @@ namespace PragmaScript
                 var fts = fd.typeString.functionTypeString;
                 for (int idx = node.argumentList.Count; idx < feft.parameters.Count; ++idx)
                 {
-                    ctx.Peek().defaultParameterCallsite = node.token;
+                    ctx.Peek().defaultParameterCallsite = node;
                     Visit(fts.parameters[idx].defaultValueExpression);
-                    ctx.Peek().defaultParameterCallsite = Token.Undefined;
+                    ctx.Peek().defaultParameterCallsite = null;
                     parameters[idx] = valueStack.Pop();
                 }
             }
@@ -1517,10 +1545,6 @@ namespace PragmaScript
         public void Visit(AST.FunctionDefinition node, bool proto = false)
         {
             var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
-            if (node.funName == "assert")
-            {
-                int breakHere = 42;
-            }
             if (fun.inactiveConditional)
             {
                 return;
@@ -1535,18 +1559,22 @@ namespace PragmaScript
 
                 Debug.Assert(!variables.ContainsKey(node.funName));
                 var function = LLVM.AddFunction(mod, node.funName, funType);
-                
-                
+
+
 
                 LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i)
                 {
                     LLVMValueRef param = LLVM.GetParam(function, (uint)i);
                     LLVM.SetValueName(param, fun.parameters[i].name);
+                    var p = node.typeString.functionTypeString.parameters[i].typeString;
+                    if (p.HasAttribute("LLVM.NOCAPTURE"))
+                    {
+                        LLVM.AddAttribute(param, LLVMAttribute.LLVMNoCaptureAttribute);
+                    }
                     // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
                 }
                 variables.Add(node.funName, function);
-
             }
             else
             {
@@ -1563,7 +1591,7 @@ namespace PragmaScript
                 }
                 else
                 {
-                    LLVM.SetLinkage(function, LLVMLinkage.LLVMInternalLinkage);
+                    LLVM.SetLinkage(function, LLVMLinkage.LLVMPrivateLinkage);
                 }
 
                 var vars = LLVM.AppendBasicBlock(function, "vars");

@@ -43,11 +43,19 @@ namespace PragmaScript
             }
 
 
-            var output = Path.GetFileNameWithoutExtension(CompilerOptions.output);
+            var outputDir = Path.GetDirectoryName(CompilerOptions.inputFilename);
+            var output = Path.Combine(outputDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
+            var outputTempDir = Path.Combine(outputDir, "obj");
+            var outputTemp = Path.Combine(outputTempDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
+            Func<string, string> oxt = (ext) => outputTemp + ext;
+            Func<string, string> ox = (ext) => output + ext;
+
+            Directory.CreateDirectory(outputTempDir);
+
             var error = false;
             {
                 IntPtr error_msg;
-                error = LLVM.PrintModuleToFile(mod, $"{output}.ll", out error_msg);
+                error = LLVM.PrintModuleToFile(mod, $"{oxt(".ll")}", out error_msg);
                 if (error)
                 {
                     Console.WriteLine(Marshal.PtrToStringAnsi(error_msg));
@@ -59,7 +67,7 @@ namespace PragmaScript
                 Console.WriteLine($"optimizer... (O{optLevel})");
                 var optProcess = new Process();
                 optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
-                optProcess.StartInfo.Arguments = $"{output}.ll -O{optLevel} -march={arch} -mcpu=native -S -o {output}_opt.ll";
+                optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} -march={arch} -mcpu=native -S -o {oxt("_opt.ll")}";
                 optProcess.StartInfo.RedirectStandardInput = false;
                 optProcess.StartInfo.RedirectStandardOutput = false;
                 optProcess.StartInfo.UseShellExecute = false;
@@ -71,17 +79,17 @@ namespace PragmaScript
                 }
                 optProcess.Close();
             }
-            var inp = $"{output}_opt.ll";
+            var inp = oxt("_opt.ll");
             if (optLevel == 0)
             {
-                inp = $"{output}.ll";
+                inp = oxt(".ll");
             }
             if (!error && CompilerOptions.asm)
             {
                 Console.WriteLine("assembler...(debug)");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=nehalem -filetype=asm -o {output}.asm";
+                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=asm -o {oxt(".asm")}";
                 llcProcess.StartInfo.RedirectStandardInput = false;
                 llcProcess.StartInfo.RedirectStandardOutput = false;
                 llcProcess.StartInfo.UseShellExecute = false;
@@ -98,7 +106,7 @@ namespace PragmaScript
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=obj -o {output}.o";
+                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=obj -o {oxt(".o")}";
                 llcProcess.StartInfo.RedirectStandardInput = false;
                 llcProcess.StartInfo.RedirectStandardOutput = false;
                 llcProcess.StartInfo.UseShellExecute = false;
@@ -121,14 +129,14 @@ namespace PragmaScript
                 var flags = "/entry:__init";
                 if (CompilerOptions.dll)
                 {
-                    flags += $" /dll /out:{output}.dll";
+                    flags += $" /dll /out:{ox(".dll")}";
                 }
                 else
                 {
-                    flags += $" /subsystem:CONSOLE /out:{output}.exe";
+                    flags += $" /subsystem:CONSOLE /out:{ox(".exe")}";
                 }
 
-                lldProcess.StartInfo.Arguments = $"{libs} {output}.o {flags} /libpath:\"{lib_path}\"";
+                lldProcess.StartInfo.Arguments = $"{libs} {oxt(".o")} {flags} /libpath:\"{lib_path}\"";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;
@@ -146,7 +154,7 @@ namespace PragmaScript
                 Console.WriteLine("running...");
                 var outputProcess = new Process();
                 var dir = Directory.GetCurrentDirectory();
-                var fn = Path.Combine(dir, $"{output}.exe");
+                var fn = Path.Combine(dir, $"{ox(".exe")}");
                 outputProcess.StartInfo.FileName = fn;
                 outputProcess.StartInfo.Arguments = "";
                 outputProcess.StartInfo.RedirectStandardInput = false;

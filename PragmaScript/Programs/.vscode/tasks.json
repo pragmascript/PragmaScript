@@ -28,8 +28,8 @@
         {
             "isTestCommand": true,
             "taskName": "handmade",
-            "args": ["\"..\\bin\\x64\\Release\\pragma.exe\"", "handmade.prag", "-D", "-DLL", "&",
-                     "\"..\\bin\\x64\\Release\\pragma.exe\"", "win32_handmade.prag", "-D"],
+            "args": ["\"..\\bin\\x64\\Release\\pragma.exe\"", "handmade\\handmade.prag", "-D", "-DLL", "&",
+                     "\"..\\bin\\x64\\Release\\pragma.exe\"", "handmade\\win32_handmade.prag", "-D"],
             "problemMatcher": {
                 // "owner": "ps",
                 "fileLocation":  "absolute",

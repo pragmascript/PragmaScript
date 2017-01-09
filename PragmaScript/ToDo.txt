@@ -1,6 +1,8 @@
-﻿ - find out how they do the merging
-   of IL files 
-   http://llvm.org/docs/CommandGuide/llvm-link.html
+﻿ 
+- rethink array / slice types
+
+- global strings are broken
+  point to invalid stack memory!
 
 - move returnPointer nonsense after typechecking phase
 
@@ -13,23 +15,12 @@
    so you could write
    str.data = i8[32]{};
 
- - preprocessor fucks with line numbers
-
  - insert missing return bs not working for non ints
  
- - make sure that pointer artihmetic works on deeply nested recursive types
-
  - figure out a way to know if a node is a compile time constant or not
- 
- - make structs zero initialize?
-
- - make preprocessor respect comments
-
- - define string literals as constant globals and then memset them
-   into "string" struct data.
 
  - simplify / remove pre_resolved dictionary
-   using the fileRoots dictionary
+   using the fileRoots dictionary ?
 
  - emit end of file token such that errors at 
    the end of one file won't get reported on
@@ -39,6 +30,9 @@
 
  - make all the types immutable classes
 
+ - find out how they do the merging
+   of IL files 
+   http://llvm.org/docs/CommandGuide/llvm-link.html
 
 
  - hashtable:
@@ -54,13 +48,7 @@
 	   pointer arithmetic and bitcast or 
 	   use u8* for everything else
 
- - implement assert using optional param, something like:
-     assert(value: bool; caller = __FILEPOS__)
-
  - throw error if literal number type exceeds range of late bound integer
-
- 
- 
 
  - structs global variables with constant initializers
  

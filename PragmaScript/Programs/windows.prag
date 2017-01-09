@@ -4,6 +4,7 @@
     let STD_ERROR_HANDLE  = -12;
     let STD_OUTPUT_HANDLE = -11;
     let STD_INPUT_HANDLE  = -10;
+    let INVALID_HANDLE_VALUE:mm = 0xFFFFFFFF;
 
     var console_output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
     var console_input_handle = GetStdHandle(STD_INPUT_HANDLE);
@@ -33,16 +34,21 @@
     let MEM_RESERVE    = 0x00002000;
     let MEM_RESET      = 0x00008000;
     let MEM_RESET_UNDO = 0x10000000;
+    let MEM_LARGE_PAGES= 0x20000000;
     let PAGE_READWRITE = 0x04;
     let MEM_RELEASE = 0x8000;
     let PM_REMOVE = 0x0001;
 
-    let VK_ESCAPE = 0x1B;
-    let VK_UP     = 0x26;
-    let VK_DOWN   = 0x28;
-    let VK_LEFT   = 0x25;
-    let VK_RIGHT  = 0x27;
-    let VK_SPACE  = 0x20;
+    
+    let VK_LBUTTON = 0x01;
+    let VK_RBUTTON = 0x02;
+    let VK_MBUTTON = 0x04;
+    let VK_ESCAPE  = 0x1B;
+    let VK_UP      = 0x26;
+    let VK_DOWN    = 0x28;
+    let VK_LEFT    = 0x25;
+    let VK_RIGHT   = 0x27;
+    let VK_SPACE   = 0x20;
 
 
     let WNDCLASSEX = struct 
@@ -144,8 +150,10 @@
     let WriteFile = extern fun
     (
       hFile: mm;
+      // ["LLVM.NoCapture"]
       lpBuffer: i8*;
       nNumberOfBytesToWrite: i32;
+      // ["LLVM.NoCapture"]
       lpNumberOfBytesWritten: i32*;
       lpOverlapped: ptr;
     ) => i32;
@@ -174,6 +182,24 @@
       LastWriteTime: i64*;
     ) => i32;
 
+
+    let WIN32_FILE_ATTRIBUTE_DATA = struct
+    (
+      FileAttributes: i32;
+      CreationTime:   i64;
+      LastAccessTime: i64;
+      LastWriteTime:  i64;
+      FileSize:       i64;
+    );
+
+    let GetFileExInfoStandard = 0;
+    let GetFileAttributesExA = extern fun
+    (
+      filename: i8*;
+      flags: i32;
+      data: WIN32_FILE_ATTRIBUTE_DATA*;
+    ) => i32;
+
     let WIN32_FIND_DATA = struct
     (
       FileAttributes: i32;
@@ -185,8 +211,6 @@
       FileName: i8*260;
       AlternateFileName: i8*14;
     ); 
-
-
     let FindFirstFileA = extern fun
     (
       FileName: i8*;
@@ -314,6 +338,12 @@
     let QueryPerformanceFrequency = extern fun(result: i64*) => i32;
     let Sleep = extern fun (ms: i32) => void;
     let timeBeginPeriod = extern fun (ms: i32) => i32;
+    let VREFRESH = 116;
+    let GetDeviceCaps = extern fun (hdc: mm; index: i32) => i32;
+
+    let GetCursorPos = extern fun(pos: POINT*) => i32;
+    let GetKeyState = extern fun(vk: i32) => i16;
+    let ScreenToClient = extern fun(wnd: mm; pos: POINT*) => i32;
 
     // ********************** XINPUT ********************** 
 

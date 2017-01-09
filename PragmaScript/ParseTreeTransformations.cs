@@ -36,7 +36,7 @@ namespace PragmaScript
                 var ft = tc.GetNodeType(e.scope.function) as FrontendFunctionType;
                 Debug.Assert(ft != null);
 
-                var vd = e.scope.GetVar(e.variableName);
+                var vd = e.scope.GetVar(e.variableName, e.token);
 
                 var p = ft.parameters[vd.parameterIdx];
                 var pt = p.type;
@@ -77,8 +77,6 @@ namespace PragmaScript
             foreach (var c in node.GetChilds())
             {
                 fixupParents(node, c);
-
-                
             }
         }
 

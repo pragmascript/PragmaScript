@@ -58,10 +58,12 @@ namespace PragmaScript
             CompilerOptions.optimizationLevel = 0;
             CompilerOptions.runAfterCompile = true;
 
-            CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\win32_handmade.prag";
-            // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\handmade.prag";
-            // CompilerOptions.inputFilename    = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\bugs.prag";
-            // CompilerOptions.inputFilename = @"D:\Projects\Dotnet\PragmaScript\PragmaScript\Programs\preamble.prag";
+
+            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));
+            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "bugs.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "preamable.prag");
 #endif
             if (CompilerOptions.inputFilename == null)
             {

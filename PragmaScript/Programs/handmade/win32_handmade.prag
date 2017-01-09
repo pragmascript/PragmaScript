@@ -1,9 +1,9 @@
-﻿import "preamble.prag"
+﻿import "../preamble.prag"
 import "handmade_interface.prag"
-
 
 namespace Handmade.Platform
 {
+	with Windows;
 
 	// https://github.com/ecxr/handmadehero/blob/master/code/win32_handmade.cpp
 
@@ -23,12 +23,13 @@ namespace Handmade.Platform
 	// - Hardware accelereration
 	// - GetKeyboardLayout (for internationalization)
 
+
 	let HANDMADE_INTERAL = true;
 	let DEBUG_DRAW_STATS = true;
 
 	let offscreen_buffer = struct
 	(
-		info:   Windows.BITMAPINFO;
+		info:   BITMAPINFO;
 		memory: ptr;
 		width:  i32;
 		height: i32;
@@ -42,13 +43,24 @@ namespace Handmade.Platform
 		height: i32;
 	);
 
+	let win_state = struct
+	(
+		game_memory: game_memory*;
+		is_recording: bool;
+		is_replaying: bool;
+		recording_started: bool;
+		replaying_started: bool;
+		recording_file_handle: mm;
+		replaying_file_handle: mm;
+	);
+
 	var backbuffer: offscreen_buffer;
 	var window: window_info;
 	var window_requests_quit = false;
 
 	let sound_output = struct
 	(
-		sound_buffer: Windows.IDirectSoundBuffer*;
+		sound_buffer: IDirectSoundBuffer*;
 		samples_per_second: i32;
 		bytes_per_chunk: i32;
 		bytes_per_frame: i32;
@@ -64,43 +76,25 @@ namespace Handmade.Platform
 		first_write: bool;
 	);
 
-
-	let kilobytes = fun (bytes: mm) => mm 
-	{
-		return bytes * 1024 ;
-	}
-	let megabytes = fun (bytes: mm) => mm 
-	{
-		return bytes * 1024 * 1024;
-	}
-	let gigabytes = fun (bytes: mm) => mm
-	{
-		return bytes * 1024 * 1024 * 1024;
-	}
-	let terabytes = fun (bytes: mm) => mm
-	{
-		return bytes * 1024 * 1024 * 1024 * 1024;
-	}
-
 	let platform_write_file: platform_write_file = 
 	{
-		var handle = Windows.CreateFileA(cstr(name), Windows.GENERIC_WRITE, 0, nullptr, Windows.CREATE_ALWAYS, 0, 0);
+		var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
 		if (handle == null) {
-			Windows.CloseHandle(handle);
+			CloseHandle(handle);
 			return false;
 		}
 		var bytes_written: i32 = 0;
-		var result = Windows.WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
+		var result = WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
 		if (result != 0) {
-			Windows.CloseHandle(handle);
+			CloseHandle(handle);
 			assert(buffer.length == bytes_written);
 			return true;
 		} else {
-			Windows.CloseHandle(handle);
+			CloseHandle(handle);
 			return false;
 		}
 
-		Windows.CloseHandle(handle);
+		CloseHandle(handle);
 		return false;
 	}
 
@@ -109,43 +103,43 @@ namespace Handmade.Platform
 		var result: i8[];
 		result.data = nullptr;
 		result.length = 0;
-		var handle = Windows.CreateFileA(cstr(name), Windows.GENERIC_READ, Windows.FILE_SHARE_READ, nullptr, Windows.OPEN_EXISTING, 0, 0);
+		var handle = CreateFileA(cstr(name), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, 0);
 		if (handle == null) {
 			return result;
 		}
 
 		var size: i64 = 0;
-		var fsr = Windows.GetFileSizeEx(handle, &size);
+		var fsr = GetFileSizeEx(handle, &size);
 		if (fsr == 0 || size == 0) {
-			Windows.CloseHandle(handle);
+			CloseHandle(handle);
 			return result;
 		}
 
-		var buffer = Windows.VirtualAlloc(nullptr, (mm)size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+		var buffer = VirtualAlloc(nullptr, (mm)size, MEM_COMMIT, PAGE_READWRITE);
 		if ((mm)buffer == null) {
-			Windows.CloseHandle(handle);
+			CloseHandle(handle);
 			return result;
 		}
 		assert((mm)size <=\ gigabytes(4));
 		var size_32 = (i32)size;
 		var bytes_read: i32;
-		var rfr = Windows.ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
+		var rfr = ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
 		assert(bytes_read == size_32);
 		if (rfr == 0) {
-			Windows.VirtualFree(buffer, null, Windows.MEM_RELEASE);
-			Windows.CloseHandle(handle);
+			VirtualFree(buffer, null, MEM_RELEASE);
+			CloseHandle(handle);
 			return result;		
 		}
 
 		result.data = buffer;
 		result.length = size_32;
-		Windows.CloseHandle(handle);
+		CloseHandle(handle);
 		return result;
 	} 
 
 	let platform_free_file_memory: platform_free_file_memory =  
 	{
-		Windows.VirtualFree(mem, null, Windows.MEM_RELEASE);
+		VirtualFree(mem, null, MEM_RELEASE);
 	}
 
 	let game_interface = struct
@@ -157,103 +151,101 @@ namespace Handmade.Platform
 		dll_last_write_time: i64;
 	);
 
-	let win_refresh_game_dll = fun
+	let refresh_game_dll = fun
 	(
 		game: game_interface*;
 	) => void
 	{
-		var current_write_time = win_get_last_write_time("handmade.dll\0");
+		var current_write_time = get_last_write_time("handmade.dll\0");
 		if (current_write_time != game.dll_last_write_time) {
-			win_unload_game_dll(game);
-			*game = win_load_game_dll();
+			unload_game_dll(game);
+			*game = load_game_dll();
 		}
 	}
 
-	let win_load_game_dll = fun () => game_interface
+	let load_game_dll = fun () => game_interface
 	{
 		var source_str = "handmade.dll\0";
 		var temp_str = "handmade_temp.dll\0";
 		var result = game_interface{};
 
-		result.dll_last_write_time = win_get_last_write_time(source_str);
-		var copy_result = Windows.CopyFileA(cstr(source_str), cstr(temp_str), 0);
+		result.dll_last_write_time = get_last_write_time(source_str);
+		var copy_result = CopyFileA(cstr(source_str), cstr(temp_str), 0);
 		assert(copy_result != 0);
-		result.library = Windows.LoadLibraryA(cstr(temp_str));
-		result.update_and_render = (game_update_and_render)Windows.GetProcAddress(result.library, cstr("game_update_and_render\0"));
+		result.library = LoadLibraryA(cstr(temp_str));
+		result.update_and_render = (game_update_and_render)GetProcAddress(result.library, cstr("game_update_and_render\0"));
 		assert((ptr)result.update_and_render != nullptr);
-		result.output_sound = (game_output_sound)Windows.GetProcAddress(result.library, cstr("game_output_sound\0"));
+		result.output_sound = (game_output_sound)GetProcAddress(result.library, cstr("game_output_sound\0"));
 		assert((ptr)result.output_sound != nullptr);
 		result.is_loaded = true;
-		print_string("dll loaded.");
 
+		print_string("load library\n");
 		return result;
+		
 	}
 
-	let win_unload_game_dll = fun (@interface: game_interface*) => void
+	let unload_game_dll = fun (@interface: game_interface*) => void
 	{
 		if (library != null) {
-			var result = Windows.FreeLibrary(library);
+			var result = FreeLibrary(library);
 			assert(result != 0);
-			print_string("free library\n");
 		}
 		update_and_render = (game_update_and_render)nullptr;
 		output_sound = (game_output_sound)nullptr;
 		is_loaded = false;
 		library = null;
+		print_string("unload library\n");
 	}
 
-	let win_get_last_write_time = fun
+	let get_last_write_time = fun
 	(
 		filename: string;
 	) => i64
 	{
 		var cs = cstr(filename);
-		// TODO: replace this HACK with actual syntax
-		var data: i8*260;
-		var find_data: Windows.WIN32_FIND_DATA* = (Windows.WIN32_FIND_DATA*)(&data);
-		var handle = Windows.FindFirstFileA(cs, find_data);
-		Windows.FindClose(handle);
-		return find_data.LastWriteTime;
+		var data: WIN32_FILE_ATTRIBUTE_DATA;
+		GetFileAttributesExA(cstr("handmade.dll\0"), GetFileExInfoStandard, &data);
+		return data.LastWriteTime;
 	}
 
-	let win_init_direct_sound = fun 
+	let init_direct_sound = fun 
 	(
 		hwnd: mm; 
 		buffer_size: i32; 
 		samples_per_second: i32;
-	) => Windows.IDirectSoundBuffer*
+	) => IDirectSoundBuffer*
 	{ 
-		var dsound_library = Windows.LoadLibraryA(cstr("dsound.dll\0"));
+		var dsound_library = LoadLibraryA(cstr("dsound.dll\0"));
 		assert(dsound_library != null);
 
 		var DirectSoundCreate: fun 
 		(
 			GuidDevice: ptr;
-			ds: Windows.IDirectSound**;
+			ds: IDirectSound**;
 			unused: ptr;
 		) => i32;
-		*((ptr*)(&DirectSoundCreate)) = (ptr)Windows.GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
+		*((ptr*)(&DirectSoundCreate)) = (ptr)GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
 		assert((ptr)DirectSoundCreate != nullptr);
 
-		var dsound_obj: Windows.IDirectSound*;
+		var dsound_obj: IDirectSound*;
 		var error = DirectSoundCreate(nullptr, &dsound_obj, nullptr); 
-		assert(error == Windows.DS_OK);
-		error = dsound_obj.vtable.SetCooperativeLevel(dsound_obj, hwnd, Windows.DSSCL_PRIORITY);
-		assert(error == Windows.DS_OK);
+		assert(error == DS_OK);
+		error = dsound_obj.vtable.SetCooperativeLevel(dsound_obj, hwnd, DSSCL_PRIORITY);
+		assert(error == DS_OK);
 
-		var desc_primary = Windows.DSBUFFERDESC { };
-		desc_primary.flags = Windows.DSBCAPS_PRIMARYBUFFER;
-		desc_primary.size = (i32)(size_of(Windows.DSBUFFERDESC));
+		var desc_primary = DSBUFFERDESC { };
+		desc_primary.flags = DSBCAPS_PRIMARYBUFFER;
+		desc_primary.size = (i32)(size_of(DSBUFFERDESC));
 		desc_primary.bufferBytes = 0;
 		desc_primary.reserved = 0;
-		desc_primary.fxFormat = (Windows.WAVEFORMATEX*)nullptr;
+		desc_primary.fxFormat = (WAVEFORMATEX*)nullptr;
 
-		var primary_buffer: Windows.IDirectSoundBuffer*;
+		var primary_buffer: IDirectSoundBuffer*;
 		error = dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_primary, &primary_buffer, nullptr);
-		assert(error == Windows.DS_OK);
+		assert(error == DS_OK);
 
-		var wave_format = Windows.WAVEFORMATEX {};
-		wave_format.formatTag = Windows.WAVE_FORMAT_PCM;
+		var wave_format = WAVEFORMATEX {};
+		wave_format.formatTag = WAVE_FORMAT_PCM;
 		wave_format.nChannels = 2;
 		wave_format.nBitsPerSample = 16;
 		wave_format.nSamplesPerSec = samples_per_second;
@@ -261,22 +253,22 @@ namespace Handmade.Platform
 		wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * (i32)wave_format.nBlockAlign;
 		wave_format.size = 0;
 		error = primary_buffer.vtable.SetFormat(primary_buffer, &wave_format);
-		assert(error == Windows.DS_OK);
+		assert(error == DS_OK);
 		
-		var desc_secondary = Windows.DSBUFFERDESC { };
-		desc_secondary.size = (i32)(size_of(Windows.DSBUFFERDESC));
-		desc_secondary.flags = Windows.DSBCAPS_GETCURRENTPOSITION2;
+		var desc_secondary = DSBUFFERDESC { };
+		desc_secondary.size = (i32)(size_of(DSBUFFERDESC));
+		desc_secondary.flags = DSBCAPS_GETCURRENTPOSITION2;
 		desc_secondary.bufferBytes = buffer_size;
 		desc_secondary.fxFormat = &wave_format;
 		desc_secondary.reserved = 0;
 
-		var secondary_buffer: Windows.IDirectSoundBuffer*;
+		var secondary_buffer: IDirectSoundBuffer*;
 		error = dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_secondary, &secondary_buffer, nullptr);
-		assert(error == Windows.DS_OK);
+		assert(error == DS_OK);
 		return secondary_buffer;
 	}
 
-	let win_clear_sound_buffer = fun
+	let clear_sound_buffer = fun
 	(
 		@sound_output: sound_output*;
 	) => void
@@ -291,7 +283,7 @@ namespace Handmade.Platform
 			&region1, &region1_size,
 			&region2, &region2_size,
 			0);
-		assert(error == Windows.DS_OK);
+		assert(error == DS_OK);
 		var dest_sample = (i32*)region1;
 		var sample_count = region1_size / bytes_per_chunk;
 		for (var i: i32 = 0; i < sample_count; ++i) {
@@ -303,10 +295,10 @@ namespace Handmade.Platform
 		error = sound_buffer.vtable.Unlock(sound_buffer,
 			region1, region1_size, 
 			region2, region2_size);
-		assert(error == Windows.DS_OK);
+		assert(error == DS_OK);
 	}
 
-	let win_fill_sound_buffer = fun 
+	let fill_sound_buffer = fun 
 	(
 		@sound_output: sound_output*;
 		game_sound_output: game_sound_output*;
@@ -327,7 +319,7 @@ namespace Handmade.Platform
 		var sample_count_1 = region1_size / sound_output.bytes_per_chunk;
 		var sample_count_2 = region2_size / sound_output.bytes_per_chunk;
 		
-		if (error == Windows.DS_OK)
+		if (error == DS_OK)
 		{
 			assert(sample_count_1 + sample_count_2 == game_sound_output.sample_count);
 			var source_sample = game_sound_output.sample_out;
@@ -344,7 +336,7 @@ namespace Handmade.Platform
 			error = sound_output.sound_buffer.vtable.Unlock(sound_buffer,
 				region1, region1_size, 
 				region2, region2_size);
-			assert(error == Windows.DS_OK);
+			assert(error == DS_OK);
 			
 			if (sample_count_2 > 0) {
 				var last_sample = (i8*)((i32*)region2 + sample_count_2);
@@ -360,7 +352,7 @@ namespace Handmade.Platform
 		}
 	}
 
-	let win_update_next_sound_write_positon = fun 
+	let update_next_sound_write_positon = fun 
 	(
 		@sound_output: sound_output*;
 	) => void  
@@ -368,7 +360,7 @@ namespace Handmade.Platform
 		var play_cursor: i32;
 		var write_cursor: i32;
 		var error = sound_buffer.vtable.GetCurrentPosition(sound_buffer, &play_cursor, &write_cursor);
-		assert(error == Windows.DS_OK);
+		assert(error == DS_OK);
 
 		if (play_cursor == write_cursor) {
 			return;
@@ -376,12 +368,12 @@ namespace Handmade.Platform
 		// we haven't written anything yet
 		if (!first_write) {
 			byte_last_written = write_cursor;
-			Windows.QueryPerformanceCounter(&last_play_cursor_change_time);
+			last_play_cursor_change_time = get_perf_counter();
 		}
 
 		if (play_cursor == last_play_cursor) {
 			var time: i64;
-			Windows.QueryPerformanceCounter(&time);
+			QueryPerformanceCounter(&time);
 			var cursor_dt = (f64)(time - last_play_cursor_change_time) / (f64)perf_count_freq;
 			var d_bytes = sound_output.bytes_per_chunk * (i32)(cursor_dt * (f64)sound_output.samples_per_second);
 			play_cursor += d_bytes;
@@ -390,7 +382,7 @@ namespace Handmade.Platform
 			write_cursor = write_cursor % sound_output.buffer_size;
 		} else {
 			last_play_cursor = play_cursor;
-			Windows.QueryPerformanceCounter(&last_play_cursor_change_time);
+			last_play_cursor_change_time = get_perf_counter();
 		}
 
 		var position_to_write = byte_last_written;
@@ -404,7 +396,6 @@ namespace Handmade.Platform
 				position_to_write = write_cursor;
 			}		
 		}
-
 		var delta_cursor: i32;
 		if (play_cursor < write_cursor) {
 			if (position_to_write >= play_cursor && position_to_write < write_cursor) {
@@ -454,9 +445,6 @@ namespace Handmade.Platform
 		if (!sound_output.first_write && bytes_to_write > 0) {
 			sound_output.first_write = true;
 		}
-
-
-
 		// if (oops) {
 		// 	print_string("oops\n");
 		// }
@@ -470,7 +458,7 @@ namespace Handmade.Platform
 		// print_string("---------------------------\n");
 	}
 
-	let win_create_backbuffer = fun (@buffer: offscreen_buffer*; target_width: i32; target_height: i32) => void 
+	let create_backbuffer = fun (@buffer: offscreen_buffer*; target_width: i32; target_height: i32) => void 
 	{
 		let bytes_per_pixel = 4;
 		width = target_width;
@@ -480,34 +468,34 @@ namespace Handmade.Platform
 		info.header.biHeight = -height;
 		info.header.biPlanes = 1;
 		info.header.biBitCount = 32;
-		info.header.biCompression = Windows.BI_RGB;
+		info.header.biCompression = BI_RGB;
 		var bitmap_size = bytes_per_pixel * width * height;
 		if (memory != nullptr) {
-			Windows.VirtualFree(buffer.memory, null, Windows.MEM_RELEASE);
+			VirtualFree(buffer.memory, null, MEM_RELEASE);
 		}
-		memory = Windows.VirtualAlloc(nullptr, (mm\)bitmap_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+		memory = VirtualAlloc(nullptr, (mm\)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
 		pitch = buffer.width * bytes_per_pixel;
 	}
 
-	let win_blit_to_screen = fun (buffer: offscreen_buffer*) => void 
+	let blit_to_screen = fun (buffer: offscreen_buffer*) => void 
 	{
-		Windows.StretchDIBits(window.dc,
-			0, 0, window.width, window.height,
+		StretchDIBits(window.dc,
+			0, 0, buffer.width, buffer.height,
 			0, 0, buffer.width, buffer.height,
 			buffer.memory, &buffer.info,
-			Windows.DIB_RGB_COLORS, Windows.SRCCOPY
+			DIB_RGB_COLORS, SRCCOPY
 			);
 	}
 
-	let win_update_window_rect = fun () => void 
+	let update_window_rect = fun () => void 
 	{
-		var rect: Windows.RECT;
-		Windows.GetClientRect(window.handle, &rect); 
+		var rect: RECT;
+		GetClientRect(window.handle, &rect); 
 		window.width = rect.right - rect.left;
 		window.height = rect.bottom - rect.top;
 	}
 
-	let win_main_window_callback = fun 
+	let main_window_callback = fun 
 	(
 		window_handle: mm;
 		message: i32;
@@ -516,42 +504,67 @@ namespace Handmade.Platform
 	) => mm 
 	{
 		var result = null;
-		if (message == Windows.WM_SIZE) {
-			win_update_window_rect();	
+		if (message == WM_SIZE) {
+			update_window_rect();	
 		}
-		elif (message == Windows.WM_CLOSE) {
+		elif (message == WM_CLOSE) {
 			window_requests_quit = true;
 		}
-		elif (message == Windows.WM_DESTROY) {
+		elif (message == WM_DESTROY) {
 			window_requests_quit = true;
 		}
-		elif (message == Windows.WM_PAINT) {
-			var paint: Windows.PAINTSTRUCT;
-			var context = Windows.BeginPaint(window_handle, &paint);
-			win_blit_to_screen(&backbuffer);
-			Windows.EndPaint(window_handle, &paint);
+		elif (message == WM_PAINT) {
+			var paint: PAINTSTRUCT;
+			var context = BeginPaint(window_handle, &paint);
+			blit_to_screen(&backbuffer);
+			EndPaint(window_handle, &paint);
 		} 
 		else {
-			result = Windows.DefWindowProcA(window_handle, message, w_param, l_param);
+			result = DefWindowProcA(window_handle, message, w_param, l_param);
 		} 
 		return result;
 	}
 
-	let win_process_pending_messages = fun 
+
+	let update_game_button = fun (button: game_button*; is_pressed: bool) => void 
+	{
+		if (is_pressed && !button.pressed) {
+			button.down = true;
+		}
+		if (!is_pressed && button.pressed) {
+			button.up = true;
+		}
+		button.pressed = is_pressed;
+	}
+
+	let get_mouse_input = fun (game_input: game_input*) => void 
+	{
+		var cursor_pos: POINT;
+		GetCursorPos(&cursor_pos);
+		ScreenToClient(window.handle, &cursor_pos);
+		game_input.mouse_x = cursor_pos.x;
+		game_input.mouse_y = cursor_pos.y;
+		update_game_button(&game_input.left_mb, (GetKeyState(VK_LBUTTON) & (i16)(1 << 15)) != 0);
+		update_game_button(&game_input.right_mb, (GetKeyState(VK_RBUTTON) & (i16)(1 << 15)) != 0);
+		update_game_button(&game_input.middle_mb, (GetKeyState(VK_MBUTTON) & (i16)(1 << 15)) != 0);
+	}
+
+	let process_pending_messages = fun 
 	(
-		@game_input: game_input*
+		game_input: game_input*;
+		win_state: win_state*;
 	) => void 
 	{
-		var msg: Windows.MSG;
-		while (Windows.PeekMessageA(&msg, null, 0, 0, Windows.PM_REMOVE) != 0) {
+		var msg: MSG;
+		while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE) != 0) {
 			var message = msg.message;
-			if (message == Windows.WM_QUIT) {
+			if (message == WM_QUIT) {
 				game_input.request_quit = true;
 			} 
-			elif (message == Windows.WM_SYSKEYDOWN
-				|| message == Windows.WM_SYSKEYUP
-				|| message == Windows.WM_KEYDOWN
-				|| message == Windows.WM_KEYUP) {
+			elif (message == WM_SYSKEYDOWN
+				|| message == WM_SYSKEYUP
+				|| message == WM_KEYDOWN
+				|| message == WM_KEYUP) {
 
 				var w_param = (i32)(msg.wParam >> (mm)32);
 				var l_param = (i32)(msg.lParam >> (mm)32);
@@ -562,105 +575,205 @@ namespace Handmade.Platform
 				var key_up = was_down && !is_down;
 				var key_down = !was_down && is_down; 
 
-				if(vk_code == Windows.VK_ESCAPE) {
-					request_quit = true;
-				} elif (vk_code == Windows.VK_LEFT) {
-					left_arrow.pressed = is_down;
-					left_arrow.down = key_down;
-					left_arrow.up = key_up;
-				} elif (vk_code == Windows.VK_RIGHT) {
-					right_arrow.pressed = is_down;
-					right_arrow.down = key_down;
-					right_arrow.up = key_up;
-				} elif (vk_code == Windows.VK_UP) {
-					up_arrow.pressed = is_down;
-					up_arrow.down = key_down;
-					up_arrow.up = key_up;
-
-				} elif (vk_code == Windows.VK_DOWN) {
-					down_arrow.pressed = is_down;
-					down_arrow.down = key_down;
-					down_arrow.up = key_up;
+				if(vk_code == VK_ESCAPE) {
+					game_input.request_quit = true;
+				}
+				elif (vk_code == VK_LEFT) {
+					update_game_button(&game_input.left_arrow, is_down);
+				}
+				elif (vk_code == VK_RIGHT) {
+					update_game_button(&game_input.right_arrow, is_down);
+				}
+				elif (vk_code == VK_UP) {
+					update_game_button(&game_input.up_arrow, is_down);
 				} 
+				elif (vk_code == VK_DOWN) {
+					update_game_button(&game_input.down_arrow, is_down);
+				}
+				elif (key_down && vk_code == ord("L")) {
+					if (key_down) {
+						win_state.is_recording = !win_state.is_recording;
+					}
+				}
+				elif (key_down && vk_code == ord("P")) {
+					if (key_down) {
+						win_state.is_replaying = !win_state.is_replaying;
+					}
+				}
 			} else {
-				Windows.TranslateMessage(&msg);
-				Windows.DispatchMessageA(&msg);
+				TranslateMessage(&msg);
+				DispatchMessageA(&msg);
 			}
 		}
 	}
 
 	var perf_count_freq: i64;
-	let win_get_duration = fun (c0: i64; c1: i64) => f32
+	let get_duration = fun (c0: i64; c1: i64) => f32
 	{
 		return (f32)(c0 - c1) / (f32)perf_count_freq;
 	}
 
+	let get_perf_counter = fun() => i64
+	{
+		var result: i64;
+		QueryPerformanceCounter(&result);
+		return result;
+	}
 
+	let record_input = fun
+	(
+		new_input: game_input*;
+		game_memory: game_memory*;
+		win_state: win_state*;
+	) => void
+	{
+		if (win_state.recording_started && win_state.is_recording && win_state.is_replaying) {
+			win_state.is_recording = false;
+		}
+		if (win_state.is_recording && !win_state.recording_started) {
+			if (win_state.is_replaying) {
+				return;
+			}
+			win_state.recording_started = true;
+			win_state.recording_file_handle = 
+				CreateFileA(cstr("input_recording.dat\0"), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
+				var bytes_written = 0;
+
+			var total_size = game_memory.permanent_size + game_memory.transient_size;
+			assert(total_size < gigabytes(4));
+			WriteFile(win_state.recording_file_handle, game_memory.permanent_data, (i32)total_size, &bytes_written, nullptr);
+		}
+		if (!win_state.is_recording && win_state.recording_started) {
+			CloseHandle(win_state.recording_file_handle);
+			win_state.recording_started = false;
+		}
+		if (win_state.is_recording)
+		{
+			assert(!win_state.is_replaying);
+			var bytes_written = 0;
+			WriteFile(win_state.recording_file_handle, (i8*)new_input, (i32)(size_of(game_input)), &bytes_written, nullptr);
+		}
+	}
+
+	let replay_input = fun
+	(
+		new_input: game_input*;
+		game_memory: game_memory*;
+		win_state: win_state*;
+	) => void
+	{
+		if (win_state.replaying_started && win_state.is_replaying && win_state.is_recording) {
+			win_state.is_replaying = false;
+		}
+		if (win_state.is_replaying && !win_state.replaying_started) {
+			if (win_state.is_recording) {
+				return;
+			}
+			win_state.replaying_started = true;
+			win_state.replaying_file_handle = 
+				CreateFileA(cstr("input_recording.dat\0"), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, 0);
+			var bytes_read = 0;
+			var total_size = game_memory.permanent_size + game_memory.transient_size;
+			assert(total_size < gigabytes(4));
+			ReadFile(win_state.replaying_file_handle, game_memory.permanent_data, (i32)total_size, &bytes_read, nullptr);
+		}
+		if (!win_state.is_replaying && win_state.replaying_started) {
+			CloseHandle(win_state.replaying_file_handle);
+			win_state.replaying_started = false;
+			var cleared_input = game_input {};
+			*new_input = cleared_input; 
+			// TODO: this crashes backend.
+			// probably struct constructer must be able to _not_ return a pointer e.g. insert a load!
+			// *new_input = game_input {};
+		}
+		if (win_state.is_replaying)
+		{
+			assert(!win_state.is_recording);
+			var bytes_read = 0;
+			ReadFile(win_state.replaying_file_handle, (i8*)new_input, (i32)(size_of(game_input)), &bytes_read, nullptr);
+			if (bytes_read == 0)
+			{
+				CloseHandle(win_state.replaying_file_handle);
+				win_state.replaying_started = false;
+			}	
+		}
+	}
+
+	
 	[
 	"compile.entry",
 	"compile.debug" : "true",
 	"compile.output": "win_handmade.exe",
 	"compile.opt"   : "0",
-	"compile.run"   : "false",
+	"compile.run"   : "true",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib"
 	]
 	let main = fun () => void 
 	{
-		debug_print_i32("sizeof find_data", (i32)(size_of(Windows.WIN32_FIND_DATA)));
-
-
-		Windows.QueryPerformanceFrequency(&perf_count_freq);
+		QueryPerformanceFrequency(&perf_count_freq);
 		var error = 0;
 
 		let desired_sheduler_granularity = 1;
-		error = Windows.timeBeginPeriod(desired_sheduler_granularity);
+		error = timeBeginPeriod(desired_sheduler_granularity);
 		assert(error == 0);
 
-		win_create_backbuffer(&backbuffer, 1244, 705);
+		window.width = 960;
+		window.height = 540;
+
+		create_backbuffer(&backbuffer, window.width, window.height);
 
 		var class_name  = cstr("PragmaScriptWindowClass\0");
 		var window_name = cstr("handmade-pragmascript\0");
-		var instance = Windows.GetModuleHandleA(null);
-		var window_class = Windows.WNDCLASSEX {};
-		window_class.cbSize = (i32)(size_of(Windows.WNDCLASSEX));
-		window_class.style = (Windows.CS_HREDRAW|Windows.CS_VREDRAW);
-		window_class.lpfnWndProc = (ptr)win_main_window_callback;
+		var instance = GetModuleHandleA(null);
+		var window_class = WNDCLASSEX {};
+		window_class.cbSize = (i32)(size_of(WNDCLASSEX));
+		window_class.style = (CS_HREDRAW|CS_VREDRAW);
+		window_class.lpfnWndProc = (ptr)main_window_callback;
 		window_class.hInstance = instance;
 		window_class.lpszClassName = class_name;
-		Windows.RegisterClassExA(&window_class);
+		RegisterClassExA(&window_class);
 
-		var monitor_hz = 60;
-		var game_target_fps = 60;
-		var target_sec_per_frame = 1.0 / (f32)game_target_fps;
-		
-		window.handle = Windows.CreateWindowExA(
+
+		window.handle = CreateWindowExA(
 			0,
 			class_name,
 			window_name,
-			Windows.WS_OVERLAPPEDWINDOW|Windows.WS_VISIBLE,
-			Windows.CW_USEDEFAULT,
-			Windows.CW_USEDEFAULT,
-			Windows.CW_USEDEFAULT,
-			Windows.CW_USEDEFAULT,
+			WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+			CW_USEDEFAULT,
+			CW_USEDEFAULT,
+			window.width,
+			window.height,
 			null,
 			null,
 			instance,
 			null
 		);
-		window.dc = Windows.GetDC(window.handle);
-		win_update_window_rect();
+		window.dc = GetDC(window.handle);
+		update_window_rect();
 
+		var monitor_hz = 60;
+		// var win_vrefresh = GetDeviceCaps(window.dc, VREFRESH);
+		// debug_print_i32("VREFRESH", win_vrefresh);
+		// if (win_vrefresh > 1)
+		// {
+		// 	monitor_hz = win_vrefresh;
+		// 	debug_print_i32("monitor_hz", monitor_hz);
+		// }
+		
+		var game_target_fps = monitor_hz;
+		var target_sec_per_frame = 1.0 / (f32)game_target_fps;
+		
 		var sound_output: sound_output;
 		sound_output.samples_per_second = 48000;
 		sound_output.bytes_per_chunk = 2 * (i32)(size_of(i16)); // 2 channels
 		sound_output.bytes_per_frame = sound_output.bytes_per_chunk *sound_output.samples_per_second / game_target_fps;
 		sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
 		
-		var sound_buffer = win_init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
+		var sound_buffer = init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
 		sound_output.sound_buffer = sound_buffer;
 
-		var game_sample_buffer = (i16*)Windows.VirtualAlloc(nullptr, (mm)sound_output.buffer_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+		var game_sample_buffer = (i16*)VirtualAlloc(nullptr, (mm)sound_output.buffer_size, MEM_COMMIT, PAGE_READWRITE);
 		assert((ptr)game_sample_buffer != nullptr);
 		var base_address = nullptr;
 		if (HANDMADE_INTERAL) {
@@ -678,39 +791,43 @@ namespace Handmade.Platform
 		game_memory.permanent_size = megabytes(1);
 		game_memory.transient_size = 0;
 		var total_size = game_memory.permanent_size + game_memory.transient_size;
-		game_memory.permanent_data = Windows.VirtualAlloc(base_address, total_size, Windows.MEM_RESERVE|Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+		game_memory.permanent_data = VirtualAlloc(base_address, total_size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 		assert(game_memory.permanent_data != nullptr);
 		game_memory.transient_data = game_memory.permanent_data + game_memory.permanent_size;
 		assert(game_memory.transient_data != nullptr);
 		game_memory.platform = &platform;
+
+		var win_state = win_state{};
+		win_state.game_memory = &game_memory;
 		
-		var game = win_load_game_dll(); 
-		win_clear_sound_buffer(&sound_output);
-		error = sound_buffer.vtable.Play(sound_buffer, 0, 0, Windows.DSBPLAY_LOOPING);
-		assert(error == Windows.DS_OK);
+		var game = load_game_dll(); 
+		clear_sound_buffer(&sound_output);
+		error = sound_buffer.vtable.Play(sound_buffer, 0, 0, DSBPLAY_LOOPING);
+		assert(error == DS_OK);
 			
 		var running = true;
 		var frames = 0;
 		var last_fps: f32 = 60;
-		var current_counter: i64;
-		var last_counter: i64;
 		var last_counter_debug_stats: i64 = 0;
-		Windows.QueryPerformanceCounter(&last_counter);
 
 		var current_cycle_count: i64;
 		var last_cycle_count = _rdtsc();
-		var dt = 1.0 / 60.0;
 
-		var game_start_time: i64;
-		Windows.QueryPerformanceCounter(&game_start_time);
+		var game_start_time = get_perf_counter();
 
 		var game_input = game_input {};
 		var game_sound_output = game_sound_output { };
 		game_sound_output.sample_out = game_sample_buffer;
 		game_sound_output.samples_per_second = sound_output.samples_per_second;
 
+		var game_time = game_time{};
+
+		var frame_start_counter = get_perf_counter() - (i64)(target_sec_per_frame * (f32)perf_count_freq);
 		while (running) {
-			win_process_pending_messages(&game_input);
+			var last_frame_start_counter = frame_start_counter;
+			frame_start_counter = get_perf_counter();
+
+			process_pending_messages(&game_input, &win_state);
 
 			var game_render_target = game_render_target { };
 			game_render_target.memory = backbuffer.memory;
@@ -718,50 +835,55 @@ namespace Handmade.Platform
 			game_render_target.height = backbuffer.height;
 			game_render_target.pitch = backbuffer.pitch;
 			
-			var game_time = game_time{};
-			game_time.dt = dt;
-			game_time.t = win_get_duration(last_counter, game_start_time);
+			var t = get_duration(frame_start_counter, game_start_time);
+			// if ((i32)t > (i32)game_time.t) {
+            // 	debug_print_i32("s", (i32)t);
+			// }
+
+			game_time.t = t;
+			game_time.dt = get_duration(frame_start_counter, last_frame_start_counter);
 			game_input.time = game_time;
 			game_input.request_quit |= window_requests_quit;
+			get_mouse_input(&game_input);
+			
+			record_input(&game_input, &game_memory, &win_state);
+			replay_input(&game_input, &game_memory, &win_state);
 
 			assert(game.is_loaded);
 			running = game.update_and_render(&game_memory, &game_input, &game_render_target);
 
-			win_update_next_sound_write_positon(&sound_output);
+			update_next_sound_write_positon(&sound_output);
 			game_sound_output.sample_count = sound_output.next_bytes_to_write / sound_output.bytes_per_chunk;
 
 			assert(game.is_loaded);
 			game.output_sound(&game_memory, &game_sound_output);
 
-			win_fill_sound_buffer(&sound_output, &game_sound_output);
+			fill_sound_buffer(&sound_output, &game_sound_output);
 			if (!running) {
-				win_clear_sound_buffer(&sound_output);
+				clear_sound_buffer(&sound_output);
 				sound_output.sound_buffer.vtable.Stop();
 			}
 
-			win_blit_to_screen(&backbuffer);
+			blit_to_screen(&backbuffer);
 
 			current_cycle_count = _rdtsc();
-			Windows.QueryPerformanceCounter(&current_counter);
-			var wait_time = win_get_duration(current_counter, last_counter);
+			var frame_end_counter = get_perf_counter();
+			var wait_time = get_duration(frame_end_counter, frame_start_counter);
 			while (wait_time < target_sec_per_frame) {
 				var sleep_ms = (i32)(1000.0 * (target_sec_per_frame - wait_time));
 				if (sleep_ms > 0) {
-					Windows.Sleep(sleep_ms);
+					Sleep(sleep_ms);
 				}
-				Windows.QueryPerformanceCounter(&current_counter);
-				wait_time = win_get_duration(current_counter, last_counter);
+				frame_end_counter = get_perf_counter();
+				wait_time = get_duration(frame_end_counter, frame_start_counter);
 			}
-			dt = wait_time;
-			last_counter = current_counter;
-
 			frames++;
 
-			if (current_counter - last_counter_debug_stats > perf_count_freq) {
+			if (frame_end_counter - last_counter_debug_stats > perf_count_freq) {
 				if (DEBUG_DRAW_STATS) {
-					last_counter_debug_stats = current_counter;
+					last_counter_debug_stats = frame_end_counter;
 					var cycles_elapsed = current_cycle_count - last_cycle_count;
-					var frame_ms = 1000.0 * dt;
+					var frame_ms = 1000.0 * game_input.time.dt;
 					print_string("\n");
 					print_f32(frame_ms);
 					print_string("ms/f   ");
@@ -770,16 +892,15 @@ namespace Handmade.Platform
 					print_string("fps   ");
 					print_f64((f64)cycles_elapsed / 1000000.0);
 					print_string("mcycles   ");
-					debug_print_f32("dt", dt);
+					debug_print_f32("dt", game_input.time.dt);
 				}
 
-				win_refresh_game_dll(&game);
-				// win_unload_game_dll(&game);
-				// game = win_load_game_dll();
+				refresh_game_dll(&game);
 			}
 			
 			last_cycle_count = current_cycle_count;
 		}
-		Windows.ExitProcess(0);
+
+		ExitProcess(0);
 	}
 }

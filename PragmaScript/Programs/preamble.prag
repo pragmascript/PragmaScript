@@ -1,26 +1,37 @@
 ﻿import "windows.prag"
 
-let null = (mm)0;
-			  
-let pi: f64 = 3.1415926535897932384626433832795028841971693993751058209749445923078164062;
-let half_pi = pi / 2.0;
-let pi_32 = (f32)pi;
-let half_pi_32 = (f32)half_pi;
 
+let kilobytes = fun (bytes: mm) => mm 
+{
+	return bytes * 1024 ;
+}
+let megabytes = fun (bytes: mm) => mm 
+{
+	return bytes * 1024 * 1024;
+}
+let gigabytes = fun (bytes: mm) => mm
+{
+	return bytes * 1024 * 1024 * 1024;
+}
+let terabytes = fun (bytes: mm) => mm
+{
+	return bytes * 1024 * 1024 * 1024 * 1024;
+}
+
+let null = (mm)0;
 let _rdtsc = extern fun () => i64;
 let __chkstk = extern fun () => void;
 
 let print_string = fun (s: string) => void
 {
- 	Windows.WriteFile(Windows.console_output_handle, s.data, s.length, (i32*)nullptr, nullptr);
+	assert(Windows.console_output_handle != Windows.INVALID_HANDLE_VALUE);
+	Windows.WriteFile(Windows.console_output_handle, s.data, s.length, (i32*)nullptr, nullptr);
 }
-
 let print_error = fun (s: string) => void
 {
+	assert(Windows.console_error_handle != Windows.INVALID_HANDLE_VALUE);
 	Windows.WriteFile(Windows.console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
 }
-
-
 ["conditional":"debug"]
 let assert = fun 
 (
@@ -58,6 +69,12 @@ let cstr = fun(value: string) => i8*
 }
 #endif
 
+let ord = fun(value: string) => i32
+{
+	assert(value.length == 1);
+	return (i32)value[0];
+}
+
 // let __chkstk = fun() => void 
 // {
 // 	return;
@@ -91,10 +108,6 @@ let cstr = fun(value: string) => i8*
 // 	var result = x / y;
 // 	return 3.0;
 // }
-let remainder = fun(x: f32; y: f32) => f32
-{
-	return x - floor(x / y) * y;
-}
 
 
 // TODO make a fast version
@@ -112,44 +125,81 @@ let memset = fun
 	return dest;
 }
 
-let sinf = fun(x: f32) => f32 
+
+namespace Math
 {
-    let p = 0.225;
-    let a = 16 * sqrt(p);
-    let b = (1 - p) / sqrt(p);
+	let pi: f64 = 3.1415926535897932384626433832795028841971693993751058209749445923078164062;
+	let half_pi = pi / 2.0;
+	let pi_32 = (f32)pi;
+	let half_pi_32 = (f32)half_pi;
 
-    var y = x / (2 * pi_32);
-    y = y - floor(y + 0.5);  // y in range -0.5..0.5
-    y = a * y * (0.5 - abs(y));
-    return y * (b + abs(y));
-}
 
-// http://forum.devmaster.net/t/fast-and-accurate-sine-cosine/9648/85
-let cosf = fun(value: f32) => f32 
-{
-	var x = half_pi_32 - value;
-    let p = 0.225;
-    let a = 16 * sqrt(p);
-    let b = (1 - p) / sqrt(p);
+	let remainder = fun(x: f32; y: f32) => f32
+	{
+		return x - floor(x / y) * y;
+	}
 
-    var y = x / (2 * pi_32);
-    y = y - floor(y + 0.5);  // y in range -0.5..0.5
-    y = a * y * (0.5 - abs(y));
-    return y * (b + abs(y));
-}
+	let roundf = fun (x: f32) => f32 
+	{
+		return trunc(x + 0.5);
+	}
 
-let lerp = fun(a: f32; b: f32; t: f32) => f32
-{
-	return a + (b-a)*t;
-}
+	let sinf = fun(x: f32) => f32 
+	{
+		let p = 0.225;
+		let a = 16 * sqrt(p);
+		let b = (1 - p) / sqrt(p);
 
-let abs_i32 = fun (value: i32) => i32
-{
-  if (value >= 0) {
-    return value;
-  } else {
-    return -value;
-  }
+		var y = x / (2 * pi_32);
+		y = y - floor(y + 0.5);  // y in range -0.5..0.5
+		y = a * y * (0.5 - abs(y));
+		return y * (b + abs(y));
+	}
+
+	// http://forum.devmaster.net/t/fast-and-accurate-sine-cosine/9648/85
+	let cosf = fun(value: f32) => f32 
+	{
+		var x = half_pi_32 - value;
+		let p = 0.225;
+		let a = 16 * sqrt(p);
+		let b = (1 - p) / sqrt(p);
+
+		var y = x / (2 * pi_32);
+		y = y - floor(y + 0.5);  // y in range -0.5..0.5
+		y = a * y * (0.5 - abs(y));
+		return y * (b + abs(y));
+	}
+
+	let lerp = fun(a: f32; b: f32; t: f32) => f32
+	{
+		return a + (b-a)*t;
+	}
+
+	let abs_i32 = fun (value: i32) => i32
+	{
+		if (value >= 0) {
+			return value;
+		} else {
+			return -value;
+		}
+	}
+
+	let clamp_i32 = fun 
+	(
+		value: i32;
+		min: i32;
+		max: i32
+	) => i32 
+	{
+		assert(min <= max);
+		var result = value;
+		if (result < min) {
+			result = min;
+		} elif (result > max) {
+			result = max;
+		}
+		return result;
+	}
 }
 
 let print_i32 = fun (value: i32; signed: bool = true) => void
@@ -164,10 +214,11 @@ let print_i32 = fun (value: i32; signed: bool = true) => void
 let print_i64 = fun (value: i64; signed: bool = true) => void
 {
 	var v = value;
-	var pd = print_dest { };
-	pd.buffer = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
-	assert(pd.buffer.length == 64); 
+	var pd: print_dest;
 	pd.pos = 0;
+	pd.buffer = "                                                                ";
+	assert(pd.buffer.length == 64); 
+	
 	if (signed && v < 0) {
 		v = -v;
 		out_char(&pd, 45);
@@ -179,7 +230,7 @@ let print_i64 = fun (value: i64; signed: bool = true) => void
 
 let print_f32 = fun (value: f32; precision: i32 = 4) => void
 {
-	print_f64(((f64)value), precision);	
+	print_f64((f64)value, precision);	
 }
 
 let print_dest = struct
@@ -190,6 +241,7 @@ let print_dest = struct
 
 let out_char = fun (dest: print_dest*; char: i8) => void
 {
+	assert(dest.pos >= 0 && dest.pos < dest.buffer.length);
 	dest.buffer[dest.pos++] = char;
 } 
 
@@ -201,8 +253,9 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 
 	var start = &dest.buffer[dest.pos];
 	while (true) {
-		var index = v % (i64)base;
-		var digit = decimal_digits[(i32)index];
+		var index = (i32)(v % (i64)base);
+		assert(index >= 0 && index < 10);
+		var digit = decimal_digits[index];
 		out_char(dest, digit);
 		v /=\ (i64)base;
 		if (v == 0) {
@@ -210,7 +263,7 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 		}
 	}
 	var end = &dest.buffer[dest.pos];
-	
+
 	while(start <\ end) {
 		--end;
 		var temp = *end;
@@ -220,18 +273,20 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 	}
 }
 
+
 let print_f64 = fun (value: f64; precision: i32 = 4) => void
 {
 	var v = value;
-	var pd = print_dest { };
-	pd.buffer = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
-	assert(pd.buffer.length == 64); 
+	var pd: print_dest;
 	pd.pos = 0;
+	pd.buffer = "                                                                ";
+	assert(pd.buffer.length == 64); 
+
 	if (v < 0) {
 		v = -v;
 		out_char(&pd, 45);
 	}
-	var int_part = (i64)v;
+	var int_part = (i64\)v;
 	u64_to_ascii(&pd, int_part);
 	v -= (f64)int_part;
 	out_char(&pd, 46);
@@ -242,20 +297,13 @@ let print_f64 = fun (value: f64; precision: i32 = 4) => void
 		v *= 10.0;
 		var int_part = (i32)v;
 		v -= (f64)int_part;
-		assert(int_part < 10);
+		assert(int_part < 10 && int_part >= 0);
 		out_char(&pd, decimal_digits[int_part]);
 		if (int_part != 0) {
 			last_non_zero = pd.pos;
 		} 
 	}
-	
-	assert(pd.pos < pd.buffer.length);
-
-	// if (first_fraction_char != last_non_zero) {
-	// 	pd.buffer.length = last_non_zero;
-	// } else {
-	// 	pd.buffer.length = first_fraction_char - 1;
-	// }
+	assert(pd.pos <= pd.buffer.length);
 	pd.buffer.length = pd.pos;
 	print_string(pd.buffer);
 }
@@ -291,9 +339,22 @@ let debug_print_f64 = fun (name: string; value: f64; precision: i32 = 4) => void
 	print_string("\n");
 }
 
+let debug_print_bool = fun (name: string; value: bool) => void
+{
+	print_string(name);
+	print_string(": ");
+	if (value) {
+		print_string("true");
+	} else {
+		print_string("false");
+	}
+	print_string("\n");
+}
+
 let __hack_reserve_intrinsics = fun () => bool
 {
-	if ((mm)memset == 1234 || (mm)__chkstk == 1234 || (mm)cosf == 1234 || (mm)sinf == 1234) {
+	if ((mm)memset == 1234 || (mm)__chkstk == 1234 || (mm)Math.cosf == 1234 || (mm)Math.sinf == 1234 ||
+	    (mm)Math.roundf == 1234) {
 		print_string("");
 		return true;
 	}
