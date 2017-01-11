@@ -1,7 +1,7 @@
 ﻿ 
  
- import "preamble.prag"
- import "windows.prag"
+ import "../preamble.prag"
+ 
 
 // let sphere = struct
 // {
@@ -298,14 +298,22 @@ namespace Handmade
         return rectangle{vec2{(f32)(x - half_size), (f32)(y - half_size)}, vec2{(f32)(x + half_size), (f32)(y + half_size)} };
     } 
 
-	  let min_max_rect = fun (min_x: i32; min_y: i32; max_x: i32; max_y: i32) => rectangle 
-    {
-        var pos  = vec2 { (f32)min_x, (f32)min_y };
-        var size = vec2 { (f32)(max_x - min_x), (f32)(max_y - min_y) };
-        // var result = rectangle{pos, size};
-		// return result;
-        return rectangle{pos, size};
-    }
+    // let min_max_rect = fun (min_x: i32; min_y: i32; max_x: i32; max_y: i32) => rectangle 
+    // {
+    //     var pos  = vec2 { (f32)min_x, (f32)min_y };
+    //     var size = vec2 { (f32)(max_x - min_x), (f32)(max_y - min_y) };
+    //     // var result = rectangle{pos, size};
+	// 	// return result;
+    //     return rectangle{pos, size};
+    // }
+}
+
+
+
+let print_vec = fun (v: Handmade.vec2) => void 
+{
+	debug_print_f32("x", v.x);
+	debug_print_f32("y", v.y);
 }
 
 
@@ -318,23 +326,14 @@ namespace Handmade
  	"compile.libs"  : "kernel32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64"
 ]
-
-
-let print_vec = fun (v: vec2) => void 
-{
-	debug_print_f32("x", v.x);
-	debug_print_f32("y", v.y);
-}
-
 let main = fun () => void 
 {
 	print_i64((i64)Windows.INVALID_HANDLE_VALUE, false);
 	print_string("\n");
 	print_i64((i64)0xFFFFFFFF, false);
 
-	let v = vec2{1.0, 2.0};
+	let v = Handmade.vec2{1.0, 2.0};
 	print_vec(v);
-
 }
 
 
