@@ -17,16 +17,13 @@ namespace PragmaScript
         static void expectTokenType(Token token, params Token.TokenType[] types)
         {
             var found = false;
-            foreach (var tt in types)
-            {
-                if (token.type == tt)
-                {
+            foreach (var tt in types) {
+                if (token.type == tt) {
                     found = true;
                     break;
                 }
             }
-            if (!found)
-            {
+            if (!found) {
                 string exp = "either ( " + string.Join(" | ", types.Select(tt => tt.ToString())) + " )";
                 throw new ParserErrorExpected(exp, token.ToString(), token);
             }
@@ -127,7 +124,7 @@ namespace PragmaScript
             file_pos.returnType = FrontendType.string_;
             file_pos.specialFun = true;
             scope.AddVar("__file_pos__", file_pos, Token.Undefined, isConst: true);
-            
+
         }
 
         static void addBasicConstants(Scope scope, Token token)

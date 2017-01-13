@@ -28,13 +28,11 @@ namespace PragmaScript
                 List<Namespace> ns = new List<Namespace>();
 
                 var current = this;
-                while (true)
-                {
+                while (true) {
                     ns.Add(current);
                     Debug.Assert(current.scope.parent != null);
                     current = current.scope.parent.namesp;
-                    if (current == null)
-                    {
+                    if (current == null) {
                         break;
                     }
                 }
@@ -114,40 +112,30 @@ namespace PragmaScript
         {
             VariableDefinition result;
 
-            if (variables.TryGetValue(name, out result))
-            {
+            if (variables.TryGetValue(name, out result)) {
                 return result;
             }
             Namespace result_ns = null;
-            foreach (var ns in importedNamespaces)
-            {
+            foreach (var ns in importedNamespaces) {
 
-                if (ns.scope.variables.TryGetValue(name, out var vd))
-                {
-                    if (result != null)
-                    {
+                if (ns.scope.variables.TryGetValue(name, out var vd)) {
+                    if (result != null) {
                         var p0 = $"\"{result_ns.GetPath()}.{name}\"";
                         var p1 = $"\"{ns.GetPath()}.{name}\"";
                         throw new ParserError($"Access to variable is ambigious between {p0} and {p1}.", from);
-                    }
-                    else
-                    {
+                    } else {
                         result = vd;
                         result_ns = ns;
                     }
                 }
             }
-            if (result != null)
-            {
+            if (result != null) {
                 return result;
             }
 
-            if (recurse && parent != null)
-            {
+            if (recurse && parent != null) {
                 return parent.GetVar(name, from);
-            }
-            else
-            {
+            } else {
                 return null;
             }
         }
@@ -160,8 +148,7 @@ namespace PragmaScript
             v.name = name;
             v.node = node;
             v.isConstant = isConst;
-            if (variables.ContainsKey(name))
-            {
+            if (variables.ContainsKey(name)) {
                 throw new RedefinedVariable(name, t);
             }
             variables.Add(name, v);
@@ -176,8 +163,7 @@ namespace PragmaScript
             v.name = name;
             v.type = @type;
             v.isConstant = isConst;
-            if (variables.ContainsKey(name))
-            {
+            if (variables.ContainsKey(name)) {
                 throw new RedefinedVariable(name, t);
             }
             variables.Add(name, v);
@@ -187,29 +173,21 @@ namespace PragmaScript
 
         public TypeDefinition GetType(FullyQualifiedName typeName, Token from)
         {
-            if (typeName.path.Count == 1)
-            {
+            if (typeName.path.Count == 1) {
                 var name = typeName.GetName();
                 var result = getType(name, true, from);
-               
+
                 return result;
-            }
-            else
-            {
+            } else {
                 var ns_name = string.Join(".", typeName.path.Take(typeName.path.Count - 1));
                 var ns = GetNamespace(ns_name);
-                if (ns == null && namesp != null)
-                {
+                if (ns == null && namesp != null) {
                     var path = $"{namesp.GetPath()}.{ns_name}";
                     ns = GetNamespace(path);
                 }
-                if (ns != null)
-                {
+                if (ns != null) {
                     return ns.scope.getType(typeName.GetName(), false, from);
-                }
-                else
-                {
-
+                } else {
                     return null;
                 }
 
@@ -219,12 +197,9 @@ namespace PragmaScript
         TypeDefinition getType(string typeName, bool recursive, Token from)
         {
             TypeDefinition result;
-            if (recursive)
-            {
+            if (recursive) {
                 result = this.getTypeRec(typeName, from);
-            }
-            else
-            {
+            } else {
                 types.TryGetValue(typeName, out result);
 
             }
@@ -235,42 +210,31 @@ namespace PragmaScript
         {
             TypeDefinition result;
 
-            if (types.TryGetValue(typeName, out result))
-            {
+            if (types.TryGetValue(typeName, out result)) {
                 return result;
             }
 
-            if (result == null)
-            {
+            if (result == null) {
                 Namespace result_ns = null;
-                foreach (var ns in importedNamespaces)
-                {
-                    if (ns.scope.types.TryGetValue(typeName, out var td))
-                    {
-                        if (result != null)
-                        {
+                foreach (var ns in importedNamespaces) {
+                    if (ns.scope.types.TryGetValue(typeName, out var td)) {
+                        if (result != null) {
                             var p0 = $"\"{result_ns.GetPath()}.{typeName}\"";
                             var p1 = $"\"{ns.GetPath()}.{typeName}\"";
                             throw new ParserError($"Access to variable is ambigious between {p0} and {p1}.", from);
-                        }
-                        else
-                        {
+                        } else {
                             result = td;
                             result_ns = ns;
                         }
                     }
                 }
-                if (result != null)
-                {
+                if (result != null) {
                     return result;
                 }
             }
-            if (parent != null)
-            {
+            if (parent != null) {
                 return parent.getTypeRec(typeName, from);
-            }
-            else
-            {
+            } else {
                 return null;
             }
         }
@@ -278,8 +242,7 @@ namespace PragmaScript
         public void AddType(string name, AST.Node node, Token t)
         {
             Debug.Assert(node != null);
-            if (types.ContainsKey(name))
-            {
+            if (types.ContainsKey(name)) {
                 throw new RedefinedType(name, t);
             }
             var td = new TypeDefinition();
@@ -291,8 +254,7 @@ namespace PragmaScript
         public Scope GetRootScope()
         {
             Scope result = this;
-            while (result.parent != null)
-            {
+            while (result.parent != null) {
                 result = result.parent;
             }
             return result;
@@ -304,16 +266,12 @@ namespace PragmaScript
 
             string path_string = null;
             Scope root_scope;
-            if (root)
-            {
+            if (root) {
                 root_scope = GetRootScope();
                 path_string = "";
-            }
-            else
-            {
+            } else {
                 root_scope = this;
-                if (namesp != null)
-                {
+                if (namesp != null) {
                     path_string = namesp.GetPath();
                 }
             }
@@ -321,26 +279,19 @@ namespace PragmaScript
             Scope parentScope = root_scope;
             Namespace lastNamespace = namesp;
 
-            foreach (var p in path)
-            {
+            foreach (var p in path) {
                 Debug.Assert(!string.IsNullOrWhiteSpace(p));
-                if (string.IsNullOrWhiteSpace(path_string))
-                {
+                if (string.IsNullOrWhiteSpace(path_string)) {
                     path_string = p;
-                }
-                else
-                {
+                } else {
                     path_string = $"{path_string}.{p}";
                 }
-                if (!namespaces.ContainsKey(path_string))
-                {
+                if (!namespaces.ContainsKey(path_string)) {
                     var n = new Namespace(p, parentScope);
                     namespaces.Add(path_string, n);
                     parentScope = n.scope;
                     lastNamespace = n;
-                }
-                else
-                {
+                } else {
                     lastNamespace = namespaces[path_string];
                     parentScope = lastNamespace.scope;
                 }
@@ -363,8 +314,7 @@ namespace PragmaScript
 
         public void AddTypeAlias(FrontendType t, Token token, string alias)
         {
-            if (types.ContainsKey(alias))
-            {
+            if (types.ContainsKey(alias)) {
                 throw new RedefinedType(alias, token);
             }
             var td = new TypeDefinition();
@@ -377,8 +327,7 @@ namespace PragmaScript
 
         public void AddType(FrontendType t, Token token)
         {
-            if (types.ContainsKey(t.ToString()))
-            {
+            if (types.ContainsKey(t.ToString())) {
                 throw new RedefinedType(t.ToString(), token);
             }
             var td = new TypeDefinition();

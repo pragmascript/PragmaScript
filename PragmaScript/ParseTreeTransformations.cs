@@ -19,8 +19,7 @@ namespace PragmaScript
 
         public static void Desugar(List<(AST.FieldAccess fa, Scope.Namespace ns)> namespaceAccesses, TypeChecker tc)
         {
-            foreach (var na in namespaceAccesses)
-            {
+            foreach (var na in namespaceAccesses) {
                 Debug.Assert(na.fa.kind == FieldAccess.AccessKind.Namespace);
                 var result = new VariableReference(na.fa.token, na.ns.scope);
                 result.variableName = na.fa.fieldName;
@@ -31,8 +30,7 @@ namespace PragmaScript
 
         public static void Desugar(List<VariableReference> embeddings, TypeChecker tc)
         {
-            foreach (var e in embeddings)
-            {
+            foreach (var e in embeddings) {
                 var ft = tc.GetNodeType(e.scope.function) as FrontendFunctionType;
                 Debug.Assert(ft != null);
 
@@ -54,12 +52,9 @@ namespace PragmaScript
                 f.returnPointer = e.returnPointer;
 
                 FrontendStructType st;
-                if (pt is FrontendPointerType fpt)
-                {
+                if (pt is FrontendPointerType fpt) {
                     st = fpt.elementType as FrontendStructType;
-                }
-                else
-                {
+                } else {
                     st = pt as FrontendStructType;
                 }
                 Debug.Assert(st != null);
@@ -74,8 +69,7 @@ namespace PragmaScript
         static void fixupParents(Node parent, Node node)
         {
             node.parent = parent;
-            foreach (var c in node.GetChilds())
-            {
+            foreach (var c in node.GetChilds()) {
                 fixupParents(node, c);
             }
         }

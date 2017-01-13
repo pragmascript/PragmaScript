@@ -80,15 +80,12 @@ namespace PragmaScript
 
         public static bool IsIntegerOrLateBind(FrontendType t)
         {
-            if (isIntegerType(t))
-            {
+            if (isIntegerType(t)) {
                 return true;
             }
-            if (t is FrontendNumberType)
-            {
+            if (t is FrontendNumberType) {
                 var tn = t as FrontendNumberType;
-                if (tn.floatType)
-                {
+                if (tn.floatType) {
                     return false;
                 }
                 tn.Bind(tn.Default());
@@ -114,49 +111,36 @@ namespace PragmaScript
         {
             var a_is_number = a is FrontendNumberType;
             var b_is_number = b is FrontendNumberType;
-            if (a_is_number || b_is_number)
-            {
-                if (a_is_number && b_is_number)
-                {
+            if (a_is_number || b_is_number) {
+                if (a_is_number && b_is_number) {
                     var an = a as FrontendNumberType;
                     var bn = b as FrontendNumberType;
                     an.others.Add(bn);
                     bn.others.Add(an);
-                    if (an.floatType || bn.floatType)
-                    {
+                    if (an.floatType || bn.floatType) {
                         an.floatType = true;
                         bn.floatType = true;
                     }
                     return true;
                 }
 
-                if (a_is_number)
-                {
-                    if (isIntegerType(b))
-                    {
+                if (a_is_number) {
+                    if (isIntegerType(b)) {
                         var an = a as FrontendNumberType;
-                        if (!an.floatType)
-                        {
+                        if (!an.floatType) {
                             an.Bind(b);
                         }
-                    }
-                    else if (IsFloatType(b))
-                    {
+                    } else if (IsFloatType(b)) {
                         (a as FrontendNumberType).Bind(b);
                     }
                 }
-                if (b_is_number)
-                {
-                    if (isIntegerType(a))
-                    {
+                if (b_is_number) {
+                    if (isIntegerType(a)) {
                         var bn = b as FrontendNumberType;
-                        if (!bn.floatType)
-                        {
+                        if (!bn.floatType) {
                             bn.Bind(a);
                         }
-                    }
-                    else if (IsFloatType(a))
-                    {
+                    } else if (IsFloatType(a)) {
                         (b as FrontendNumberType).Bind(a);
                     }
                 }
@@ -168,80 +152,56 @@ namespace PragmaScript
         {
             var a_is_number = a is FrontendNumberType;
             var b_is_number = b is FrontendNumberType;
-            if (a_is_number || b_is_number)
-            {
-                if (a_is_number && b_is_number)
-                {
+            if (a_is_number || b_is_number) {
+                if (a_is_number && b_is_number) {
                     var an = a as FrontendNumberType;
                     var bn = b as FrontendNumberType;
                     an.others.Add(bn);
                     bn.others.Add(an);
-                    if (an.floatType || bn.floatType)
-                    {
+                    if (an.floatType || bn.floatType) {
                         an.floatType = true;
                         bn.floatType = true;
                     }
-                    
+
                     return true;
                 }
 
-                if (a_is_number)
-                {
-                    if (isIntegerType(b))
-                    {
+                if (a_is_number) {
+                    if (isIntegerType(b)) {
                         var an = a as FrontendNumberType;
-                        if (an.floatType)
-                        {
+                        if (an.floatType) {
                             return false;
-                        }
-                        else
-                        {
+                        } else {
                             an.Bind(b);
                             return true;
                         }
-                    }
-                    else if (IsFloatType(b))
-                    {
+                    } else if (IsFloatType(b)) {
                         (a as FrontendNumberType).Bind(b);
                         return true;
-                    }
-                    else
-                    {
+                    } else {
                         return false;
                     }
                 }
-                if (b_is_number)
-                {
-                    if (isIntegerType(a))
-                    {
+                if (b_is_number) {
+                    if (isIntegerType(a)) {
                         var bn = b as FrontendNumberType;
-                        if (bn.floatType)
-                        {
+                        if (bn.floatType) {
                             return false;
-                        }
-                        else
-                        {
+                        } else {
                             bn.Bind(a);
                             return true;
                         }
-                    }
-                    else if (IsFloatType(a))
-                    {
+                    } else if (IsFloatType(a)) {
                         (b as FrontendNumberType).Bind(a);
                         return true;
-                    }
-                    else
-                    {
+                    } else {
                         return false;
                     }
                 }
             }
-            if (a.Equals(b))
-            {
+            if (a.Equals(b)) {
                 return true;
-            }
-            else
-            {
+            } else {
                 return false;
             }
         }
@@ -270,37 +230,28 @@ namespace PragmaScript
         {
             visited.Add(this);
             boundType = type;
-            foreach (var other in others)
-            {
-                if (!visited.Contains(other))
-                {
+            foreach (var other in others) {
+                if (!visited.Contains(other)) {
                     other.bind(type, visited);
                 }
             }
         }
         public FrontendType Default()
         {
-            if (floatType)
-            {
+            if (floatType) {
                 return FrontendType.f32;
-            }
-            else
-            {
+            } else {
                 return FrontendType.i32;
             }
         }
         public override string ToString()
         {
-            if (boundType != null)
-            {
+            if (boundType != null) {
                 return boundType.ToString();
             }
-            if (floatType)
-            {
+            if (floatType) {
                 return "float literal";
-            }
-            else
-            {
+            } else {
                 return "integer literal";
             }
 
@@ -357,10 +308,8 @@ namespace PragmaScript
         public int GetFieldIndex(string name)
         {
             int idx = 0;
-            foreach (var f in fields)
-            {
-                if (f.name == name)
-                {
+            foreach (var f in fields) {
+                if (f.name == name) {
                     return idx;
                 }
                 idx++;
@@ -370,12 +319,9 @@ namespace PragmaScript
 
         void calcTypeName()
         {
-            if (structName != null)
-            {
+            if (structName != null) {
                 name = structName;
-            }
-            else
-            {
+            } else {
                 name = "{" + string.Join(",", fields) + "}";
             }
         }
@@ -391,7 +337,7 @@ namespace PragmaScript
         }
     }
 
-    public class FrontendFunctionType: FrontendType
+    public class FrontendFunctionType : FrontendType
     {
         public class Param
         {
@@ -412,12 +358,9 @@ namespace PragmaScript
 
         public FrontendFunctionType(string funName)
         {
-            if (funName != null)
-            {
+            if (funName != null) {
                 this.funName = funName;
-            }
-            else
-            {
+            } else {
                 this.funName = "";
             }
             calcTypeName();
@@ -440,10 +383,8 @@ namespace PragmaScript
         public int GetParamIndex(string name)
         {
             int idx = 0;
-            foreach (var f in parameters)
-            {
-                if (f.name == name)
-                {
+            foreach (var f in parameters) {
+                if (f.name == name) {
                     return idx;
                 }
                 idx++;
@@ -457,5 +398,5 @@ namespace PragmaScript
         }
     }
 
-    
+
 }

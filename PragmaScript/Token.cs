@@ -188,10 +188,8 @@ namespace PragmaScript
             operators.Add("[]", TokenType.ArrayTypeBrackets);
             operators.Add("@", TokenType.At);
 
-            foreach (var op in operators.Keys)
-            {
-                foreach (var oc in op)
-                {
+            foreach (var op in operators.Keys) {
+                foreach (var oc in op) {
                     operatorChars.Add(oc);
                 }
             }
@@ -214,8 +212,7 @@ namespace PragmaScript
 
         public bool isAssignmentOperator()
         {
-            switch (type)
-            {
+            switch (type) {
                 case TokenType.Assignment:
                 case TokenType.PlusEquals:
                 case TokenType.RightShiftEquals:
@@ -245,10 +242,8 @@ namespace PragmaScript
             char current = line[pos];
 
             // first test if char is whitespace
-            if (char.IsWhiteSpace(current))
-            {
-                while (char.IsWhiteSpace(current))
-                {
+            if (char.IsWhiteSpace(current)) {
+                while (char.IsWhiteSpace(current)) {
                     t.length++;
                     pos++;
                     if (pos >= line.Length)
@@ -261,12 +256,9 @@ namespace PragmaScript
                 return t;
             }
 
-            if (current == '/')
-            {
-                if (pos + 1 < line.Length)
-                {
-                    if (line[pos + 1] == '/')
-                    {
+            if (current == '/') {
+                if (pos + 1 < line.Length) {
+                    if (line[pos + 1] == '/') {
                         t.type = TokenType.Comment;
                         t.text = line.Substring(t.pos_idx, line.Length - t.pos_idx);
                         t.length = t.text.Length;
@@ -275,16 +267,13 @@ namespace PragmaScript
                 }
             }
 
-            if (current == '"')
-            {
+            if (current == '"') {
                 t.type = TokenType.String;
                 char last = current;
-                do
-                {
+                do {
                     pos++;
                     t.length++;
-                    if (pos >= line.Length)
-                    {
+                    if (pos >= line.Length) {
                         t.text = line.Substring(t.pos_idx, t.length - 1);
                         throw new LexerError("String constant exceeds line!", t);
                     }
@@ -298,35 +287,27 @@ namespace PragmaScript
             }
 
             // test if first char is a radix 10 digit
-            if (char.IsDigit(current))
-            {
+            if (char.IsDigit(current)) {
                 bool containsDecimalSeperator = false;
                 bool isHexadecimal = false;
-                if (pos + 1 < line.Length)
-                {
-                    if (line[pos + 1] == 'x')
-                    {
+                if (pos + 1 < line.Length) {
+                    if (line[pos + 1] == 'x') {
                         isHexadecimal = true;
                         pos += 2;
                         t.length += 2;
                     }
                 }
-                if (pos >= line.Length)
-                {
+                if (pos >= line.Length) {
                     current = '\0';
-                }
-                else
-                {
+                } else {
                     current = line[pos];
                 }
 
 
                 while (char.IsDigit(current) || current == '.'
-                    || (isHexadecimal && (current >= 'A' && current <= 'F')))
-                {
+                    || (isHexadecimal && (current >= 'A' && current <= 'F'))) {
                     // only one decimal seperator is allowed
-                    if (current == '.' && containsDecimalSeperator)
-                    {
+                    if (current == '.' && containsDecimalSeperator) {
                         t.text = line.Substring(t.pos_idx, t.length);
                         throw new LexerError("Only one decimal seperator is allowed!", t);
                     }
@@ -344,10 +325,8 @@ namespace PragmaScript
             }
 
             // if a token starts with a leter its either a keyword or an identifier
-            if (char.IsLetter(current) || current == '_')
-            {
-                while (isIdentifierChar(current))
-                {
+            if (char.IsLetter(current) || current == '_') {
+                while (isIdentifierChar(current)) {
                     t.length++;
                     pos++;
                     if (pos >= line.Length)
@@ -359,13 +338,10 @@ namespace PragmaScript
                 t.text = identifier;
 
                 // check if current identifier is a reserved keyword
-                if (isKeyword(identifier))
-                {
+                if (isKeyword(identifier)) {
                     t.type = keywords[identifier];
                     return t;
-                }
-                else
-                {
+                } else {
                     t.type = TokenType.Identifier;
                     return t;
                 }
@@ -373,13 +349,11 @@ namespace PragmaScript
 
             var operatorSB = new StringBuilder();
             TokenType op = TokenType.Undefined;
-            while (operatorChars.Contains(current))
-            {
+            while (operatorChars.Contains(current)) {
                 operatorSB.Append(current);
                 var ops = operatorSB.ToString();
                 // check if current char is operator
-                if (operators.TryGetValue(ops, out op))
-                {
+                if (operators.TryGetValue(ops, out op)) {
                     t.length = ops.Length;
                     t.type = op;
                     t.text = line.Substring(t.pos_idx, t.length);
@@ -391,8 +365,7 @@ namespace PragmaScript
             }
 
             // actually found an operator
-            if (op != TokenType.Undefined)
-            {
+            if (op != TokenType.Undefined) {
                 return t;
             }
 
@@ -403,12 +376,9 @@ namespace PragmaScript
 
         public override string ToString()
         {
-            if (type != TokenType.Error)
-            {
+            if (type != TokenType.Error) {
                 return string.Format("({0}, file \"{1}\", line {2}, pos {3}, \"{4}\")", type.ToString(), filename, Line, Pos, text);
-            }
-            else
-            {
+            } else {
                 return string.Format("({0}, file {1}, line {2}, pos {3}, \"{4}\")", "error: " + errorMessage, filename, Line, Pos, text);
             }
 
@@ -422,12 +392,10 @@ namespace PragmaScript
         public static void Tokenize(List<Token> result, string text, string filename)
         {
             var lines = text.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
-            for (int i = 0; i < lines.Length; ++i)
-            {
+            for (int i = 0; i < lines.Length; ++i) {
                 var line = lines[i];
                 var pos = 0;
-                while (pos < line.Length)
-                {
+                while (pos < line.Length) {
                     var t = Token.Parse(line, pos, i, filename);
                     t.filename = filename;
                     result.Add(t);

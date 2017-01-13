@@ -20,12 +20,9 @@ namespace PragmaScript
     {
         public static char at(this string s, int idx)
         {
-            if (idx >= 0 && idx < s.Length)
-            {
+            if (idx >= 0 && idx < s.Length) {
                 return s[idx];
-            }
-            else
-            {
+            } else {
                 return '\0';
             }
         }
@@ -65,17 +62,14 @@ namespace PragmaScript
             // CompilerOptions.inputFilename = Path.Combine(programDir, "preamable.prag");
 
 #endif
-            if (CompilerOptions.inputFilename == null)
-            {
+            if (CompilerOptions.inputFilename == null) {
                 Console.WriteLine("Input file name missing!");
                 return;
             }
-            try
-            {
+            try {
                 compile(CompilerOptions.inputFilename);
             }
-            catch (FileNotFoundException)
-            {
+            catch (FileNotFoundException) {
                 writeError("Could not open input file!");
             }
 
@@ -98,15 +92,12 @@ namespace PragmaScript
         }
         static void parseARGS(string[] args)
         {
-            for (int i = 0; i < args.Length; ++i)
-            {
+            for (int i = 0; i < args.Length; ++i) {
                 var arg = args[i];
-                if (arg.TrimStart().StartsWith("-"))
-                {
+                if (arg.TrimStart().StartsWith("-")) {
                     var x = arg.TrimStart().Remove(0, 1);
                     x = x.ToUpperInvariant();
-                    switch (x)
-                    {
+                    switch (x) {
                         case "D":
                         case "DEGUG":
                             CompilerOptions.debug = true;
@@ -146,9 +137,7 @@ namespace PragmaScript
                             writeError("Unknown command line option");
                             break;
                     }
-                }
-                else
-                {
+                } else {
                     CompilerOptions.inputFilename = arg;
                 }
             }
@@ -217,14 +206,12 @@ namespace PragmaScript
         static Token[] tokenize(string text, string filename)
         {
             Token[] result = null;
-            try
-            {
+            try {
                 List<Token> ts = new List<Token>();
                 Token.Tokenize(ts, text, filename);
                 result = ts.ToArray();
             }
-            catch (LexerError e)
-            {
+            catch (LexerError e) {
                 Console.WriteLine(e.Message);
             }
             return result;
@@ -233,8 +220,7 @@ namespace PragmaScript
 
         static void skipWhitespace(string text, ref int idx)
         {
-            while (char.IsWhiteSpace(text.at(idx)))
-            {
+            while (char.IsWhiteSpace(text.at(idx))) {
                 idx++;
             }
         }
@@ -248,12 +234,9 @@ namespace PragmaScript
         {
             HashSet<string> defines = new HashSet<string>();
             defines.Add("TRUE");
-            if (CompilerOptions.debug)
-            {
+            if (CompilerOptions.debug) {
                 defines.Add("DEBUG");
-            }
-            else
-            {
+            } else {
                 defines.Add("RELEASE");
             }
 
@@ -265,24 +248,18 @@ namespace PragmaScript
 
             bool inside_line_comment = false;
 
-            while (true)
-            {
-                if (text.at(idx - 1) == '/' && text.at(idx) == '/')
-                {
+            while (true) {
+                if (text.at(idx - 1) == '/' && text.at(idx) == '/') {
                     inside_line_comment = true;
                 }
-                if (!inside_line_comment && text.at(idx) == '#')
-                {
-                    if (char.ToUpper(text.at(idx + 1)) == 'I' && char.ToUpper(text.at(idx + 2)) == 'F')
-                    {
+                if (!inside_line_comment && text.at(idx) == '#') {
+                    if (char.ToUpper(text.at(idx + 1)) == 'I' && char.ToUpper(text.at(idx + 2)) == 'F') {
                         idx += 3;
-                        if (idx >= text.Length)
-                        {
+                        if (idx >= text.Length) {
                             return result.ToString();
                         }
                         skipWhitespace(text, ref idx);
-                        if (idx >= text.Length)
-                        {
+                        if (idx >= text.Length) {
                             return result.ToString();
                         }
                         int ident_start = idx;
@@ -292,43 +269,34 @@ namespace PragmaScript
                         var ident = text.Substring(ident_start, ident_end - ident_start);
                         var con = defines.Contains(ident);
                         ifs.Push(new PrepIf { Condition = con, InElse = false });
-                    }
-                    else
-                    {
+                    } else {
                         int ident_start = idx + 1;
                         while (Token.isIdentifierChar(text.at(++idx))) { }
                         int ident_end = idx;
                         var ident = text.Substring(ident_start, ident_end - ident_start);
 
-                        if (ident.ToUpper() == "ELSE")
-                        {
+                        if (ident.ToUpper() == "ELSE") {
                             ifs.Peek().InElse = true;
-                        }
-                        else if (ident.ToUpper() == "ENDIF")
-                        {
+                        } else if (ident.ToUpper() == "ENDIF") {
                             ifs.Pop();
                         }
                     }
                 }
                 var skip = false;
-                if (ifs.Count > 0)
-                {
+                if (ifs.Count > 0) {
                     var _if = ifs.Peek();
                     skip = !(_if.Condition ^ _if.InElse);
                 }
 
                 // HACK: keep newlines for error reporting
-                if (!skip || text[idx] == '\r' || text[idx] == '\n')
-                {
-                    if (text[idx] == '\n')
-                    {
+                if (!skip || text[idx] == '\r' || text[idx] == '\n') {
+                    if (text[idx] == '\n') {
                         inside_line_comment = false;
                     }
                     result.Append(text[idx]);
                 }
                 idx++;
-                if (idx >= text.Length)
-                {
+                if (idx >= text.Length) {
                     return result.ToString();
                 }
 
@@ -342,62 +310,48 @@ namespace PragmaScript
             var d = entry;
 
             var output = d.GetAttribute("COMPILE.OUTPUT", false);
-            if (output != null)
-            {
+            if (output != null) {
                 CompilerOptions.output = output;
             }
 
             var debug = d.GetAttribute("COMPILE.DEBUG");
-            if (debug == "TRUE")
-            {
+            if (debug == "TRUE") {
                 CompilerOptions.debug = true;
-            }
-            else if (debug == "FALSE")
-            {
+            } else if (debug == "FALSE") {
                 CompilerOptions.debug = false;
             }
 
             var opt = d.GetAttribute("COMPILE.OPT");
-            if (int.TryParse(opt, out int opt_level))
-            {
+            if (int.TryParse(opt, out int opt_level)) {
                 CompilerOptions.optimizationLevel = opt_level;
             }
 
             var run = d.GetAttribute("COMPILE.RUN");
-            if (run == "TRUE")
-            {
+            if (run == "TRUE") {
                 CompilerOptions.runAfterCompile = true;
-            }
-            else if (run == "FALSE")
-            {
+            } else if (run == "FALSE") {
                 CompilerOptions.runAfterCompile = false;
             }
 
             var dll = d.GetAttribute("COMPILE.DLL");
-            if (dll == "TRUE")
-            {
+            if (dll == "TRUE") {
                 CompilerOptions.dll = true;
-            }
-            else if (dll == "FALSE")
-            {
+            } else if (dll == "FALSE") {
                 CompilerOptions.dll = false;
             }
 
 
             var libs = d.GetAttribute("COMPILE.LIBS", upperCase: false);
-            if (libs != null)
-            {
+            if (libs != null) {
                 var ls = libs.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var lib in ls)
-                {
+                foreach (var lib in ls) {
                     var tlib = lib.Trim();
                     CompilerOptions.libs.Add(tlib);
                 }
             }
 
             var lib_path = d.GetAttribute("COMPILE.PATH", upperCase: false);
-            if (lib_path != null)
-            {
+            if (lib_path != null) {
                 CompilerOptions.lib_path.Add(lib_path);
             }
         }
@@ -422,8 +376,7 @@ namespace PragmaScript
 
             bool parseError = false;
 
-            while (toImport.Count > 0)
-            {
+            while (toImport.Count > 0) {
                 var fn = toImport.Dequeue();
                 var text = File.ReadAllText(fn);
                 text = preprocess(text);
@@ -448,19 +401,16 @@ namespace PragmaScript
                 }
 #endif
                 toCompile.Push(tokens);
-                foreach (var import in imports)
-                {
+                foreach (var import in imports) {
                     var dir = Path.GetDirectoryName(fn);
                     var imp_fn = Path.GetFullPath(Path.Combine(dir, import));
-                    if (!imported.Contains(imp_fn))
-                    {
+                    if (!imported.Contains(imp_fn)) {
                         toImport.Enqueue(imp_fn);
                         imported.Add(imp_fn);
                     }
                 }
             }
-            foreach (var tokens in toCompile)
-            {
+            foreach (var tokens in toCompile) {
                 AST.ParseState ps = new ParseState();
                 ps.pos = 0;
                 ps.tokens = tokens;
@@ -481,11 +431,10 @@ namespace PragmaScript
             }
 
             var entry = CompilerOptions.entry;
-            if (entry != null)
-            {
+            if (entry != null) {
                 setEntryPoint(entry);
             }
-            
+
 
 #if DEBUG
             //Console.WriteLine("rendering graph...");
@@ -508,17 +457,14 @@ namespace PragmaScript
             var tc = new TypeChecker();
 
             bool success = true;
-            try
-            {
+            try {
                 tc.CheckTypes(root);
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 Console.WriteLine(e.Message);
                 success = false;
             }
-            if (!success || parseError)
-            {
+            if (!success || parseError) {
                 return;
             }
 
@@ -543,8 +489,7 @@ namespace PragmaScript
             Console.WriteLine();
 #endif
 
-            if (entry == null)
-            {
+            if (entry == null) {
                 Console.WriteLine("warning: No program entry point defined.");
             }
 

@@ -46,8 +46,7 @@ namespace PragmaScript
 
             public void AddAttribute(string key, string value)
             {
-                if (attributes == null)
-                {
+                if (attributes == null) {
                     attributes = new Dictionary<string, string>();
                 }
                 attributes.Add(key, value);
@@ -55,8 +54,7 @@ namespace PragmaScript
 
             public void AddAttribte(string key)
             {
-                if (attributes == null)
-                {
+                if (attributes == null) {
                     attributes = new Dictionary<string, string>();
                 }
                 attributes.Add(key, "TRUE");
@@ -64,8 +62,7 @@ namespace PragmaScript
 
             public string GetAttribute(string key, bool upperCase = true)
             {
-                if (attributes == null)
-                {
+                if (attributes == null) {
                     return null;
                 }
                 attributes.TryGetValue(key, out string result);
@@ -74,13 +71,11 @@ namespace PragmaScript
 
             public bool HasAttribute(string key)
             {
-                if (attributes == null || !attributes.ContainsKey(key))
-                {
+                if (attributes == null || !attributes.ContainsKey(key)) {
                     return false;
                 }
                 var attr = attributes[key];
-                if (attr != "FALSE")
-                {
+                if (attr != "FALSE") {
                     return true;
                 }
                 return false;
@@ -105,8 +100,7 @@ namespace PragmaScript
             public override Node DeepCloneTree()
             {
                 var result = new ProgramRoot(token, scope);
-                foreach (var f in files)
-                {
+                foreach (var f in files) {
                     result.files.Add(f.DeepCloneTree() as FileRoot);
                 }
                 return result;
@@ -139,8 +133,7 @@ namespace PragmaScript
             public override Node DeepCloneTree()
             {
                 var result = new FileRoot(token, scope);
-                foreach (var d in declarations)
-                {
+                foreach (var d in declarations) {
                     result.declarations.Add(d.DeepCloneTree());
                 }
                 return result;
@@ -172,8 +165,7 @@ namespace PragmaScript
             public override Node DeepCloneTree()
             {
                 var result = new FileRoot(token, scope);
-                foreach (var d in declarations)
-                {
+                foreach (var d in declarations) {
                     result.declarations.Add(d.DeepCloneTree());
                 }
                 return result;
@@ -206,8 +198,7 @@ namespace PragmaScript
             public override Node DeepCloneTree()
             {
                 var result = new Block(token, scope);
-                foreach (var n in statements)
-                {
+                foreach (var n in statements) {
                     result.statements.Add(n.DeepCloneTree());
                 }
                 return result;
@@ -277,8 +268,7 @@ namespace PragmaScript
                 var result = new IfCondition(token, scope);
                 result.condition = condition.DeepCloneTree();
                 result.thenBlock = thenBlock.DeepCloneTree();
-                foreach (var n in elifs)
-                {
+                foreach (var n in elifs) {
                     result.elifs.Add(n.DeepCloneTree());
                 }
                 result.elseBlock = elseBlock.DeepCloneTree();
@@ -288,12 +278,10 @@ namespace PragmaScript
             {
                 yield return condition;
                 yield return thenBlock;
-                foreach (var elif in elifs)
-                {
+                foreach (var elif in elifs) {
                     yield return elif;
                 }
-                if (elseBlock != null)
-                {
+                if (elseBlock != null) {
                     yield return elseBlock;
                 }
             }
@@ -306,31 +294,22 @@ namespace PragmaScript
             public override void Replace(Node old, Node @new)
             {
                 var found = false;
-                if (old == condition)
-                {
+                if (old == condition) {
                     condition = @new;
                     found = true;
-                }
-                else if (old == thenBlock)
-                {
+                } else if (old == thenBlock) {
                     thenBlock = @new;
                     found = true;
-                }
-                else if (old == elseBlock)
-                {
+                } else if (old == elseBlock) {
                     elseBlock = @new;
-                }
-                else
-                {
+                } else {
                     var idx = elifs.IndexOf(old);
-                    if (idx != -1)
-                    {
+                    if (idx != -1) {
                         elifs[idx] = @new;
                         found = true;
                     }
                 }
-                if (!found)
-                {
+                if (!found) {
                     throw new InvalidCodePath();
                 }
             }
@@ -351,13 +330,11 @@ namespace PragmaScript
             public override Node DeepCloneTree()
             {
                 var result = new ForLoop(token, scope);
-                foreach (var n in initializer)
-                {
+                foreach (var n in initializer) {
                     result.initializer.Add(n.DeepCloneTree());
                 }
                 result.condition = condition.DeepCloneTree();
-                foreach (var n in iterator)
-                {
+                foreach (var n in iterator) {
                     result.iterator.Add(n.DeepCloneTree());
                 }
                 result.loopBody = loopBody.DeepCloneTree();
@@ -366,8 +343,7 @@ namespace PragmaScript
             public override IEnumerable<Node> GetChilds()
             {
                 int idx = 1;
-                foreach (var init in initializer)
-                {
+                foreach (var init in initializer) {
                     yield return init;
                     idx++;
                 }
@@ -375,8 +351,7 @@ namespace PragmaScript
                 yield return condition;
 
                 idx = 1;
-                foreach (var it in iterator)
-                {
+                foreach (var it in iterator) {
                     yield return it;
                     idx++;
                 }
@@ -442,13 +417,11 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                if (expression != null)
-                {
+                if (expression != null) {
                     yield return expression;
                 }
 
-                if (typeString != null)
-                {
+                if (typeString != null) {
                     yield return typeString;
                 }
             }
@@ -461,17 +434,12 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                if (expression == old)
-                {
+                if (expression == old) {
                     expression = @new;
-                }
-                else if (typeString == old)
-                {
+                } else if (typeString == old) {
                     Debug.Assert(@new is TypeString);
                     typeString = @new as TypeString;
-                }
-                else
-                {
+                } else {
                     throw new InvalidCodePath();
                 }
             }
@@ -502,8 +470,7 @@ namespace PragmaScript
             public override IEnumerable<Node> GetChilds()
             {
                 yield return typeString;
-                if (body != null)
-                {
+                if (body != null) {
                     yield return body;
                 }
             }
@@ -532,8 +499,7 @@ namespace PragmaScript
             {
                 var result = new StructConstructor(token, scope);
                 result.typeString = typeString.DeepCloneTree() as TypeString;
-                foreach (var arg in argumentList)
-                {
+                foreach (var arg in argumentList) {
                     result.argumentList.Add(arg.DeepCloneTree());
                 }
                 return result;
@@ -541,8 +507,7 @@ namespace PragmaScript
             public override IEnumerable<Node> GetChilds()
             {
                 yield return typeString;
-                foreach (var a in argumentList)
-                {
+                foreach (var a in argumentList) {
                     yield return a;
                 }
             }
@@ -553,18 +518,15 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                if (old == typeString)
-                {
+                if (old == typeString) {
                     Debug.Assert(@new is TypeString);
                     typeString = @new as TypeString;
-                }
-                else
-                {
+                } else {
                     var idx = argumentList.IndexOf(old);
                     Debug.Assert(idx != -1);
                     argumentList[idx] = @new;
                 }
-                
+
             }
         }
 
@@ -585,11 +547,9 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                foreach (var f in fields)
-                {
+                foreach (var f in fields) {
                     yield return f.typeString;
-                    if (f.defaultValueExpression != null)
-                    {
+                    if (f.defaultValueExpression != null) {
                         yield return f.defaultValueExpression;
                     }
                 }
@@ -620,8 +580,7 @@ namespace PragmaScript
             {
                 var result = new FunctionCall(token, scope);
                 result.left = left.DeepCloneTree();
-                foreach (var arg in argumentList)
-                {
+                foreach (var arg in argumentList) {
                     result.argumentList.Add(arg.DeepCloneTree());
                 }
                 return result;
@@ -629,8 +588,7 @@ namespace PragmaScript
             public override IEnumerable<Node> GetChilds()
             {
                 yield return left;
-                foreach (var exp in argumentList)
-                {
+                foreach (var exp in argumentList) {
                     yield return exp;
                 }
             }
@@ -641,12 +599,9 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                if (old == left)
-                {
+                if (old == left) {
                     left = @new;
-                }
-                else
-                {
+                } else {
                     var idx = argumentList.IndexOf(old);
                     Debug.Assert(idx != -1);
                     argumentList[idx] = @new;
@@ -727,15 +682,11 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                if (left == old)
-                {
+                if (left == old) {
                     left = @new;
-                }
-                else if (right == old)
-                {
+                } else if (right == old) {
                     right = @new;
-                }
-                else throw new InvalidCodePath();
+                } else throw new InvalidCodePath();
             }
         }
 
@@ -849,20 +800,15 @@ namespace PragmaScript
                 var txt = s.Substring(1, s.Length - 2);
                 StringBuilder result = new StringBuilder(txt.Length);
                 int idx = 0;
-                while (idx < txt.Length)
-                {
-                    if (txt[idx] != '\\')
-                    {
+                while (idx < txt.Length) {
+                    if (txt[idx] != '\\') {
                         result.Append(txt[idx]);
-                    }
-                    else
-                    {
+                    } else {
                         idx++;
                         Debug.Assert(idx < txt.Length);
                         // TODO: finish escape sequences
                         // https://msdn.microsoft.com/en-us/library/h21280bw.aspx
-                        switch (txt[idx])
-                        {
+                        switch (txt[idx]) {
                             case '\\':
                                 result.Append('\\');
                                 break;
@@ -903,8 +849,7 @@ namespace PragmaScript
             public override Node DeepCloneTree()
             {
                 var result = new ArrayConstructor(token, scope);
-                foreach (var e in elements)
-                {
+                foreach (var e in elements) {
                     result.elements.Add(e.DeepCloneTree());
                 }
                 return result;
@@ -912,8 +857,7 @@ namespace PragmaScript
             public override IEnumerable<Node> GetChilds()
             {
                 var idx = 0;
-                foreach (var x in elements)
-                {
+                foreach (var x in elements) {
                     yield return x;
                 }
             }
@@ -997,12 +941,9 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                if (left == old)
-                {
+                if (left == old) {
                     left = @new;
-                }
-                else
-                {
+                } else {
                     throw new InvalidCodePath();
                 }
             }
@@ -1042,16 +983,11 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                if (index == old)
-                {
+                if (index == old) {
                     index = @new;
-                }
-                else if (left == old)
-                {
+                } else if (left == old) {
                     left = @new;
-                }
-                else
-                {
+                } else {
                     throw new InvalidCodePath();
                 }
             }
@@ -1119,20 +1055,16 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                if (expression != null)
-                {
+                if (expression != null) {
                     yield return expression;
                 }
             }
 
             public override void Replace(Node old, Node @new)
             {
-                if (expression == old)
-                {
+                if (expression == old) {
                     expression = @new;
-                }
-                else
-                {
+                } else {
                     throw new InvalidCodePath();
                 }
             }
@@ -1175,8 +1107,7 @@ namespace PragmaScript
             }
             public void SetTypeFromToken(Token next)
             {
-                switch (next.type)
-                {
+                switch (next.type) {
                     case Token.TokenType.Add:
                         type = BinOpType.Add;
                         break;
@@ -1253,8 +1184,7 @@ namespace PragmaScript
 
             internal bool isEither(params BinOpType[] types)
             {
-                for (int i = 0; i < types.Length; ++i)
-                {
+                for (int i = 0; i < types.Length; ++i) {
                     if (type == types[i])
                         return true;
                 }
@@ -1269,8 +1199,7 @@ namespace PragmaScript
 
             public override string ToString()
             {
-                switch (type)
-                {
+                switch (type) {
                     case BinOpType.Add:
                         return "+";
                     case BinOpType.Subract:
@@ -1324,16 +1253,11 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                if (left == old)
-                {
+                if (left == old) {
                     left = @new;
-                }
-                else if (right == old)
-                {
+                } else if (right == old) {
                     right = @new;
-                }
-                else
-                {
+                } else {
                     throw new InvalidCodePath();
                 }
             }
@@ -1371,13 +1295,11 @@ namespace PragmaScript
             }
             public static bool IsUnaryStatement(Node node)
             {
-                if (!(node is UnaryOp))
-                {
+                if (!(node is UnaryOp)) {
                     return false;
                 }
                 var ut = (node as UnaryOp).type;
-                switch (ut)
-                {
+                switch (ut) {
                     case UnaryOpType.PreInc:
                         return true;
                     case UnaryOpType.PreDec:
@@ -1392,8 +1314,7 @@ namespace PragmaScript
             }
             public static bool IsUnaryToken(Token t)
             {
-                switch (t.type)
-                {
+                switch (t.type) {
                     case Token.TokenType.Add:
                         return true;
                     case Token.TokenType.Subtract:
@@ -1418,8 +1339,7 @@ namespace PragmaScript
             }
             public void SetTypeFromToken(Token next, bool prefix)
             {
-                switch (next.type)
-                {
+                switch (next.type) {
                     case Token.TokenType.Add:
                         type = UnaryOpType.Add;
                         break;
@@ -1464,8 +1384,7 @@ namespace PragmaScript
             public override string ToString()
             {
                 string result = null;
-                switch (type)
-                {
+                switch (type) {
                     case UnaryOpType.Add:
                         result = "unary +";
                         break;
@@ -1502,8 +1421,7 @@ namespace PragmaScript
                     default:
                         throw new InvalidCodePath();
                 }
-                if (returnPointer)
-                {
+                if (returnPointer) {
                     Debug.Assert(CanReturnPointer());
                     result += " (p)";
                 }
@@ -1512,12 +1430,9 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                if (expression == old)
-                {
+                if (expression == old) {
                     expression = @new;
-                }
-                else
-                {
+                } else {
                     throw new InvalidCodePath();
                 }
             }
@@ -1548,12 +1463,9 @@ namespace PragmaScript
 
             public override void Replace(Node old, Node @new)
             {
-                if (expression == old)
-                {
+                if (expression == old) {
                     expression = @new;
-                }
-                else if (typeString == old)
-                {
+                } else if (typeString == old) {
                     Debug.Assert(@new is TypeString);
                     typeString = @new as TypeString;
                 }
@@ -1580,9 +1492,6 @@ namespace PragmaScript
             {
             }
 
-    
-
-
             public Scope.FullyQualifiedName fullyQualifiedName = new Scope.FullyQualifiedName();
             public bool isArrayType = false;
             public bool isPointerType = false;
@@ -1605,11 +1514,9 @@ namespace PragmaScript
                 result.pointerLevel = pointerLevel;
                 result.kind = kind;
 
-                if (functionTypeString != null)
-                {
+                if (functionTypeString != null) {
                     var fts = new FunctionTypeString();
-                    foreach (var p in functionTypeString.parameters)
-                    {
+                    foreach (var p in functionTypeString.parameters) {
                         var np = new AST.NamedParameter();
                         np.name = p.name;
                         np.typeString = p.typeString.DeepCloneTree() as TypeString;
@@ -1617,9 +1524,7 @@ namespace PragmaScript
                         fts.parameters.Add(np);
                     }
                     result.functionTypeString = fts;
-                }
-                else
-                {
+                } else {
                     result.functionTypeString = null;
                 }
 
@@ -1627,14 +1532,11 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                switch (kind)
-                {
+                switch (kind) {
                     case TypeKind.Function:
-                        foreach (var p in functionTypeString.parameters)
-                        {
+                        foreach (var p in functionTypeString.parameters) {
                             yield return p.typeString;
-                            if (p.defaultValueExpression != null)
-                            {
+                            if (p.defaultValueExpression != null) {
                                 yield return p.defaultValueExpression;
                             }
                         }
@@ -1648,8 +1550,7 @@ namespace PragmaScript
             public override string ToString()
             {
                 string result = "";
-                switch (kind)
-                {
+                switch (kind) {
                     case TypeKind.Function:
                         result = "fun () => ";
                         break;
@@ -1664,10 +1565,8 @@ namespace PragmaScript
                 }
                 if (isArrayType)
                     result += "[]";
-                if (isPointerType)
-                {
-                    for (int i = 0; i < pointerLevel; ++i)
-                    {
+                if (isPointerType) {
+                    for (int i = 0; i < pointerLevel; ++i) {
                         result += "*";
                     }
                 }

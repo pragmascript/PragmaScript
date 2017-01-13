@@ -11,7 +11,6 @@ namespace PragmaScript
 
     partial class Backend
     {
-
         public enum TargetPlatform { x86, x64 }
         TargetPlatform platform;
 
@@ -88,8 +87,7 @@ namespace PragmaScript
                 FalseBool = new LLVMBool(0);
 
                 OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, new LLVMBool(1));
-                unchecked
-                {
+                unchecked {
                     NegOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), (ulong)-1, new LLVMBool(1));
                 }
                 OneFloat32 = LLVM.ConstReal(LLVM.FloatType(), 1.0);
@@ -123,8 +121,7 @@ namespace PragmaScript
 
             public static void Init(TargetPlatform platform)
             {
-                switch (platform)
-                {
+                switch (platform) {
                     case TargetPlatform.x86:
                         mm = LLVM.Int32Type();
                         break;
@@ -180,8 +177,7 @@ namespace PragmaScript
         static LLVMTypeRef getTypeRef(FrontendStructType t, int depth)
         {
             LLVMTypeRef[] ets = new LLVMTypeRef[t.fields.Count];
-            for (int i = 0; i < ets.Length; ++i)
-            {
+            for (int i = 0; i < ets.Length; ++i) {
                 var f = t.fields[i];
                 ets[i] = getTypeRef(f.type, depth + 1);
             }
@@ -203,12 +199,9 @@ namespace PragmaScript
 
         static LLVMTypeRef getTypeRef(FrontendPointerType t, int depth)
         {
-            if (depth > 0 &&t.elementType is FrontendStructType)
-            {
+            if (depth > 0 && t.elementType is FrontendStructType) {
                 return Const.Int8PointerType;
-            }
-            else
-            {
+            } else {
                 var et = getTypeRef(t.elementType, depth);
                 return LLVM.PointerType(et, 0);
             }
@@ -222,8 +215,7 @@ namespace PragmaScript
 
             // TODO: what if we have a recursive function parameter here?
             // do i need to inc depth?
-            for (int i = 0; i < fun.parameters.Count; ++i)
-            {
+            for (int i = 0; i < fun.parameters.Count; ++i) {
                 par[i] = getTypeRef(fun.parameters[i].type, depth);
             }
             var returnType = getTypeRef(fun.returnType, 0);
@@ -241,60 +233,46 @@ namespace PragmaScript
 
         static LLVMTypeRef getTypeRef(FrontendType t, int depth)
         {
-            if (t.Equals(FrontendType.i16))
-            {
+            if (t.Equals(FrontendType.i16)) {
                 return Const.Int16Type;
             }
-            if (t.Equals(FrontendType.i32))
-            {
+            if (t.Equals(FrontendType.i32)) {
                 return Const.Int32Type;
             }
-            if (t.Equals(FrontendType.i64))
-            {
+            if (t.Equals(FrontendType.i64)) {
                 return Const.Int64Type;
             }
-            if (t.Equals(FrontendType.i8))
-            {
+            if (t.Equals(FrontendType.i8)) {
                 return Const.Int8Type;
             }
-            if (t.Equals(FrontendType.mm))
-            {
+            if (t.Equals(FrontendType.mm)) {
                 return Const.mm;
             }
-            if (t.Equals(FrontendType.f32))
-            {
+            if (t.Equals(FrontendType.f32)) {
                 return Const.Float32Type;
             }
-            if (t.Equals(FrontendType.f64))
-            {
+            if (t.Equals(FrontendType.f64)) {
                 return Const.Float64Type;
             }
-            if (t.Equals(FrontendType.bool_))
-            {
+            if (t.Equals(FrontendType.bool_)) {
                 return Const.BoolType;
             }
-            if (t.Equals(FrontendType.void_))
-            {
+            if (t.Equals(FrontendType.void_)) {
                 return Const.VoidType;
             }
-            if (t.Equals(FrontendType.string_))
-            {
+            if (t.Equals(FrontendType.string_)) {
                 return getTypeRef(t as FrontendArrayType, depth);
             }
-            if (t is FrontendArrayType)
-            {
+            if (t is FrontendArrayType) {
                 return getTypeRef(t as FrontendArrayType, depth);
             }
-            if (t is FrontendStructType)
-            {
+            if (t is FrontendStructType) {
                 return getTypeRef(t as FrontendStructType, depth);
             }
-            if (t is FrontendPointerType)
-            {
+            if (t is FrontendPointerType) {
                 return getTypeRef(t as FrontendPointerType, depth);
             }
-            if (t is FrontendFunctionType)
-            {
+            if (t is FrontendFunctionType) {
                 return getTypeRef(t as FrontendFunctionType, depth);
             }
             throw new InvalidCodePath();
@@ -302,28 +280,17 @@ namespace PragmaScript
 
         static LLVMTypeRef getTypeRef(Type t)
         {
-            if (t == typeof(Int32))
-            {
+            if (t == typeof(Int32)) {
                 return Const.Int32Type;
-            }
-            else if (t == typeof(float))
-            {
+            } else if (t == typeof(float)) {
                 return Const.Float32Type;
-            }
-            else if (t == typeof(void))
-            {
+            } else if (t == typeof(void)) {
                 return Const.VoidType;
-            }
-            else if (t == typeof(IntPtr))
-            {
+            } else if (t == typeof(IntPtr)) {
                 return Const.Int8PointerType;
-            }
-            else if (t == typeof(byte))
-            {
+            } else if (t == typeof(byte)) {
                 return Const.Int8Type;
-            }
-            else
-            {
+            } else {
                 throw new InvalidCodePath();
             }
         }
@@ -345,8 +312,7 @@ namespace PragmaScript
 
         void addDelegate<T>(T del, string name) where T : class
         {
-            if (!typeof(T).IsSubclassOf(typeof(Delegate)))
-            {
+            if (!typeof(T).IsSubclassOf(typeof(Delegate))) {
                 throw new InvalidOperationException(typeof(T).Name + " is not a delegate type");
             }
             var info = typeof(T).GetMethod("Invoke");
@@ -355,8 +321,7 @@ namespace PragmaScript
 
             LLVMTypeRef[] param_types = new LLVMTypeRef[Math.Max(parameters.Length, 1)];
 
-            for (int i = 0; i < parameters.Length; ++i)
-            {
+            for (int i = 0; i < parameters.Length; ++i) {
                 var p = parameters[i];
                 var pt = p.ParameterType;
                 param_types[i] = getTypeRef(pt);
@@ -373,14 +338,10 @@ namespace PragmaScript
         void insertMissingReturn(LLVMTypeRef returnType)
         {
             var term = LLVM.GetBasicBlockTerminator(LLVM.GetInsertBlock(builder));
-            if (term.Pointer == IntPtr.Zero)
-            {
-                if (isEqualType(returnType, Const.VoidType))
-                {
+            if (term.Pointer == IntPtr.Zero) {
+                if (isEqualType(returnType, Const.VoidType)) {
                     LLVM.BuildRetVoid(builder);
-                }
-                else
-                {
+                } else {
                     var dummy = LLVM.BuildBitCast(builder, Const.ZeroInt32, returnType, "dummy");
                     LLVM.BuildRet(builder, dummy);
                 }
@@ -477,8 +438,7 @@ namespace PragmaScript
             LLVMMemoryBufferRef buf;
             IntPtr msg;
             LLVM.CreateMemoryBufferWithContentsOfFile(RelDir(@"External\preamble.ll"), out buf, out msg);
-            if (msg != IntPtr.Zero)
-            {
+            if (msg != IntPtr.Zero) {
                 Console.WriteLine(Marshal.PtrToStringAnsi(msg));
             }
 
@@ -486,11 +446,10 @@ namespace PragmaScript
             var ctx = LLVM.GetGlobalContext();
             LLVM.ParseIRInContext(ctx, buf, out mod, out msg);
 
-            if (msg != IntPtr.Zero)
-            {
+            if (msg != IntPtr.Zero) {
                 Console.WriteLine(Marshal.PtrToStringAnsi(msg));
             }
-            
+
             var fun = LLVM.GetNamedFunction(mod, "VirtualAlloc");
             Debug.Assert(fun.Pointer != IntPtr.Zero);
             variables.Add("VirtualAlloc", fun);
@@ -503,7 +462,7 @@ namespace PragmaScript
             Debug.Assert(fun.Pointer != IntPtr.Zero);
             variables.Add("__chkstk", fun);
 
-            
+
             addIntrinsics();
             addSpecialFuncitons();
             addPreamble();
