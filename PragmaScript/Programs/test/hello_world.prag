@@ -2,7 +2,7 @@
 
  
 [
-	"compile.output": "bugs.exe",
+	"compile.output": "hello_world.exe",
 	"compile.entry" : "true",
 	"compile.debug" : "true",
  	"compile.opt"   : "0",
@@ -13,4 +13,9 @@
 let main = fun () => void 
 {
 	print_string("hello, world!\n");
+	for (var i = 0; i < 12; ++i) {
+		print_i32(i);
+		print_string("\n");
+	}
+
 }

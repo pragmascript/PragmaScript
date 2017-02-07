@@ -49,7 +49,8 @@ namespace Handmade.Game
         // render_player((i32)input.mouse_x, (i32)input.mouse_y, input, render_target);
         let size = 15;
 
-        var background_color = color { 0.2, 0.2, 0.2, 1.0 };
+        var background_color = color { 0.25, 0.25, 0.25, 1.0 };
+        // animate_background_color(&background_color, input.time.t);
         var red = color {1.0, 0.0, 0.0, 1.0};
         
         draw_rectangle(render_target, min_max_rect(0, 0, render_target.width, render_target.height), background_color);
@@ -63,6 +64,26 @@ namespace Handmade.Game
         
         consume_buttons(input);
         return result;
+    }
+
+    let animate_background_color = fun
+    (
+        @background_color: color*;
+        t: f32;
+    ) => void
+    {
+        r += 0.25 * sin(t * 5.0);
+        if (background_color.r < 0.0) {
+            background_color.r = 0.0;
+        }
+        g += 0.25 * sin(t * 3.0 + 0.5);
+        if (g < 0.0) {
+            g = 0.0;
+        }
+        b += 0.25 * cos(t * 6.0 + 0.5);
+        if (b < 0.0) {
+            b = 0.0;
+        }
     }
 
     ["dll.export"]

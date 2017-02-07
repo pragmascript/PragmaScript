@@ -1552,14 +1552,102 @@ namespace PragmaScript
 
         public void Visit(AST.StructDeclaration node)
         {
-
         }
 
 
         public void Visit(AST.Node node)
         {
-            dynamic dn = node;
-            Visit(dn);
+            switch (node) {
+                case AST.ProgramRoot n:
+                    Visit(n);
+                    break;
+                case AST.FileRoot n:
+                    Visit(n);
+                    break;
+                case AST.Namespace n:
+                    Visit(n);
+                    break;
+                case AST.Block n:
+                    Visit(n);
+                    break;
+                case AST.Elif n:
+                    Visit(n);
+                    break;
+                case AST.IfCondition n:
+                    Visit(n);
+                    break;
+                case AST.ForLoop n:
+                    Visit(n);
+                    break;
+                case AST.WhileLoop n:
+                    Visit(n);
+                    break;
+                case AST.VariableDefinition n:
+                    Visit(n);
+                    break;
+                case AST.FunctionDefinition n:
+                    Visit(n);
+                    break;
+                case AST.StructConstructor n:
+                    Visit(n);
+                    break;
+                case AST.StructDeclaration n:
+                    Visit(n);
+                    break;
+                case AST.FunctionCall n:
+                    Visit(n);
+                    break;
+                case AST.VariableReference n:
+                    Visit(n);
+                    break;
+                case AST.Assignment n:
+                    Visit(n);
+                    break;
+                case AST.ConstInt n:
+                    Visit(n);
+                    break;
+                case AST.ConstFloat n:
+                    Visit(n);
+                    break;
+                case AST.ConstBool n:
+                    Visit(n);
+                    break;
+                case AST.ConstString n:
+                    Visit(n);
+                    break;
+                case AST.ArrayConstructor n:
+                    Visit(n);
+                    break;
+                case AST.FieldAccess n:
+                    Visit(n);
+                    break;
+                case AST.ArrayElementAccess n:
+                    Visit(n);
+                    break;
+                case AST.BreakLoop n:
+                    Visit(n);
+                    break;
+                case AST.ContinueLoop n:
+                    Visit(n);
+                    break;
+                case AST.ReturnFunction n:
+                    Visit(n);
+                    break;
+                case AST.BinOp n:
+                    Visit(n);
+                    break;
+                case AST.UnaryOp n:
+                    Visit(n);
+                    break;
+                case AST.TypeCastOp n:
+                    Visit(n);
+                    break;
+                case AST.TypeString n:
+                    Visit(n);
+                    break;
+                default:
+                    throw new NotImplementedException();
+            }
         }
     }
 }
