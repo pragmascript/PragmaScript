@@ -62,8 +62,10 @@ namespace PragmaScript
             // CompilerOptions.inputFilename = Path.Combine(programDir, "preamable.prag");
 
 #endif
-            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));
-            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
+#if FALSE
+            //var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));
+            //CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
+#endif
             if (CompilerOptions.inputFilename == null) {
                 Console.WriteLine("Input file name missing!");
                 return;
