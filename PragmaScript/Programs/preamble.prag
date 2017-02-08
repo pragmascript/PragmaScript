@@ -156,7 +156,7 @@ namespace Math
 		return y * (b + abs(y));
 	}
 
-	// http://forum.devmaster.net/t/fast-and-accurate-sine-cosine/9648/85
+	// http://forum.devmaster.net/t/fast-and-accurate-sine-cosine/9648
 	let cosf = fun(value: f32) => f32 
 	{
 		var x = half_pi_32 - value;

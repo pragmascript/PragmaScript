@@ -92,7 +92,8 @@ namespace PragmaScript
             DivideUnsigned,
             At,
             Namespace,
-            With
+            With,
+            Reserve
         }
 
         public TokenType type { get; private set; }

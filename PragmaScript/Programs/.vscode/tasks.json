@@ -13,7 +13,8 @@
             "isBuildCommand": true,
             "taskName": "current",
             "args": ["\"..\\bin\\x64\\Release\\pragma.exe\"", "${file}", "-D"],
-            "problemMatcher": {
+            "problemMatcher": [
+            {
                 // "owner": "ps",
                 "fileLocation":  "absolute",
                 "pattern":{
@@ -22,8 +23,20 @@
                     "file": 2,
                     "line": 3,
                     "column": 4
+                }                
+             },
+             {
+                // "owner": "ps",
+                "fileLocation":  "absolute",
+                "pattern":{
+                    "regexp": "(Assertion) failed at: \\(file \"(.*?)\".*?line (.*?),.*?pos (.*?)\\)",
+                    "message": 1,
+                    "file": 2,
+                    "line": 3,
+                    "column": 4
                 }
              }
+            ]
         },
         {
             "isTestCommand": true,

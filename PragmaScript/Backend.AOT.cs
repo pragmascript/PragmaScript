@@ -42,13 +42,16 @@ namespace PragmaScript
 
 
             var outputDir = Path.GetDirectoryName(CompilerOptions.inputFilename);
-            var output = Path.Combine(outputDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
             var outputTempDir = Path.Combine(outputDir, "obj");
             var outputTemp = Path.Combine(outputTempDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
+            var outputBinDir = Path.Combine(outputDir, "bin");
+            var outputBin = Path.Combine(outputBinDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
+
             Func<string, string> oxt = (ext) => outputTemp + ext;
-            Func<string, string> ox = (ext) => output + ext;
+            Func<string, string> ox = (ext) => outputBin + ext;
 
             Directory.CreateDirectory(outputTempDir);
+            Directory.CreateDirectory(outputBinDir);
 
             LLVMMemoryBufferRef memoryBuffer;
             int bufferSize = 0;
@@ -209,9 +212,8 @@ namespace PragmaScript
             if (!error && CompilerOptions.runAfterCompile) {
                 Console.WriteLine("running...");
                 var outputProcess = new Process();
-                var dir = Directory.GetCurrentDirectory();
-                var fn = Path.Combine(dir, $"{ox(".exe")}");
-                outputProcess.StartInfo.FileName = fn;
+                outputProcess.StartInfo.WorkingDirectory = outputBinDir;
+                outputProcess.StartInfo.FileName = ox(".exe");
                 outputProcess.StartInfo.Arguments = "";
                 outputProcess.StartInfo.RedirectStandardInput = false;
                 outputProcess.StartInfo.RedirectStandardOutput = false;

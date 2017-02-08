@@ -601,7 +601,7 @@ namespace Handmade.Platform
 					}
 				}
 			} else {
-				TranslateMessage(&msg);
+				TranslateMessag e(&msg);
 				DispatchMessageA(&msg);
 			}
 		}
@@ -714,6 +714,8 @@ namespace Handmade.Platform
 		QueryPerformanceFrequency(&perf_count_freq);
 		var error = 0;
 
+		// assert(error != 0);
+
 		let desired_sheduler_granularity = 1;
 		error = timeBeginPeriod(desired_sheduler_granularity);
 		assert(error == 0);
@@ -733,7 +735,6 @@ namespace Handmade.Platform
 		window_class.hInstance = instance;
 		window_class.lpszClassName = class_name;
 		RegisterClassExA(&window_class);
-
 
 		window.handle = CreateWindowExA(
 			0,
