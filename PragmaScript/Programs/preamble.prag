@@ -272,8 +272,6 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 		++start;
 	}
 }
-
-
 let print_f64 = fun (value: f64; precision: i32 = 4) => void
 {
 	var v = value;
@@ -308,7 +306,6 @@ let print_f64 = fun (value: f64; precision: i32 = 4) => void
 	print_string(pd.buffer);
 }
 
-
 let debug_print_i64 = fun (name: string; value: i64; signed: bool = true) => void
 {
 	print_string(name);
@@ -316,7 +313,6 @@ let debug_print_i64 = fun (name: string; value: i64; signed: bool = true) => voi
 	print_i64(value, signed);
 	print_string("\n");
 }
-
 let debug_print_i32 = fun (name: string; value: i32; signed: bool = true) => void
 {
 	print_string(name);
@@ -350,7 +346,6 @@ let debug_print_bool = fun (name: string; value: bool) => void
 	}
 	print_string("\n");
 }
-
 let __hack_reserve_intrinsics = fun () => bool
 {
 	if ((mm)memset == 1234 || (mm)__chkstk == 1234 || (mm)Math.cosf == 1234 || (mm)Math.sinf == 1234 ||

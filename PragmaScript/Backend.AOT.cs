@@ -30,7 +30,6 @@ namespace PragmaScript
                 case TargetPlatform.x86:
                     arch = "x86";
                     throw new NotImplementedException();
-                    break;
                 case TargetPlatform.x64:
                     LLVM.SetDataLayout(mod, "e-m:w-i64:64-f80:128-n8:16:32:64-S128");
                     var target = Marshal.PtrToStringAnsi(LLVM.GetDefaultTargetTriple());
@@ -51,25 +50,72 @@ namespace PragmaScript
 
             Directory.CreateDirectory(outputTempDir);
 
+            LLVMMemoryBufferRef memoryBuffer;
+            int bufferSize = 0;
+            IntPtr bufferStart = IntPtr.Zero;
+
             var error = false;
-            {
+
+            byte[] buffer = null;
+
+            if (CompilerOptions.ll) {
                 IntPtr error_msg;
                 error = LLVM.PrintModuleToFile(mod, $"{oxt(".ll")}", out error_msg);
                 if (error) {
                     Console.WriteLine(Marshal.PtrToStringAnsi(error_msg));
                 }
+            } else {
+                memoryBuffer = LLVM.WriteBitcodeToMemoryBuffer(mod);
+                bufferSize = LLVM.GetBufferSize(memoryBuffer);
+                bufferStart = GetBufferStart(memoryBuffer);
+                // PIGGY 
+                buffer = new byte[100 * 1024 * 1024];
+                Marshal.Copy(bufferStart, buffer, 0, bufferSize);
+                if (CompilerOptions.bc) {
+                    File.WriteAllBytes(oxt(".bc"), buffer.Take(bufferSize).ToArray());
+                }
             }
-
+            
             if (optLevel > 0) {
                 Console.WriteLine($"optimizer... (O{optLevel})");
                 var optProcess = new Process();
                 optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
-                optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} -march={arch} -mcpu=native -S -o {oxt("_opt.ll")}";
-                optProcess.StartInfo.RedirectStandardInput = false;
-                optProcess.StartInfo.RedirectStandardOutput = false;
-                optProcess.StartInfo.UseShellExecute = false;
-                optProcess.Start();
-                optProcess.WaitForExit();
+                if (CompilerOptions.ll) {
+                    optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} -march={arch} -mcpu=native -S -o {oxt("_opt.ll")}";
+                    optProcess.StartInfo.RedirectStandardInput = false;
+                    optProcess.StartInfo.RedirectStandardOutput = false;
+                    optProcess.StartInfo.UseShellExecute = false;
+                    optProcess.Start();
+                    optProcess.WaitForExit();
+                } else {
+                    optProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu=native -f";
+                    optProcess.StartInfo.RedirectStandardInput = true;
+                    optProcess.StartInfo.RedirectStandardOutput = true;
+                    optProcess.StartInfo.UseShellExecute = false;
+                    optProcess.Start();
+                    var writer = optProcess.StandardInput;
+                    var reader = optProcess.StandardOutput;
+                    writer.BaseStream.Write(buffer, 0, bufferSize);
+                    writer.Close();
+
+                    var pos = 0;
+                    var count = 0;
+                    while (true) {
+                        var bytes_read = reader.BaseStream.Read(buffer, pos, buffer.Length - count);
+                        pos += bytes_read;
+                        count += bytes_read;
+                        if (bytes_read == 0) {
+                            break;
+                        }
+                    }
+                    Debug.Assert(count < buffer.Length);
+                    reader.Close();
+                    bufferSize = count;
+                    if (CompilerOptions.bc) {
+                        File.WriteAllBytes(oxt("_opt.bc"), buffer.Take(bufferSize).ToArray());
+                    }
+                    optProcess.WaitForExit();
+                }
                 if (optProcess.ExitCode != 0) {
                     error = true;
                 }
@@ -83,12 +129,25 @@ namespace PragmaScript
                 Console.WriteLine("assembler...(debug)");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=asm -o {oxt(".asm")}";
-                llcProcess.StartInfo.RedirectStandardInput = false;
-                llcProcess.StartInfo.RedirectStandardOutput = false;
-                llcProcess.StartInfo.UseShellExecute = false;
-                llcProcess.Start();
-                llcProcess.WaitForExit();
+                if (CompilerOptions.ll) {
+                    llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=asm -o {oxt(".asm")}";
+                    llcProcess.StartInfo.RedirectStandardInput = false;
+                    llcProcess.StartInfo.RedirectStandardOutput = false;
+                    llcProcess.StartInfo.UseShellExecute = false;
+                    llcProcess.Start();
+                    llcProcess.WaitForExit();
+                } else {
+                    llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu=native -filetype=asm -o {oxt(".asm")}";
+                    llcProcess.StartInfo.RedirectStandardInput = true;
+                    llcProcess.StartInfo.RedirectStandardOutput = false;
+                    llcProcess.StartInfo.UseShellExecute = false;
+                    llcProcess.Start();
+                    var writer = llcProcess.StandardInput;
+                    writer.BaseStream.Write(buffer, 0, bufferSize);
+                    writer.Close();
+                    llcProcess.WaitForExit();
+                }
+                
                 if (llcProcess.ExitCode != 0) {
                     error = true;
                 }
@@ -98,12 +157,24 @@ namespace PragmaScript
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=obj -o {oxt(".o")}";
-                llcProcess.StartInfo.RedirectStandardInput = false;
-                llcProcess.StartInfo.RedirectStandardOutput = false;
-                llcProcess.StartInfo.UseShellExecute = false;
-                llcProcess.Start();
-                llcProcess.WaitForExit();
+                if (CompilerOptions.ll) {
+                    llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=obj -o {oxt(".o")}";
+                    llcProcess.StartInfo.RedirectStandardInput = false;
+                    llcProcess.StartInfo.RedirectStandardOutput = false;
+                    llcProcess.StartInfo.UseShellExecute = false;
+                    llcProcess.Start();
+                    llcProcess.WaitForExit();
+                } else {
+                    llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu=native -filetype=obj -o {oxt(".o")}";
+                    llcProcess.StartInfo.RedirectStandardInput = true;
+                    llcProcess.StartInfo.RedirectStandardOutput = false;
+                    llcProcess.StartInfo.UseShellExecute = false;
+                    llcProcess.Start();
+                    var writer = llcProcess.StandardInput;
+                    writer.BaseStream.Write(buffer, 0, bufferSize);
+                    writer.Close();
+                    llcProcess.WaitForExit();
+                }
                 if (llcProcess.ExitCode != 0) {
                     error = true;
                 }

@@ -705,7 +705,7 @@ namespace Handmade.Platform
 	"compile.debug" : "true",
 	"compile.output": "win_handmade.exe",
 	"compile.opt"   : "0",
-	"compile.run"   : "false",
+	"compile.run"   : "true",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib"
 	]

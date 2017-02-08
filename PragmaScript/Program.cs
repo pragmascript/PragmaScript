@@ -34,6 +34,8 @@ namespace PragmaScript
         public static int optimizationLevel;
         public static bool runAfterCompile;
         public static bool asm = false;
+        public static bool ll = true;
+        public static bool bc = false;
         public static List<string> libs = new List<string>();
         public static List<string> lib_path = new List<string>();
         public static bool dll = false;
@@ -52,7 +54,8 @@ namespace PragmaScript
 
 #if DEBUG
             CompilerOptions.debug = true;
-            CompilerOptions.optimizationLevel = 0;
+            CompilerOptions.asm = false;
+            CompilerOptions.optimizationLevel = 3;
             // CompilerOptions.runAfterCompile = true;
 
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));
@@ -63,8 +66,8 @@ namespace PragmaScript
 
 #endif
 #if FALSE
-            //var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));
-            //CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
+            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));
+            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
 #endif
             if (CompilerOptions.inputFilename == null) {
                 Console.WriteLine("Input file name missing!");
@@ -93,6 +96,8 @@ namespace PragmaScript
             Console.WriteLine("-OX: turn on optimization level X in [1..3]");
             Console.WriteLine("-R: run program after compilation");
             Console.WriteLine("-ASM: output file with generated assembly");
+            Console.WriteLine("-LL: output files with LLVM IL");
+            Console.WriteLine("-BC: output files with LLVM Bitcode");
         }
         static void parseARGS(string[] args)
         {
@@ -108,6 +113,9 @@ namespace PragmaScript
                             break;
                         case "ASM":
                             CompilerOptions.asm = true;
+                            break;
+                        case "LL":
+                            CompilerOptions.ll = true;
                             break;
                         case "O0":
                             CompilerOptions.optimizationLevel = 0;

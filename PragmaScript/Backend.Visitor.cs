@@ -1386,6 +1386,10 @@ namespace PragmaScript
                 for (int i = 0; i < fun.parameters.Count; ++i) {
                     LLVMValueRef param = LLVM.GetParam(function, (uint)i);
                     LLVM.SetValueName(param, fun.parameters[i].name);
+                    if (fun.parameters[i].type is FrontendPointerType) {
+                        LLVM.AddAttribute(param, LLVMAttribute.LLVMNoAliasAttribute);
+                    }
+
                     //var p = node.typeString.functionTypeString.parameters[i].typeString;
                     //if (p.HasAttribute("LLVM.NOCAPTURE"))
                     //{
