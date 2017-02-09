@@ -1,0 +1,339 @@
+﻿ 
+ 
+ import "../preamble.prag"
+ 
+
+// let sphere = struct
+// {
+// 	pos:    vec;
+// 	radius: float32;
+// }
+// var s = sphere{};
+// s.pos = vec{1.0,2.0,3.0};
+
+
+// let vec = struct
+// (
+// 	x: f32;
+// 	y: f32;
+// 	z: f32;
+// );
+
+// let sphere = struct
+// {
+// 	point: vec;
+// 	radius: f32;
+// }
+
+// let foo = fun (s: sphere) => void {
+// 	print_i32((i32)s.point.x);
+// }
+
+// let __test__assignment = fun () => void {
+// 	{
+// 		var x = 3;
+// 		var y = 5;
+// 		x += y += 7 ;
+// 	}
+// 	{
+// 		var x = 3;
+// 		var px = &x;
+// 		*px = 12;
+// 	}
+// }
+
+// let __test__ref_deref = fun () => void {
+// 	var x = 12;
+// 	var y = &x;
+// 	var z = *y;
+// 	print_i32(z);
+// 	print_string("\n");
+// 	*y = 17;
+// 	print_i32(*y);
+// }
+
+// var global_x: i32;
+// var global_y = 12;
+// var global_z = 2 + 3;
+// var global_v: vec;
+// var global_v2 = vec {1.0, 2.0, 3.0};
+
+// let __test_assignment = fun () => void {
+// 	var y: i32;
+// 	y = 17;
+// 	var x = 13;
+// 	var z: i32 = x + y;
+// }
+
+// let __test_size_of = fun () => void {
+// 	print_string("sizeof(i64): ");
+// 	print_i32((i32)(sizeof(i64)), false);
+// 	print_string("\n");
+
+// 	print_string("sizeof(i32): ");
+// 	print_i32((i32)(sizeof(i32)), false);
+// 	print_string("\n");
+
+// 	print_string("sizeof(i16): ");
+// 	print_i32((i32)(sizeof(i16)), false);
+// 	print_string("\n");
+
+// 	print_string("sizeof(i8): ");
+// 	print_i32((i32)(sizeof(i8)), false);
+// 	print_string("\n");
+
+// 	print_string("sizeof(mm): ");
+// 	print_i32((i32)(sizeof(mm)), false);
+// 	print_string("\n");
+
+// 	print_string("sizeof(bool): ");
+// 	print_i32((i32)(sizeof(bool)), false);
+// 	print_string("\n");
+
+// 	print_string("sizeof(vec): ");
+// 	print_i32((i32)(sizeof(vec)), false);
+// 	print_string("\n");
+// }
+
+// let __test_cyclic_types = fun() => void 
+// {
+// 	let list = struct
+// 	(
+// 		value: i32;
+// 		next: list*;
+// 	);
+// 	let Foo = struct
+// 	(
+// 		bar: Bar*;
+// 	);
+// 	let Bar = struct
+// 	(
+// 		foo: Foo*;
+// 	);
+
+// 	var a = list {};
+// 	// a.value = 7;
+// 	// var b = list {};
+// 	// b.value = 12;
+// 	// var c = list {};
+// 	// c.value = 32;
+// 	// a.next = &b;
+// 	// b.next = &c;
+
+// 	var nxt = a.next.next.next.next.next;
+// 	// for (var l = &a; (umm)l != null; l = l.next)
+// 	// {
+// 	// 	print_i32(l.value);
+// 	// 	print_string("\n");
+// 	// }
+// }
+
+// let __test_cosine = fun () => void
+// {
+// 	for (var i = 1; i <= 64; ++i) 
+// 	{
+// 		var t = (f32)i / 64.0;
+// 		var r = lerp(0, 2*pi_32, t);
+// 		var x = cos(r);
+// 		print_f32(x);
+// 		print_string("\n");
+// 	}
+// }
+// let __test_unsigned_ops = fun () => void
+// {
+// 	var x = -1;
+// 	print_i32(x, true);
+// 	print_string("\n");
+// 	print_i32(x, false);
+// 	print_string("\n");
+
+// 	var y: i64 = -1;
+// 	print_i64(y, true);
+// 	print_string("\n");
+// 	print_i64(y, false);
+// 	print_string("\n");
+// 	if (-1 >\ 1)
+// 	{
+// 		print_string("fumm fumm\n");
+// 	}
+// 	if (-1 >=\ 1)
+// 	{
+// 		print_string("fumm fumm\n");
+// 	}
+
+// }
+
+// let __test_number_literal_typecheck = fun () => void
+// {
+// 	var x: i32 = 1 + 0.5;
+// }
+ // }
+	
+
+// let __test_alloca = fun () => void
+// {
+// 	var samples: i32*4;
+// 	var x = 77;
+// 	var y = samples;
+// 	*y++ = 12;
+// 	*y++ = 13;
+// 	*y++ = 14;
+// 	*y++ = 15;
+// 	print_i32(*samples++, true);
+// 	print_string("\n");
+// 	print_i32(*samples++, true);
+// 	print_string("\n");
+// 	print_i32(*samples++, true);
+// 	print_string("\n");
+// 	print_i32(*samples++, true);
+// 	print_string("\n");
+// 	print_i32(x, true);
+// }
+
+
+// // works
+// let gigabytes_1 = fun (bytes: mm) => mm
+// {
+// 	return bytes * 1024 * 1024 * 1024;
+// }
+
+// let terabytes = fun (bytes: mm) => mm
+// {
+// 	return  1024 * 1024 * 1024 * 1024 * bytes;
+// }
+// let gigabytes_2 = fun (bytes: mm) => mm
+// {
+// 	return 1024 * 1024 * 1024 * bytes;
+// }
+// let __test_number_types = fun () => void
+// {
+// 	print_i64((i64)((mm)(1024 * 1024 * 1024 * 4)), false);
+// 	print_string("\n");
+// 	print_i64((i64)((mm)1024 * 1024 * 1024 * 4), false);
+// 	print_string("\n");
+// 	print_i64((i64)gigabytes_1(4), false);
+// 	print_string("\n");
+// 	print_i64((i64)terabytes(2), false);
+// 	print_string("\n");
+// }
+// var global_x: i32 = 3;
+// let weird_add = fun (x: i32) => i32 {
+// 	return x + global_x++;
+// }
+// let __test_default_value = fun (x: i32; y: i32 = weird_add(7)) => i32 {
+// 	print_i32(x + y);
+// 	print_string("\n");
+// 	return x + y;
+// }
+
+
+// crashes backend
+// let platform_read_file = fun (name: string) => string 
+// {
+// 	var result: string;
+// } 
+
+
+// let embedding_test = fun
+// (
+// 	@v: vec*;
+// ) => void
+// {
+// 	debug_print_f32("x: ", x);
+// 	debug_print_f32("y: ", y);
+// 	debug_print_f32("z: ", z);
+// }
+
+// crashes backend and parse tree is wrong!
+//	a += b += c += 7;
+
+
+// namespace Foo
+// {
+// 	namespace Bar
+// 	{
+// 		let bar = struct 
+// 		(
+// 			foo: i32;
+// 			str: i8*;
+// 		);
+// 	}
+// 	var fumm = 12;
+// 	var bar = Bar.bar { 17, nullptr };
+// }
+
+
+
+namespace Handmade
+{
+    let vec2 = struct 
+    (
+        x: f32; y: f32;
+    );
+    let vec3 = struct 
+    (
+        x: f32; y: f32; z: f32;
+    );
+    let vec4 = struct 
+    (
+        x: f32; y: f32; z: f32; w: f32;
+    );
+    let color = struct 
+    (
+        r: f32; g: f32; b: f32; a: f32;
+    );
+    let rectangle = struct 
+    (
+        pos: vec2;
+        size: vec2; 
+    );
+
+    let min_max_rect = fun (min_x: i32; min_y: i32; max_x: i32; max_y: i32) => rectangle 
+    {
+        return rectangle{vec2{(f32)min_x, (f32)min_y}, vec2{(f32)(max_x - min_x), (f32)(max_y - min_y)}};
+    }
+
+    let center_half_size_rect = fun (x: i32; y: i32; half_size: i32) => rectangle 
+    {
+        return rectangle{vec2{(f32)(x - half_size), (f32)(y - half_size)}, vec2{(f32)(x + half_size), (f32)(y + half_size)} };
+    } 
+
+    // let min_max_rect = fun (min_x: i32; min_y: i32; max_x: i32; max_y: i32) => rectangle 
+    // {
+    //     var pos  = vec2 { (f32)min_x, (f32)min_y };
+    //     var size = vec2 { (f32)(max_x - min_x), (f32)(max_y - min_y) };
+    //     // var result = rectangle{pos, size};
+	// 	// return result;
+    //     return rectangle{pos, size};
+    // }
+}
+
+
+
+let print_vec = fun (v: Handmade.vec2) => void 
+{
+	debug_print_f32("x", v.x);
+	debug_print_f32("y", v.y);
+}
+
+
+[
+	"compile.output": "bugs.exe",
+	"compile.entry" : "true",
+	"compile.debug" : "true",
+ 	"compile.opt"   : "0",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64"
+]
+let main = fun () => void 
+{
+	print_i64((i64)Windows.INVALID_HANDLE_VALUE, false);
+	print_string("\n");
+	print_i64((i64)0xFFFFFFFF, false);
+
+	let v = Handmade.vec2{1.0, 2.0};
+	print_vec(v);
+}
+
+

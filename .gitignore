@@ -1,6 +1,6 @@
 *.exe
 *.dll
-*.lib
+*.libcolo
 *.manifest
 
 ## Ignore Visual Studio temporary files, build results, and
@@ -16,6 +16,7 @@
 [Dd]ebugPublic/
 [Rr]elease/
 x64/
+Builds/
 build/
 bld/
 [Bb]in/

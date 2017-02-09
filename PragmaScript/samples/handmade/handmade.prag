@@ -1,0 +1,219 @@
+import "../preamble.prag"
+import "handmade_interface.prag"
+import "handmade_math.prag"
+
+namespace Handmade.Game
+{
+    let game_state = struct
+    (
+        is_initialized: bool;
+
+        volume: f32;
+        target_volume: f32;
+        tone_hz: f32;
+        target_tone_hz: f32;
+        phase_shift: f32;
+        t_sine: f32;
+
+        last_seconds: i32;
+
+        exit: bool;
+        exit_start_time: f32;
+        exit_start_volume: f32;
+        exit_norm_time: f32;
+    );
+
+    ["dll.export"]
+    let game_update_and_render = fun
+    (
+        memory: game_memory*;
+        input: game_input*;
+        render_target: game_render_target*;
+    ) => bool
+    {
+        var result = true;
+        var game_state = get_game_state(memory);
+        handle_player_input(game_state, input);
+
+        let exit_duration = 0.25;
+        if (game_state.exit) {
+            if (input.time.t - game_state.exit_start_time > exit_duration) {
+                result = false;
+                game_state.target_volume = 0.0;
+            } else {
+                var t = (input.time.t - game_state.exit_start_time) / exit_duration;
+                game_state.exit_norm_time = t;
+                game_state.target_volume = Math.lerp(game_state.exit_start_volume, 0.0, t);
+            }
+        }
+
+        let size = 15;
+        var background_color = color { 0.25, 0.25, 0.25, 1.0 };
+        // animate_background_color(&background_color, input.time.t);
+        var red = color {1.0, 0.0, 0.0, 1.0};
+        
+        draw_rectangle(render_target, min_max_rect(0, 0, render_target.width, render_target.height), background_color);
+        
+        // draw mouse cursor
+        if (!input.left_mb.pressed) {
+            draw_rectangle(render_target, center_half_size_rect(input.mouse_x, input.mouse_y, size), red);
+        } else {
+            draw_rectangle(render_target, center_half_size_rect(input.mouse_x, input.mouse_y, size + 5), red);   
+        }
+        
+        consume_buttons(input);
+        return result;
+    }
+
+    let animate_background_color = fun
+    (
+        @background_color: color*;
+        t: f32;
+    ) => void
+    {
+        r += 0.25 * sin(t * 5.0);
+        g += 0.25 * sin(t * 4.2 + 0.5);
+        b += 0.25 * cos(t * 5.1);
+    }
+
+    ["dll.export"]
+    let game_output_sound = fun
+    (
+        game_memory: game_memory*; 
+        @sound_output: game_sound_output*;
+    ) => void
+    {
+        var game_state = get_game_state(game_memory);
+        var wave_period = 2 * Math.pi_32;
+        var sample = sample_out;
+        assert((ptr)sample != nullptr);
+
+        var t_sine = game_state.t_sine;
+        var phase_shift = 2*Math.pi_32*t_sine * (game_state.tone_hz - game_state.target_tone_hz)
+                        + game_state.phase_shift;
+        game_state.tone_hz = game_state.target_tone_hz;
+        var delta_t = 1.0 / (f32)samples_per_second;
+        for (var i: i32 = 0; i < sample_count; ++i) {
+            var t = (f32)i / (f32)(sample_count - 1);
+            var v = Math.lerp(game_state.volume, game_state.target_volume, t);
+            var p = game_state.tone_hz * wave_period * t_sine;
+            
+            var x = (i16)(32767 * v * Math.sinf(p + phase_shift));
+            *sample++ = x;
+            *sample++ = x;
+            t_sine += delta_t;
+        }
+        
+        game_state.t_sine = t_sine;
+        game_state.phase_shift = phase_shift;
+        game_state.volume = game_state.target_volume;
+    }
+
+    let get_game_state = fun (memory: game_memory*) => game_state* 
+    {
+        var game_state = (game_state*)memory.permanent_data;
+        if (!game_state.is_initialized) {
+            game_state.tone_hz = 256;
+            game_state.target_tone_hz = 128;
+            game_state.target_volume = 0.0;
+            game_state.is_initialized = true;
+        }
+        return game_state;
+    }
+
+    let handle_player_input = fun 
+    (
+        @game_state: game_state*;
+        @game_input: game_input*; 
+    ) => void 
+    {
+        if (request_quit && !exit) {
+            exit = true;
+            exit_start_time = time.t;
+            exit_start_volume = volume;
+        }
+    }
+
+    let consume_buttons = fun
+    (
+        @input: game_input*;
+    ) => void
+    {
+        consume_button(&up_arrow);
+        consume_button(&down_arrow);
+        consume_button(&left_arrow);
+        consume_button(&right_arrow);
+        consume_button(&left_mb);
+        consume_button(&right_mb);
+        consume_button(&middle_mb);
+    }
+
+    let consume_button = fun
+    (
+        @button: game_button*;
+    ) => void
+    {
+        down = false;
+        up = false;
+    }
+
+    let draw_rectangle = fun
+    (
+        buffer: game_render_target*;
+        rect: rectangle;
+        color: color;
+    ) => void
+    {
+        var min_x_p = (i32)round(rect.pos.x);
+        var min_y_p = (i32)round(rect.pos.y);
+        var max_x_p = (i32)round(rect.pos.x + rect.size.x);
+        var max_y_p = (i32)round(rect.pos.y + rect.size.y);
+        if (min_x_p < 0) {
+            min_x_p = 0;
+        }
+        if (min_y_p < 0) {
+            min_y_p = 0;
+        }
+        if (max_x_p > buffer.width) {
+            max_x_p = buffer.width;
+        }
+        if (max_y_p > buffer.height) {
+            max_y_p = buffer.height;
+        }
+
+        var r = (i32)round(color.r * 255);
+        r = Math.clamp_i32(r, 0, 255);
+        var g = (i32)round(color.g * 255);
+        g = Math.clamp_i32(g, 0, 255);
+        var b = (i32)round(color.b * 255);
+        b = Math.clamp_i32(b, 0, 255);
+        var c = (r << 16) | (g << 8) | (b << 0);
+
+        var row: i8* = buffer.memory;
+        row += min_y_p * buffer.pitch;
+        row += 4 * min_x_p;
+        for (var y = min_y_p; y < max_y_p; ++y)
+        {
+            var pixel = (i32*)row;
+            for (var x = min_x_p; x < max_x_p; ++x)
+            {
+                *pixel++ = c;    
+            }    
+            row += buffer.pitch;
+        }
+    }
+
+    [
+    "compile.entry",
+    "compile.dll"   : "true",
+    "compile.debug" : "true",
+    "compile.output": "handmade.dll",
+    "compile.opt"   : "0",
+    "compile.run"   : "false",
+    "compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
+    "compile.libs"  : "kernel32.lib"
+    ]
+    let main = fun () => void  
+    {
+    }
+}
