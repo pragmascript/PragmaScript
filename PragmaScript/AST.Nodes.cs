@@ -456,8 +456,9 @@ namespace PragmaScript
                 return !external && body == null;
             }
 
-
             public bool external;
+            public string externalFunctionName;
+
 
             public FunctionDefinition(Token t, Scope s)
                 : base(t, s)

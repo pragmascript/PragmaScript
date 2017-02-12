@@ -58,12 +58,12 @@ namespace PragmaScript
             CompilerOptions.optimizationLevel = 3;
             // CompilerOptions.runAfterCompile = true;
 
-            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));
+            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..", "samples"));
             // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
-            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "bugs.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "preamable.prag");
-
+            CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt.prag");
 #endif
 #if FALSE
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));
@@ -90,14 +90,22 @@ namespace PragmaScript
         static void printHelp()
         {
             Console.WriteLine();
-            Console.WriteLine("command line options: ");
-            Console.WriteLine("-D: build in debug mode");
-            Console.WriteLine("-O0: turn off optimizations");
-            Console.WriteLine("-OX: turn on optimization level X in [1..3]");
-            Console.WriteLine("-R: run program after compilation");
-            Console.WriteLine("-ASM: output file with generated assembly");
-            Console.WriteLine("-LL: output files with LLVM IL");
-            Console.WriteLine("-BC: output files with LLVM Bitcode");
+            Console.WriteLine("OVERVIEW:");
+            Console.WriteLine("    pragma compiler");
+            Console.WriteLine();
+            Console.WriteLine("USAGE:");
+            Console.WriteLine("    pragma.exe [options] <input>");
+            Console.WriteLine();
+            Console.WriteLine("OPTIONS:");
+            Console.WriteLine("    -O <filename>   set output filename" );
+            Console.WriteLine("    -D              build in debug mode");
+            Console.WriteLine("    -O0             turn off optimizations");
+            Console.WriteLine("    -OX             turn on optimization level X in [1..3]");
+            Console.WriteLine("    -R              run program after compilation");
+            Console.WriteLine("    -ASM            output generated assembly");
+            Console.WriteLine("    -LL             output LLVM IL");
+            Console.WriteLine("    -BC             output LLVM Bitcode");
+
         }
         static void parseARGS(string[] args)
         {
@@ -133,6 +141,7 @@ namespace PragmaScript
                         case "-HELP":
                         case "H":
                             printHelp();
+                            Environment.Exit(0);
                             break;
                         case "R":
                         case "RUN":
@@ -364,7 +373,12 @@ namespace PragmaScript
 
             var lib_path = d.GetAttribute("COMPILE.PATH", upperCase: false);
             if (lib_path != null) {
-                CompilerOptions.lib_path.Add(lib_path);
+                var lp = lib_path.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var p in lp) {
+                    var tp = p.Trim();
+                    CompilerOptions.lib_path.Add(tp);
+                }
+                
             }
         }
 

@@ -359,6 +359,7 @@ namespace PragmaScript
         // http://stackoverflow.com/questions/27681500/generate-call-to-intrinsic-using-llvm-c-api
         void addIntrinsics()
         {
+            /*
             {
                 LLVMTypeRef[] param_types = { Const.Float32Type };
                 LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
@@ -411,6 +412,13 @@ namespace PragmaScript
                 variables.Add("round", fn);
             }
             {
+                LLVMTypeRef[] param_types = { Const.Float32Type, Const.Float32Type };
+                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 2, false);
+                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.pow.f32", fn_type);
+                variables.Add("pow", fn);
+            }
+            */
+            {
                 LLVMTypeRef[] param_types = { Const.Int8PointerType, Const.Int8PointerType, Const.Int32Type, Const.Int32Type, Const.BoolType };
                 LLVMTypeRef fn_type = LLVM.FunctionType(Const.VoidType, out param_types[0], 5, false);
                 LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.memcpy.p0i8.p0i8.i32", fn_type);
@@ -437,7 +445,7 @@ namespace PragmaScript
             // mod = LLVM.ModuleCreateWithName("WhatIsThisIDontEven");
             LLVMMemoryBufferRef buf;
             IntPtr msg;
-            LLVM.CreateMemoryBufferWithContentsOfFile(RelDir(@"External\preamble.ll"), out buf, out msg);
+            LLVM.CreateMemoryBufferWithContentsOfFile(RelDir(@"external\preamble.ll"), out buf, out msg);
             if (msg != IntPtr.Zero) {
                 Console.WriteLine(Marshal.PtrToStringAnsi(msg));
             }

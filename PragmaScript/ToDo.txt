@@ -28,6 +28,9 @@
 
  - switch!
 
+ - throw error if not all paths have a 
+   return instruction
+
  - make all the types immutable classes
 
  - find out how they do the merging

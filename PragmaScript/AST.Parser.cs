@@ -392,10 +392,15 @@ namespace PragmaScript
                 tempState.NextToken();
             }
 
-
             var next = tempState.NextToken();
             if (next.type == Token.TokenType.Extern) {
                 next = tempState.NextToken();
+                if (next.type == Token.TokenType.OpenBracket) {
+                    next = tempState.NextToken();
+                    var str = tempState.ExpectCurrentToken(Token.TokenType.String);
+                    tempState.ExpectNextToken(Token.TokenType.CloseBracket);
+                    next = tempState.NextToken();
+                }
             }
 
             ignoreSemicolon = false;
@@ -1491,6 +1496,12 @@ namespace PragmaScript
                 }
                 result.external = true;
                 ps.NextToken();
+                if (ps.PeekToken().type == Token.TokenType.OpenBracket) {
+                    ps.NextToken();
+                    var str = ps.ExpectNextToken(Token.TokenType.String);
+                    result.externalFunctionName = str.text.Substring(1, str.text.Length - 2);
+                    ps.ExpectNextToken(Token.TokenType.CloseBracket);
+                }
             } else {
                 result.external = false;
             }

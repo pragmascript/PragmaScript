@@ -125,7 +125,7 @@ let memset = fun
 	return dest;
 }
 
-
+// http://openlibm.org/
 namespace Math
 {
 	let pi: f64 = 3.1415926535897932384626433832795028841971693993751058209749445923078164062;
@@ -133,48 +133,36 @@ namespace Math
 	let pi_32 = (f32)pi;
 	let half_pi_32 = (f32)half_pi;
 
+	let sin     = extern("llvm.sin.f32")    fun (x: f32) => f32;
+	let cos     = extern("llvm.cos.f32")    fun (x: f32) => f32;
+	let tan     = extern("tanf")  		    fun (x: f32) => f32;
+	let asin    = extern("asinf")           fun (x: f32) => f32;
+	let acos    = extern("acosf")           fun (x: f32) => f32;
+	let atan    = extern("atanf")           fun (x: f32) => f32;
+	let atan2   = extern("atan2f")          fun (x: f32) => f32;
+	let sqrt    = extern("llvm.sqrt.f32")   fun (x: f32) => f32;
+	let pow     = extern("llvm.pow.f32")    fun (x: f32; p: f32) => f32;
+	let abs     = extern("llvm.fabs.f32")   fun (x: f32) => f32;
+	let floor   = extern("llvm.floor.f32")  fun (x: f32) => f32;
+	let trunc   = extern("llvm.trunc.f32")  fun (x: f32) => f32;
+	let ceil    = extern("llvm.ceil.f32")   fun (x: f32) => f32;
+	let round   = extern("llvm.round.f32")  fun (x: f32) => f32;
+	let exp     = extern("llvm.exp.f32")    fun (x: f32) => f32;
+	let exp2    = extern("llvm.exp2.f32")   fun (x: f32) => f32;
+	let log     = extern("llvm.log.f32")    fun (x: f32) => f32;
+	let log2    = extern("llvm.log2.f32")   fun (x: f32) => f32;
+	let log10   = extern("llvm.log10.f32")  fun (x: f32) => f32;
+	let min     = extern("llvm.minnum.f32") fun (a: f32; b: f32) => f32;
+	let max     = extern("llvm.maxnum.f32") fun (a: f32; b: f32) => f32;
 
 	let remainder = fun(x: f32; y: f32) => f32
 	{
 		return x - floor(x / y) * y;
 	}
-
-	let roundf = fun (x: f32) => f32 
-	{
-		return trunc(x + 0.5);
-	}
-
-	let sinf = fun(x: f32) => f32 
-	{
-		let p = 0.225;
-		let a = 16 * sqrt(p);
-		let b = (1 - p) / sqrt(p);
-
-		var y = x / (2 * pi_32);
-		y = y - floor(y + 0.5);  // y in range -0.5..0.5
-		y = a * y * (0.5 - abs(y));
-		return y * (b + abs(y));
-	}
-
-	// http://forum.devmaster.net/t/fast-and-accurate-sine-cosine/9648
-	let cosf = fun(value: f32) => f32 
-	{
-		var x = half_pi_32 - value;
-		let p = 0.225;
-		let a = 16 * sqrt(p);
-		let b = (1 - p) / sqrt(p);
-
-		var y = x / (2 * pi_32);
-		y = y - floor(y + 0.5);  // y in range -0.5..0.5
-		y = a * y * (0.5 - abs(y));
-		return y * (b + abs(y));
-	}
-
 	let lerp = fun(a: f32; b: f32; t: f32) => f32
 	{
 		return a + (b-a)*t;
 	}
-
 	let abs_i32 = fun (value: i32) => i32
 	{
 		if (value >= 0) {
@@ -183,7 +171,6 @@ namespace Math
 			return -value;
 		}
 	}
-
 	let clamp_i32 = fun 
 	(
 		value: i32;
@@ -201,6 +188,8 @@ namespace Math
 		return result;
 	}
 }
+
+
 
 let print_i32 = fun (value: i32; signed: bool = true) => void
 {
@@ -346,10 +335,13 @@ let debug_print_bool = fun (name: string; value: bool) => void
 	}
 	print_string("\n");
 }
+
+
 let __hack_reserve_intrinsics = fun () => bool
 {
-	if ((mm)memset == 1234 || (mm)__chkstk == 1234 || (mm)Math.cosf == 1234 || (mm)Math.sinf == 1234 ||
-	    (mm)Math.roundf == 1234) {
+	if ((mm)memset == 1234 || (mm)__chkstk == 1234 
+			// || (mm)Math.cosf == 1234 || (mm)Math.sinf == 1234 || (mm)Math.roundf == 1234
+		) {
 		print_string("");
 		return true;
 	}

@@ -77,6 +77,7 @@ namespace PragmaScript
 
         static void addIntrinsics(Scope scope)
         {
+            /*
             var cos = new FrontendFunctionType("cos");
             cos.returnType = FrontendType.f32;
             cos.AddParam("x", FrontendType.f32);
@@ -116,6 +117,13 @@ namespace PragmaScript
             round.returnType = FrontendType.f32;
             round.AddParam("x", FrontendType.f32);
             scope.AddVar("round", round, Token.Undefined, isConst: true);
+
+            var pow = new FrontendFunctionType("pow");
+            pow.returnType = FrontendType.f32;
+            pow.AddParam("val", FrontendType.f32);
+            pow.AddParam("power", FrontendType.f32);
+            scope.AddVar("pow", pow, Token.Undefined, isConst: true);
+            */
         }
 
         static void addSpecialFunctions(Scope scope)

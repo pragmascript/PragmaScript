@@ -49,7 +49,7 @@ namespace Handmade.Game
 
         let size = 15;
         var background_color = color { 0.25, 0.25, 0.25, 1.0 };
-        // animate_background_color(&background_color, input.time.t);
+        animate_background_color(&background_color, input.time.t);
         var red = color {1.0, 0.0, 0.0, 1.0};
         
         draw_rectangle(render_target, min_max_rect(0, 0, render_target.width, render_target.height), background_color);
@@ -71,9 +71,9 @@ namespace Handmade.Game
         t: f32;
     ) => void
     {
-        r += 0.25 * sin(t * 5.0);
-        g += 0.25 * sin(t * 4.2 + 0.5);
-        b += 0.25 * cos(t * 5.1);
+        r += 0.25 * Math.sin(t * 5.0);
+        g += 0.25 * Math.sin(t * 4.2 + 0.5);
+        b += 0.25 * Math.cos(t * 5.1);
     }
 
     ["dll.export"]
@@ -98,7 +98,7 @@ namespace Handmade.Game
             var v = Math.lerp(game_state.volume, game_state.target_volume, t);
             var p = game_state.tone_hz * wave_period * t_sine;
             
-            var x = (i16)(32767 * v * Math.sinf(p + phase_shift));
+            var x = (i16)(32767 * v * Math.sin(p + phase_shift));
             *sample++ = x;
             *sample++ = x;
             t_sine += delta_t;
@@ -164,10 +164,10 @@ namespace Handmade.Game
         color: color;
     ) => void
     {
-        var min_x_p = (i32)round(rect.pos.x);
-        var min_y_p = (i32)round(rect.pos.y);
-        var max_x_p = (i32)round(rect.pos.x + rect.size.x);
-        var max_y_p = (i32)round(rect.pos.y + rect.size.y);
+        var min_x_p = (i32)Math.round(rect.pos.x);
+        var min_y_p = (i32)Math.round(rect.pos.y);
+        var max_x_p = (i32)Math.round(rect.pos.x + rect.size.x);
+        var max_y_p = (i32)Math.round(rect.pos.y + rect.size.y);
         if (min_x_p < 0) {
             min_x_p = 0;
         }
@@ -181,11 +181,11 @@ namespace Handmade.Game
             max_y_p = buffer.height;
         }
 
-        var r = (i32)round(color.r * 255);
+        var r = (i32)Math.round(color.r * 255);
         r = Math.clamp_i32(r, 0, 255);
-        var g = (i32)round(color.g * 255);
+        var g = (i32)Math.round(color.g * 255);
         g = Math.clamp_i32(g, 0, 255);
-        var b = (i32)round(color.b * 255);
+        var b = (i32)Math.round(color.b * 255);
         b = Math.clamp_i32(b, 0, 255);
         var c = (r << 16) | (g << 8) | (b << 0);
 
@@ -210,8 +210,8 @@ namespace Handmade.Game
     "compile.output": "handmade.dll",
     "compile.opt"   : "0",
     "compile.run"   : "false",
-    "compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
-    "compile.libs"  : "kernel32.lib"
+    "compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib",
+    "compile.libs"  : "kernel32.lib, libopenlibm.lib"
     ]
     let main = fun () => void  
     {

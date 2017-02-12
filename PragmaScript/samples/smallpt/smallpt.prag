@@ -1,0 +1,122 @@
+import "..\preamble.prag"
+import "..\windows.prag"
+
+let Vec = struct 
+(
+    x: f32;
+    y: f32;
+    z: f32;
+);
+let add = fun (a: Vec*; b: Vec*) => Vec {
+    var result = Vec { a.x + b.x, a.y + b.y, a.z + b.z};
+    return result;
+}
+let sub = fun (a: Vec*; b: Vec*) => Vec {
+    var result = Vec { a.x - b.x, a.y - b.y, a.z - b.z};
+    return result;
+}
+let scale = fun (a: Vec*; s: f32) => Vec {
+    var result = Vec { a.x * s, a.y * s, a.z * s};
+    return result;
+}
+let hadamard = fun (a: Vec*; b: Vec*) => Vec {
+    var result = Vec { a.x * b.x, a.y * b.y, a.z * b.z};
+    return result;
+}
+let normalize = fun (@a: Vec*) => void {
+    var scl = 1.0 / Math.sqrt(x*x + y*y + z*z);
+    x *= scl;
+    y *= scl;
+    z *= scl;
+}
+let dot = fun (a: Vec*; b: Vec*) => f32 {
+    var result = a.x*b.x + a.y*b.y + a.z*b.z;
+    return result;
+}
+let cross = fun (a: Vec*; b: Vec*) => Vec {
+    var result = Vec 
+    { 
+        a.y * b.z - a.z * b.y, 
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+    return result;
+}
+
+let Ray = struct 
+(
+    origin: Vec;
+    direction: Vec;
+);
+
+let Sphere = struct
+(
+    radius: f32;
+    pos: Vec;
+    emission: Vec;
+    color: Vec;
+);
+
+let intersect_sphere_ray = fun (sphere: Sphere*; ray: Ray*) => f32 {
+    var op = sub(&sphere.pos, &ray.origin);
+    return 0.0;
+    var b = dot(&op, &ray.direction);
+    var det = b*b - dot(&op, &op) + sphere.radius * sphere.radius;
+    return 0.0;
+
+    if (det < 0.0) {
+        return 0.0;
+    } else {
+        det = Math.sqrt(det);
+    }
+
+    var eps = 0.0001;
+    var t = b - det;
+    var result: f32;
+    if (t > eps) {
+        result = t;
+    } else {
+        t = b + det;
+        if (t > eps) {
+            result = t;
+        } else {
+            result = 0.0;
+        }
+    }
+    return result;
+}
+
+let clamp_01 = fun (x: f32) => f32 {
+    if (x < 0.0) {
+        return 0.0;
+    } elif (x > 1.0) {
+        return 1.0;
+    }
+    return x;
+}
+
+let to_int = fun (x: f32) => i32 {
+    var m = Math.pow(clamp_01(x), 1.0 / 2.2) * 255.0 + 0.5;
+    return (i32)(Math.trunc(m));
+}
+
+let radiance = fun(ray: Ray*; depth: i32; Xi: i32*) => Vec {
+    var t: f32;
+    var id = 0;
+}
+[
+	"compile.output": "smallpt.exe",
+	"compile.entry" : "true",
+	"compile.debug" : "true",
+ 	"compile.opt"   : "0",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, smallpt\lib"
+]
+let main = fun () => void 
+{
+    debug_print_f32("sin", Math.sin(Math.pi_32 / 2.0));
+    debug_print_f32("power", Math.pow(2.0, 4.0));
+
+    Windows.ExitProcess(0);
+}

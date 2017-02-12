@@ -310,6 +310,33 @@ namespace Handmade
 
 
 
+let Vec = struct 
+(
+    x: f32;
+    y: f32;
+    z: f32;
+);
+let add = fun
+(
+    a: Vec*;
+    b: Vec*;
+) => Vec
+{
+    
+    // this works:
+    // var result = Vec { a.x + b.x, a.y + b.y, a.z + b.z};
+    // return result;
+
+    // this doesn't
+    return Vec { a.x + b.x, a.y + b.y, a.z + b.z};
+
+}
+
+// this should fail with invalid cast 
+let foo_bar = fun (v: Vec) => void {
+    var f = &v.x;
+}
+
 let print_vec = fun (v: Handmade.vec2) => void 
 {
 	debug_print_f32("x", v.x);

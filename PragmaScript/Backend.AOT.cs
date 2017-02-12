@@ -15,8 +15,6 @@ namespace PragmaScript
 {
     partial class Backend
     {
-
-
         // NOTE: function signature is broken in LLVMSharp 3.7 so we declare it here manually
         [DllImport("libLLVM.dll", EntryPoint = "LLVMGetBufferStart", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr GetBufferStart(LLVMMemoryBufferRef @MemBuf);
@@ -185,8 +183,7 @@ namespace PragmaScript
             }
             if (!error) {
                 var libs = String.Join(" ", CompilerOptions.libs);
-                var lib_path = String.Join(" ", CompilerOptions.lib_path);
-
+                var lib_path = String.Join(" /libpath:", CompilerOptions.lib_path.Select(s => "\""+s+ "\""));
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
                 lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
@@ -197,7 +194,7 @@ namespace PragmaScript
                     flags += $" /subsystem:CONSOLE /out:{ox(".exe")}";
                 }
 
-                lldProcess.StartInfo.Arguments = $"{libs} \"{oxt(".o")}\" {flags} /libpath:\"{lib_path}\"";
+                lldProcess.StartInfo.Arguments = $"{libs} \"{oxt(".o")}\" {flags} /libpath:{lib_path}";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;

@@ -1378,9 +1378,12 @@ namespace PragmaScript
                 var funType = LLVM.GetElementType(GetTypeRef(fun));
 
                 Debug.Assert(!variables.ContainsKey(node.funName));
-                var function = LLVM.AddFunction(mod, node.funName, funType);
-
-
+                LLVMValueRef function;
+                if (node.externalFunctionName != null) {
+                    function = LLVM.AddFunction(mod, node.externalFunctionName, funType);
+                } else {
+                    function = LLVM.AddFunction(mod, node.funName, funType);
+                }
 
                 LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i) {
@@ -1558,7 +1561,7 @@ namespace PragmaScript
         {
         }
 
-
+        // TODO(pragma): generate this code
         public void Visit(AST.Node node)
         {
             switch (node) {

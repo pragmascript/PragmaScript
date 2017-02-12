@@ -714,7 +714,7 @@ namespace PragmaScript
                             var vd = ns.scope.GetVar(node.fieldName, node.token, recurse: false);
 
                             if (vd == null) {
-                                new ParserError($"Unknown variable \"{node.fieldName}\" in namespace \"{ns}\"", node.token);
+                                throw new ParserError($"Unknown variable \"{node.fieldName}\" in namespace \"{ns}\"", node.token);
                             }
 
                             if (vd.type != null) {
