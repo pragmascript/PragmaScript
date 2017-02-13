@@ -704,10 +704,10 @@ namespace Handmade.Platform
 	"compile.entry",
 	"compile.debug" : "true",
 	"compile.output": "win_handmade.exe",
-	"compile.opt"   : "0",
+	"compile.opt"   : "3",
 	"compile.run"   : "false",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64",
-	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib"
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib",
+	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib, libopenlibm.lib"
 	]
 	let main = fun () => void 
 	{
@@ -861,8 +861,9 @@ namespace Handmade.Platform
 
 			fill_sound_buffer(&sound_output, &game_sound_output);
 			if (!running) {
-				clear_sound_buffer(&sound_output);
-				sound_output.sound_buffer.vtable.Stop();
+				// TODO(oragma): this crashes on exit in optimized builds!
+				// clear_sound_buffer(&sound_output);
+				// sound_output.sound_buffer.vtable.Stop();
 			}
 
 			blit_to_screen(&backbuffer);
@@ -900,7 +901,7 @@ namespace Handmade.Platform
 			}
 			
 			last_cycle_count = current_cycle_count;
-		}
+		}	
 
 		ExitProcess(0);
 	}

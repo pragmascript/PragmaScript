@@ -93,7 +93,9 @@ namespace PragmaScript
             At,
             Namespace,
             With,
-            Reserve
+            Reserve,
+            RightShiftUnsigned,
+            RightShiftEqualsUnsigned
         }
 
         public TokenType type { get; private set; }
@@ -153,6 +155,7 @@ namespace PragmaScript
             operators.Add(":", TokenType.Colon);
             operators.Add("<<", TokenType.LeftShift);
             operators.Add(">>", TokenType.RightShift);
+            operators.Add(">>\\", TokenType.RightShiftUnsigned);
             operators.Add("||", TokenType.ConditionalOR);
             operators.Add("&&", TokenType.ConditionalAND);
             operators.Add("|", TokenType.LogicalOR);
@@ -186,6 +189,7 @@ namespace PragmaScript
             operators.Add("^=", TokenType.XorEquals);
             operators.Add("<<=", TokenType.LeftShiftEquals);
             operators.Add(">>=", TokenType.RightShiftEquals);
+            operators.Add(">>=\\", TokenType.RightShiftEqualsUnsigned);
             operators.Add("[]", TokenType.ArrayTypeBrackets);
             operators.Add("@", TokenType.At);
 
@@ -216,8 +220,9 @@ namespace PragmaScript
             switch (type) {
                 case TokenType.Assignment:
                 case TokenType.PlusEquals:
-                case TokenType.RightShiftEquals:
                 case TokenType.LeftShiftEquals:
+                case TokenType.RightShiftEquals:
+                case TokenType.RightShiftEqualsUnsigned:
                 case TokenType.XorEquals:
                 case TokenType.OrEquals:
                 case TokenType.DivideEquals:

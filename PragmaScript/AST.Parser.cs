@@ -691,11 +691,14 @@ namespace PragmaScript
                         case Token.TokenType.PlusEquals:
                             compound.type = BinOp.BinOpType.Add;
                             break;
+                        case Token.TokenType.LeftShiftEquals:
+                            compound.type = BinOp.BinOpType.LeftShift;
+                            break;
                         case Token.TokenType.RightShiftEquals:
                             compound.type = BinOp.BinOpType.RightShift;
                             break;
-                        case Token.TokenType.LeftShiftEquals:
-                            compound.type = BinOp.BinOpType.LeftShift;
+                        case Token.TokenType.RightShiftEqualsUnsigned:
+                            compound.type = BinOp.BinOpType.RightShiftUnsigned;
                             break;
                         case Token.TokenType.XorEquals:
                             compound.type = BinOp.BinOpType.LogicalXOR;
@@ -855,7 +858,8 @@ namespace PragmaScript
                         || tt == Token.TokenType.Subtract;
                 case 4:
                     return tt == Token.TokenType.LeftShift
-                        || tt == Token.TokenType.RightShift;
+                        || tt == Token.TokenType.RightShift
+                        || tt == Token.TokenType.RightShiftUnsigned;
                 case 5:
                     return tt == Token.TokenType.Less
                         || tt == Token.TokenType.Greater
@@ -1013,9 +1017,9 @@ namespace PragmaScript
                         var result = new ConstInt(current, scope);
                         bool isHex = current.text.Length > 1 && current.text[1] == 'x';
                         if (isHex) {
-                            result.number = int.Parse(current.text.Substring(2), NumberStyles.AllowHexSpecifier);
+                            result.number = ulong.Parse(current.text.Substring(2), NumberStyles.AllowHexSpecifier);
                         } else {
-                            result.number = int.Parse(current.text);
+                            result.number = (ulong)decimal.Parse(current.text);
                         }
 
                         return result;

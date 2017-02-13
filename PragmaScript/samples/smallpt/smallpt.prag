@@ -7,6 +7,8 @@ let Vec = struct
     y: f32;
     z: f32;
 );
+var vz = Vec {0.0, 0.0, 0.0};
+
 let add = fun (a: Vec*; b: Vec*) => Vec {
     var result = Vec { a.x + b.x, a.y + b.y, a.z + b.z};
     return result;
@@ -49,7 +51,7 @@ let Ray = struct
     direction: Vec;
 );
 
-let Sphere = struct
+let Sphere = struct 
 (
     radius: f32;
     pos: Vec;
@@ -57,33 +59,33 @@ let Sphere = struct
     color: Vec;
 );
 
-let intersect_sphere_ray = fun (sphere: Sphere*; ray: Ray*) => f32 {
+
+let intersect_sphere_ray = fun (sphere: Sphere*; ray: Ray*; distance: f32*) => bool {
     var op = sub(&sphere.pos, &ray.origin);
-    return 0.0;
     var b = dot(&op, &ray.direction);
     var det = b*b - dot(&op, &op) + sphere.radius * sphere.radius;
-    return 0.0;
 
     if (det < 0.0) {
-        return 0.0;
+        return false;
     } else {
         det = Math.sqrt(det);
     }
-
     var eps = 0.0001;
     var t = b - det;
-    var result: f32;
     if (t > eps) {
-        result = t;
+        *distance = t;
+        return true;
     } else {
         t = b + det;
         if (t > eps) {
-            result = t;
+            *distance = t;
+            return true;
         } else {
-            result = 0.0;
+            return false;
         }
     }
-    return result;
+    assert(false);
+    return false;
 }
 
 let clamp_01 = fun (x: f32) => f32 {
@@ -100,10 +102,43 @@ let to_int = fun (x: f32) => i32 {
     return (i32)(Math.trunc(m));
 }
 
-let radiance = fun(ray: Ray*; depth: i32; Xi: i32*) => Vec {
+let intersect = fun(ray: Ray*; t: f32*; id: i32*; spheres: Sphere[]) => bool {
+    let max = 10000000000.0;
+    *t = max;
+    *id = -1;
+    var d: f32;
+    for (var i = 0; i < spheres.length; ++i) {
+        if (intersect_sphere_ray(&spheres[i], ray, &d)) {
+            *t = d;
+            *id = i;
+        }
+    }
+    return *id != -1;
+}
+
+let radiance = fun(ray: Ray*; depth: i32; Xi: i32*; spheres: Sphere[]) => Vec {
     var t: f32;
     var id = 0;
+    if (!intersect(ray, &t, &id, spheres)) {
+        return vz;
+    }
+    var obj = spheres[id];
+    
+    var delta = scale(&ray.direction, t);
+    var x = add(&ray.origin, &delta);
+    var n = sub(&x, &obj.pos);
+    normalize(&n);
+
+    var nl = n;
+    if (dot(&n, &ray.direction) >= 0)  {
+        nl = scale(&n, -1);
+    }
+    
+
+    return vz;
 }
+
+
 [
 	"compile.output": "smallpt.exe",
 	"compile.entry" : "true",
@@ -111,7 +146,7 @@ let radiance = fun(ray: Ray*; depth: i32; Xi: i32*) => Vec {
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, libopenlibm.lib",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, smallpt\lib"
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void 
 {

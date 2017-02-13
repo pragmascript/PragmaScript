@@ -177,7 +177,7 @@ namespace PragmaScript
                 || LLVM.GetTypeKind(ct) == LLVMTypeKind.LLVMDoubleTypeKind) {
                 result = LLVM.ConstReal(ct, node.number);
             } else {
-                result = LLVM.ConstInt(ct, (ulong)node.number, Const.TrueBool);
+                result = LLVM.ConstInt(ct, (ulong)node.number, Const.FalseBool);
             }
 
             valueStack.Push(result);
@@ -371,6 +371,9 @@ namespace PragmaScript
                                 break;
                             case AST.BinOp.BinOpType.RightShift:
                                 result = LLVM.BuildAShr(builder, left, right, "shr_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.RightShiftUnsigned:
+                                result = LLVM.BuildLShr(builder, left, right, "shr_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Remainder:
                                 result = LLVM.BuildURem(builder, left, right, "urem_tmp");

@@ -1,6 +1,4 @@
-﻿ 
- 
- import "../preamble.prag"
+﻿ import "../preamble.prag"
  
 
 // let sphere = struct

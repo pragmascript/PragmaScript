@@ -693,7 +693,7 @@ namespace PragmaScript
 
         public class ConstInt : Node
         {
-            public int number;
+            public ulong number;
 
             public ConstInt(Token t, Scope s)
                 : base(t, s)
@@ -1080,7 +1080,7 @@ namespace PragmaScript
         {
             public enum BinOpType
             {
-                Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, Remainder,
+                Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, RightShiftUnsigned, Remainder,
                 GreaterEqualUnsigned,
                 LessEqualUnsigned,
                 GreaterUnsigned,
@@ -1132,6 +1132,9 @@ namespace PragmaScript
                         break;
                     case Token.TokenType.RightShift:
                         type = BinOpType.RightShift;
+                        break;
+                    case Token.TokenType.RightShiftUnsigned:
+                        type = BinOpType.RightShiftUnsigned;
                         break;
                     case Token.TokenType.ConditionalOR:
                         type = BinOpType.ConditionalOR;
@@ -1245,6 +1248,8 @@ namespace PragmaScript
                         return "<<";
                     case BinOpType.RightShift:
                         return ">>";
+                    case BinOpType.RightShiftUnsigned:
+                        return ">>\\";
                     case BinOpType.Remainder:
                         return "%";
                     default:
