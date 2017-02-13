@@ -369,6 +369,10 @@ namespace Random
 		result = min + result * (max - min);
 		return result;
 	}
+	let rand_xkcd = fun () => i32 {
+		return 4;  // chosen by fair dice roll.
+		           // guaranteed to be random.
+	}
 }
 
 
