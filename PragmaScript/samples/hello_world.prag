@@ -1,6 +1,9 @@
 import "preamble.prag"
+
+
+
 [
-	"compile.output": "hello_world.exe",
+	"compile.output": "hello.exe",
 	"compile.entry" : "true",
 	"compile.debug" : "true",
  	"compile.opt"   : "0",

@@ -451,6 +451,9 @@ namespace PragmaScript
             public string funName;
             public TypeString typeString;
 
+            public Scope.VariableDefinition variableDefinition;
+
+
             public bool isFunctionTypeDeclaration()
             {
                 return !external && body == null;

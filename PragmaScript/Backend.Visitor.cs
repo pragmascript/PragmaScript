@@ -109,7 +109,7 @@ namespace PragmaScript
             LLVM.PositionBuilderAtEnd(builder, entry);
 
             if (main != null) {
-                var mf = variables[main.funName];
+                var mf = variables[main.scope.GetVar(main.funName, main.token)];
                 var par = new LLVMValueRef[1];
                 LLVM.BuildCall(builder, mf, out par[0], 0, "");
             }
@@ -936,7 +936,7 @@ namespace PragmaScript
                 Visit(node.expression);
                 var v = valueStack.Pop();
                 // Debug.Assert(LLVM.IsConstant(v));
-                variables[node.variable.name] = v;
+                variables[node.variable] = v;
                 return;
             }
 
@@ -964,7 +964,7 @@ namespace PragmaScript
                     var insert = LLVM.GetInsertBlock(builder);
                     LLVM.PositionBuilderAtEnd(builder, ctx.Peek().vars);
                     result = LLVM.BuildAlloca(builder, vType, node.variable.name);
-                    variables[node.variable.name] = result;
+                    variables[node.variable] = result;
                     LLVM.PositionBuilderAtEnd(builder, insert);
                     if (v.Pointer != IntPtr.Zero) {
                         LLVM.BuildStore(builder, v, result);
@@ -982,7 +982,7 @@ namespace PragmaScript
                     LLVM.BuildStore(builder, alloc, result);
                     LLVM.PositionBuilderAtEnd(builder, insert);
                 }
-                variables[node.variable.name] = result;
+                variables[node.variable] = result;
             } else // is global
               {
                 if (node.expression != null && node.expression is AST.StructConstructor) {
@@ -991,7 +991,7 @@ namespace PragmaScript
 
                     var v = LLVM.AddGlobal(mod, structType, node.variable.name);
                     LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
-                    variables[node.variable.name] = v;
+                    variables[node.variable] = v;
                     LLVM.SetInitializer(v, LLVM.ConstNull(structType));
 
                     for (int i = 0; i < sc.argumentList.Count; ++i) {
@@ -1008,7 +1008,7 @@ namespace PragmaScript
                         var result = valueStack.Pop();
                         var resultType = LLVM.TypeOf(result);
                         var v = LLVM.AddGlobal(mod, resultType, node.variable.name);
-                        variables[node.variable.name] = v;
+                        variables[node.variable] = v;
                         LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                         if (LLVM.IsConstant(result)) {
                             LLVM.SetInitializer(v, result);
@@ -1020,7 +1020,7 @@ namespace PragmaScript
                     } else {
                         var vType = GetTypeRef(typeChecker.GetNodeType(node.typeString));
                         var v = LLVM.AddGlobal(mod, vType, node.variable.name);
-                        variables[node.variable.name] = v;
+                        variables[node.variable] = v;
                         LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                         LLVM.SetInitializer(v, LLVM.ConstNull(vType));
                     }
@@ -1080,7 +1080,7 @@ namespace PragmaScript
             }
             LLVMValueRef v;
             var nt = typeChecker.GetNodeType(node);
-            v = variables[node.variableName];
+            v = variables[vd];
             var v_type = typeToString(GetTypeRef(nt));
             LLVMValueRef result;
             bool is_global = LLVM.IsAGlobalVariable(v).Pointer != IntPtr.Zero;
@@ -1384,7 +1384,7 @@ namespace PragmaScript
                 //}
                 var funType = LLVM.GetElementType(GetTypeRef(fun));
 
-                Debug.Assert(!variables.ContainsKey(node.funName));
+                Debug.Assert(!variables.ContainsKey(node.variableDefinition));
                 LLVMValueRef function;
 
                 if (node.HasAttribute("STUB")) {
@@ -1418,12 +1418,12 @@ namespace PragmaScript
                     //}
                     // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
                 }
-                variables.Add(node.funName, function);
+                variables.Add(node.variableDefinition, function);
             } else {
                 if (node.external || node.body == null) {
                     return;
                 }
-                var function = variables[node.funName];
+                var function = variables[node.variableDefinition];
 
 
                 if (node.HasAttribute("DLL.EXPORT")) {
