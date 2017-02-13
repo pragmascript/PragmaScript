@@ -133,7 +133,9 @@ let radiance = fun(ray: Ray*; depth: i32; Xi: i32*; spheres: Sphere[]) => Vec {
     if (dot(&n, &ray.direction) >= 0)  {
         nl = scale(&n, -1);
     }
-    
+    var color = obj.color;
+    // var max_refl = Math.max(color.x, Math.max(color.y, color.z));
+
 
     return vz;
 }

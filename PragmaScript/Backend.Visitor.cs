@@ -1375,18 +1375,33 @@ namespace PragmaScript
                 return;
             }
             if (proto) {
-                if (node.external && variables.ContainsKey(node.funName) || node.isFunctionTypeDeclaration()) {
+                if (node.isFunctionTypeDeclaration()) {
                     return;
                 }
+                
+                //if (node.external && variables.ContainsKey(node.funName)) {
+                //    return;
+                //}
                 var funType = LLVM.GetElementType(GetTypeRef(fun));
 
                 Debug.Assert(!variables.ContainsKey(node.funName));
                 LLVMValueRef function;
-                if (node.externalFunctionName != null) {
-                    function = LLVM.AddFunction(mod, node.externalFunctionName, funType);
-                } else {
-                    function = LLVM.AddFunction(mod, node.funName, funType);
+
+                if (node.HasAttribute("STUB")) {
+                    if (node.externalFunctionName != null) {
+                        function = LLVM.GetNamedFunction(mod, node.externalFunctionName);
+                    } else {
+                        function = LLVM.GetNamedFunction(mod, node.funName);
+                    }
                 }
+                else {
+                    if (node.externalFunctionName != null) {
+                        function = LLVM.AddFunction(mod, node.externalFunctionName, funType);
+                    } else {
+                        function = LLVM.AddFunction(mod, node.funName, funType);
+                    }
+                }
+                
 
                 LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i) {

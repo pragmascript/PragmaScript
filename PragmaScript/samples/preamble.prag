@@ -19,7 +19,12 @@ let terabytes = fun (bytes: mm) => mm
 }
 
 let null = (mm)0;
+let nullptr = (ptr)0;
+
+["stub"]
 let _rdtsc = extern fun () => i64;
+
+["stub"]
 let __chkstk = extern fun () => void;
 
 let print_string = fun (s: string) => void
@@ -377,9 +382,9 @@ namespace Random
 
 
 
-
 let __hack_reserve_intrinsics = fun () => bool
 {
+
 	if ((mm)memset == 1234 || (mm)__chkstk == 1234 
 			// || (mm)Math.cosf == 1234 || (mm)Math.sinf == 1234 || (mm)Math.roundf == 1234
 		) {

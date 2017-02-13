@@ -108,13 +108,9 @@ namespace PragmaScript
                 Int64Type = LLVM.Int64Type();
                 Int8Type = LLVM.IntType(8);
 
-
                 Int8PointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
 
-
-
                 NullPtr = LLVM.ConstPointerNull(Int8PointerType);
-
                 BoolType = LLVM.Int1Type();
                 VoidType = LLVM.VoidType();
             }
@@ -310,31 +306,6 @@ namespace PragmaScript
 
         }
 
-        void addDelegate<T>(T del, string name) where T : class
-        {
-            if (!typeof(T).IsSubclassOf(typeof(Delegate))) {
-                throw new InvalidOperationException(typeof(T).Name + " is not a delegate type");
-            }
-            var info = typeof(T).GetMethod("Invoke");
-            var parameters = info.GetParameters();
-
-
-            LLVMTypeRef[] param_types = new LLVMTypeRef[Math.Max(parameters.Length, 1)];
-
-            for (int i = 0; i < parameters.Length; ++i) {
-                var p = parameters[i];
-                var pt = p.ParameterType;
-                param_types[i] = getTypeRef(pt);
-            }
-
-            var returnTypeRef = getTypeRef(info.ReturnType);
-
-            var fun_type = LLVM.FunctionType(returnTypeRef, param_types, Const.FalseBool);
-            IntPtr functionPtr = Marshal.GetFunctionPointerForDelegate(del as Delegate);
-            var llvmFuncPtr = LLVM.ConstIntToPtr(LLVM.ConstInt(LLVM.Int64Type(), (ulong)functionPtr, Const.FalseBool), LLVM.PointerType(fun_type, 0));
-            variables.Add(name, llvmFuncPtr);
-        }
-
         void insertMissingReturn(LLVMTypeRef returnType)
         {
             var term = LLVM.GetBasicBlockTerminator(LLVM.GetInsertBlock(builder));
@@ -351,94 +322,25 @@ namespace PragmaScript
         void BuildMemCpy(LLVMValueRef dest, LLVMValueRef source, LLVMValueRef count)
         {
             var args = new LLVMValueRef[] { dest, source, count, Const.ZeroInt32, Const.False };
-            LLVM.BuildCall(builder, variables["memcpy"], out args[0], 5, "");
+            LLVM.BuildCall(builder, intrinsic_memcpy, out args[0], 5, "");
         }
 
 
+        LLVMValueRef intrinsic_memcpy;
+
         // http://stackoverflow.com/questions/11985247/llvm-insert-intrinsic-function-cos
         // http://stackoverflow.com/questions/27681500/generate-call-to-intrinsic-using-llvm-c-api
-        void addIntrinsics()
+        void addMemcpy()
         {
-            /*
-            {
-                LLVMTypeRef[] param_types = { Const.Float32Type };
-                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
-                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.cos.f32", fn_type);
-                variables.Add("cos", fn);
-            }
-
-            {
-                LLVMTypeRef[] param_types = { Const.Float32Type };
-                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
-                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.sin.f32", fn_type);
-                variables.Add("sin", fn);
-            }
-
-            {
-                LLVMTypeRef[] param_types = { Const.Float32Type };
-                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
-                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.fabs.f32", fn_type);
-                variables.Add("abs", fn);
-            }
-            {
-                LLVMTypeRef[] param_types = { Const.Float32Type };
-                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
-                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.sqrt.f32", fn_type);
-                variables.Add("sqrt", fn);
-            }
-
-            {
-                LLVMTypeRef[] param_types = { Const.Float32Type };
-                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
-                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.floor.f32", fn_type);
-                variables.Add("floor", fn);
-            }
-            {
-                LLVMTypeRef[] param_types = { Const.Float32Type };
-                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
-                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.trunc.f32", fn_type);
-                variables.Add("trunc", fn);
-            }
-            {
-                LLVMTypeRef[] param_types = { Const.Float32Type };
-                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
-                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.ceil.f32", fn_type);
-                variables.Add("ceil", fn);
-            }
-            {
-                LLVMTypeRef[] param_types = { Const.Float32Type };
-                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 1, false);
-                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.round.f32", fn_type);
-                variables.Add("round", fn);
-            }
-            {
-                LLVMTypeRef[] param_types = { Const.Float32Type, Const.Float32Type };
-                LLVMTypeRef fn_type = LLVM.FunctionType(Const.Float32Type, out param_types[0], 2, false);
-                LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.pow.f32", fn_type);
-                variables.Add("pow", fn);
-            }
-            */
             {
                 LLVMTypeRef[] param_types = { Const.Int8PointerType, Const.Int8PointerType, Const.Int32Type, Const.Int32Type, Const.BoolType };
                 LLVMTypeRef fn_type = LLVM.FunctionType(Const.VoidType, out param_types[0], 5, false);
                 LLVMValueRef fn = LLVM.AddFunction(mod, "llvm.memcpy.p0i8.p0i8.i32", fn_type);
-                variables.Add("memcpy", fn);
+                intrinsic_memcpy = fn;
             }
-
-        }
-
-        void addSpecialFuncitons()
-        {
-            LLVMTypeRef[] param_types = { Const.Float32Type };
-            LLVMTypeRef fn_type = LLVM.FunctionType(Const.VoidType, out param_types[0], 0, false);
-            LLVMValueRef dummy = LLVM.AddFunction(mod, "__dummy__", fn_type);
-            variables.Add("__file_pos__", dummy);
         }
 
 
-        void addPreamble()
-        {
-        }
 
         void prepareModule()
         {
@@ -449,38 +351,13 @@ namespace PragmaScript
             if (msg != IntPtr.Zero) {
                 Console.WriteLine(Marshal.PtrToStringAnsi(msg));
             }
-
-
             var ctx = LLVM.GetGlobalContext();
             LLVM.ParseIRInContext(ctx, buf, out mod, out msg);
-
             if (msg != IntPtr.Zero) {
                 Console.WriteLine(Marshal.PtrToStringAnsi(msg));
             }
-
-            var fun = LLVM.GetNamedFunction(mod, "VirtualAlloc");
-            Debug.Assert(fun.Pointer != IntPtr.Zero);
-            variables.Add("VirtualAlloc", fun);
-
-            fun = LLVM.GetNamedFunction(mod, "_rdtsc");
-            Debug.Assert(fun.Pointer != IntPtr.Zero);
-            variables.Add("_rdtsc", fun);
-
-            fun = LLVM.GetNamedFunction(mod, "__chkstk");
-            Debug.Assert(fun.Pointer != IntPtr.Zero);
-            variables.Add("__chkstk", fun);
-
-
-            addIntrinsics();
-            addSpecialFuncitons();
-            addPreamble();
-
-
+            addMemcpy();
             builder = LLVM.CreateBuilder();
-
-            // HACK: 
-            var nullptr = LLVM.ConstPointerNull(LLVM.PointerType(LLVM.Int8Type(), 0));
-            variables["nullptr"] = nullptr;
         }
 
 
