@@ -1,13 +1,23 @@
 import "..\preamble.prag"
 import "..\windows.prag"
 
+// https://www.shadertoy.com/view/Xdf3zB
+
 let Vec = struct 
 (
     x: f32;
     y: f32;
     z: f32;
 );
+let v3 = fun (x: f32; y: f32; z: f32) => Vec {
+    var result = Vec { x, y, z};
+    return result;
+}
+
+
 var vz = Vec {0.0, 0.0, 0.0};
+
+
 
 let add = fun (a: Vec*; b: Vec*) => Vec {
     var result = Vec { a.x + b.x, a.y + b.y, a.z + b.z};
@@ -17,7 +27,7 @@ let sub = fun (a: Vec*; b: Vec*) => Vec {
     var result = Vec { a.x - b.x, a.y - b.y, a.z - b.z};
     return result;
 }
-let scale = fun (a: Vec*; s: f32) => Vec {
+let scaled = fun (a: Vec*; s: f32) => Vec {
     var result = Vec { a.x * s, a.y * s, a.z * s};
     return result;
 }
@@ -31,6 +41,18 @@ let normalize = fun (@a: Vec*) => void {
     y *= scl;
     z *= scl;
 }
+let normalized = fun (v: Vec*) => Vec {
+    var result = *v;
+    normalize(&result);
+    return result;
+}
+let length = fun(@a: Vec*) => f32 {
+    return Math.sqrt(x*x + y*y + z*z);
+}
+let sqr_length = fun(@a: Vec*) => f32 {
+    return x*x + y*y + z*z;
+}
+
 let dot = fun (a: Vec*; b: Vec*) => f32 {
     var result = a.x*b.x + a.y*b.y + a.z*b.z;
     return result;
@@ -42,6 +64,15 @@ let cross = fun (a: Vec*; b: Vec*) => Vec {
         a.z * b.x - a.x * b.z,
         a.x * b.y - a.y * b.x
     };
+    return result;
+}
+let get_orthogonal = fun (v: Vec*) => Vec {
+    var c0 = Vec {0.0, 1.0, 0.0};
+    var c1 = Vec {0.0, 0.0, 1.0};
+    var result = cross(v, &c0);
+    if (sqr_length(&result) < 0.0001) {
+        result = cross(v, &c1);
+    }
     return result;
 }
 
@@ -116,33 +147,118 @@ let intersect = fun(ray: Ray*; t: f32*; id: i32*; spheres: Sphere[]) => bool {
     return *id != -1;
 }
 
-let radiance = fun(ray: Ray*; depth: i32; Xi: i32*; spheres: Sphere[]) => Vec {
+let radiance = fun(ray: Ray*; depth: i32; spheres: Sphere[]) => Vec {
     var t: f32;
     var id = 0;
     if (!intersect(ray, &t, &id, spheres)) {
         return vz;
     }
     var obj = spheres[id];
+    if (depth > 5) {
+        return obj.emission;
+    }
     
-    var delta = scale(&ray.direction, t);
+    var delta = scaled(&ray.direction, t);
     var x = add(&ray.origin, &delta);
     var n = sub(&x, &obj.pos);
     normalize(&n);
 
     var nl = n;
     if (dot(&n, &ray.direction) >= 0)  {
-        nl = scale(&n, -1);
+        nl = scaled(&n, -1);
     }
     var color = obj.color;
-    var max_refl = Math.max(color.x, Math.max(color.y, color.z));
+    var r1 = Random.rand_f32(0, Math.tau_32);
+    var r2 = Random.rand_f32();
+    var r2s = Math.sqrt(r2);
+    var w = nl;
+    var u = get_orthogonal(&w);
+    normalize(&u);
+    var v = cross(&w, &u);
     
-    if (depth > 5) {
-        return obj.emission;
-    }
-    
-    return vz;
+    // get random vec on hemisphere
+    var d1 = scaled(&u, Math.cos(r1) * r2s);
+    var d2 = scaled(&v, Math.sin(r1) * r2s);
+    var d3 = scaled(&w, Math.sqrt(1 - r2));
+    var d = add(&d1, &d2);
+    d = add(&d, &d3);
+
+    var result = obj.emission;
+    var random_ray = Ray{x, d};
+    var recursive = radiance(&random_ray, depth + 1, spheres);
+    recursive = hadamard(&color, &recursive);
+    result = add(&result, &recursive);
+
+    return result;
 }
 
+
+let create_spheres = fun() => Sphere[] {
+    var spheres: Sphere[];
+    spheres.data = (Sphere*)Windows.VirtualAlloc(nullptr, (mm)(size_of(Sphere) * 9), Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    spheres.length = 9;
+    var s: Sphere* = spheres.data;
+    
+    // crashes the compiler
+    // var s = Sphere { big, Vec { big + 1  , 40.8, 81.6 }, vz            , Vec {0.75, 0.25, 0.25} };
+
+    let big = 100000.0;
+    // 0
+    s.radius   = big;
+    s.pos      = v3(big + 1, 40.8, 81.6);
+    s.emission = vz;
+    s.color    = v3(0.75, 0.25, 0.25);
+    s++;
+    // 1
+    s.radius   = big;
+    s.pos      = v3(-big + 99, 40.8, 81.6);
+    s.emission = vz;
+    s.color    = v3(0.25, 0.25, 0.75);
+    s++;
+    // 2
+    s.radius   = big;
+    s.pos      = v3(50, 40.8, big);
+    s.emission = vz;
+    s.color    = v3(0.75, 0.75, 0.75);
+    s++;
+    // 3
+    s.radius   = big;
+    s.pos      = v3(50, 40.8, -big + 170);
+    s.emission = vz;
+    s.color    = vz;
+    s++;
+    // 4
+    s.radius   = big;
+    s.pos      = v3(50, big, 81.6);
+    s.emission = vz;
+    s.color    = v3(0.75, 0.75, 0.75);
+    s++;
+    // 5
+    s.radius   = big;
+    s.pos      = v3(50, -big + 81.6, 81.6);
+    s.emission = vz;
+    s.color    = v3(0.75, 0.75, 0.75);
+    s++;
+    // 6
+    s.radius   = big;
+    s.pos      = v3(27, 16.5, 47);
+    s.emission = vz;
+    s.color    = v3(0.99, 0.99, 0.99);
+    s++;
+    // 7
+    s.radius   = big;
+    s.pos      = v3(73, 16.5, 78);
+    s.emission = vz;
+    s.color    = v3(0.99, 0.25, 0.25);
+    s++;
+    // 8
+    s.radius   = 600;
+    s.pos      = v3(50, 681.6 - 0.27, 81.6);
+    s.emission = v3(12.0, 12.0, 12.0);
+    s.color    = vz;
+
+    return spheres;
+}
 
 [
 	"compile.output": "smallpt.exe",
@@ -155,8 +271,18 @@ let radiance = fun(ray: Ray*; depth: i32; Xi: i32*; spheres: Sphere[]) => Vec {
 ]
 let main = fun () => void 
 {
-    debug_print_f32("sin", Math.sin(Math.pi_32 / 2.0));
-    debug_print_f32("power", Math.pow(2.0, 4.0));
+    var spheres = create_spheres();
+    
+    var width  = 1024;
+    var height = 768;
+    var samples = 5000 / 4;
+
+    var cam: Ray;
+    cam.origin = v3(50,52,295.6);
+    cam.direction = v3(0, -0.042612, -1);
+    normalize(&cam.direction);
+    
+
 
     Windows.ExitProcess(0);
 }

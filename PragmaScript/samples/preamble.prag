@@ -137,6 +137,8 @@ namespace Math
 	let half_pi = pi / 2.0;
 	let pi_32 = (f32)pi;
 	let half_pi_32 = (f32)half_pi;
+	let tau = 2.0 * pi;
+	let tau_32 = 2.0 * pi_32;
 
 
 	let sin     = extern("llvm.sin.f32")    fun (x: f32) => f32;
@@ -385,9 +387,7 @@ namespace Random
 let __hack_reserve_intrinsics = fun () => bool
 {
 
-	if ((mm)memset == 1234 || (mm)__chkstk == 1234 
-			// || (mm)Math.cosf == 1234 || (mm)Math.sinf == 1234 || (mm)Math.roundf == 1234
-		) {
+	if ((mm)memset == 1234 || (mm)__chkstk == 1234) {
 		print_string("");
 		return true;
 	}
