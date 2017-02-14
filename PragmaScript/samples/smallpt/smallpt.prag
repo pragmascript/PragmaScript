@@ -17,8 +17,6 @@ let v3 = fun (x: f32; y: f32; z: f32) => Vec {
 
 var vz = Vec {0.0, 0.0, 0.0};
 
-
-
 let add = fun (a: Vec*; b: Vec*) => Vec {
     var result = Vec { a.x + b.x, a.y + b.y, a.z + b.z};
     return result;
@@ -139,7 +137,7 @@ let intersect = fun(ray: Ray*; t: f32*; id: i32*; spheres: Sphere[]) => bool {
     *id = -1;
     var d: f32;
     for (var i = 0; i < spheres.length; ++i) {
-        if (intersect_sphere_ray(&spheres[i], ray, &d)) {
+        if (intersect_sphere_ray(&spheres[i], ray, &d) && d < *t) {
             *t = d;
             *id = i;
         }
@@ -240,13 +238,13 @@ let create_spheres = fun() => Sphere[] {
     s.color    = v3(0.75, 0.75, 0.75);
     s++;
     // 6
-    s.radius   = big;
+    s.radius   = 16.5;
     s.pos      = v3(27, 16.5, 47);
     s.emission = vz;
     s.color    = v3(0.99, 0.99, 0.99);
     s++;
     // 7
-    s.radius   = big;
+    s.radius   = 16.5;
     s.pos      = v3(73, 16.5, 78);
     s.emission = vz;
     s.color    = v3(0.99, 0.25, 0.25);
@@ -260,12 +258,36 @@ let create_spheres = fun() => Sphere[] {
     return spheres;
 }
 
+// let platform_write_file = fun (name: string; buffer: i8[]) => bool;
+let platform_write_file = fun (name: string; data: ptr; size_in_bytes: i32) => bool
+{
+    var handle = Windows.CreateFileA(cstr(name), Windows.GENERIC_WRITE, 0, nullptr, Windows.CREATE_ALWAYS, 0, 0);
+    if (handle == null) {
+        Windows.CloseHandle(handle);
+        return false;
+    }
+    var bytes_written: i32 = 0;
+    var result = Windows.WriteFile(handle, data, size_in_bytes, &bytes_written, nullptr);
+    if (result != 0) {
+        Windows.CloseHandle(handle);
+        assert(size_in_bytes == bytes_written);
+        return true;
+    } else {
+        Windows.CloseHandle(handle);
+        return false;
+    }
+
+    Windows.CloseHandle(handle);
+    return false;
+}
+
+
 [
 	"compile.output": "smallpt.exe",
 	"compile.entry" : "true",
-	"compile.debug" : "true",
- 	"compile.opt"   : "0",
- 	"compile.run"   : "true",
+	"compile.debug" : "false",
+ 	"compile.opt"   : "3",
+ 	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, libopenlibm.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
@@ -273,15 +295,99 @@ let main = fun () => void
 {
     var spheres = create_spheres();
     
-    var width  = 1024;
-    var height = 768;
-    var samples = 5000 / 4;
+    let width  = 1024;
+    let height = 768;
+    let samples = 4096;
 
     var cam: Ray;
     cam.origin = v3(50,52,295.6);
     cam.direction = v3(0, -0.042612, -1);
     normalize(&cam.direction);
+
+    let fov = 0.5135;
+
+    var cx = v3((f32)width * fov / (f32)height, 0, 0);
+    var cy = cross(&cx, &cam.direction);
+    normalize(&cy);
+    cy = scaled(&cy, fov);
+
+    var pixel_data = (Vec*)Windows.VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+
+    var pixels = pixel_data;
+    for (var y = 0; y < height; ++y) {
+        for (var x = 0; x < width; ++x) {
+
+            var sample_radiance = vz;
+            for (var s = 0; s < samples; ++s) {
+
+                // https://drive.google.com/file/d/0B8g97JkuSSBwUENiWTJXeGtTOHFmSm51UC01YWtCZw/view?pli=1
+                // http://smerity.com/montelight-cpp/code_overview.html
+
+                var r1 = Random.rand_f32(0, 2.0);
+                var dx: f32;
+                if (r1 < 1.0) {
+                    dx = Math.sqrt(r1) - 1;
+                } else {
+                    dx = 1.0 - Math.sqrt(2 - r1);
+                }
+                var r2 = Random.rand_f32(0, 2.0);
+                var dy: f32;
+                if (r2 < 1.0) {
+                    dy = Math.sqrt(r2) - 1;
+                } else {
+                    dy = 1.0 - Math.sqrt(2 - r2);
+                }
+                
+                var px = ((f32)x + dx) / (f32)width;
+                var py = ((f32)y + dy) / (f32)height;
+
+                
+                var scx = scaled(&cx, px - 0.5);
+                var scy = scaled(&cy, py - 0.5);
+                var d = cam.direction;
+                d = add(&d, &scx);
+                d = add(&d, &scy);
+                
+                normalize(&d);
+                var rp = cam.origin;
+                var push_d = scaled(&d, 140);
+                rp = add(&rp, &push_d);
+                var sample_ray = Ray{rp, d};
+                // TODO(pragma) error message!
+                // sample_radiance += radiance(&sample_ray, 0, spheres);
+                var r = radiance(&sample_ray, 0, spheres);
+                sample_radiance = add(&sample_radiance, &r);
+            }
+            var sr = scaled(&sample_radiance, 1.0 / (f32)samples);
+            *pixels = sr;
+            pixels++;
+        }
+    }
+
+    print_string("finished tracing.\n");
+
+    var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
+    var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    var pif = pif_data;
     
+    pixels = pixel_data;
+    *pif++ = 3141592654;
+    *pif++ = width;
+    *pif++ = height;
+
+    for (var y = 0; y < height; ++y) {
+        for (var x = 0; x < width; ++x) {
+            var v = *pixels;
+            var r = to_int(clamp_01(v.x));
+            var g = to_int(clamp_01(v.y));
+            var b = to_int(clamp_01(v.z));
+            *pif++ = r;
+            *pif++ = g;
+            *pif++ = b;
+            pixels++;
+        }
+    }
+    platform_write_file("image.pif", (ptr)pif_data, (i32)pif_size);
 
 
     Windows.ExitProcess(0);

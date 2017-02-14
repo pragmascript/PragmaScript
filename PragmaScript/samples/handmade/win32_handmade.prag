@@ -75,7 +75,8 @@ namespace Handmade.Platform
 		next_bytes_to_write: i32;
 		first_write: bool;
 	);
-
+	
+	// let platform_write_file = fun (name: string; buffer: i8[]) => bool;
 	let platform_write_file: platform_write_file = 
 	{
 		var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
@@ -98,6 +99,7 @@ namespace Handmade.Platform
 		return false;
 	}
 
+	// let platform_read_file = fun (name: string) => i8[];
 	let platform_read_file: platform_read_file =  
 	{
 		var result: i8[];
@@ -720,8 +722,8 @@ namespace Handmade.Platform
 		error = timeBeginPeriod(desired_sheduler_granularity);
 		assert(error == 0);
 
-		window.width = 960;
-		window.height = 540;
+		window.width = 1024;
+		window.height = 768;
 
 		create_backbuffer(&backbuffer, window.width, window.height);
 
