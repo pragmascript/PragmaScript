@@ -48,7 +48,8 @@ let length = fun(@a: Vec*) => f32 {
     return Math.sqrt(x*x + y*y + z*z);
 }
 let sqr_length = fun(@a: Vec*) => f32 {
-    return x*x + y*y + z*z;
+    var result = x*x + y*y + z*z;
+    return result;
 }
 
 let dot = fun (a: Vec*; b: Vec*) => f32 {
@@ -65,8 +66,8 @@ let cross = fun (a: Vec*; b: Vec*) => Vec {
     return result;
 }
 let get_orthogonal = fun (v: Vec*) => Vec {
-    var c0 = Vec {0.0, 1.0, 0.0};
-    var c1 = Vec {0.0, 0.0, 1.0};
+    var c0 = Vec {1.0, 0.0, 0.0};
+    var c1 = Vec {0.0, 1.0, 0.0};
     var result = cross(v, &c0);
     if (sqr_length(&result) < 0.0001) {
         result = cross(v, &c1);
@@ -99,7 +100,7 @@ let intersect_sphere_ray = fun (sphere: Sphere*; ray: Ray*; distance: f32*) => b
     } else {
         det = Math.sqrt(det);
     }
-    var eps = 0.0001;
+    var eps = 0.01;
     var t = b - det;
     if (t > eps) {
         *distance = t;
@@ -161,10 +162,14 @@ let radiance = fun(ray: Ray*; depth: i32; spheres: Sphere[]) => Vec {
     var n = sub(&x, &obj.pos);
     normalize(&n);
 
+    // return n;
+
     var nl = n;
+   
     if (dot(&n, &ray.direction) >= 0)  {
         nl = scaled(&n, -1);
     }
+
     var color = obj.color;
     var r1 = Random.rand_f32(0, Math.tau_32);
     var r2 = Random.rand_f32();
@@ -200,7 +205,7 @@ let create_spheres = fun() => Sphere[] {
     // crashes the compiler
     // var s = Sphere { big, Vec { big + 1  , 40.8, 81.6 }, vz            , Vec {0.75, 0.25, 0.25} };
 
-    let big = 100000.0;
+    let big = 10000.0;
     // 0
     s.radius   = big;
     s.pos      = v3(big + 1, 40.8, 81.6);
@@ -258,7 +263,6 @@ let create_spheres = fun() => Sphere[] {
     return spheres;
 }
 
-// let platform_write_file = fun (name: string; buffer: i8[]) => bool;
 let platform_write_file = fun (name: string; data: ptr; size_in_bytes: i32) => bool
 {
     var handle = Windows.CreateFileA(cstr(name), Windows.GENERIC_WRITE, 0, nullptr, Windows.CREATE_ALWAYS, 0, 0);
@@ -298,7 +302,7 @@ let main = fun () => void
     let width  = 1024;
     let height = 768;
     let samples = 4096;
-
+    // let samples = 40;
     var cam: Ray;
     cam.origin = v3(50,52,295.6);
     cam.direction = v3(0, -0.042612, -1);
@@ -378,9 +382,9 @@ let main = fun () => void
     for (var y = 0; y < height; ++y) {
         for (var x = 0; x < width; ++x) {
             var v = *pixels;
-            var r = to_int(clamp_01(v.x));
-            var g = to_int(clamp_01(v.y));
-            var b = to_int(clamp_01(v.z));
+            var r = to_int(v.x);
+            var g = to_int(v.y);
+            var b = to_int(v.z);
             *pif++ = r;
             *pif++ = g;
             *pif++ = b;
