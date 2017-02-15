@@ -100,7 +100,7 @@ let intersect_sphere_ray = fun (sphere: Sphere*; ray: Ray*; distance: f32*) => b
     } else {
         det = Math.sqrt(det);
     }
-    var eps = 0.01;
+    var eps = 0.02;
     var t = b - det;
     if (t > eps) {
         *distance = t;
@@ -132,31 +132,44 @@ let to_int = fun (x: f32) => i32 {
     return (i32)(Math.trunc(m));
 }
 
-let intersect = fun(ray: Ray*; t: f32*; id: i32*; spheres: Sphere[]) => bool {
+let intersect = fun(ray: Ray*; t: f32*; obj: Sphere**) => bool {
     let max = 10000000000.0;
     *t = max;
-    *id = -1;
+    *obj = (Sphere*)nullptr;
+    
     var d: f32;
-    for (var i = 0; i < spheres.length; ++i) {
-        if (intersect_sphere_ray(&spheres[i], ray, &d) && d < *t) {
+    var s = spheres;
+    for (var i = 0; i < sphere_count; ++i) {
+        if (intersect_sphere_ray(s, ray, &d) && d < *t) {
             *t = d;
-            *id = i;
+            *obj = s;
         }
+        s++;
     }
-    return *id != -1;
+    return *t != max;
 }
 
-let radiance = fun(ray: Ray*; depth: i32; spheres: Sphere[]) => Vec {
+let radiance = fun(ray: Ray*; depth: i32) => Vec {
     var t: f32;
     var id = 0;
-    if (!intersect(ray, &t, &id, spheres)) {
+    var obj: Sphere*;
+    if (!intersect(ray, &t, &obj)) {
         return vz;
     }
-    var obj = spheres[id];
+    
+    var color = obj.color;
+    
     if (depth > 5) {
-        return obj.emission;
+        // var nax_refl = Math.max(color.x, Math.max(color.y, color.z));
+        // if (Random.rand_f32() > nax_refl) {
+        //     return obj.emission;
+        // } else {
+        //     color = scaled(&color, 1.0 / nax_refl);
+        // }
+        return color;
     }
     
+
     var delta = scaled(&ray.direction, t);
     var x = add(&ray.origin, &delta);
     var n = sub(&x, &obj.pos);
@@ -165,12 +178,11 @@ let radiance = fun(ray: Ray*; depth: i32; spheres: Sphere[]) => Vec {
     // return n;
 
     var nl = n;
-   
     if (dot(&n, &ray.direction) >= 0)  {
         nl = scaled(&n, -1);
     }
 
-    var color = obj.color;
+    
     var r1 = Random.rand_f32(0, Math.tau_32);
     var r2 = Random.rand_f32();
     var r2s = Math.sqrt(r2);
@@ -188,7 +200,7 @@ let radiance = fun(ray: Ray*; depth: i32; spheres: Sphere[]) => Vec {
 
     var result = obj.emission;
     var random_ray = Ray{x, d};
-    var recursive = radiance(&random_ray, depth + 1, spheres);
+    var recursive = radiance(&random_ray, depth + 1);
     recursive = hadamard(&color, &recursive);
     result = add(&result, &recursive);
 
@@ -196,11 +208,13 @@ let radiance = fun(ray: Ray*; depth: i32; spheres: Sphere[]) => Vec {
 }
 
 
-let create_spheres = fun() => Sphere[] {
-    var spheres: Sphere[];
-    spheres.data = (Sphere*)Windows.VirtualAlloc(nullptr, (mm)(size_of(Sphere) * 9), Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
-    spheres.length = 9;
-    var s: Sphere* = spheres.data;
+
+let sphere_count = 9;
+var spheres: Sphere*;
+
+let create_spheres = fun() => void {
+    spheres = (Sphere*)Windows.VirtualAlloc(nullptr, (mm)(size_of(Sphere) * (mm)sphere_count), Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    var s = spheres;
     
     // crashes the compiler
     // var s = Sphere { big, Vec { big + 1  , 40.8, 81.6 }, vz            , Vec {0.75, 0.25, 0.25} };
@@ -259,8 +273,6 @@ let create_spheres = fun() => Sphere[] {
     s.pos      = v3(50, 681.6 - 0.27, 81.6);
     s.emission = v3(12.0, 12.0, 12.0);
     s.color    = vz;
-
-    return spheres;
 }
 
 let platform_write_file = fun (name: string; data: ptr; size_in_bytes: i32) => bool
@@ -286,47 +298,30 @@ let platform_write_file = fun (name: string; data: ptr; size_in_bytes: i32) => b
 }
 
 
-[
-	"compile.output": "smallpt.exe",
-	"compile.entry" : "true",
-	"compile.debug" : "false",
- 	"compile.opt"   : "3",
- 	"compile.run"   : "false",
- 	"compile.libs"  : "kernel32.lib, libopenlibm.lib",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
-]
-let main = fun () => void 
-{
-    var spheres = create_spheres();
-    
-    let width  = 1024;
-    let height = 768;
-    let samples = 4096;
-    // let samples = 40;
-    var cam: Ray;
-    cam.origin = v3(50,52,295.6);
-    cam.direction = v3(0, -0.042612, -1);
-    normalize(&cam.direction);
 
-    let fov = 0.5135;
 
-    var cx = v3((f32)width * fov / (f32)height, 0, 0);
-    var cy = cross(&cx, &cam.direction);
-    normalize(&cy);
-    cy = scaled(&cy, fov);
+let Tile = struct 
+(
+    cam: Ray;
+    cam_x: Vec;
+    cam_y: Vec;
+    width: i32;
+    height: i32;
 
-    var pixel_data = (Vec*)Windows.VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    sx: i32;
+    sy: i32;
+    samples: i32;
+    start: Vec*;
+    tile_size: i32;
+);
 
-    var pixels = pixel_data;
-    for (var y = 0; y < height; ++y) {
-        for (var x = 0; x < width; ++x) {
-
+let render_tile = fun (@tile: Tile*) => void {
+    var p = start;    
+    for (var y = 0; y < tile_size; ++y) {
+        var pixels = p;
+        for (var x = 0; x < tile_size; ++x) {
             var sample_radiance = vz;
             for (var s = 0; s < samples; ++s) {
-
-                // https://drive.google.com/file/d/0B8g97JkuSSBwUENiWTJXeGtTOHFmSm51UC01YWtCZw/view?pli=1
-                // http://smerity.com/montelight-cpp/code_overview.html
-
                 var r1 = Random.rand_f32(0, 2.0);
                 var dx: f32;
                 if (r1 < 1.0) {
@@ -342,39 +337,96 @@ let main = fun () => void
                     dy = 1.0 - Math.sqrt(2 - r2);
                 }
                 
-                var px = ((f32)x + dx) / (f32)width;
-                var py = ((f32)y + dy) / (f32)height;
+                var px = ((f32)sx + (f32)x + 0.5*dx) / (f32)width;
+                var py = ((f32)sy + (f32)y + 0.5*dy) / (f32)height;
 
-                
-                var scx = scaled(&cx, px - 0.5);
-                var scy = scaled(&cy, py - 0.5);
+                var scx = scaled(&cam_x, px - 0.5);
+                var scy = scaled(&cam_y, py - 0.5);
                 var d = cam.direction;
                 d = add(&d, &scx);
                 d = add(&d, &scy);
-                
                 normalize(&d);
+
                 var rp = cam.origin;
                 var push_d = scaled(&d, 140);
                 rp = add(&rp, &push_d);
                 var sample_ray = Ray{rp, d};
-                // TODO(pragma) error message!
-                // sample_radiance += radiance(&sample_ray, 0, spheres);
-                var r = radiance(&sample_ray, 0, spheres);
+                
+                var r = radiance(&sample_ray, 0);
                 sample_radiance = add(&sample_radiance, &r);
             }
             var sr = scaled(&sample_radiance, 1.0 / (f32)samples);
-            *pixels = sr;
-            pixels++;
+           
+            *pixels++ = sr;
+        }
+        p += width;
+    }
+}
+
+[
+	"compile.output": "smallpt.exe",
+	"compile.entry" : "true",
+	"compile.debug" : "false",
+ 	"compile.opt"   : "3",
+ 	"compile.run"   : "false",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void 
+{
+    create_spheres();
+
+    let samples = 1024;
+    let tile_size = 128;
+    let x_tiles = 8;
+    let y_tiles = 6;
+    let width  = x_tiles * tile_size;
+    let height = y_tiles * tile_size;
+    var pixel_data = (Vec*)Windows.VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+
+    var cam: Ray;
+    cam.origin = v3(50,52,295.6);
+    cam.direction = v3(0, -0.042612, -1);
+    normalize(&cam.direction);
+
+    let fov = 0.5135;
+    var cam_x = v3((f32)width * fov / (f32)height, 0, 0);
+    var cam_y = cross(&cam_x, &cam.direction);
+    normalize(&cam_y);
+    cam_y = scaled(&cam_y, fov);
+
+    var tile_count = x_tiles * y_tiles;
+    var tiles: Tile[];
+    tiles.data = (Tile*)Windows.VirtualAlloc(nullptr, size_of(Tile) * (mm)tile_count, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    tiles.length = tile_count;
+    var idx = 0;
+    for (var j = 0; j < y_tiles; ++j) {
+        for (var i = 0; i < x_tiles; ++i) {
+            var t = &tiles[idx++];
+            t.sx = tile_size * i;
+            t.sy = tile_size * j;
+            t.start = pixel_data + (t.sy * width + t.sx);
+            t.tile_size = tile_size;
+            t.width = width;
+            t.height = height;
+            t.cam = cam;
+            t.cam_x = cam_x;
+            t.cam_y = cam_y;
+            t.samples = samples;
         }
     }
 
+    for (var t_idx = 0; t_idx < tiles.length; ++t_idx) {
+        debug_print_i32("t_idx", t_idx);
+        render_tile(&tiles[t_idx]);
+    }
     print_string("finished tracing.\n");
 
     var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
     var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
     var pif = pif_data;
     
-    pixels = pixel_data;
+    var pixels = pixel_data;
     *pif++ = 3141592654;
     *pif++ = width;
     *pif++ = height;
@@ -391,7 +443,7 @@ let main = fun () => void
             pixels++;
         }
     }
-    platform_write_file("image.pif", (ptr)pif_data, (i32)pif_size);
+    platform_write_file("image.pif\0", (ptr)pif_data, (i32)pif_size);
 
 
     Windows.ExitProcess(0);

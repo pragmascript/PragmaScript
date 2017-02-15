@@ -1043,6 +1043,7 @@ namespace PragmaScript
             var et = LLVM.GetElementType(targetType);
             if (et.Pointer != resultType.Pointer) {
                 result = LLVM.BuildBitCast(builder, result, LLVM.GetElementType(targetType), "hmpf");
+                // target = LLVM.BuildPointerCast(builder, target, LLVM.PointerType(resultType, 0), "hmpf");
             }
             LLVM.BuildStore(builder, result, target);
 
@@ -1548,7 +1549,10 @@ namespace PragmaScript
                 var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
                 gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
 
-                result = gep;
+                var fe_nt = typeChecker.GetNodeType(node);
+                var be_nt = LLVM.PointerType(GetTypeRef(fe_nt), 0);
+                result = LLVM.BuildPointerCast(builder, gep, be_nt, "hack_cast");
+
                 if (!node.returnPointer) {
                     result = LLVM.BuildLoad(builder, gep, "struct_field");
                 }
@@ -1560,6 +1564,11 @@ namespace PragmaScript
                 if (node.IsArrow) {
                     var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
                     result = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
+
+                    var fe_nt = typeChecker.GetNodeType(node);
+                    var be_nt = LLVM.PointerType(GetTypeRef(fe_nt), 0);
+                    result = LLVM.BuildPointerCast(builder, result, be_nt, "hack_cast");
+
                     if (!node.returnPointer) {
                         result = LLVM.BuildLoad(builder, result, "struct_arrow");
                     }
@@ -1568,6 +1577,7 @@ namespace PragmaScript
                     uint[] uindices = { (uint)idx };
                     result = LLVM.BuildExtractValue(builder, v, (uint)idx, "struct_field_extract");
                 }
+
 
                 valueStack.Push(result);
                 return;

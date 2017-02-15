@@ -34,7 +34,7 @@ namespace PragmaScript
         public static int optimizationLevel;
         public static bool runAfterCompile;
         public static bool asm = false;
-        public static bool ll = true;
+        public static bool ll = false;
         public static bool bc = false;
         public static List<string> libs = new List<string>();
         public static List<string> lib_path = new List<string>();
