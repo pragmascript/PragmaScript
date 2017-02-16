@@ -372,6 +372,13 @@ let render_tile = fun (@tile: Tile*) => void {
 ]
 let main = fun () => void 
 {
+
+    for (var i = 0 ; i < 12; ++i) {
+        debug_print_f32("rand_f32()", Random.rand_f32());
+    }
+    return;
+
+
     create_spheres();
 
     let samples = 32;
