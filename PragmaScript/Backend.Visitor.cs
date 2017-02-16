@@ -1547,14 +1547,15 @@ namespace PragmaScript
 
                 LLVMValueRef result;
                 var indices = new LLVMValueRef[] { Const.ZeroInt32, LLVM.ConstInt(Const.Int32Type, (ulong)idx, Const.FalseBool) };
-                gep = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
+                result = LLVM.BuildInBoundsGEP(builder, v, out indices[0], 2, "struct_field_ptr");
 
                 var fe_nt = typeChecker.GetNodeType(node);
                 var be_nt = LLVM.PointerType(GetTypeRef(fe_nt), 0);
-                result = LLVM.BuildPointerCast(builder, gep, be_nt, "hack_cast");
-
+                if (be_nt.Pointer != LLVM.TypeOf(result).Pointer) {
+                    result = LLVM.BuildPointerCast(builder, result, be_nt, "hack_cast");
+                }
                 if (!node.returnPointer) {
-                    result = LLVM.BuildLoad(builder, gep, "struct_field");
+                    result = LLVM.BuildLoad(builder, result, "struct_field");
                 }
                 valueStack.Push(result);
 
@@ -1567,7 +1568,10 @@ namespace PragmaScript
 
                     var fe_nt = typeChecker.GetNodeType(node);
                     var be_nt = LLVM.PointerType(GetTypeRef(fe_nt), 0);
-                    result = LLVM.BuildPointerCast(builder, result, be_nt, "hack_cast");
+                    if(be_nt.Pointer != LLVM.TypeOf(result).Pointer) {
+                        result = LLVM.BuildPointerCast(builder, result, be_nt, "hack_cast");
+                    }
+                    
 
                     if (!node.returnPointer) {
                         result = LLVM.BuildLoad(builder, result, "struct_arrow");

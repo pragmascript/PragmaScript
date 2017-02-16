@@ -298,8 +298,6 @@ let platform_write_file = fun (name: string; data: ptr; size_in_bytes: i32) => b
 }
 
 
-
-
 let Tile = struct 
 (
     cam: Ray;
@@ -376,7 +374,7 @@ let main = fun () => void
 {
     create_spheres();
 
-    let samples = 1024;
+    let samples = 32;
     let tile_size = 128;
     let x_tiles = 8;
     let y_tiles = 6;
@@ -399,6 +397,7 @@ let main = fun () => void
     var tiles: Tile[];
     tiles.data = (Tile*)Windows.VirtualAlloc(nullptr, size_of(Tile) * (mm)tile_count, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
     tiles.length = tile_count;
+    
     var idx = 0;
     for (var j = 0; j < y_tiles; ++j) {
         for (var i = 0; i < x_tiles; ++i) {
@@ -416,34 +415,40 @@ let main = fun () => void
         }
     }
 
+    var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
+    var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    
+
     for (var t_idx = 0; t_idx < tiles.length; ++t_idx) {
-        debug_print_i32("t_idx", t_idx);
         render_tile(&tiles[t_idx]);
+        var pc = 100.0 * ((f32)t_idx + 1) / (f32)tiles.length;
+        print_f32(pc, 2);
+        print_string("%\n");
+
+        var pif = pif_data;
+        var pixels = pixel_data;
+        *pif++ = 3141592654;
+        *pif++ = width;
+        *pif++ = height;
+        for (var y = 0; y < height; ++y) {
+            for (var x = 0; x < width; ++x) {
+                var v = *pixels;
+                var r = to_int(v.x);
+                var g = to_int(v.y);
+                var b = to_int(v.z);
+                *pif++ = r;
+                *pif++ = g;
+                *pif++ = b;
+                pixels++;
+            }
+        }
+        platform_write_file("image.pif\0", (ptr)pif_data, (i32)pif_size);
     }
     print_string("finished tracing.\n");
 
-    var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
-    var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
-    var pif = pif_data;
     
-    var pixels = pixel_data;
-    *pif++ = 3141592654;
-    *pif++ = width;
-    *pif++ = height;
-
-    for (var y = 0; y < height; ++y) {
-        for (var x = 0; x < width; ++x) {
-            var v = *pixels;
-            var r = to_int(v.x);
-            var g = to_int(v.y);
-            var b = to_int(v.z);
-            *pif++ = r;
-            *pif++ = g;
-            *pif++ = b;
-            pixels++;
-        }
-    }
-    platform_write_file("image.pif\0", (ptr)pif_data, (i32)pif_size);
+    
+    
 
 
     Windows.ExitProcess(0);

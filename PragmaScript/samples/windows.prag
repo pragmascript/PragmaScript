@@ -349,6 +349,16 @@
     let GetKeyState = extern fun(vk: i32) => i16;
     let ScreenToClient = extern fun(wnd: mm; pos: POINT*) => i32;
 
+    let CreateThread = extern fun (
+      lpThreadAttributes: ptr;
+      dwStackSize: mm;
+      lpStartAddress: ThreadProc;
+      lpParameter: ptr;
+      dwCreationFlags: i32;
+      lpThreadId: mm*;
+    ) => mm;
+        
+
     // ********************** XINPUT ********************** 
 
     let XUSER_MAX_COUNT = 4;
