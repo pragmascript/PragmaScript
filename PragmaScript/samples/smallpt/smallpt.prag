@@ -361,6 +361,24 @@ let render_tile = fun (@tile: Tile*) => void {
     }
 }
 
+
+
+let RenderJob = struct
+(
+    thread_idx: i32;
+    thread_count: i32;
+    tiles: Tile[];
+    completed: bool;
+);
+
+let do_render_job = fun (job: RenderJob*) => i32 {
+    print_string("wooooo thread! \n");
+}
+
+
+
+
+
 [
 	"compile.output": "smallpt.exe",
 	"compile.entry" : "true",
@@ -373,15 +391,16 @@ let render_tile = fun (@tile: Tile*) => void {
 let main = fun () => void 
 {
 
-    for (var i = 0 ; i < 12; ++i) {
-        debug_print_f32("rand_f32()", Random.rand_f32());
-    }
-    return;
+    // for (var i = 0 ; i < 12; ++i) {
+    //     debug_print_f32("rand_f32()", Random.rand_f32());
+    // }
+    // return;
 
+    
 
     create_spheres();
 
-    let samples = 32;
+    let samples = 8;
     let tile_size = 128;
     let x_tiles = 8;
     let y_tiles = 6;
@@ -400,11 +419,12 @@ let main = fun () => void
     normalize(&cam_y);
     cam_y = scaled(&cam_y, fov);
 
+
+    // create tiles
     var tile_count = x_tiles * y_tiles;
     var tiles: Tile[];
     tiles.data = (Tile*)Windows.VirtualAlloc(nullptr, size_of(Tile) * (mm)tile_count, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
     tiles.length = tile_count;
-    
     var idx = 0;
     for (var j = 0; j < y_tiles; ++j) {
         for (var i = 0; i < x_tiles; ++i) {
@@ -422,9 +442,31 @@ let main = fun () => void
         }
     }
 
-    var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
-    var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
-    
+    // create jobs
+    let thread_count = 8;
+    var jobs: RenderJob[];
+    jobs.data = (RenderJob*)Windows.VirtualAlloc(nullptr, size_of(RenderJob) * (mm)thread_count, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    jobs.length = thread_count;
+    for (var i = 0; i < jobs.length; ++i) {
+        var j: RenderJob;
+        j.thread_idx = i;
+        j.thread_count = thread_count;
+        j.tiles = tiles;
+    }
+    for (var i = 1; i < jobs.length; ++i) {
+        var job = &jobs[i];
+        var thread_id: mm;
+        var thread_handle = Windows.CreateThread(nullptr, null, (Windows.ThreadProc)do_render_job, (ptr)job, 0, &thread_id);
+    }
+    do_render_job(&jobs[0]);
+
+    //todo(pragma): wait until all jobs finished. volatile!
+
+    Windows.Sleep(1000);
+    Windows.ExitProcess(0);
+
+
+
 
     for (var t_idx = 0; t_idx < tiles.length; ++t_idx) {
         render_tile(&tiles[t_idx]);
@@ -432,29 +474,30 @@ let main = fun () => void
         print_f32(pc, 2);
         print_string("%\n");
 
-        var pif = pif_data;
-        var pixels = pixel_data;
-        *pif++ = 3141592654;
-        *pif++ = width;
-        *pif++ = height;
-        for (var y = 0; y < height; ++y) {
-            for (var x = 0; x < width; ++x) {
-                var v = *pixels;
-                var r = to_int(v.x);
-                var g = to_int(v.y);
-                var b = to_int(v.z);
-                *pif++ = r;
-                *pif++ = g;
-                *pif++ = b;
-                pixels++;
-            }
-        }
-        platform_write_file("image.pif\0", (ptr)pif_data, (i32)pif_size);
     }
     print_string("finished tracing.\n");
 
+    var pif = pif_data;
+    var pixels = pixel_data;
+    *pif++ = 3141592654;
+    *pif++ = width;
+    *pif++ = height;
+    for (var y = 0; y < height; ++y) {
+        for (var x = 0; x < width; ++x) {
+            var v = *pixels;
+            var r = to_int(v.x);
+            var g = to_int(v.y);
+            var b = to_int(v.z);
+            *pif++ = r;
+            *pif++ = g;
+            *pif++ = b;
+            pixels++;
+        }
+    }
+    platform_write_file("image.pif\0", (ptr)pif_data, (i32)pif_size);
     
-    
+    var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
+    var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
     
 
 

@@ -349,14 +349,19 @@
     let GetKeyState = extern fun(vk: i32) => i16;
     let ScreenToClient = extern fun(wnd: mm; pos: POINT*) => i32;
 
-    // let CreateThread = extern fun (
-    //   lpThreadAttributes: ptr;
-    //   dwStackSize: mm;
-    //   lpStartAddress: ThreadProc;
-    //   lpParameter: ptr;
-    //   dwCreationFlags: i32;
-    //   lpThreadId: mm*;
-    // ) => mm;
+
+
+    let ThreadProc = fun (param: ptr) => i32;
+    let CreateThread = extern fun 
+    (
+      lpThreadAttributes: ptr;
+      dwStackSize: mm;
+      lpStartAddress: ThreadProc;
+      lpParameter: ptr;
+      dwCreationFlags: i32;
+      lpThreadId: mm*;
+    ) => mm;
+
         
 
     // ********************** XINPUT ********************** 
@@ -380,12 +385,6 @@
       PacketNumber: i32;
       Gamepad: XINPUT_GAMEPAD;
     );
-
-    let x_input_get_state = fun 
-    (
-      dwUserIndex: i32;
-      state : XINPUT_STATE*
-    ) => i32;
 
     var XInputGetState: fun 
     (

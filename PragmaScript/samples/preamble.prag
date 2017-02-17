@@ -201,8 +201,6 @@ namespace Math
 	}
 }
 
-
-
 let print_i32 = fun (value: i32; signed: bool = true) => void
 {
 	if (signed) {
@@ -395,7 +393,6 @@ namespace Random
 
 let __hack_reserve_intrinsics = fun () => bool
 {
-
 	if ((mm)memset == 1234 || (mm)__chkstk == 1234) {
 		print_string("");
 		return true;
