@@ -466,8 +466,6 @@ let main = fun () => void
     Windows.ExitProcess(0);
 
 
-
-
     for (var t_idx = 0; t_idx < tiles.length; ++t_idx) {
         render_tile(&tiles[t_idx]);
         var pc = 100.0 * ((f32)t_idx + 1) / (f32)tiles.length;
@@ -495,11 +493,8 @@ let main = fun () => void
         }
     }
     platform_write_file("image.pif\0", (ptr)pif_data, (i32)pif_size);
-    
     var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
     var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
-    
-
 
     Windows.ExitProcess(0);
 }
