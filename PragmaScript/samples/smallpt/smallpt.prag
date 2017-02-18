@@ -80,12 +80,20 @@ let Ray = struct
     direction: Vec;
 );
 
+namespace ReflectionType
+{
+    let diffuse = 0;
+    let mirror = 1;
+    let glass = 2;
+}
+
 let Sphere = struct 
 (
     radius: f32;
     pos: Vec;
     emission: Vec;
     color: Vec;
+    reflection_type: i32;
 );
 
 
@@ -148,7 +156,7 @@ let intersect = fun(ray: Ray*; t: f32*; obj: Sphere**) => bool {
     return *t != max;
 }
 
-let radiance = fun(ray: Ray*; depth: i32) => Vec {
+let radiance = fun(ray: Ray*; depth: i32; random_state: Random.State*) => Vec {
     var t: f32;
     var id = 0;
     var obj: Sphere*;
@@ -181,29 +189,71 @@ let radiance = fun(ray: Ray*; depth: i32) => Vec {
         nl = scaled(&n, -1);
     }
 
-    
-    var r1 = Random.rand_f32(0, Math.tau_32);
-    var r2 = Random.rand_f32();
-    var r2s = Math.sqrt(r2);
-    var w = nl;
-    var u = get_orthogonal(&w);
-    normalize(&u);
-    var v = cross(&w, &u);
-    
-    // get random vec on hemisphere
-    var d1 = scaled(&u, Math.cos(r1) * r2s);
-    var d2 = scaled(&v, Math.sin(r1) * r2s);
-    var d3 = scaled(&w, Math.sqrt(1 - r2));
-    var d = add(&d1, &d2);
-    d = add(&d, &d3);
+    if (obj.reflection_type == ReflectionType.diffuse) {
+        var r1 = Random.rand_f32(0, Math.tau_32, random_state);
+        var r2 = Random.rand_f32(0.0, 1.0, random_state);
+        var r2s = Math.sqrt(r2);
+        var w = nl;
+        var u = get_orthogonal(&w);
+        normalize(&u);
+        var v = cross(&w, &u);
+        
+        // get random vec on hemisphere
+        var d1 = scaled(&u, Math.cos(r1) * r2s);
+        var d2 = scaled(&v, Math.sin(r1) * r2s);
+        var d3 = scaled(&w, Math.sqrt(1 - r2));
+        var d = add(&d1, &d2);
+        d = add(&d, &d3);
 
-    var result = obj.emission;
-    var random_ray = Ray{x, d};
-    var recursive = radiance(&random_ray, depth + 1);
-    recursive = hadamard(&color, &recursive);
-    result = add(&result, &recursive);
+        var result = obj.emission;
+        var random_ray = Ray{x, d};
+        var recursive = radiance(&random_ray, depth + 1, random_state);
+        recursive = hadamard(&color, &recursive);
+        result = add(&result, &recursive);
+        return result;
+    } elif (obj.reflection_type == ReflectionType.mirror) {
+        var random_ray: Ray;
+        random_ray.origin = x;
+        var proj_normal = scaled(&n, 2*dot(&n, &ray.direction));
+        random_ray.direction = sub(&ray.direction, &proj_normal);
+        var recursive = radiance(&random_ray, depth + 1, random_state);
+        recursive = hadamard(&color, &recursive);
+        var result = add(&recursive, &obj.emission);
+        return result;
+    } else {
+        var refl_ray: Ray;
+        ray.origin = x;
+        var proj_normal = scaled(&n, 2*dot(&n, &ray.direction));
+        refl_ray.direction = sub(&ray.direction, &proj_normal);
+        var nc = 1.0;
+        var nt = 1.5;
+        var nnt: f32;
+        var into = dot(&n, &nl) > 0.0;
+        if (into) {
+            nnt = nc / nt;
+        } else {
+            nnt = nt / nc;   
+        }
+        var ddn = dot(&ray.direction, &nl);
+        var cos2t = 1.0 - nnt * nnt * (1.0 - ddn * ddn);
+        if (cos2t < 0) {
+            var recursive = radiance(&refl_ray, depth + 1, random_state);
+            recursive = hadamard(&color, &recursive);
+            var result = add(&recursive, &obj.emission);
+            return result;
+        }
+        if (cos2t < 0) {
+            return v3(1.0, 0, 0);
+        } else {
+            return v3(0, 1.0, 0);
+        }
+        return vz;
+    }
+    
+    
 
-    return result;
+
+    return vz;
 }
 
 let sphere_count = 9;
@@ -222,54 +272,63 @@ let create_spheres = fun() => void {
     s.pos      = v3(big + 1, 40.8, 81.6);
     s.emission = vz;
     s.color    = v3(0.75, 0.25, 0.25);
+    s.reflection_type = ReflectionType.diffuse;
     s++;
     // 1
     s.radius   = big;
     s.pos      = v3(-big + 99, 40.8, 81.6);
     s.emission = vz;
     s.color    = v3(0.25, 0.25, 0.75);
+    s.reflection_type = ReflectionType.diffuse;
     s++;
     // 2
     s.radius   = big;
     s.pos      = v3(50, 40.8, big);
     s.emission = vz;
     s.color    = v3(0.75, 0.75, 0.75);
+    s.reflection_type = ReflectionType.diffuse;
     s++;
     // 3
     s.radius   = big;
     s.pos      = v3(50, 40.8, -big + 170);
     s.emission = vz;
     s.color    = vz;
+    s.reflection_type = ReflectionType.diffuse;
     s++;
     // 4
     s.radius   = big;
     s.pos      = v3(50, big, 81.6);
     s.emission = vz;
     s.color    = v3(0.75, 0.75, 0.75);
+    s.reflection_type = ReflectionType.diffuse;
     s++;
     // 5
     s.radius   = big;
     s.pos      = v3(50, -big + 81.6, 81.6);
     s.emission = vz;
     s.color    = v3(0.75, 0.75, 0.75);
+    s.reflection_type = ReflectionType.diffuse;
     s++;
     // 6
     s.radius   = 16.5;
     s.pos      = v3(27, 16.5, 47);
     s.emission = vz;
     s.color    = v3(0.99, 0.99, 0.99);
+    s.reflection_type = ReflectionType.mirror;
     s++;
     // 7
     s.radius   = 16.5;
     s.pos      = v3(73, 16.5, 78);
     s.emission = vz;
     s.color    = v3(0.99, 0.25, 0.25);
+    s.reflection_type = ReflectionType.glass;
     s++;
     // 8
     s.radius   = 600;
     s.pos      = v3(50, 681.6 - 0.27, 81.6);
     s.emission = v3(12.0, 12.0, 12.0);
     s.color    = vz;
+    s.reflection_type = ReflectionType.diffuse;
 }
 
 let platform_write_file = fun (name: string; data: ptr; size_in_bytes: i32) => bool
@@ -310,21 +369,21 @@ let Tile = struct
     tile_size: i32;
 );
 
-let render_tile = fun (@tile: Tile*) => void {
+let render_tile = fun (@tile: Tile*; random_state: Random.State*) => void {
     var p = start;    
     for (var y = 0; y < tile_size; ++y) {
         var pixels = p;
         for (var x = 0; x < tile_size; ++x) {
             var sample_radiance = vz;
             for (var s = 0; s < samples; ++s) {
-                var r1 = Random.rand_f32(0, 2.0);
+                var r1 = Random.rand_f32(0, 2.0, random_state);
                 var dx: f32;
                 if (r1 < 1.0) {
                     dx = Math.sqrt(r1) - 1;
                 } else {
                     dx = 1.0 - Math.sqrt(2 - r1);
                 }
-                var r2 = Random.rand_f32(0, 2.0);
+                var r2 = Random.rand_f32(0, 2.0, random_state);
                 var dy: f32;
                 if (r2 < 1.0) {
                     dy = Math.sqrt(r2) - 1;
@@ -347,7 +406,7 @@ let render_tile = fun (@tile: Tile*) => void {
                 rp = add(&rp, &push_d);
                 var sample_ray = Ray{rp, d};
                 
-                var r = radiance(&sample_ray, 0);
+                var r = radiance(&sample_ray, 0, random_state);
                 sample_radiance = add(&sample_radiance, &r);
             }
             var sr = scaled(&sample_radiance, 1.0 / (f32)samples);
@@ -372,21 +431,19 @@ let do_render_job = fun (@job: RenderJob*) => i32 {
     Random.init_seed(thread_idx, &random_state);
     var idx = thread_idx;
     while (idx < tiles.length) {
-#if DEBUG
-        print_string("thread ");
-        print_i32(thread_idx);
-        print_string(" start rendering tile #");
-        print_i32(idx);
-        print_string("\n");
-#endif
-        render_tile(&tiles[idx]);
-#if DEBUG
-        print_string("thread ");
-        print_i32(thread_idx);
-        print_string(" finished rendering tile #");
-        print_i32(idx);
-        print_string("\n");
-#endif
+        // print_string("thread ");
+        // print_i32(thread_idx);
+        // print_string(" start rendering tile #");
+        // print_i32(idx);
+        // print_string("\n");
+
+        render_tile(&tiles[idx], &random_state);
+
+        // print_string("thread ");
+        // print_i32(thread_idx);
+        // print_string(" finished rendering tile #");
+        // print_i32(idx);
+        // print_string("\n");
         idx += thread_count;
     }
     completed = true;
@@ -397,6 +454,7 @@ let do_render_job = fun (@job: RenderJob*) => i32 {
 	"compile.output": "smallpt.exe",
 	"compile.entry" : "true",
  	"compile.opt"   : "3",
+    "compile.asm"   : "false",
  	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, libopenlibm.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
@@ -404,11 +462,10 @@ let do_render_job = fun (@job: RenderJob*) => i32 {
 let main = fun () => void 
 {
 
-    assert(false);
-
     create_spheres();
-
-    let samples = 4096;
+    
+    let thread_count = 8;
+    let samples = 2048;
     let tile_size = 128;
     let x_tiles = 8;
     let y_tiles = 6;
@@ -451,7 +508,6 @@ let main = fun () => void
     }
 
     // create jobs
-    let thread_count = 8;
     var jobs: RenderJob[];
     jobs.data = (RenderJob*)Windows.VirtualAlloc(nullptr, size_of(RenderJob) * (mm)thread_count, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
     jobs.length = thread_count;
@@ -470,18 +526,19 @@ let main = fun () => void
     do_render_job(&jobs[0]);
     jobs[0].completed = true;
 
-    // todo(pragma): wait until all jobs finished. volatile!
+    // TODO(pragma): wait until all jobs finished. volatile!
     while (true) {
         var all_completed = true;
         for (var i = 0; i < jobs.length; ++i) {
             if (!jobs[i].completed) {
                 all_completed = false;
+                break;
             }
         }
         if (all_completed) {
             break;
         }
-        Windows.Sleep(100);
+        Windows.Sleep(10);
     }
     print_string("finished tracing.\n");
     
