@@ -345,7 +345,6 @@ let print_vec = fun (v: Handmade.vec2) => void
 [
 	"compile.output": "bugs.exe",
 	"compile.entry" : "true",
-	"compile.debug" : "true",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib",

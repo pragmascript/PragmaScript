@@ -76,20 +76,22 @@ namespace PragmaScript
                     File.WriteAllBytes(oxt(".bc"), buffer.Take(bufferSize).ToArray());
                 }
             }
+
+            const string mcpu = "native";
             
             if (optLevel > 0) {
                 Console.WriteLine($"optimizer... (O{optLevel})");
                 var optProcess = new Process();
                 optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
                 if (CompilerOptions.ll) {
-                    optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} -march={arch} -mcpu=native -S -o {oxt("_opt.ll")}";
+                    optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} -march={arch} -mcpu={mcpu} -S -o {oxt("_opt.ll")}";
                     optProcess.StartInfo.RedirectStandardInput = false;
                     optProcess.StartInfo.RedirectStandardOutput = false;
                     optProcess.StartInfo.UseShellExecute = false;
                     optProcess.Start();
                     optProcess.WaitForExit();
                 } else {
-                    optProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu=native -f";
+                    optProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu={mcpu} -f";
                     optProcess.StartInfo.RedirectStandardInput = true;
                     optProcess.StartInfo.RedirectStandardOutput = true;
                     optProcess.StartInfo.UseShellExecute = false;
@@ -131,14 +133,14 @@ namespace PragmaScript
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
                 if (CompilerOptions.ll) {
-                    llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=asm -o {oxt(".asm")}";
+                    llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=asm -o {oxt(".asm")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
                     llcProcess.Start();
                     llcProcess.WaitForExit();
                 } else {
-                    llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu=native -filetype=asm -o {oxt(".asm")}";
+                    llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu={mcpu} -filetype=asm -o {oxt(".asm")}";
                     llcProcess.StartInfo.RedirectStandardInput = true;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
@@ -159,14 +161,14 @@ namespace PragmaScript
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
                 if (CompilerOptions.ll) {
-                    llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu=native -filetype=obj -o {oxt(".o")}";
+                    llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=obj -o {oxt(".o")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
                     llcProcess.Start();
                     llcProcess.WaitForExit();
                 } else {
-                    llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu=native -filetype=obj -o {oxt(".o")}";
+                    llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu={mcpu} -filetype=obj -o {oxt(".o")}";
                     llcProcess.StartInfo.RedirectStandardInput = true;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;

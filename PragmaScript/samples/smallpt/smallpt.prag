@@ -14,7 +14,6 @@ let v3 = fun (x: f32; y: f32; z: f32) => Vec {
     return result;
 }
 
-
 var vz = Vec {0.0, 0.0, 0.0};
 
 let add = fun (a: Vec*; b: Vec*) => Vec {
@@ -207,8 +206,6 @@ let radiance = fun(ray: Ray*; depth: i32) => Vec {
     return result;
 }
 
-
-
 let sphere_count = 9;
 var spheres: Sphere*;
 
@@ -362,27 +359,43 @@ let render_tile = fun (@tile: Tile*) => void {
 }
 
 
-
 let RenderJob = struct
 (
+    random_state: Random.State;
     thread_idx: i32;
     thread_count: i32;
     tiles: Tile[];
     completed: bool;
 );
 
-let do_render_job = fun (job: RenderJob*) => i32 {
-    print_string("wooooo thread! \n");
+let do_render_job = fun (@job: RenderJob*) => i32 {
+    Random.init_seed(thread_idx, &random_state);
+    var idx = thread_idx;
+    while (idx < tiles.length) {
+#if DEBUG
+        print_string("thread ");
+        print_i32(thread_idx);
+        print_string(" start rendering tile #");
+        print_i32(idx);
+        print_string("\n");
+#endif
+        render_tile(&tiles[idx]);
+#if DEBUG
+        print_string("thread ");
+        print_i32(thread_idx);
+        print_string(" finished rendering tile #");
+        print_i32(idx);
+        print_string("\n");
+#endif
+        idx += thread_count;
+    }
+    completed = true;
 }
-
-
-
 
 
 [
 	"compile.output": "smallpt.exe",
 	"compile.entry" : "true",
-	"compile.debug" : "false",
  	"compile.opt"   : "3",
  	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, libopenlibm.lib",
@@ -391,16 +404,11 @@ let do_render_job = fun (job: RenderJob*) => i32 {
 let main = fun () => void 
 {
 
-    // for (var i = 0 ; i < 12; ++i) {
-    //     debug_print_f32("rand_f32()", Random.rand_f32());
-    // }
-    // return;
-
-    
+    assert(false);
 
     create_spheres();
 
-    let samples = 8;
+    let samples = 4096;
     let tile_size = 128;
     let x_tiles = 8;
     let y_tiles = 6;
@@ -452,6 +460,7 @@ let main = fun () => void
         j.thread_idx = i;
         j.thread_count = thread_count;
         j.tiles = tiles;
+        jobs[i] = j;
     }
     for (var i = 1; i < jobs.length; ++i) {
         var job = &jobs[i];
@@ -459,22 +468,25 @@ let main = fun () => void
         var thread_handle = Windows.CreateThread(nullptr, null, (Windows.ThreadProc)do_render_job, (ptr)job, 0, &thread_id);
     }
     do_render_job(&jobs[0]);
+    jobs[0].completed = true;
 
-    //todo(pragma): wait until all jobs finished. volatile!
-
-    Windows.Sleep(1000);
-    Windows.ExitProcess(0);
-
-
-    for (var t_idx = 0; t_idx < tiles.length; ++t_idx) {
-        render_tile(&tiles[t_idx]);
-        var pc = 100.0 * ((f32)t_idx + 1) / (f32)tiles.length;
-        print_f32(pc, 2);
-        print_string("%\n");
-
+    // todo(pragma): wait until all jobs finished. volatile!
+    while (true) {
+        var all_completed = true;
+        for (var i = 0; i < jobs.length; ++i) {
+            if (!jobs[i].completed) {
+                all_completed = false;
+            }
+        }
+        if (all_completed) {
+            break;
+        }
+        Windows.Sleep(100);
     }
     print_string("finished tracing.\n");
-
+    
+    var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
+    var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
     var pif = pif_data;
     var pixels = pixel_data;
     *pif++ = 3141592654;
@@ -493,8 +505,8 @@ let main = fun () => void
         }
     }
     platform_write_file("image.pif\0", (ptr)pif_data, (i32)pif_size);
-    var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
-    var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    
+    
 
     Windows.ExitProcess(0);
 }

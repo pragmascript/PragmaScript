@@ -206,7 +206,6 @@ namespace Handmade.Game
     [
     "compile.entry",
     "compile.dll"   : "true",
-    "compile.debug" : "true",
     "compile.output": "handmade.dll",
     "compile.opt"   : "0",
     "compile.run"   : "false",

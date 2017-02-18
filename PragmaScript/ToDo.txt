@@ -1,4 +1,8 @@
 ﻿ 
+ !!!READ!!!!
+ http://llvm.org/docs/Atomics.html
+
+
 - rethink array / slice types 
 
 - global strings are broken

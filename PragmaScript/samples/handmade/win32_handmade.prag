@@ -704,7 +704,6 @@ namespace Handmade.Platform
 	
 	[
 	"compile.entry",
-	"compile.debug" : "true",
 	"compile.output": "win_handmade.exe",
 	"compile.opt"   : "0",
 	"compile.run"   : "false",

@@ -53,9 +53,9 @@ namespace PragmaScript
             parseARGS(args);
 
 #if DEBUG
-            CompilerOptions.debug = true;
-            CompilerOptions.asm = false;
-            CompilerOptions.optimizationLevel = 3;
+            // CompilerOptions.debug = true;
+            //CompilerOptions.asm = false;
+            //CompilerOptions.optimizationLevel = 3;
             // CompilerOptions.runAfterCompile = true;
 
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..", "samples"));
@@ -97,7 +97,7 @@ namespace PragmaScript
             Console.WriteLine("    pragma.exe [options] <input>");
             Console.WriteLine();
             Console.WriteLine("OPTIONS:");
-            Console.WriteLine("    -O <filename>   set output filename" );
+            Console.WriteLine("    -O <filename>   set output filename");
             Console.WriteLine("    -D              build in debug mode");
             Console.WriteLine("    -O0             turn off optimizations");
             Console.WriteLine("    -OX             turn on optimization level X in [1..3]");
@@ -269,12 +269,20 @@ namespace PragmaScript
 
             bool inside_line_comment = false;
 
+            Func<string, bool> nextString = (s) => {
+                for (int i = 0; i < s.Length; ++i) {
+                    if (char.ToUpper(text.at(idx + 1 + i)) != s[i]) {
+                        return false;
+                    }
+                }
+                return true;
+            };
             while (true) {
                 if (text.at(idx - 1) == '/' && text.at(idx) == '/') {
                     inside_line_comment = true;
                 }
                 if (!inside_line_comment && text.at(idx) == '#') {
-                    if (char.ToUpper(text.at(idx + 1)) == 'I' && char.ToUpper(text.at(idx + 2)) == 'F') {
+                    if (nextString("IF")) {
                         idx += 3;
                         if (idx >= text.Length) {
                             return result.ToString();
@@ -290,6 +298,38 @@ namespace PragmaScript
                         var ident = text.Substring(ident_start, ident_end - ident_start);
                         var con = defines.Contains(ident);
                         ifs.Push(new PrepIf { Condition = con, InElse = false });
+                    } else if (nextString("DEFINE")) {
+                        idx += 7;
+                        if (idx >= text.Length) {
+                            return result.ToString();
+                        }
+                        skipWhitespace(text, ref idx);
+                        if (idx >= text.Length) {
+                            return result.ToString();
+                        }
+                        int ident_start = idx;
+                        idx--;
+                        while (Token.isIdentifierChar(text.at(++idx))) { }
+                        int ident_end = idx;
+                        var ident = text.Substring(ident_start, ident_end - ident_start);
+                        defines.Add(ident);
+                        Console.WriteLine($"#DEFINE {ident}");
+                    } else if (nextString("UNDEF")) {
+                        idx += 7;
+                        if (idx >= text.Length) {
+                            return result.ToString();
+                        }
+                        skipWhitespace(text, ref idx);
+                        if (idx >= text.Length) {
+                            return result.ToString();
+                        }
+                        int ident_start = idx;
+                        idx--;
+                        while (Token.isIdentifierChar(text.at(++idx))) { }
+                        int ident_end = idx;
+                        var ident = text.Substring(ident_start, ident_end - ident_start);
+                        defines.Remove(ident);
+                        Console.WriteLine($"#UNDEF {ident}");
                     } else {
                         int ident_start = idx + 1;
                         while (Token.isIdentifierChar(text.at(++idx))) { }
@@ -318,7 +358,8 @@ namespace PragmaScript
                 }
                 idx++;
                 if (idx >= text.Length) {
-                    return result.ToString();
+                    var result_string = result.ToString();
+                    return result_string;
                 }
 
             }
@@ -335,11 +376,23 @@ namespace PragmaScript
                 CompilerOptions.output = output;
             }
 
-            var debug = d.GetAttribute("COMPILE.DEBUG");
-            if (debug == "TRUE") {
-                CompilerOptions.debug = true;
-            } else if (debug == "FALSE") {
-                CompilerOptions.debug = false;
+            var asm = d.GetAttribute("COMPILE.ASM");
+            if (asm == "TRUE") {
+                CompilerOptions.asm = true;
+            } else if (asm == "FALSE") {
+                CompilerOptions.asm = false;
+            }
+            var ll = d.GetAttribute("COMPILE.LL");
+            if (ll == "TRUE") {
+                CompilerOptions.ll = true;
+            } else if (ll == "FALSE") {
+                CompilerOptions.ll = false;
+            }
+            var bc = d.GetAttribute("COMPILE.BC");
+            if (bc == "TRUE") {
+                CompilerOptions.bc = true;
+            } else if (bc == "FALSE") {
+                CompilerOptions.bc = false;
             }
 
             var opt = d.GetAttribute("COMPILE.OPT");
@@ -378,7 +431,7 @@ namespace PragmaScript
                     var tp = p.Trim();
                     CompilerOptions.lib_path.Add(tp);
                 }
-                
+
             }
         }
 
@@ -420,8 +473,7 @@ namespace PragmaScript
                     imports = AST.parseImports(ref ps, scope);
                 }
 #if !DEBUG
-                catch (ParserError error)
-                {
+                catch (ParserError error) {
                     Console.Error.WriteLine(error.Message);
                     parseError = true;
                 }
@@ -448,8 +500,7 @@ namespace PragmaScript
                     root.files.Add(fileRoot);
                 }
 #if !DEBUG
-                catch (ParserError error)
-                {
+                catch (ParserError error) {
                     Console.Error.WriteLine(error.Message);
                     parseError = true;
                 }

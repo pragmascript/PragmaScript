@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace PragmaScript
@@ -417,6 +418,22 @@ namespace PragmaScript
             teof.line_idx = lines.Length;
             result.Add(teof);
         }
+
+        public static bool IsBefore(Token a, Token b)
+        {
+            Debug.Assert(a.filename == b.filename);
+            if (a.Line == b.Line) {
+                Debug.Assert(a.Pos != b.Pos);
+                return a.Pos < b.Pos;
+            }
+            return a.Line < b.Line;
+        }
+
+        public static bool IsAfter(Token a, Token b)
+        {
+            return IsBefore(b, a);
+        }
+
     }
 
 }

@@ -565,10 +565,11 @@ namespace PragmaScript
                     throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
                 }
                 if (vd != null && vd.isEmbedded) {
+                    
                     embeddings.Add(node);
                 } else
-                // TODO: How to do this???
-                if (false) {
+                
+                if (vd != null && !vd.isGlobal && !vd.isConstant && !vd.isFunctionParameter && Token.IsBefore(node.token, vd.node.token)) {
                     throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
                 }
             }

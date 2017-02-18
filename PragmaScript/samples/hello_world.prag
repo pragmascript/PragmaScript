@@ -5,7 +5,6 @@ import "preamble.prag"
 [
 	"compile.output": "hello.exe",
 	"compile.entry" : "true",
-	"compile.debug" : "true",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, libopenlibm.lib",
