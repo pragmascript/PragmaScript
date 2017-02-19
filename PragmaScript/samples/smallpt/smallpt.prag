@@ -479,19 +479,19 @@ let do_render_job = fun (@job: RenderJob*) => i32 {
     Random.init_seed(thread_idx, &random_state);
     var idx = thread_idx;
     while (idx < tiles.length) {
-        print_string("thread ");
-        print_i32(thread_idx);
-        print_string(" start rendering tile #");
-        print_i32(idx);
-        print_string("\n");
+        // print_string("thread ");
+        // print_i32(thread_idx);
+        // print_string(" start rendering tile #");
+        // print_i32(idx);
+        // print_string("\n");
 
         render_tile(&tiles[idx], &random_state);
 
-        print_string("thread ");
-        print_i32(thread_idx);
-        print_string(" finished rendering tile #");
-        print_i32(idx);
-        print_string("\n");
+        // print_string("thread ");
+        // print_i32(thread_idx);
+        // print_string(" finished rendering tile #");
+        // print_i32(idx);
+        // print_string("\n");
         idx += thread_count;
     }
     print_string("thread #");
@@ -516,10 +516,10 @@ let main = fun () => void
     create_spheres();
     
     let thread_count = 8;
-    let samples = 4096;
-    let tile_size = 128;
-    let x_tiles = 8;
-    let y_tiles = 6;
+    let samples = 5000;
+    let tile_size = 16;
+    let x_tiles = 8*8;
+    let y_tiles = 8*6;
     let width  = x_tiles * tile_size;
     let height = y_tiles * tile_size;
     var pixel_data = (Vec*)Windows.VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
