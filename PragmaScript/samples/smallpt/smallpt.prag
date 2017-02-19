@@ -121,7 +121,6 @@ let intersect_sphere_ray = fun (sphere: Sphere*; ray: Ray*; distance: f32*) => b
             return false;
         }
     }
-    assert(false);
     return false;
 }
 
@@ -294,9 +293,6 @@ let radiance = fun(ray: Ray*; depth: i32; random_state: Random.State*) => Vec {
             result = add(&result, &recursive);
             return hadamard(&result, &color);
         }
-        
-
-
     } else {
         return vz;
     }
@@ -517,9 +513,9 @@ let main = fun () => void
     
     let thread_count = 8;
     let samples = 5000;
-    let tile_size = 16;
-    let x_tiles = 8*8;
-    let y_tiles = 8*6;
+    let tile_size = 32;
+    let x_tiles = 4*8;
+    let y_tiles = 4*6;
     let width  = x_tiles * tile_size;
     let height = y_tiles * tile_size;
     var pixel_data = (Vec*)Windows.VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
