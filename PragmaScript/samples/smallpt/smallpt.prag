@@ -13,9 +13,7 @@ let v3 = fun (x: f32; y: f32; z: f32) => Vec {
     var result = Vec { x, y, z};
     return result;
 }
-
 var vz = Vec {0.0, 0.0, 0.0};
-
 let add = fun (a: Vec*; b: Vec*) => Vec {
     var result = Vec { a.x + b.x, a.y + b.y, a.z + b.z};
     return result;
@@ -176,7 +174,6 @@ let radiance = fun(ray: Ray*; depth: i32; random_state: Random.State*) => Vec {
         // return obj.emission;
     }
     
-
     var delta = scaled(&ray.direction, t);
     var x = add(&ray.origin, &delta);
     var n = sub(&x, &obj.pos);
@@ -296,7 +293,6 @@ let radiance = fun(ray: Ray*; depth: i32; random_state: Random.State*) => Vec {
     } else {
         return vz;
     }
-
     return vz;
 }
 
@@ -508,7 +504,6 @@ let do_render_job = fun (@job: RenderJob*) => i32 {
 ]
 let main = fun () => void 
 {
-
     create_spheres();
     
     let thread_count = 8;
@@ -614,7 +609,5 @@ let main = fun () => void
     }
     platform_write_file("image.pif\0", (ptr)pif_data, (i32)pif_size);
     
-    
-
     Windows.ExitProcess(0);
 }
