@@ -49,7 +49,7 @@ namespace Handmade.Game
 
         let size = 15;
         var background_color = color { 0.25, 0.25, 0.25, 1.0 };
-        animate_background_color(&background_color, input.time.t);
+        // animate_background_color(&background_color, input.time.t);
         var red = color {1.0, 0.0, 0.0, 1.0};
         
         draw_rectangle(render_target, min_max_rect(0, 0, render_target.width, render_target.height), background_color);

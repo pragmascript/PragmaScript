@@ -1029,12 +1029,6 @@ namespace PragmaScript
             }
         }
 
-        void checkType(AST.Node node)
-        {
-            throw new InvalidCodePath();
-        }
-
-
         void checkTypeDynamic(AST.Node node) {
             if (knownTypes.ContainsKey(node)) {
                 return;
@@ -1043,9 +1037,6 @@ namespace PragmaScript
             //checkType(dn);
 
             switch (node) {
-                case AST.ProgramRoot n:
-                    checkType(n);
-                    break;
                 case AST.FileRoot n:
                     checkType(n);
                     break;
