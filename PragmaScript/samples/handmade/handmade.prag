@@ -210,7 +210,7 @@ namespace Handmade.Game
     "compile.opt"   : "0",
     "compile.run"   : "false",
     "compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib",
-    "compile.libs"  : "kernel32.lib, libopenlibm.lib"
+    "compile.libs"  : "kernel32.lib, libopenlibm.a"
     ]
     let main = fun () => void  
     {
