@@ -50,6 +50,7 @@ namespace PragmaScript
         public class VariableDefinition
         {
             public bool isGlobal = false;
+            public bool isNamespace = false;
             public bool isConstant = false;
             public bool isFunctionParameter;
             public int parameterIdx = -1;
@@ -145,6 +146,7 @@ namespace PragmaScript
             Debug.Assert(node != null);
             VariableDefinition v = new VariableDefinition();
             v.isGlobal = parent == null;
+            v.isNamespace = this.namesp != null;
             v.name = name;
             v.node = node;
             v.isConstant = isConst;
@@ -160,6 +162,7 @@ namespace PragmaScript
             Debug.Assert(@type != null);
             VariableDefinition v = new VariableDefinition();
             v.isGlobal = parent == null;
+            v.isNamespace = this.namesp != null;
             v.name = name;
             v.type = @type;
             v.isConstant = isConst;

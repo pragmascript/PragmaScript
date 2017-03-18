@@ -507,7 +507,7 @@ let main = fun () => void
     create_spheres();
     
     let thread_count = 8;
-    let samples = 40;
+    let samples = 400;
     let tile_size = 32;
     let x_tiles = 4*8;
     let y_tiles = 4*6;
@@ -570,10 +570,10 @@ let main = fun () => void
     do_render_job(&jobs[0]);
     jobs[0].completed = true;
 
-    // TODO(pragma): volatile!
     while (true) {
         var all_completed = true;
         for (var i = 0; i < jobs.length; ++i) {
+            // TODO(pragma): volatile!
             if (!jobs[i].completed) {
                 all_completed = false;
                 break;

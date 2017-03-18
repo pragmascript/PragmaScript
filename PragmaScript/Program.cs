@@ -51,7 +51,7 @@ namespace PragmaScript
         static void Main(string[] args)
         {
             parseARGS(args);
-
+            
 #if DEBUG
             // CompilerOptions.debug = true;
             //CompilerOptions.asm = false;
@@ -59,11 +59,11 @@ namespace PragmaScript
             // CompilerOptions.runAfterCompile = true;
 
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..", "samples"));
-            // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
+            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "bugs.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "preamable.prag");
-            CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt.prag");
 #endif
 #if FALSE
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));

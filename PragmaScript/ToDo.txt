@@ -1,5 +1,4 @@
-﻿ 
- !!!READ!!!!
+﻿ !!!READ!!!!
  http://llvm.org/docs/Atomics.html
 
 
@@ -13,33 +12,31 @@
 - functions should be frontend pointer types!
   so stuff like assert(foo != nullptr) works!
  
- - rethink the i8*64 syntax
-   it would be better if it could also be
-   on the right side of an assignment
-   so you could write
-   str.data = i8[32]{};
+- rethink the i8*64 syntax
+  it would be better if it could also be
+  on the right side of an assignment
+  so you could write
+  str.data = i8[32]{};
 
- - insert missing return bs not working for non ints
+- insert missing return bs not working for non ints
  
- - figure out a way to know if a node is a compile time constant or not
+- figure out a way to know if a node is a compile time constant or not
 
- - simplify / remove pre_resolved dictionary
-   using the fileRoots dictionary ?
+- simplify / remove pre_resolved dictionary
+  using the fileRoots dictionary ?
 
- - emit end of file token such that errors at 
-   the end of one file won't get reported on
-   the next file.
+- emit end of file token such that errors at 
+  the end of one file won't get reported on
+  the next file.
 
- - switch!
+- switch!
 
- - throw error if not all paths have a 
-   return instruction
+- throw error if not all paths have a 
+  return instruction
 
- - make all the types immutable classes
-
- - find out how they do the merging
-   of IL files 
-   http://llvm.org/docs/CommandGuide/llvm-link.html
+- find out how they do the merging
+  of IL files 
+  http://llvm.org/docs/CommandGuide/llvm-link.html
 
 - AUTOGENERATE switch code in backend
   using muev meta programming 

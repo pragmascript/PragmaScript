@@ -182,15 +182,6 @@ namespace PragmaScript
         }
 
 
-        void checkTypeDynamic(AST.Node node)
-        {
-            if (knownTypes.ContainsKey(node)) {
-                return;
-            }
-            dynamic dn = node;
-            checkType(dn);
-        }
-
         void checkType(AST.Block node)
         {
             foreach (var n in node.statements) {
@@ -565,12 +556,13 @@ namespace PragmaScript
                     throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
                 }
                 if (vd != null && vd.isEmbedded) {
-                    
+
                     embeddings.Add(node);
-                } else
-                
-                if (vd != null && !vd.isGlobal && !vd.isConstant && !vd.isFunctionParameter && Token.IsBefore(node.token, vd.node.token)) {
-                    throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
+                } else {
+                    var isLocal = (vd != null) && !vd.isGlobal && !vd.isConstant && !vd.isFunctionParameter && !vd.isNamespace;
+                    if (isLocal && Token.IsBefore(node.token, vd.node.token)) {
+                        throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
+                    }
                 }
             }
 
@@ -1041,6 +1033,108 @@ namespace PragmaScript
         {
             throw new InvalidCodePath();
         }
+
+
+        void checkTypeDynamic(AST.Node node) {
+            if (knownTypes.ContainsKey(node)) {
+                return;
+            }
+            //dynamic dn = node;
+            //checkType(dn);
+
+            switch (node) {
+                case AST.ProgramRoot n:
+                    checkType(n);
+                    break;
+                case AST.FileRoot n:
+                    checkType(n);
+                    break;
+                case AST.Namespace n:
+                    checkType(n);
+                    break;
+                case AST.Block n:
+                    checkType(n);
+                    break;
+                case AST.Elif n:
+                    checkType(n);
+                    break;
+                case AST.IfCondition n:
+                    checkType(n);
+                    break;
+                case AST.ForLoop n:
+                    checkType(n);
+                    break;
+                case AST.WhileLoop n:
+                    checkType(n);
+                    break;
+                case AST.VariableDefinition n:
+                    checkType(n);
+                    break;
+                case AST.FunctionDefinition n:
+                    checkType(n);
+                    break;
+                case AST.StructConstructor n:
+                    checkType(n);
+                    break;
+                case AST.StructDeclaration n:
+                    checkType(n);
+                    break;
+                case AST.FunctionCall n:
+                    checkType(n);
+                    break;
+                case AST.VariableReference n:
+                    checkType(n);
+                    break;
+                case AST.Assignment n:
+                    checkType(n);
+                    break;
+                case AST.ConstInt n:
+                    checkType(n);
+                    break;
+                case AST.ConstFloat n:
+                    checkType(n);
+                    break;
+                case AST.ConstBool n:
+                    checkType(n);
+                    break;
+                case AST.ConstString n:
+                    checkType(n);
+                    break;
+                case AST.ArrayConstructor n:
+                    checkType(n);
+                    break;
+                case AST.FieldAccess n:
+                    checkType(n);
+                    break;
+                case AST.ArrayElementAccess n:
+                    checkType(n);
+                    break;
+                case AST.BreakLoop n:
+                    checkType(n);
+                    break;
+                case AST.ContinueLoop n:
+                    checkType(n);
+                    break;
+                case AST.ReturnFunction n:
+                    checkType(n);
+                    break;
+                case AST.BinOp n:
+                    checkType(n);
+                    break;
+                case AST.UnaryOp n:
+                    checkType(n);
+                    break;
+                case AST.TypeCastOp n:
+                    checkType(n);
+                    break;
+                case AST.TypeString n:
+                    checkType(n);
+                    break;
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
     }
 }
 
