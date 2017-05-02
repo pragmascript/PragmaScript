@@ -1,0 +1,30 @@
+import "preamble.prag"
+[
+	"compile.output": "game_of_threes.exe",
+	"compile.entry" : "true",
+ 	"compile.opt"   : "0",
+ 	"compile.run"   : "false",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void 
+{
+	var value = 100;
+	
+	while (value != 1) {
+		print_i32(value);
+		var rem = value % 3;
+		if (rem == 0) {
+			print_string(" 0\n");
+		} elif (rem == 1) {
+			value--;
+			print_string(" -1\n");
+		} else {
+			value++;
+			print_string(" 1\n");
+		}
+		value /= 3;
+	}
+	print_string("1\n");
+	Windows.ExitProcess(0);
+}
