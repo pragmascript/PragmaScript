@@ -411,7 +411,36 @@ let Tile = struct
     tile_size: i32;
 );
 
+let render_tile_position = fun (sx: i32; sy: i32) => void {
+    var buf = window.backbuffer;
+    var start: i8* = buf.memory;
+    start += sy * buf.pitch;
+    start += 4 * sx;
+
+
+    let color: i32 = 0xFFFFFFFF;
+    
+    var up_row = (i32*)start;
+    var down_row = (i32*)(start + buf.pitch * (tile_size - 1));
+    for (var x = 0; x < tile_size; ++x) {
+        *up_row++ = color;
+        *down_row++ = color;
+    }
+
+    var left_column = (i32*)start;
+    var right_column = (i32*)(start + 4 * (tile_size - 1));
+    for (var y = 0; y < tile_size; ++y) {
+        *left_column = color;
+        *right_column = color;
+        left_column += buf.width;
+        right_column += buf.width;
+    }
+}
+
 let render_tile = fun (@tile: Tile*; random_state: Random.State*) => void {
+    var buf = window.backbuffer;
+    render_tile_position(sx, sy);
+
     var p = start;    
     for (var y = 0; y < tile_size; ++y) {
         var pixels = p;
@@ -458,13 +487,11 @@ let render_tile = fun (@tile: Tile*; random_state: Random.State*) => void {
         p += width;
     }
 
-    var buf = window.backbuffer;
     var tile_row = start;    
 
     var row: i8* = buf.memory;
     row += sy * buf.pitch;
     row += 4 * sx;
-
     for (var y = 0; y < tile_size; ++y) {
         var tile_samples = tile_row;
         var pixel = (i32*)row;
@@ -631,10 +658,10 @@ let main_window_callback = fun
 }
 
 
-let x_tiles = 4*8;
-let y_tiles = 4*6;
+let x_tiles = 2*8;
+let y_tiles = 2*6;
 let samples = 100;
-let tile_size = 32;
+let tile_size = 64;
 let thread_count = 8;
 
 [

@@ -508,9 +508,9 @@ let main = fun () => void
     
     let thread_count = 8;
     let samples = 100;
-    let tile_size = 32;
-    let x_tiles = 4*8;
-    let y_tiles = 4*6;
+    let tile_size = 64;
+    let x_tiles = 2*8;
+    let y_tiles = 2*6;
     let width  = x_tiles * tile_size;
     let height = y_tiles * tile_size;
     var pixel_data = (Vec*)Windows.VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
