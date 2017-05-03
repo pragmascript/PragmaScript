@@ -1,4 +1,4 @@
-import "preamble.prag"
+import "../preamble.prag"
 
 [
 	"compile.output": "hello.exe",
@@ -13,8 +13,9 @@ let main = fun () => void
 {
 	print_string("hello, world!\n");
 	debug_print_i32("test", -1);
+
 	for (var i = 0; i < 512; ++i) {
-		print_f32(Random.rand_f32());
+		print_f32(Math.cos((f32)i / 100.0));
 		if (i != 511) {
 			print_string(", ");
 		}

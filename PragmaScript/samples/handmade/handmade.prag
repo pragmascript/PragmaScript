@@ -192,11 +192,9 @@ namespace Handmade.Game
         var row: i8* = buffer.memory;
         row += min_y_p * buffer.pitch;
         row += 4 * min_x_p;
-        for (var y = min_y_p; y < max_y_p; ++y)
-        {
+        for (var y = min_y_p; y < max_y_p; ++y) {
             var pixel = (i32*)row;
-            for (var x = min_x_p; x < max_x_p; ++x)
-            {
+            for (var x = min_x_p; x < max_x_p; ++x) {
                 *pixel++ = c;    
             }    
             row += buffer.pitch;

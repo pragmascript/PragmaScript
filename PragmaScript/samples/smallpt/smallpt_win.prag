@@ -1,6 +1,8 @@
 import "..\preamble.prag"
 import "..\windows.prag"
 
+with Windows;
+
 // https://www.shadertoy.com/view/Xdf3zB
 
 let Vec = struct 
@@ -300,7 +302,7 @@ let sphere_count = 9;
 var spheres: Sphere*;
 
 let create_spheres = fun() => void {
-    spheres = (Sphere*)Windows.VirtualAlloc(nullptr, (mm)(size_of(Sphere) * (mm)sphere_count), Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    spheres = (Sphere*)VirtualAlloc(nullptr, (mm)(size_of(Sphere) * (mm)sphere_count), MEM_COMMIT, PAGE_READWRITE);
     var s = spheres;
     
     // crashes the compiler
@@ -373,23 +375,23 @@ let create_spheres = fun() => void {
 
 let platform_write_file = fun (name: string; data: ptr; size_in_bytes: i32) => bool
 {
-    var handle = Windows.CreateFileA(cstr(name), Windows.GENERIC_WRITE, 0, nullptr, Windows.CREATE_ALWAYS, 0, 0);
+    var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
     if (handle == null) {
-        Windows.CloseHandle(handle);
+        CloseHandle(handle);
         return false;
     }
     var bytes_written: i32 = 0;
-    var result = Windows.WriteFile(handle, data, size_in_bytes, &bytes_written, nullptr);
+    var result = WriteFile(handle, data, size_in_bytes, &bytes_written, nullptr);
     if (result != 0) {
-        Windows.CloseHandle(handle);
+        CloseHandle(handle);
         assert(size_in_bytes == bytes_written);
         return true;
     } else {
-        Windows.CloseHandle(handle);
+        CloseHandle(handle);
         return false;
     }
 
-    Windows.CloseHandle(handle);
+    CloseHandle(handle);
     return false;
 }
 
@@ -455,6 +457,30 @@ let render_tile = fun (@tile: Tile*; random_state: Random.State*) => void {
         }
         p += width;
     }
+
+    var buf = window.backbuffer;
+    var tile_row = start;    
+
+    var row: i8* = buf.memory;
+    row += sy * buf.pitch;
+    row += 4 * sx;
+
+    for (var y = 0; y < tile_size; ++y) {
+        var tile_samples = tile_row;
+        var pixel = (i32*)row;
+        for (var x = 0; x < tile_size; ++x) {
+            var v = *tile_samples++;
+            var r = to_int(v.x);
+            var g = to_int(v.y);
+            var b = to_int(v.z);
+            *pixel++ = (r << 16) | (g << 8) | (b << 0);
+
+        }
+        tile_row += width;
+        row += buf.pitch;
+    }
+
+
 }
 
 
@@ -493,27 +519,216 @@ let do_render_job = fun (@job: RenderJob*) => i32 {
 }
 
 
+let offscreen_buffer = struct
+(
+    info:   BITMAPINFO;
+    memory: ptr;
+    width:  i32;
+    height: i32;
+    pitch:  i32;
+);
+let window_state = struct 
+(
+    handle: mm;
+    dc: mm;
+    width: i32;
+    height: i32;
+    wants_to_quit: bool;
+    backbuffer: offscreen_buffer;
+);
+
+var window: window_state;
+
+let create_backbuffer = fun 
+(
+    @buffer: offscreen_buffer*;
+    target_width: i32;
+    target_height: i32) => void
+{
+    let bytes_per_pixel = 4;
+    width = target_width;
+    height = target_height;
+    info.header.biSize = 40;
+    info.header.biWidth = width;
+    info.header.biHeight = height;
+    info.header.biPlanes = 1;
+    info.header.biBitCount = 32;
+    info.header.biCompression = BI_RGB;
+    var bitmap_size = bytes_per_pixel * width * height;
+    if (memory != nullptr) {
+        VirtualFree(memory, null, MEM_RELEASE);
+    }
+    memory = VirtualAlloc(nullptr, (mm\)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
+    pitch = buffer.width * bytes_per_pixel;
+}
+
+let blit_to_screen = fun (window_dc: mm; @buffer: offscreen_buffer*) => void {
+    StretchDIBits(window.dc,
+        0, 0, buffer.width, buffer.height,
+        0, 0, buffer.width, buffer.height, 
+        buffer.memory, &buffer.info,
+        DIB_RGB_COLORS, SRCCOPY);
+}
+
+
+let process_pending_messages = fun() => void {
+    var msg: MSG;
+    while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE) != 0) {
+        var message = msg.message;
+        if (message == WM_QUIT) {
+            window.wants_to_quit = true;
+        } 
+        elif (message == WM_SYSKEYDOWN
+            || message == WM_SYSKEYUP
+            || message == WM_KEYDOWN
+            || message == WM_KEYUP) {
+
+            var w_param = (i32)(msg.wParam >> (mm)32);
+            var l_param = (i32)(msg.lParam >> (mm)32);
+            var vk_code = w_param;
+
+            var was_down = (l_param & (1 << 30)) != 0;
+            var is_down = (l_param & (1 << 31)) == 0;
+            var key_up = was_down && !is_down;
+            var key_down = !was_down && is_down; 
+
+            if(vk_code == VK_ESCAPE) {
+                window.wants_to_quit = true;
+            }
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+        }
+    }
+}
+
+let main_window_callback = fun
+(
+    window_handle: mm;
+    message: i32;
+    w_param: mm;
+    l_param: mm;
+) => mm {
+    var result = null;
+    if (message == WM_SIZE || message == WM_SIZING) {
+    }
+    elif (message == WM_CLOSE) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_DESTROY) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_PAINT) {
+        var paint: PAINTSTRUCT;
+        var context = BeginPaint(window_handle, &paint);
+        blit_to_screen(window.dc, &window.backbuffer);
+        EndPaint(window_handle, &paint);
+    } 
+    else {
+        result = DefWindowProcA(window_handle, message, w_param, l_param);
+    }
+    return result;
+}
+
+
+let x_tiles = 4*8;
+let y_tiles = 4*6;
+let samples = 100;
+let tile_size = 32;
+let thread_count = 8;
+
 [
-	"compile.output": "smallpt.exe",
+	"compile.output": "smallpt_win.exe",
 	"compile.entry" : "true",
  	"compile.opt"   : "3",
     "compile.asm"   : "false",
  	"compile.run"   : "false",
- 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
+ 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
-let main = fun () => void 
+let main = fun() => void {
+    let buffer_width  = x_tiles * tile_size;
+    let buffer_height = y_tiles * tile_size;
+
+    var client_rect = RECT { 0, 0, buffer_width, buffer_height };
+    AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
+
+    window.width = client_rect.right - client_rect.left;
+    assert(window.width > 0);
+    window.height = client_rect.bottom - client_rect.top;
+    assert(window.height > 0);
+    
+    
+    create_backbuffer(&window.backbuffer, buffer_width, buffer_height);
+    assert(window.backbuffer.memory != nullptr);
+
+    var class_name  = cstr("smallpt_windowclass\0");
+    var window_name = cstr("smallpt\0");
+    var module_handle = GetModuleHandleA(null);
+    var window_class = WNDCLASSEX {};
+    window_class.cbSize = (i32)(size_of(WNDCLASSEX));
+    window_class.style = CS_HREDRAW|CS_VREDRAW;
+    window_class.lpfnWndProc = (ptr)main_window_callback;
+    window_class.hInstance = module_handle;
+    window_class.lpszClassName = class_name;
+    RegisterClassExA(&window_class);
+    
+    let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
+    let dw_ex_style = WS_EX_TOPMOST;
+ 
+    window.handle = CreateWindowExA(
+        dw_ex_style,
+        class_name,
+        window_name,
+        dw_style,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        window.width,
+        window.height,
+        null,
+        null,
+        module_handle,
+        null
+    );
+    window.dc = GetDC(window.handle);
+
+    start_render();
+
+    while (!window.wants_to_quit) {
+        process_pending_messages();
+        blit_to_screen(window.dc, &window.backbuffer);
+        Sleep(100);
+        if (check_render_jobs_done()) {
+            window.wants_to_quit = true;
+        }
+    }
+
+    print_string("exit\n");
+    ExitProcess(0);
+}
+
+var render_jobs: RenderJob[];
+let check_render_jobs_done = fun () => bool {
+    var all_completed = true;
+    for (var i = 0; i < render_jobs.length; ++i) {
+        // TODO(pragma): volatile!
+        if (!render_jobs[i].completed) {
+            all_completed = false;
+            break;
+        }
+    }
+    return all_completed;
+}
+
+
+
+let start_render = fun () => void 
 {
     create_spheres();
     
-    let thread_count = 8;
-    let samples = 100;
-    let tile_size = 32;
-    let x_tiles = 4*8;
-    let y_tiles = 4*6;
     let width  = x_tiles * tile_size;
     let height = y_tiles * tile_size;
-    var pixel_data = (Vec*)Windows.VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    var pixel_data = (Vec*)VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, MEM_COMMIT, PAGE_READWRITE);
 
     var cam: Ray;
     cam.origin = v3(50,52,295.6);
@@ -530,7 +745,7 @@ let main = fun () => void
     // create tiles
     var tile_count = x_tiles * y_tiles;
     var tiles: Tile[];
-    tiles.data = (Tile*)Windows.VirtualAlloc(nullptr, size_of(Tile) * (mm)tile_count, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
+    tiles.data = (Tile*)VirtualAlloc(nullptr, size_of(Tile) * (mm)tile_count, MEM_COMMIT, PAGE_READWRITE);
     tiles.length = tile_count;
     var idx = 0;
     for (var j = 0; j < y_tiles; ++j) {
@@ -550,64 +765,24 @@ let main = fun () => void
     }
 
     // create jobs
-    var jobs: RenderJob[];
-    jobs.data = (RenderJob*)Windows.VirtualAlloc(nullptr, size_of(RenderJob) * (mm)thread_count, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
-    jobs.length = thread_count;
-    for (var i = 0; i < jobs.length; ++i) {
+    
+    render_jobs.data = (RenderJob*)VirtualAlloc(nullptr, size_of(RenderJob) * (mm)thread_count, MEM_COMMIT, PAGE_READWRITE);
+    render_jobs.length = thread_count;
+    for (var i = 0; i < render_jobs.length; ++i) {
         var j: RenderJob;
         j.thread_idx = i;
         j.thread_count = thread_count;
         j.tiles = tiles;
-        jobs[i] = j;
+        render_jobs[i] = j;
     }
 
     // create and run threads
-    for (var i = 1; i < jobs.length; ++i) {
-        var job = &jobs[i];
+    for (var i = 0; i < render_jobs.length; ++i) {
+        var job = &render_jobs[i];
         var thread_id: mm;
-        var thread_handle = Windows.CreateThread(nullptr, null, (Windows.ThreadProc)do_render_job, (ptr)job, 0, &thread_id);
+        var thread_handle = CreateThread(nullptr, null, (ThreadProc)do_render_job, (ptr)job, 0, &thread_id);
     }
-    do_render_job(&jobs[0]);
-    jobs[0].completed = true;
+    // do_render_job(&jobs[0]);
+    // jobs[0].completed = true;
 
-    while (true) {
-        var all_completed = true;
-        for (var i = 0; i < jobs.length; ++i) {
-            // TODO(pragma): volatile!
-            if (!jobs[i].completed) {
-                all_completed = false;
-                break;
-            }
-        }
-        if (all_completed) {
-            break;
-        }
-        Windows.Sleep(10);
-    }
-    print_string("finished tracing.\n");
-    
-
-    // // write image
-    // var pif_size = 3*size_of(i32) * (mm)width * (mm)height + 3*size_of(i32);
-    // var pif_data = (i32*)Windows.VirtualAlloc(nullptr, pif_size, Windows.MEM_COMMIT, Windows.PAGE_READWRITE);
-    // var pif = pif_data;
-    // var pixels = pixel_data;
-    // *pif++ = 3141592654;
-    // *pif++ = width;
-    // *pif++ = height;
-    // for (var y = 0; y < height; ++y) {
-    //     for (var x = 0; x < width; ++x) {
-    //         var v = *pixels;
-    //         var r = to_int(v.x);
-    //         var g = to_int(v.y);
-    //         var b = to_int(v.z);
-    //         *pif++ = r;
-    //         *pif++ = g;
-    //         *pif++ = b;
-    //         pixels++;
-    //     }
-    // }
-    // platform_write_file("image.pif\0", (ptr)pif_data, (i32)pif_size);
-    
-    Windows.ExitProcess(0);
 }
