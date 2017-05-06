@@ -1,6 +1,8 @@
 import "../preamble.prag"
+import "..\math.prag"
 import "handmade_interface.prag"
 import "handmade_math.prag"
+
 
 namespace Handmade.Game
 {

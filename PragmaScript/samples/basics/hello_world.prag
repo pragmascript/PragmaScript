@@ -1,4 +1,5 @@
 import "../preamble.prag"
+import "../math.prag"
 
 [
 	"compile.output": "hello.exe",
@@ -12,14 +13,6 @@ import "../preamble.prag"
 let main = fun () => void 
 {
 	print_string("hello, world!\n");
-	debug_print_i32("test", -1);
-
-	for (var i = 0; i < 512; ++i) {
-		print_f32(Math.cos((f32)i / 100.0));
-		if (i != 511) {
-			print_string(", ");
-		}
-	}
+	print_f32(Math.cos(0.2122));
 	print_string("\n");
-	Windows.ExitProcess(0);
 }

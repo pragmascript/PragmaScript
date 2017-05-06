@@ -1,5 +1,7 @@
 import "..\preamble.prag"
 import "..\windows.prag"
+import "..\math.prag"
+
 
 with Windows;
 
@@ -180,8 +182,6 @@ let radiance = fun(ray: Ray*; depth: i32; random_state: Random.State*) => Vec {
     var x = add(&ray.origin, &delta);
     var n = sub(&x, &obj.pos);
     normalize(&n);
-
-    // return n;
 
     var nl = n;
     if (dot(&n, &ray.direction) >= 0)  {
@@ -373,8 +373,7 @@ let create_spheres = fun() => void {
     s.reflection_type = ReflectionType.diffuse;
 }
 
-let platform_write_file = fun (name: string; data: ptr; size_in_bytes: i32) => bool
-{
+let platform_write_file = fun (name: string; data: ptr; size_in_bytes: i32) => bool {
     var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
     if (handle == null) {
         CloseHandle(handle);
@@ -539,9 +538,9 @@ let do_render_job = fun (@job: RenderJob*) => i32 {
         // print_string("\n");
         idx += thread_count;
     }
-    print_string("thread #");
-    print_i32(thread_idx);
-    print_string(" completed\n");
+    // print_string("thread #");
+    // print_i32(thread_idx);
+    // print_string(" completed\n");
     completed = true;
 }
 
@@ -657,12 +656,17 @@ let main_window_callback = fun
     return result;
 }
 
+let get_perf_counter = fun() => i64 {
+    var result: i64;
+    QueryPerformanceCounter(&result);
+    return result;
+}
 
 let x_tiles = 2*8;
 let y_tiles = 2*6;
 let samples = 100;
 let tile_size = 64;
-let thread_count = 8;
+let thread_count = 4;
 
 [
 	"compile.output": "smallpt_win.exe",
@@ -674,6 +678,11 @@ let thread_count = 8;
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun() => void {
+    var perf_count_freq: i64;
+    QueryPerformanceFrequency(&perf_count_freq);
+
+    var t0 = get_perf_counter();
+    
     let buffer_width  = x_tiles * tile_size;
     let buffer_height = y_tiles * tile_size;
 
@@ -730,7 +739,13 @@ let main = fun() => void {
         }
     }
 
-    print_string("exit\n");
+    var t1 = get_perf_counter();
+
+    var t = (f64)(t1-t0) / (f64)perf_count_freq;
+    debug_print_f64("seconds elapsed: ", t);
+
+
+
     ExitProcess(0);
 }
 
@@ -749,8 +764,7 @@ let check_render_jobs_done = fun () => bool {
 
 
 
-let start_render = fun () => void 
-{
+let start_render = fun () => void {
     create_spheres();
     
     let width  = x_tiles * tile_size;
@@ -792,7 +806,6 @@ let start_render = fun () => void
     }
 
     // create jobs
-    
     render_jobs.data = (RenderJob*)VirtualAlloc(nullptr, size_of(RenderJob) * (mm)thread_count, MEM_COMMIT, PAGE_READWRITE);
     render_jobs.length = thread_count;
     for (var i = 0; i < render_jobs.length; ++i) {
@@ -809,7 +822,4 @@ let start_render = fun () => void
         var thread_id: mm;
         var thread_handle = CreateThread(nullptr, null, (ThreadProc)do_render_job, (ptr)job, 0, &thread_id);
     }
-    // do_render_job(&jobs[0]);
-    // jobs[0].completed = true;
-
 }

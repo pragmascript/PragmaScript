@@ -1,0 +1,71 @@
+
+// http://openlibm.org/
+namespace Math
+{
+	let pi: f64 = 3.1415926535897932384626433832795028841971693993751058209749445923078164062;
+	let half_pi = pi / 2.0;
+	let pi_32 = (f32)pi;
+	let half_pi_32 = (f32)half_pi;
+	let tau = 2.0 * pi;
+	let tau_32 = 2.0 * pi_32;
+
+
+	let sin     = extern("llvm.sin.f32")    fun (x: f32) => f32;
+	let cos     = extern("llvm.cos.f32")    fun (x: f32) => f32;
+	let tan     = extern("tanf")  		    fun (x: f32) => f32;
+	let asin    = extern("asinf")           fun (x: f32) => f32;
+	let acos    = extern("acosf")           fun (x: f32) => f32;
+	let atan    = extern("atanf")           fun (x: f32) => f32;
+	let atan2   = extern("atan2f")          fun (x: f32) => f32;
+	let sqrt    = extern("llvm.sqrt.f32")   fun (x: f32) => f32;
+	let pow     = extern("llvm.pow.f32")    fun (x: f32; p: f32) => f32;
+	let abs     = extern("llvm.fabs.f32")   fun (x: f32) => f32;
+	let floor   = extern("llvm.floor.f32")  fun (x: f32) => f32;
+	let trunc   = extern("llvm.trunc.f32")  fun (x: f32) => f32;
+	let ceil    = extern("llvm.ceil.f32")   fun (x: f32) => f32;
+	let round   = extern("llvm.round.f32")  fun (x: f32) => f32;
+	let exp     = extern("llvm.exp.f32")    fun (x: f32) => f32;
+	let exp2    = extern("llvm.exp2.f32")   fun (x: f32) => f32;
+	let log     = extern("llvm.log.f32")    fun (x: f32) => f32;
+	let log2    = extern("llvm.log2.f32")   fun (x: f32) => f32;
+	let log10   = extern("llvm.log10.f32")  fun (x: f32) => f32;
+	let min     = extern("llvm.minnum.f32") fun (a: f32; b: f32) => f32;
+	let max     = extern("llvm.maxnum.f32") fun (a: f32; b: f32) => f32;
+
+	let round_to_i32 = fun (x: f32) => i32 {
+		return (i32)round(x);
+	}
+
+	let remainder = fun(x: f32; y: f32) => f32
+	{
+		return x - floor(x / y) * y;
+	}
+	let lerp = fun(a: f32; b: f32; t: f32) => f32
+	{
+		return a + (b-a)*t;
+	}
+	let abs_i32 = fun (value: i32) => i32
+	{
+		if (value >= 0) {
+			return value;
+		} else {
+			return -value;
+		}
+	}
+	let clamp_i32 = fun 
+	(
+		value: i32;
+		min: i32;
+		max: i32
+	) => i32 
+	{
+		assert(min <= max);
+		var result = value;
+		if (result < min) {
+			result = min;
+		} elif (result > max) {
+			result = max;
+		}
+		return result;
+	}
+}

@@ -32,6 +32,7 @@ namespace PragmaScript
         public static bool debug = false;
         public static string inputFilename;
         public static int optimizationLevel;
+        public static string cpu = "native";
         public static bool runAfterCompile;
         public static bool asm = false;
         public static bool ll = false;
@@ -398,6 +399,11 @@ namespace PragmaScript
             var opt = d.GetAttribute("COMPILE.OPT");
             if (int.TryParse(opt, out int opt_level)) {
                 CompilerOptions.optimizationLevel = opt_level;
+            }
+
+            var cpu = d.GetAttribute("COMPILE.CPU");
+            if (!string.IsNullOrWhiteSpace(cpu)) {
+                CompilerOptions.cpu = cpu;
             }
 
             var run = d.GetAttribute("COMPILE.RUN");

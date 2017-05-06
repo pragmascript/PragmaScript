@@ -77,8 +77,11 @@ namespace PragmaScript
                 }
             }
 
-            const string mcpu = "native";
-            
+            // const string mcpu = "native";
+            // const string mcpu = "sandybridge";
+            var mcpu = CompilerOptions.cpu;
+
+
             if (optLevel > 0) {
                 Console.WriteLine($"optimizer... (O{optLevel})");
                 var optProcess = new Process();
@@ -191,9 +194,9 @@ namespace PragmaScript
                 lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
                 var flags = "/entry:__init";
                 if (CompilerOptions.dll) {
-                    flags += $" /dll /out:\"{ox(".dll")}\"";
+                    flags += $" /NODEFAULTLIB /dll /out:\"{ox(".dll")}\"";
                 } else {
-                    flags += $" /subsystem:CONSOLE /out:{ox(".exe")}";
+                    flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
                 }
 
                 lldProcess.StartInfo.Arguments = $"{libs} \"{oxt(".o")}\" {flags} /libpath:{lib_path}";
