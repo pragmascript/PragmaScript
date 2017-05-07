@@ -733,6 +733,7 @@ namespace Handmade.Platform
 		window_class.lpfnWndProc = (ptr)main_window_callback;
 		window_class.hInstance = instance;
 		window_class.lpszClassName = class_name;
+		window_class.hCursor = LoadCursorA(null, IDC_ARROW);
 		RegisterClassExA(&window_class);
 
 		window.handle = CreateWindowExA(

@@ -46,7 +46,9 @@
     let MEM_LARGE_PAGES= 0x20000000;
     let PAGE_READWRITE = 0x04;
     let MEM_RELEASE = 0x8000;
+    let PM_NOREMOVE = 0x0000;
     let PM_REMOVE = 0x0001;
+    let PM_NOYIELD = 0x0002;
 
     
     let VK_LBUTTON = 0x01;
@@ -359,6 +361,9 @@
     let VREFRESH = 116;
     let GetDeviceCaps = extern fun (hdc: mm; index: i32) => i32;
 
+    let IDC_ARROW:mm = 32512;
+
+    let LoadCursorA = extern fun(hInstance: mm; cursor: mm) => mm;
     let GetCursorPos = extern fun(pos: POINT*) => i32;
     let GetKeyState = extern fun(vk: i32) => i16;
     let ScreenToClient = extern fun(wnd: mm; pos: POINT*) => i32;

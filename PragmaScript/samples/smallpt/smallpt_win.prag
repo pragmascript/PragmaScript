@@ -599,7 +599,7 @@ let blit_to_screen = fun (window_dc: mm; @buffer: offscreen_buffer*) => void {
 
 let process_pending_messages = fun() => void {
     var msg: MSG;
-    while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE) != 0) {
+    while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE|PM_NOYIELD) != 0) {
         var message = msg.message;
         if (message == WM_QUIT) {
             window.wants_to_quit = true;
@@ -666,7 +666,7 @@ let x_tiles = 2*8;
 let y_tiles = 2*6;
 let samples = 100;
 let tile_size = 64;
-let thread_count = 4;
+let thread_count = 1;
 
 [
 	"compile.output": "smallpt_win.exe",
@@ -707,6 +707,7 @@ let main = fun() => void {
     window_class.lpfnWndProc = (ptr)main_window_callback;
     window_class.hInstance = module_handle;
     window_class.lpszClassName = class_name;
+    window_class.hCursor = LoadCursorA(null, IDC_ARROW);
     RegisterClassExA(&window_class);
     
     let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
