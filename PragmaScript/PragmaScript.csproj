@@ -92,7 +92,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>bin\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;DISPLAY_TIMINGS</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
@@ -135,7 +135,8 @@
     <Compile Include="AST.Nodes.cs" />
     <Compile Include="AST.Parser.cs" />
     <Compile Include="Backend.cs" />
-    <Compile Include="Backend.Visitor.cs" />
+    <Compile Include="BackendLLVM.cs" />
+    <Compile Include="BackendLLVM.Visitor.cs" />
     <Compile Include="ParseTreeTransformations.cs" />
     <Compile Include="Exceptions.cs" />
     <Compile Include="FrontendTypes.cs" />
@@ -150,7 +151,7 @@
     <None Include="App.config">
       <SubType>Designer</SubType>
     </None>
-    <Compile Include="Backend.AOT.cs" />
+    <Compile Include="BackendLLVM.AOT.cs" />
     <None Include="packages.config">
       <SubType>Designer</SubType>
     </None>

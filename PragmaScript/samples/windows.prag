@@ -261,6 +261,7 @@
       hInstance: mm;
        lpParam: mm;
     ) => mm;
+
     let GetMessageA = extern fun
     (
       message: MSG*;

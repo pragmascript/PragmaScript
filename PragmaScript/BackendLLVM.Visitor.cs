@@ -5,14 +5,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
-namespace PragmaScript
-{
-    partial class Backend
-    {
+namespace PragmaScript {
+    partial class BackendLLVM {
 
-        static bool isConstVariableDefinition(AST.Node node)
-        {
-
+        static bool isConstVariableDefinition(AST.Node node) {
             if (node is AST.VariableDefinition) {
                 if ((node as AST.VariableDefinition).variable.isConstant) {
                     return true;
@@ -21,9 +17,7 @@ namespace PragmaScript
             return false;
         }
 
-        static bool isGlobalVariableDefinition(AST.Node node)
-        {
-
+        static bool isGlobalVariableDefinition(AST.Node node) {
             if (node is AST.VariableDefinition) {
                 if ((node as AST.VariableDefinition).variable.isGlobal) {
                     return true;
@@ -33,8 +27,7 @@ namespace PragmaScript
         }
 
 
-        public void Visit(AST.ProgramRoot node, AST.FunctionDefinition main)
-        {
+        public void Visit(AST.ProgramRoot node, AST.FunctionDefinition main) {
             // HACK:
             AST.FileRoot merge = new AST.FileRoot(Token.Undefined, node.scope);
             foreach (var fr in node.files) {
@@ -45,10 +38,7 @@ namespace PragmaScript
             Visit(merge, main);
         }
 
-        public void Visit(AST.FileRoot node, AST.FunctionDefinition main)
-        {
-
-
+        public void Visit(AST.FileRoot node, AST.FunctionDefinition main) {
             var constVariables = new List<AST.Node>();
             var functionDefinitions = new List<AST.Node>();
             var globalVariables = new List<AST.Node>();
@@ -131,8 +121,7 @@ namespace PragmaScript
             ctx.Pop();
         }
 
-        public void Visit(AST.Namespace node)
-        {
+        public void Visit(AST.Namespace node) {
             var functionDefinitions = new List<AST.Node>();
             var constVariables = new List<AST.Node>();
             var variables = new List<AST.Node>();
@@ -169,8 +158,7 @@ namespace PragmaScript
             }
         }
 
-        public void Visit(AST.ConstInt node)
-        {
+        public void Visit(AST.ConstInt node) {
             var ct = GetTypeRef(typeChecker.GetNodeType(node));
             LLVMValueRef result;
             if (LLVM.GetTypeKind(ct) == LLVMTypeKind.LLVMFloatTypeKind
@@ -183,23 +171,20 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        public void Visit(AST.ConstFloat node)
-        {
+        public void Visit(AST.ConstFloat node) {
             var ct = GetTypeRef(typeChecker.GetNodeType(node));
             var result = LLVM.ConstReal(ct, node.number);
             valueStack.Push(result);
         }
 
-        public void Visit(AST.ConstBool node)
-        {
+        public void Visit(AST.ConstBool node) {
             var result = node.value ? Const.True : Const.False;
             valueStack.Push(result);
         }
 
         Dictionary<string, LLVMValueRef> stringTable = new Dictionary<string, LLVMValueRef>();
 
-        public void Visit(AST.ConstString node, bool needsConversion = true)
-        {
+        public void Visit(AST.ConstString node, bool needsConversion = true) {
             var str = node.s;
             if (needsConversion) {
                 str = node.ConvertString();
@@ -280,33 +265,7 @@ namespace PragmaScript
 
         }
 
-        //public void Visit(AST.UninitializedArray node)
-        //{
-        //    throw new NotImplementedException();
-
-        //    //var l = node.length;
-
-        //    //var values = new LLVMValueRef[l];
-        //    //var et = GetTypeRef(node.elementType);
-
-
-        //    //for (int i = 0; i < values.Length; ++i)
-        //    //{
-        //    //    values[i] = LLVM.ConstNull(et);
-        //    //}
-
-        //    //var size = LLVM.ConstInt(Const.Int32Type, (ulong)l, Const.FalseBool);
-        //    //var arr = LLVM.ConstArray(GetTypeRef(node.elementType), out values[0], (uint)values.Length);
-
-
-        //    //var sp = new LLVMValueRef[] { size, arr };
-        //    //// TODO: does this need to be packed?
-        //    //var structure = LLVM.ConstStruct(out sp[0], 2, Const.FalseBool);
-        //    //valueStack.Push(structure);
-        //}
-
-        public void Visit(AST.BinOp node)
-        {
+        public void Visit(AST.BinOp node) {
             if (node.type == AST.BinOp.BinOpType.ConditionalOR) {
                 visitConditionalOR(node);
                 return;
@@ -522,8 +481,7 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        void visitConditionalOR(AST.BinOp op)
-        {
+        void visitConditionalOR(AST.BinOp op) {
             Visit(op.left);
             var cmp = valueStack.Pop();
             if (!isEqualType(LLVM.TypeOf(cmp), Const.BoolType))
@@ -561,8 +519,7 @@ namespace PragmaScript
             valueStack.Push(phi);
         }
 
-        void visitConditionalAND(AST.BinOp op)
-        {
+        void visitConditionalAND(AST.BinOp op) {
             Visit(op.left);
             var cmp = valueStack.Pop();
             if (!isEqualType(LLVM.TypeOf(cmp), Const.BoolType))
@@ -607,8 +564,7 @@ namespace PragmaScript
             valueStack.Push(phi);
         }
 
-        public void Visit(AST.UnaryOp node)
-        {
+        public void Visit(AST.UnaryOp node) {
             http://stackoverflow.com/questions/14608250/how-can-i-find-the-size-of-a-type
             if (node.type == AST.UnaryOp.UnaryOpType.SizeOf) {
                 var fet = typeChecker.GetNodeType(node.expression);
@@ -620,7 +576,6 @@ namespace PragmaScript
                 valueStack.Push(LLVM.SizeOf(et));
                 return;
             }
-
 
             Visit(node.expression);
 
@@ -771,8 +726,7 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        public void Visit(AST.TypeCastOp node)
-        {
+        public void Visit(AST.TypeCastOp node) {
             Visit(node.expression);
 
             var v = valueStack.Pop();
@@ -861,8 +815,7 @@ namespace PragmaScript
 
 
 
-        public void Visit(AST.StructConstructor node)
-        {
+        public void Visit(AST.StructConstructor node) {
             var sc = node;
             var sft = typeChecker.GetNodeType(node) as FrontendStructType;
             var structType = GetTypeRef(sft);
@@ -887,8 +840,7 @@ namespace PragmaScript
             valueStack.Push(struct_ptr);
         }
 
-        public void Visit(AST.ArrayConstructor node)
-        {
+        public void Visit(AST.ArrayConstructor node) {
             var ac = node;
             var ac_type = typeChecker.GetNodeType(node) as FrontendArrayType;
 
@@ -929,8 +881,7 @@ namespace PragmaScript
         }
 
 
-        public void Visit(AST.VariableDefinition node)
-        {
+        public void Visit(AST.VariableDefinition node) {
             if (node.variable.isConstant) {
 
                 Visit(node.expression);
@@ -1028,8 +979,7 @@ namespace PragmaScript
             }
         }
 
-        public void Visit(AST.Assignment node)
-        {
+        public void Visit(AST.Assignment node) {
             Visit(node.left);
             var target = valueStack.Pop();
             var targetType = LLVM.TypeOf(target);
@@ -1051,8 +1001,7 @@ namespace PragmaScript
         }
 
 
-        public void Visit(AST.Block node)
-        {
+        public void Visit(AST.Block node) {
             // HACK: DO a prepass with sorting
             foreach (var s in node.statements) {
                 if (isConstVariableDefinition(s)) {
@@ -1069,8 +1018,7 @@ namespace PragmaScript
         }
 
 
-        public void Visit(AST.VariableReference node)
-        {
+        public void Visit(AST.VariableReference node) {
 
             var vd = node.scope.GetVar(node.variableName, node.token);
             // if variable is function paramter just return it immediately
@@ -1100,8 +1048,7 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        public void VisitSpecialFunction(AST.FunctionCall node, FrontendFunctionType feft)
-        {
+        public void VisitSpecialFunction(AST.FunctionCall node, FrontendFunctionType feft) {
             switch (feft.funName) {
                 case "__file_pos__": {
                         var callsite = ctx.Peek().defaultParameterCallsite;
@@ -1119,8 +1066,7 @@ namespace PragmaScript
 
         }
 
-        public void Visit(AST.FunctionCall node)
-        {
+        public void Visit(AST.FunctionCall node) {
             if (node.token.Line == 55) {
                 int breakHere = 42;
             }
@@ -1180,8 +1126,7 @@ namespace PragmaScript
             }
         }
 
-        public void Visit(AST.ReturnFunction node)
-        {
+        public void Visit(AST.ReturnFunction node) {
             if (node.expression != null) {
                 Visit(node.expression);
                 var v = valueStack.Pop();
@@ -1191,8 +1136,7 @@ namespace PragmaScript
             }
         }
 
-        public void Visit(AST.IfCondition node)
-        {
+        public void Visit(AST.IfCondition node) {
             Visit(node.condition);
             var condition = valueStack.Pop();
             if (!isEqualType(LLVM.TypeOf(condition), Const.BoolType)) {
@@ -1286,8 +1230,7 @@ namespace PragmaScript
             LLVM.PositionBuilderAtEnd(builder, endIfBlock);
         }
 
-        public void Visit(AST.ForLoop node)
-        {
+        public void Visit(AST.ForLoop node) {
             var insert = LLVM.GetInsertBlock(builder);
 
             var loopPre = LLVM.AppendBasicBlock(ctx.Peek().function, "for_cond");
@@ -1333,8 +1276,7 @@ namespace PragmaScript
             LLVM.PositionBuilderAtEnd(builder, endFor);
         }
 
-        public void Visit(AST.WhileLoop node)
-        {
+        public void Visit(AST.WhileLoop node) {
             var insert = LLVM.GetInsertBlock(builder);
 
             var loopPre = LLVM.AppendBasicBlock(ctx.Peek().function, "while_cond");
@@ -1369,8 +1311,7 @@ namespace PragmaScript
             LLVM.PositionBuilderAtEnd(builder, loopEnd);
         }
 
-        public void Visit(AST.FunctionDefinition node, bool proto = false)
-        {
+        public void Visit(AST.FunctionDefinition node, bool proto = false) {
             var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
             if (fun.inactiveConditional) {
                 return;
@@ -1379,7 +1320,7 @@ namespace PragmaScript
                 if (node.isFunctionTypeDeclaration()) {
                     return;
                 }
-                
+
                 //if (node.external && variables.ContainsKey(node.funName)) {
                 //    return;
                 //}
@@ -1394,15 +1335,14 @@ namespace PragmaScript
                     } else {
                         function = LLVM.GetNamedFunction(mod, node.funName);
                     }
-                }
-                else {
+                } else {
                     if (node.externalFunctionName != null) {
                         function = LLVM.AddFunction(mod, node.externalFunctionName, funType);
                     } else {
                         function = LLVM.AddFunction(mod, node.funName, funType);
                     }
                 }
-                
+
 
                 LLVM.AddFunctionAttr(function, LLVMAttribute.LLVMNoUnwindAttribute);
                 for (int i = 0; i < fun.parameters.Count; ++i) {
@@ -1464,24 +1404,21 @@ namespace PragmaScript
             }
         }
 
-        public void Visit(AST.BreakLoop node)
-        {
+        public void Visit(AST.BreakLoop node) {
             if (!ctx.Peek().loop) {
                 throw new BackendException("break statement outside of loop not allowed");
             }
             LLVM.BuildBr(builder, ctx.Peek().loopEnd);
         }
 
-        public void Visit(AST.ContinueLoop node)
-        {
+        public void Visit(AST.ContinueLoop node) {
             if (!ctx.Peek().loop) {
                 throw new BackendException("break statement outside of loop not allowed");
             }
             LLVM.BuildBr(builder, ctx.Peek().loopNext);
         }
 
-        public void Visit(AST.ArrayElementAccess node)
-        {
+        public void Visit(AST.ArrayElementAccess node) {
             Visit(node.left);
             var arr = valueStack.Pop();
             var arr_type = typeToString(LLVM.TypeOf(arr));
@@ -1511,9 +1448,7 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
-        public void Visit(AST.FieldAccess node)
-        {
-
+        public void Visit(AST.FieldAccess node) {
             Visit(node.left);
 
             var v = valueStack.Pop();
@@ -1528,8 +1463,6 @@ namespace PragmaScript
             }
             var idx = s.GetFieldIndex(node.fieldName);
             LLVMValueRef gep;
-
-
 
             // is not function argument?
             // assume that when its _NOT_ a pointer then it will be a function argument
@@ -1568,10 +1501,10 @@ namespace PragmaScript
 
                     var fe_nt = typeChecker.GetNodeType(node);
                     var be_nt = LLVM.PointerType(GetTypeRef(fe_nt), 0);
-                    if(be_nt.Pointer != LLVM.TypeOf(result).Pointer) {
+                    if (be_nt.Pointer != LLVM.TypeOf(result).Pointer) {
                         result = LLVM.BuildPointerCast(builder, result, be_nt, "hack_cast");
                     }
-                    
+
 
                     if (!node.returnPointer) {
                         result = LLVM.BuildLoad(builder, result, "struct_arrow");
@@ -1588,14 +1521,11 @@ namespace PragmaScript
             }
         }
 
-
-        public void Visit(AST.StructDeclaration node)
-        {
+        public void Visit(AST.StructDeclaration node) {
         }
 
         // TODO(pragma): generate this code
-        public void Visit(AST.Node node)
-        {
+        public void Visit(AST.Node node) {
             switch (node) {
                 case AST.ProgramRoot n:
                     Visit(n);

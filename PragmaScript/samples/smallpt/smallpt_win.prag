@@ -628,6 +628,11 @@ let process_pending_messages = fun() => void {
     }
 }
 
+let PROCESS_SYSTEM_DPI_AWARE = 1;
+let SetProcessDpiAwareness = extern fun(
+    value: i32;
+) => i32;
+
 let main_window_callback = fun
 (
     window_handle: mm;
@@ -662,8 +667,10 @@ let get_perf_counter = fun() => i64 {
     return result;
 }
 
-let x_tiles = 2*8;
-let y_tiles = 2*6;
+// 3840 x 2160
+
+let x_tiles = 60/4;
+let y_tiles = 33/4;
 let samples = 100;
 let tile_size = 64;
 let thread_count = 8;
@@ -674,17 +681,21 @@ let thread_count = 8;
  	"compile.opt"   : "3",
     "compile.asm"   : "false",
  	"compile.run"   : "false",
- 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, libopenlibm.a",
+ 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun() => void {
     var perf_count_freq: i64;
     QueryPerformanceFrequency(&perf_count_freq);
 
+    SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+
     var t0 = get_perf_counter();
     
     let buffer_width  = x_tiles * tile_size;
     let buffer_height = y_tiles * tile_size;
+
+    debug_print_i32("buffer_height", buffer_height);
 
     var client_rect = RECT { 0, 0, buffer_width, buffer_height };
     AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
@@ -694,6 +705,7 @@ let main = fun() => void {
     window.height = client_rect.bottom - client_rect.top;
     assert(window.height > 0);
     
+    debug_print_i32("window_height", window.height);
     
     create_backbuffer(&window.backbuffer, buffer_width, buffer_height);
     assert(window.backbuffer.memory != nullptr);
@@ -735,13 +747,12 @@ let main = fun() => void {
         process_pending_messages();
         blit_to_screen(window.dc, &window.backbuffer);
         Sleep(100);
-        if (check_render_jobs_done()) {
-            window.wants_to_quit = true;
-        }
+        // if (check_render_jobs_done()) {
+        //     window.wants_to_quit = true;
+        // }
     }
 
     var t1 = get_perf_counter();
-
     var t = (f64)(t1-t0) / (f64)perf_count_freq;
     debug_print_f64("seconds elapsed: ", t);
 

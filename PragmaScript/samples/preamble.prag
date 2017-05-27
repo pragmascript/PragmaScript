@@ -37,6 +37,7 @@ let print_error = fun (s: string) => void
 	assert(Windows.console_error_handle != Windows.INVALID_HANDLE_VALUE);
 	Windows.WriteFile(Windows.console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
 }
+
 ["conditional":"debug"]
 let assert = fun 
 (

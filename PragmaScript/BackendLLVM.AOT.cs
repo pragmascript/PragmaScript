@@ -13,7 +13,7 @@ using System.IO;
 
 namespace PragmaScript
 {
-    partial class Backend
+    partial class BackendLLVM
     {
         // NOTE: function signature is broken in LLVMSharp 3.7 so we declare it here manually
         [DllImport("libLLVM.dll", EntryPoint = "LLVMGetBufferStart", CallingConvention = CallingConvention.Cdecl)]
@@ -21,6 +21,12 @@ namespace PragmaScript
 
         public void aotModule()
         {
+
+#if DISPLAY_TIMINGS
+            var timer = new Stopwatch();
+            timer.Start();
+#endif
+
             int optLevel = CompilerOptions.optimizationLevel;
             Debug.Assert(optLevel >= 0 && optLevel <= 3);
             string arch = null;
@@ -76,12 +82,14 @@ namespace PragmaScript
                     File.WriteAllBytes(oxt(".bc"), buffer.Take(bufferSize).ToArray());
                 }
             }
+#if DISPLAY_TIMINGS
+            timer.Stop();
+            Console.WriteLine($"backend preperation time: {timer.ElapsedMilliseconds}ms");
+            timer.Reset();
+            timer.Start();
+#endif
 
-            // const string mcpu = "native";
-            // const string mcpu = "sandybridge";
             var mcpu = CompilerOptions.cpu;
-
-
             if (optLevel > 0) {
                 Console.WriteLine($"optimizer... (O{optLevel})");
                 var optProcess = new Process();
@@ -210,6 +218,11 @@ namespace PragmaScript
                 }
                 lldProcess.Close();
             }
+
+#if DISPLAY_TIMINGS
+            timer.Stop();
+            Console.WriteLine($"backend llvm time: {timer.ElapsedMilliseconds}ms");
+#endif
 
             if (!error && CompilerOptions.runAfterCompile) {
                 Console.WriteLine("running...");

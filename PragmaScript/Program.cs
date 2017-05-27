@@ -1,8 +1,4 @@
-﻿
-// #define DISPLAY_TIMINGS  
-
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -66,9 +62,10 @@ namespace PragmaScript
             // CompilerOptions.inputFilename = Path.Combine(programDir, "preamable.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt.prag");
 #endif
-#if FALSE
-            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\..\..", "Programs"));
-            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
+#if false
+            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..", "samples"));
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
+            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
 #endif
             if (CompilerOptions.inputFilename == null) {
                 Console.WriteLine("Input file name missing!");
@@ -579,7 +576,7 @@ namespace PragmaScript
             Console.Write("backend...");
             timer.Reset();
             timer.Start();
-            var backend = new Backend(Backend.TargetPlatform.x64, tc);
+            var backend = new BackendLLVM(BackendLLVM.TargetPlatform.x64, tc);
             backend.Emit(root, entry);
             timer.Stop();
 #if DISPLAY_TIMINGS
