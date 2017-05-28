@@ -4,51 +4,22 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using static PragmaScript.SSA;
+
 namespace PragmaScript {
-    partial class SSA {
+    partial class Backend {
 
-        public enum Op {
-            ConstInt, ConstReal
+        public Module mod;
+        Value intrinsic_memcpy;
+
+        public Backend() {
+            mod = new Module();
+
+            // add memcpy
+            var ft = new FunctionType(Const.void_t, Const.ptr_t, Const.ptr_t, Const.i32_t, Const.bool_t);
+            intrinsic_memcpy = mod.AddFunctionDecl("llvm.memcpy.p0i8.p0i8.i32", ft);
         }
 
-        public enum TypeKind {
-            Void,
-            Half,
-            Float,
-            Double,
-            X86_FP80,
-            FP128,
-            PPC_FP128,
-            Label,
-            Integer,
-            Function,
-            Struct,
-            Array,
-            Pointer,
-            Vector,
-            Metadata,
-            X86_MMX,
-            Token
-        }
-
-        public class Module {
-        }
-        public class Block {
-            public List<Value> ops;
-        }
-        public class Type {
-
-
-        }
-
-        
-        public class Value {
-            public int id;
-            public Op op;
-            public Type type;
-            public List<Value> args;
-            public ulong data;
-        }
 
     }
 }
