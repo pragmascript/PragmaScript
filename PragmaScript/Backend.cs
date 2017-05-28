@@ -98,7 +98,6 @@ namespace PragmaScript {
                 ft = new FunctionType(void_t);
             }
             // var blockTemp = LLVM.GetInsertBlock(builder);
-
             //CreateAndEnterFunction("__init", ft);
 
             //foreach (var decl in functionDefinitions) {
