@@ -80,9 +80,6 @@ namespace PragmaScript {
                 FalseBool = new LLVMBool(0);
 
                 OneInt32 = LLVM.ConstInt(LLVM.Int32Type(), 1, new LLVMBool(1));
-                unchecked {
-                    NegOneInt32 = LLVM.ConstInt(LLVM.Int32Type(), (ulong)-1, new LLVMBool(1));
-                }
                 OneFloat32 = LLVM.ConstReal(LLVM.FloatType(), 1.0);
 
 

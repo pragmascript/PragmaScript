@@ -31,27 +31,36 @@ namespace PragmaScript {
             Token
         }
 
-
         public class Function {
             public Value value;
-            public List<Block> blocks;
-            public Function(Value value) {
+            public Dictionary<string, Block> blocks;
+            public Function(Value value, bool declaration = false) {
                 this.value = value;
                 blocks = null;
+            }
+            public Block AppendBasicBlock(string name) {
+                var b = new Block(name);
+                blocks.Add(name, b);
+                return b;
             }
         }
 
         public class Module {
             Dictionary<string, Function> functions = new Dictionary<string, Function>();
-            public Value AddFunctionDecl(string name, FunctionType ft) {
-                var result = new Value(Op.FunctionDeclaration, ft);
-                var f = new Function(result);
+            public Function AddFunction(string name, FunctionType ft) {
+                var value = new Value(Op.FunctionDeclaration, ft);
+                var f = new Function(value);
                 functions.Add(name, f);
-                return result;
+                return f;
             }
         }
         public class Block {
+            public string name;
             public List<Value> ops;
+            public Block(string name) {
+                this.name = name;
+                ops = new List<Value>();
+            }
         }
         public class Type {
             public TypeKind kind;
@@ -179,10 +188,8 @@ namespace PragmaScript {
             public static readonly Value neg_1_i32_v = new Value(Op.ConstInt, i32_t, unchecked((ulong)-1));
             public static readonly Value zero_i64_v = new Value(Op.ConstInt, i64_t, 0);
             public static readonly Value null_ptr_v = new Value(Op.ConstPtr, ptr_t, 0);
-
         }
 
-        
         static Type getTypeRef(FrontendType t, int depth = 0) {
             if (t.Equals(FrontendType.i8)) {
                 return Const.i8_t;
@@ -254,7 +261,6 @@ namespace PragmaScript {
             }
             return new PointerType(ft);
         }
-
 
 
    }
