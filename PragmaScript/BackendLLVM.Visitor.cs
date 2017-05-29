@@ -110,6 +110,7 @@ namespace PragmaScript {
                 LLVM.BuildRetVoid(builder);
             }
 
+
             LLVM.PositionBuilderAtEnd(builder, vars);
             LLVM.BuildBr(builder, entry);
 

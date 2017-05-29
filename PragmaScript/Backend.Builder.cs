@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using static PragmaScript.SSA;
+﻿using static PragmaScript.SSA;
+using static PragmaScript.SSA.Const;
 
 namespace PragmaScript {
     partial class Backend {
@@ -47,18 +42,56 @@ namespace PragmaScript {
                 PositionAtEnd(block);
                 return block;
             }
-
+            public Block GetInsertBlock() {
+                return currentBlock;
+            }
             void AddOp(Value v) {
                 currentBlock.ops.Add(v);
             }
-            public void BuildRet(Value ret) {
-                AddOp(new Value(Op.Ret, ret));
+            void AddOpGlobal(Value v) {
+                mod.globals.ops.Add(v);
             }
-            public void BuildBr(Block block) {
-                AddOp(new Value(Op.Br, block.value));
+
+            public Value BuildRet(Value ret) {
+                var result = new Value(Op.Ret, ret);
+                AddOp(result);
+                return result;
             }
-            public void BuildCall(Value fun) {
-                AddOp(new Value(Op.Call, fun));
+            public Value BuildBr(Block block) {
+                var result = new Value(Op.Br, block.value);
+                AddOp(result);
+                return result;
+            }
+            public Value BuildCall(Value fun) {
+                var result = new Value(Op.Call, fun);
+                AddOp(result);
+                return result;
+            }
+            public Value BuildGlobalStringPtr(string str, string name = null) {
+                var result = new Value(Op.GlobalStringPtr, ptr_t, str);
+                result.name = name;
+                AddOpGlobal(result);
+                return result;
+            }
+
+            public Value BuildAlloca(Type t, string name = null) {
+                var result = new Value(Op.Alloca, new PointerType(t));
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildArrayAlloca(Type t, Value size, string name = null) {
+                var result = new Value(Op.Alloca, new PointerType(t), size);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+
+            public Value AddGlobal(Type t, string name = null) {
+                var result = new Value(Op.GlobalVariable, new PointerType(t));
+                result.name = name;
+                AddOpGlobal(result);
+                return result;
             }
 
         }

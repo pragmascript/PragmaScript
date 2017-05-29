@@ -10,11 +10,12 @@ using static PragmaScript.SSA.Const;
 
 namespace PragmaScript {
     partial class Backend {
-        
+
         Value intrinsic_memcpy;
         TypeChecker typeChecker;
         Dictionary<Scope.VariableDefinition, Value> variables = new Dictionary<Scope.VariableDefinition, Value>();
         Stack<Value> valueStack = new Stack<Value>();
+        Dictionary<string, Value> stringTable = new Dictionary<string, Value>();
 
         public Backend(TypeChecker typeChecker) {
             this.typeChecker = typeChecker;
@@ -78,7 +79,6 @@ namespace PragmaScript {
             } else {
                 ft = new FunctionType(void_t);
             }
-
 
             // var blockTemp = LLVM.GetInsertBlock(builder);
 
@@ -155,15 +155,110 @@ namespace PragmaScript {
         public void Visit(AST.ConstInt node) {
             var nt = typeChecker.GetNodeType(node);
             var ct = GetTypeRef(nt);
-
-            if (ct.kind == TypeKind.Float || ct.kind == TypeKind.Double) {
-                result = LLVM.ConstReal(ct, node.number);
+            Value result;
+            if (ct.kind == TypeKind.Half || ct.kind == TypeKind.Float || ct.kind == TypeKind.Double) {
+                result = ConstReal(ct, node.number);
             } else {
                 Debug.Assert(ct.kind == TypeKind.Integer);
-                result = LLVM.ConstInt(ct, (ulong)node.number, Const.FalseBool);
+                result = ConstInt(ct, (ulong)node.number);
+            }
+            valueStack.Push(result);
+        }
+
+        public void Visit(AST.ConstFloat node) {
+            var ct = GetTypeRef(typeChecker.GetNodeType(node));
+            var result = ConstReal(ct, node.number);
+            valueStack.Push(result);
+        }
+
+        public void Visit(AST.ConstBool node) {
+            var result = node.value ? true_v : false_v;
+            valueStack.Push(result);
+        }
+
+        public void Visit(AST.ConstString node, bool needsConversion = true) {
+            var str = node.s;
+            if (needsConversion) {
+                str = node.ConvertString();
             }
 
-            valueStack.Push(result);
+            Value str_ptr;
+
+            if (!stringTable.TryGetValue(str, out str_ptr)) {
+                str_ptr = builder.BuildGlobalStringPtr(str, "str");
+                stringTable.Add(str, str_ptr);
+            }
+
+            var type = FrontendType.string_;
+            var arr_struct_type = GetTypeRef(type);
+            var insert = builder.GetInsertBlock();
+
+            builder.PositionAtEnd(builder.context.vars);
+
+            var arr_struct_ptr = builder.BuildAlloca(arr_struct_type, "arr_struct_alloca");
+            var str_length = (uint)str.Length;
+            var elem_type = GetTypeRef(type.elementType);
+
+            var size = ConstInt(i32_t, str_length);
+
+            Value arr_elem_ptr;
+
+            
+            if (node.scope.function != null) {
+                arr_elem_ptr = builder.BuildArrayAlloca(elem_type, size, "arr_elem_alloca");
+            } else {
+
+                var at = new ArrayType(elem_type, str_length);
+
+                arr_elem_ptr = builder.AddGlobal(at, "str_arr");
+
+                // if we are in a "global" scope dont allocate on the stack
+                arr_elem_ptr = LLVM.AddGlobal(mod, LLVM.ArrayType(elem_type, str_length), "str_arr");
+                LLVM.SetLinkage(arr_elem_ptr, LLVMLinkage.LLVMInternalLinkage);
+
+                //LLVMValueRef[] bytes = new LLVMValueRef[str.Length];
+                //if (str.Length == 0)
+                //{
+                //    bytes = new LLVMValueRef[1];
+                //}
+                //for (int i = 0; i < str.Length; ++i)
+                //{
+                //    bytes[i] = LLVM.ConstInt(elem_type, (ulong)str[i], false);
+                //}
+                // LLVM.SetInitializer(arr_elem_ptr, LLVM.ConstArray(elem_type, out bytes[0], (uint)str.Length));
+                LLVM.SetInitializer(arr_elem_ptr, LLVM.ConstNull(at));
+                arr_elem_ptr = LLVM.BuildBitCast(builder, arr_elem_ptr, LLVM.PointerType(elem_type, 0), "str_ptr");
+            }
+            BuildMemCpy(arr_elem_ptr, str_ptr, size);
+
+            // LLVM.SetAlignment(arr_elem_ptr, 4);
+
+            // set array length in struct
+            var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.ZeroInt32 };
+            var gep_arr_length = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
+            LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int32Type, str_length, true), gep_arr_length);
+
+            // set array elem pointer in struct
+            var gep_idx_1 = new LLVMValueRef[] { Const.ZeroInt32, Const.OneInt32 };
+            var gep_arr_elem_ptr = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_1[0], 2, "gep_arr_elem_ptr");
+            LLVM.BuildStore(builder, arr_elem_ptr, gep_arr_elem_ptr);
+
+
+
+            //for (int i = 0; i < bytes.Length; ++i)
+            //{
+            //    var c = bytes[i];
+            //    var gep_idx = new LLVMValueRef[] { LLVM.ConstInt(Const.Int32Type, (ulong)i, Const.FalseBool) };
+            //    var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_" + i);
+            //    var store = LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int8Type, (ulong)c, true), gep);
+            //    // LLVM.SetAlignment(store, 4);
+            //}
+
+            var arr_struct = LLVM.BuildLoad(builder, arr_struct_ptr, "arr_struct_load");
+            valueStack.Push(arr_struct);
+
+            LLVM.PositionBuilderAtEnd(builder, insert);
+
         }
 
         public void Visit(AST.FunctionDefinition node, bool proto = false) {
@@ -211,6 +306,8 @@ namespace PragmaScript {
                 builder.BuildBr(entry);
             }
         }
+
+
 
 
     }

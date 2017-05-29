@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,8 +9,9 @@ namespace PragmaScript {
     class SSA {
 
         public enum Op {
-            ConstInt, ConstReal, ConstPtr, ConstVoid, FunctionDeclaration,
-            Label, Ret, Br, Call
+            ConstInt, ConstReal, ConstPtr, ConstVoid, GlobalStringPtr, GlobalVariable, FunctionDeclaration,
+            Label, Ret, Br, Call,
+            Alloca
         }
 
         public enum TypeKind {
@@ -48,12 +50,16 @@ namespace PragmaScript {
         }
 
         public class Module {
+            public Block globals;
             public Dictionary<string, Function> functions = new Dictionary<string, Function>();
             public Function AddFunction(string name, FunctionType ft) {
                 var value = new Value(Op.FunctionDeclaration, ft);
                 var f = new Function(value);
                 functions.Add(name, f);
                 return f;
+            }
+            public Module() {
+                globals = new Block("globals");
             }
         }
         public class Block {
@@ -139,9 +145,9 @@ namespace PragmaScript {
         }
 
         public class ArrayType : Type {
-            public int elementCount;
+            public uint elementCount;
             public Type elementType;
-            public ArrayType(int elementCount, Type elementType)
+            public ArrayType(Type elementType, uint elementCount)
                 : base(TypeKind.Array) {
                 this.elementCount = elementCount;
                 this.elementType = elementType;
@@ -159,24 +165,55 @@ namespace PragmaScript {
             public Op op;
             public Type type;
             public List<Value> args;
-            public ulong data;
-            public Value(Op op, Type t = null, ulong data = 0, params Value[] args) {
+            public string name;
+            public ulong dataInt;
+            public double dataFloat;
+            public string dataString;
+            bool isConst = false;
+            public Value(Op op, Type t = null, ulong data = 0, bool isConst = false, params Value[] args) {
+                this.op = op;
+                type = t;
+                dataInt = data;
+                if (args != null && args.Length > 0) {
+                    this.args = new List<Value>();
+                    this.args.AddRange(args);
+                }
+                this.isConst = isConst;
+            }
+            public Value(Op op, Type t = null, double data = 0, bool isConst = false, params Value[] args) {
                 this.op = op;
                 this.type = t;
-                this.data = data;
-                this.args.AddRange(args);
+                this.dataFloat = data;
+                if (args != null && args.Length > 0) {
+                    this.args = new List<Value>();
+                    this.args.AddRange(args);
+                }
+                this.isConst = isConst;
+            }
+            public Value(Op op, Type t = null, string data = null, bool isConst = false, params Value[] args) {
+                this.op = op;
+                this.type = t;
+                this.dataString = data;
+                if (args != null && args.Length > 0) {
+                    this.args = new List<Value>();
+                    this.args.AddRange(args);
+                }
+                this.isConst = isConst;
             }
             public Value(Op op, params Value[] args) {
                 this.op = op;
-                this.type = null;
-                this.data = 0;
-                this.args.AddRange(args);
+                if (args != null && args.Length > 0) {
+                    this.args = new List<Value>();
+                    this.args.AddRange(args);
+                }
             }
             public Value(Op op, Type t, params Value[] args) {
                 this.op = op;
                 this.type = t;
-                this.data = 0;
-                this.args.AddRange(args);
+                if (args != null && args.Length > 0) {
+                    this.args = new List<Value>();
+                    this.args.AddRange(args);
+                }
             }
         }
 
@@ -200,90 +237,100 @@ namespace PragmaScript {
             public static readonly PointerType ptr_t = new PointerType(i8_t);
             public static readonly VoidType void_t = new VoidType();
 
-            public static readonly Value void_v = new Value(Op.ConstVoid, void_t);
-            public static readonly Value true_v = new Value(Op.ConstInt, bool_t, 1);
-            public static readonly Value false_v = new Value(Op.ConstInt, bool_t, 0);
-            public static readonly Value zero_i32_v = new Value(Op.ConstInt, i32_t, 0);
-            public static readonly Value one_i32_v = new Value(Op.ConstInt, i32_t, 1);
-            public static readonly Value neg_1_i32_v = new Value(Op.ConstInt, i32_t, unchecked((ulong)-1));
-            public static readonly Value zero_i64_v = new Value(Op.ConstInt, i64_t, 0);
-            public static readonly Value null_ptr_v = new Value(Op.ConstPtr, ptr_t, 0);
-        }
+            public static readonly Value void_v = new Value(Op.ConstVoid, void_t, 0, true);
+            public static readonly Value true_v = new Value(Op.ConstInt, bool_t, 1, true);
+            public static readonly Value false_v = new Value(Op.ConstInt, bool_t, 0, true);
+            public static readonly Value zero_i32_v = new Value(Op.ConstInt, i32_t, 0, true);
+            public static readonly Value one_i32_v = new Value(Op.ConstInt, i32_t, 1, true);
+            public static readonly Value neg_1_i32_v = new Value(Op.ConstInt, i32_t, unchecked((ulong)-1), true);
+            public static readonly Value zero_i64_v = new Value(Op.ConstInt, i64_t, 0, true);
+            public static readonly Value null_ptr_v = new Value(Op.ConstPtr, ptr_t, 0, true);
 
-        public static Type GetTypeRef(FrontendType t) {
-            return getTypeRef(t, 0);
+            public static Value ConstInt(Type t, ulong number) {
+                Debug.Assert(t.kind == TypeKind.Integer);
+                return new Value(Op.ConstInt, t, number, true);
+            }
+            public static Value ConstReal(Type t, double number) {
+                Debug.Assert(t.kind == TypeKind.Half ||
+                             t.kind == TypeKind.Float ||
+                             t.kind == TypeKind.Double);
+                return new Value(Op.ConstReal, t, number, true);
+            }
+          
+            public static Type GetTypeRef(FrontendType t) {
+                return getTypeRef(t, 0);
+            }
+            static Type getTypeRef(FrontendType t, int depth) {
+                if (t.Equals(FrontendType.i8)) {
+                    return Const.i8_t;
+                }
+                if (t.Equals(FrontendType.i16)) {
+                    return Const.i16_t;
+                }
+                if (t.Equals(FrontendType.i32)) {
+                    return Const.i32_t;
+                }
+                if (t.Equals(FrontendType.i64)) {
+                    return Const.i64_t;
+                }
+                if (t.Equals(FrontendType.mm)) {
+                    return Const.mm_t;
+                }
+                if (t.Equals(FrontendType.f32)) {
+                    return Const.f32_t;
+                }
+                if (t.Equals(FrontendType.f64)) {
+                    return Const.f64_t;
+                }
+                if (t.Equals(FrontendType.bool_)) {
+                    return Const.bool_t;
+                }
+                if (t.Equals(FrontendType.void_)) {
+                    return Const.void_t;
+                }
+                if (t.Equals(FrontendType.string_)) {
+                    return getTypeRef(t as FrontendArrayType, depth);
+                }
+                switch (t) {
+                    case FrontendArrayType ta:
+                        return getTypeRef(ta, depth);
+                    case FrontendStructType ts:
+                        return getTypeRef(ts, depth);
+                    case FrontendPointerType tp:
+                        return getTypeRef(tp, depth);
+                    case FrontendFunctionType tf:
+                        return getTypeRef(tf, depth);
+                }
+                throw new InvalidCodePath();
+            }
+            static Type getTypeRef(FrontendStructType t, int depth) {
+                var result = new StructType();
+                foreach (var f in t.fields) {
+                    result.elementTypes.Add(getTypeRef(f.type, depth + 1));
+                }
+                return result;
+            }
+            static Type getTypeRef(FrontendArrayType t, int depth) {
+                var result = new StructType();
+                result.elementTypes.Add(Const.i32_t);
+                result.elementTypes.Add(new PointerType(getTypeRef(t.elementType, depth)));
+                return result;
+            }
+            static Type getTypeRef(FrontendPointerType t, int depth) {
+                if (depth > 0 && t.elementType is FrontendStructType) {
+                    return Const.ptr_t;
+                } else {
+                    var et = getTypeRef(t.elementType, depth);
+                    return new PointerType(et);
+                }
+            }
+            static Type getTypeRef(FrontendFunctionType t, int depth) {
+                var ft = new FunctionType(getTypeRef(t.returnType, depth));
+                foreach (var p in t.parameters) {
+                    ft.argumentTypes.Add(getTypeRef(p.type, depth));
+                }
+                return new PointerType(ft);
+            }
         }
-
-        static Type getTypeRef(FrontendType t, int depth) {
-            if (t.Equals(FrontendType.i8)) {
-                return Const.i8_t;
-            }
-            if (t.Equals(FrontendType.i16)) {
-                return Const.i16_t;
-            }
-            if (t.Equals(FrontendType.i32)) {
-                return Const.i32_t;
-            }
-            if (t.Equals(FrontendType.i64)) {
-                return Const.i64_t;
-            }
-            if (t.Equals(FrontendType.mm)) {
-                return Const.mm_t;
-            }
-            if (t.Equals(FrontendType.f32)) {
-                return Const.f32_t;
-            }
-            if (t.Equals(FrontendType.f64)) {
-                return Const.f64_t;
-            }
-            if (t.Equals(FrontendType.bool_)) {
-                return Const.bool_t;
-            }
-            if (t.Equals(FrontendType.void_)) {
-                return Const.void_t;
-            }
-            if (t.Equals(FrontendType.string_)) {
-                return getTypeRef(t as FrontendArrayType, depth);
-            }
-            switch (t) {
-                case FrontendArrayType ta:
-                    return getTypeRef(ta, depth);
-                case FrontendStructType ts:
-                    return getTypeRef(ts, depth);
-                case FrontendPointerType tp:
-                    return getTypeRef(tp, depth);
-                case FrontendFunctionType tf:
-                    return getTypeRef(tf, depth);
-            }
-            throw new InvalidCodePath();
-        }
-        static Type getTypeRef(FrontendStructType t, int depth) {
-            var result = new StructType();
-            foreach (var f in t.fields) {
-                result.elementTypes.Add(getTypeRef(f.type, depth + 1));
-            }
-            return result;
-        }
-        static Type getTypeRef(FrontendArrayType t, int depth) {
-            var result = new StructType();
-            result.elementTypes.Add(Const.i32_t);
-            result.elementTypes.Add(new PointerType(getTypeRef(t.elementType, depth)));
-            return result;
-        }
-        static Type getTypeRef(FrontendPointerType t, int depth) {
-            if (depth > 0 && t.elementType is FrontendStructType) {
-                return Const.ptr_t;
-            } else {
-                var et = getTypeRef(t.elementType, depth);
-                return new PointerType(et);
-            }
-        }
-        static Type getTypeRef(FrontendFunctionType t, int depth) {
-            var ft = new FunctionType(getTypeRef(t.returnType, depth));
-            foreach (var p in t.parameters) {
-                ft.argumentTypes.Add(getTypeRef(p.type, depth));
-            }
-            return new PointerType(ft);
-        }
-   }
+    }
 }
