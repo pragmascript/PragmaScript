@@ -150,6 +150,7 @@ namespace PragmaScript {
             this.typeChecker = typeChecker;
             this.platform = platform;
             Const.Init(platform);
+
         }
 
 
