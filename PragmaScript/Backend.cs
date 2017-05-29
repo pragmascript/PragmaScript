@@ -213,6 +213,7 @@ namespace PragmaScript {
                 arr_elem_ptr = builder.AddGlobal(at, "str_arr");
 
                 // if we are in a "global" scope dont allocate on the stack
+
                 arr_elem_ptr = LLVM.AddGlobal(mod, LLVM.ArrayType(elem_type, str_length), "str_arr");
                 LLVM.SetLinkage(arr_elem_ptr, LLVMLinkage.LLVMInternalLinkage);
 
