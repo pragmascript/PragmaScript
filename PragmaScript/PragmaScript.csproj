@@ -134,6 +134,7 @@
     <Compile Include="AST.cs" />
     <Compile Include="AST.Nodes.cs" />
     <Compile Include="AST.Parser.cs" />
+    <Compile Include="Backend.Builder.cs" />
     <Compile Include="SSA.cs" />
     <Compile Include="Backend.cs" />
     <Compile Include="BackendLLVM.cs" />
