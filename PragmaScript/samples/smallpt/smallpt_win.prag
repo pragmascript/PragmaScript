@@ -695,7 +695,7 @@ let main = fun() => void {
     let buffer_width  = x_tiles * tile_size;
     let buffer_height = y_tiles * tile_size;
 
-    debug_print_i32("buffer_height", buffer_height);
+    // debug_print_i32("buffer_height", buffer_height);
 
     var client_rect = RECT { 0, 0, buffer_width, buffer_height };
     AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
@@ -705,7 +705,7 @@ let main = fun() => void {
     window.height = client_rect.bottom - client_rect.top;
     assert(window.height > 0);
     
-    debug_print_i32("window_height", window.height);
+    // debug_print_i32("window_height", window.height);
     
     create_backbuffer(&window.backbuffer, buffer_width, buffer_height);
     assert(window.backbuffer.memory != nullptr);

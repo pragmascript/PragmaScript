@@ -1321,9 +1321,6 @@ namespace PragmaScript {
                     return;
                 }
 
-                //if (node.external && variables.ContainsKey(node.funName)) {
-                //    return;
-                //}
                 var funType = LLVM.GetElementType(GetTypeRef(fun));
 
                 Debug.Assert(!variables.ContainsKey(node.variableDefinition));

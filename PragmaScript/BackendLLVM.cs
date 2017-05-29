@@ -117,8 +117,6 @@ namespace PragmaScript {
             }
         }
 
-
-
         Stack<LLVMValueRef> valueStack = new Stack<LLVMValueRef>();
         Dictionary<Scope.VariableDefinition, LLVMValueRef> variables = new Dictionary<Scope.VariableDefinition, LLVMValueRef>();
 

@@ -8,7 +8,8 @@ namespace PragmaScript {
     class SSA {
 
         public enum Op {
-            ConstInt, ConstReal, ConstPtr, FunctionDeclaration
+            ConstInt, ConstReal, ConstPtr, ConstVoid, FunctionDeclaration,
+            Label, Ret, Br, Call
         }
 
         public enum TypeKind {
@@ -34,7 +35,8 @@ namespace PragmaScript {
         public class Function {
             public Value value;
             public Dictionary<string, Block> blocks;
-            public Function(Value value, bool declaration = false) {
+            public bool ExportDLL = false;
+            public Function(Value value) {
                 this.value = value;
                 blocks = null;
             }
@@ -46,7 +48,7 @@ namespace PragmaScript {
         }
 
         public class Module {
-            Dictionary<string, Function> functions = new Dictionary<string, Function>();
+            public Dictionary<string, Function> functions = new Dictionary<string, Function>();
             public Function AddFunction(string name, FunctionType ft) {
                 var value = new Value(Op.FunctionDeclaration, ft);
                 var f = new Function(value);
@@ -55,10 +57,12 @@ namespace PragmaScript {
             }
         }
         public class Block {
+            public Value value;
             public string name;
             public List<Value> ops;
             public Block(string name) {
                 this.name = name;
+                value = new Value(Op.Label, Const.label_t);
                 ops = new List<Value>();
             }
         }
@@ -156,15 +160,30 @@ namespace PragmaScript {
             public Type type;
             public List<Value> args;
             public ulong data;
-            public Value(Op op, Type t, ulong data = 0) {
+            public Value(Op op, Type t = null, ulong data = 0, params Value[] args) {
                 this.op = op;
                 this.type = t;
                 this.data = data;
+                this.args.AddRange(args);
+            }
+            public Value(Op op, params Value[] args) {
+                this.op = op;
+                this.type = null;
+                this.data = 0;
+                this.args.AddRange(args);
+            }
+            public Value(Op op, Type t, params Value[] args) {
+                this.op = op;
+                this.type = t;
+                this.data = 0;
+                this.args.AddRange(args);
             }
         }
 
         public class Const {
             const int NATIVE_POINTER_WIDTH = 64;
+
+            public static readonly LabelType label_t = new LabelType();
 
             public static readonly IntegerType bool_t = new IntegerType(1);
             public static readonly IntegerType i8_t = new IntegerType(8);
@@ -181,6 +200,7 @@ namespace PragmaScript {
             public static readonly PointerType ptr_t = new PointerType(i8_t);
             public static readonly VoidType void_t = new VoidType();
 
+            public static readonly Value void_v = new Value(Op.ConstVoid, void_t);
             public static readonly Value true_v = new Value(Op.ConstInt, bool_t, 1);
             public static readonly Value false_v = new Value(Op.ConstInt, bool_t, 0);
             public static readonly Value zero_i32_v = new Value(Op.ConstInt, i32_t, 0);
@@ -190,7 +210,11 @@ namespace PragmaScript {
             public static readonly Value null_ptr_v = new Value(Op.ConstPtr, ptr_t, 0);
         }
 
-        static Type getTypeRef(FrontendType t, int depth = 0) {
+        public static Type GetTypeRef(FrontendType t) {
+            return getTypeRef(t, 0);
+        }
+
+        static Type getTypeRef(FrontendType t, int depth) {
             if (t.Equals(FrontendType.i8)) {
                 return Const.i8_t;
             }
@@ -236,14 +260,14 @@ namespace PragmaScript {
         static Type getTypeRef(FrontendStructType t, int depth) {
             var result = new StructType();
             foreach (var f in t.fields) {
-                result.elementTypes.Add(getTypeRef(f.type));
+                result.elementTypes.Add(getTypeRef(f.type, depth + 1));
             }
             return result;
         }
         static Type getTypeRef(FrontendArrayType t, int depth) {
             var result = new StructType();
             result.elementTypes.Add(Const.i32_t);
-            result.elementTypes.Add(new PointerType(getTypeRef(t.elementType)));
+            result.elementTypes.Add(new PointerType(getTypeRef(t.elementType, depth)));
             return result;
         }
         static Type getTypeRef(FrontendPointerType t, int depth) {
@@ -255,13 +279,11 @@ namespace PragmaScript {
             }
         }
         static Type getTypeRef(FrontendFunctionType t, int depth) {
-            var ft = new FunctionType(getTypeRef(t.returnType));
+            var ft = new FunctionType(getTypeRef(t.returnType, depth));
             foreach (var p in t.parameters) {
-                ft.argumentTypes.Add(getTypeRef(p.type));
+                ft.argumentTypes.Add(getTypeRef(p.type, depth));
             }
             return new PointerType(ft);
         }
-
-
    }
 }

@@ -4,6 +4,9 @@ import "../math.prag"
 [
 	"compile.output": "hello.exe",
 	"compile.entry" : "true",
+	"compile.ll"    : "true",
+	"compile.bc"    : "true",
+	"compile.asm"    : "true",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",
