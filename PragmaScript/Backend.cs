@@ -407,7 +407,7 @@ namespace PragmaScript {
                                             var ri = builder.BuildPtrToInt(right, mm_t, "ptr_to_int");
                                             var sub = builder.BuildSub(li, ri, "sub");
                                             var lpt = ((PointerType)leftType).elementType;
-                                            var size_of = builder.BuildSizeOf(leftType);
+                                            var size_of = builder.BuildSizeOf(leftType);1^2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        o
                                             result = builder.BuildSDiv(sub, size_of, "div");
                                         }
                                         break;

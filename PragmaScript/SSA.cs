@@ -33,6 +33,7 @@ namespace PragmaScript {
             FDiv,
             FRem,
             FCmp,
+            PtrToInt,
         }
 
         public enum TypeKind {
