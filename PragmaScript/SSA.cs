@@ -26,6 +26,7 @@ namespace PragmaScript {
             URem,
             Shl,
             AShr,
+            Neg,
             FAdd,
             FSub,
             FMul,
@@ -196,7 +197,7 @@ namespace PragmaScript {
             public ulong dataInt;
             public double dataFloat;
             public string dataString;
-            bool isConst = false;
+            public bool isConst = false;
             public Value(Op op, Type t = null, ulong data = 0, bool isConst = false, params Value[] args) {
                 this.op = op;
                 type = t;

@@ -871,7 +871,7 @@ namespace PragmaScript {
                 var elem = ac.elements[i];
                 Visit(elem);
                 var arg = valueStack.Pop();
-                var arg_type_string = typeToString(LLVM.TypeOf(arg));
+                // var arg_type_string = typeToString(LLVM.TypeOf(arg));
                 var gep_idx = new LLVMValueRef[] { LLVM.ConstInt(Const.Int32Type, (ulong)i, Const.FalseBool) };
                 var gep = LLVM.BuildGEP(builder, arr_elem_ptr, out gep_idx[0], 1, "array_elem_" + i);
 

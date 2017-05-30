@@ -348,69 +348,67 @@ namespace PragmaScript {
                     case TypeKind.Half:
                         switch (node.type) {
                             case AST.BinOp.BinOpType.Add:
-                                result = LLVM.BuildFAdd(builder, left, right, "fadd_tmp");
+                                result = builder.BuildFAdd(left, right, "fadd_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Subract:
-                                result = LLVM.BuildFSub(builder, left, right, "fsub_tmp");
+                                result = builder.BuildFSub(left, right, "fsub_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Multiply:
-                                result = LLVM.BuildFMul(builder, left, right, "fmul_tmp");
+                                result = builder.BuildFMul(left, right, "fmul_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Divide:
-                                result = LLVM.BuildFDiv(builder, left, right, "fdiv_tmp");
+                                result = builder.BuildFDiv(left, right, "fdiv_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Remainder:
-                                result = LLVM.BuildFRem(builder, left, right, "frem_tmp");
+                                result = builder.BuildFRem(left, right, "frem_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Equal:
-                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, left, right, "fcmp_tmp");
+                                result = builder.BuildFCmp(left, right, FcmpType.oeq, "fcmp_tmp");
                                 break;
                             case AST.BinOp.BinOpType.NotEqual:
-                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, left, right, "fcmp_tmp");
+                                result = builder.BuildFCmp(left, right, FcmpType.one, "fcmp_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Greater:
-                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, left, right, "fcmp_tmp");
+                                result = builder.BuildFCmp(left, right, FcmpType.ogt, "fcmp_tmp");
                                 break;
                             case AST.BinOp.BinOpType.GreaterEqual:
-                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGE, left, right, "fcmp_tmp");
+                                result = builder.BuildFCmp(left, right, FcmpType.oge, "fcmp_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Less:
-                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, left, right, "fcmp_tmp");
+                                result = builder.BuildFCmp(left, right, FcmpType.olt, "fcmp_tmp");
                                 break;
                             case AST.BinOp.BinOpType.LessEqual:
-                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLE, left, right, "fcmp_tmp");
+                                result = builder.BuildFCmp(left, right, FcmpType.ole, "fcmp_tmp");
                                 break;
                             default:
                                 throw new InvalidCodePath();
                         }
                         break;
-                    case LLVMTypeKind.LLVMPointerTypeKind: {
-                            if (LLVM.GetTypeKind(rightType) == LLVMTypeKind.LLVMIntegerTypeKind) {
+                    case TypeKind.Pointer: {
+                            if (rightType.kind == TypeKind.Integer) {
                                 switch (node.type) {
-
                                     case AST.BinOp.BinOpType.Add: {
-                                            var indices = new LLVMValueRef[] { right };
-                                            result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+                                            result = builder.BuildGEP(left, "ptr_add", right);
                                         }
                                         break;
                                     case AST.BinOp.BinOpType.Subract: {
-                                            var n_right = LLVM.BuildNeg(builder, right, "ptr_add_neg");
-                                            var indices = new LLVMValueRef[] { n_right };
-                                            result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+                                            var n_right = builder.BuildNegt(right, "ptr_add_neg");
+                                            result = builder.BuildGEP(left, "ptr_add", n_right);
                                         }
                                         break;
                                     default:
                                         throw new InvalidCodePath();
                                 }
                                 break;
-                            } else if (LLVM.GetTypeKind(rightType) == LLVMTypeKind.LLVMPointerTypeKind) {
+                            } else if (rightType.kind == TypeKind.Pointer) {
                                 switch (node.type) {
                                     case AST.BinOp.BinOpType.Subract: {
-                                            var li = LLVM.BuildPtrToInt(builder, left, Const.mm, "ptr_to_int");
-                                            var ri = LLVM.BuildPtrToInt(builder, right, Const.mm, "ptr_to_int");
-                                            var sub = LLVM.BuildSub(builder, li, ri, "sub");
-
-                                            result = LLVM.BuildSDiv(builder, sub, LLVM.SizeOf(LLVM.GetElementType(leftType)), "div");
+                                            var li = builder.BuildPtrToInt(left, mm_t, "ptr_to_int");
+                                            var ri = builder.BuildPtrToInt(right, mm_t, "ptr_to_int");
+                                            var sub = builder.BuildSub(li, ri, "sub");
+                                            var lpt = ((PointerType)leftType).elementType;
+                                            var size_of = builder.BuildSizeOf(leftType);
+                                            result = builder.BuildSDiv(sub, size_of, "div");
                                         }
                                         break;
                                     case AST.BinOp.BinOpType.GreaterUnsigned:

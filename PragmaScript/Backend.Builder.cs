@@ -1,4 +1,5 @@
-﻿using static PragmaScript.SSA;
+﻿using System.Diagnostics;
+using static PragmaScript.SSA;
 using static PragmaScript.SSA.Const;
 
 namespace PragmaScript {
@@ -71,6 +72,10 @@ namespace PragmaScript {
                 if (args != null && args.Length > 0) {
                     result.args.AddRange(args);
                 }
+                Debug.Assert(fun.type.kind == TypeKind.Function);
+                var ft = (FunctionType)fun.type;
+                result.type = ft.returnType;
+
                 AddOp(result);
                 return result;
             }
@@ -89,6 +94,7 @@ namespace PragmaScript {
             }
             public Value BuildArrayAlloca(Type t, Value size, string name = null) {
                 var result = new Value(Op.Alloca, new PointerType(t), size);
+                Debug.Assert(size.type.kind == TypeKind.Integer);
                 result.name = name;
                 AddOp(result);
                 return result;
@@ -108,7 +114,6 @@ namespace PragmaScript {
                 return result;
             }
             public Value BuildMemCpy(Value destPtr, Value srcPtr, Value count, bool isVolatile = false) {
-
                 Value result;
                 Value isVolatile_v;
 
@@ -121,12 +126,15 @@ namespace PragmaScript {
                 return result;
             }
             public Value BuildLoad(Value ptr, string name = null) {
-                Value result = new Value(Op.Load, ptr);
+                Debug.Assert(ptr.type.kind == TypeKind.Pointer);
+                var pt = (PointerType)ptr.type;
+                Value result = new Value(Op.Load, pt.elementType, ptr);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildStore(Value v, Value ptr) {
+                Debug.Assert(ptr.type.kind == TypeKind.Pointer);
                 Value result = new Value(Op.Store, v, ptr);
                 return result;
             }
@@ -134,29 +142,53 @@ namespace PragmaScript {
                 Value result = new Value(Op.GEP, ptr);
                 result.args.AddRange(indices);
                 result.name = name;
+
+                Debug.Assert(ptr.type.kind == TypeKind.Pointer);
+                Debug.Assert(indices != null && indices.Length > 0);
+                Debug.Assert(indices[0].type.kind == TypeKind.Integer);
+
+                var pt = (PointerType)ptr.type;
+                var resultType = pt.elementType;
+                for (int i = 1; i < indices.Length; ++i) {
+                    var idx = indices[i];
+                    Debug.Assert(idx.type.kind == TypeKind.Integer);
+                    if (resultType.kind == TypeKind.Array) {
+                        resultType = ((ArrayType)resultType).elementType;
+                    } else if (resultType.kind == TypeKind.Struct) {
+                        Debug.Assert(idx.isConst);
+                        var elementIdx = (int)idx.dataInt;
+                        var st = (StructType)resultType;
+                        resultType = st.elementTypes[elementIdx];
+                    }
+                }
+                result.type = resultType;
                 AddOp(result);
                 return result;
             }
             public Value BuildAnd(Value left, Value right, string name = null) {
                 Value result = new Value(Op.Or, left, right);
                 result.name = name;
+                result.type = left.type;
                 AddOp(result);
                 return result;
             }
             public Value BuildOr(Value left, Value right, string name = null) {
                 Value result = new Value(Op.Or, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildXor(Value left, Value right, string name = null) {
                 Value result = new Value(Op.Xor, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildIcmp(Value left, Value right, IcmpType icmpType, string name = null) {
                 Value result = new Value(Op.Icmp, left, right);
+                result.type = bool_t;
                 result.dataInt = (uint)icmpType;
                 result.name = name;
                 AddOp(result);
@@ -164,96 +196,130 @@ namespace PragmaScript {
             }
             public Value BuildAdd(Value left, Value right, string name = null) {
                 Value result = new Value(Op.Add, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildSub(Value left, Value right, string name = null) {
                 Value result = new Value(Op.Sub, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildMul(Value left, Value right, string name = null) {
                 Value result = new Value(Op.Mul, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildSDiv(Value left, Value right, string name = null) {
                 Value result = new Value(Op.SDiv, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildUDiv(Value left, Value right, string name = null) {
                 Value result = new Value(Op.URem, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildShl(Value left, Value right, string name = null) {
                 Value result = new Value(Op.Shl, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildAShr(Value left, Value right, string name = null) {
                 Value result = new Value(Op.AShr, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildLShr(Value left, Value right, string name = null) {
                 Value result = new Value(Op.URem, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildURem(Value left, Value right, string name = null) {
                 Value result = new Value(Op.URem, left, right);
+                result.type = left.type;
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildNegt(Value v, string name = null) {
+                Value result = new Value(Op.Neg, v);
+                result.type = v.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFAdd(Value left, Value right, string name = null) {
                 Value result = new Value(Op.FAdd, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFSub(Value left, Value right, string name = null) {
                 Value result = new Value(Op.FSub, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFMul(Value left, Value right, string name = null) {
                 Value result = new Value(Op.FMul, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFDiv(Value left, Value right, string name = null) {
                 Value result = new Value(Op.FDiv, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFRem(Value left, Value right, string name = null) {
                 Value result = new Value(Op.FRem, left, right);
+                result.type = left.type;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
-            public Value BuildFcmp(Value left, Value right, FcmpType fcmpType, string name = null) {
+            public Value BuildFCmp(Value left, Value right, FcmpType fcmpType, string name = null) {
                 Value result = new Value(Op.Icmp, left, right);
+                result.type = bool_t;
                 result.dataInt = (uint)fcmpType;
                 result.name = name;
                 AddOp(result);
                 return result;
             }
-
+            public Value BuildPtrToInt(Value v, Type integerType, string name = null) {
+                var result = new Value(Op.PtrToInt, v);
+                result.type = integerType;
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildSizeOf(Type t, string name = null) {
+                var np = new Value(Op.ConstPtr, new PointerType(t), 0, true);
+                var size = BuildGEP(np, "size_of_trick", one_i32_v);
+                var result = BuildPtrToInt(size, Const.mm_t, name);
+                return result;
+            }
         }
 
     }
