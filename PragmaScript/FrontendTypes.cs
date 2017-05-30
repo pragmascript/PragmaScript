@@ -52,7 +52,6 @@ namespace PragmaScript
             return ToString() == obj.ToString();
         }
 
-        // TODO: remove
         public static bool operator ==(FrontendType t1, FrontendType t2)
         {
             // only compare against null not other type

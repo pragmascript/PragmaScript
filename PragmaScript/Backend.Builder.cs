@@ -130,7 +130,6 @@ namespace PragmaScript {
                 Value result = new Value(Op.Store, v, ptr);
                 return result;
             }
-
             public Value BuildGEP(Value ptr, string name = null, params Value[] indices) {
                 Value result = new Value(Op.GEP, ptr);
                 result.args.AddRange(indices);
@@ -138,6 +137,123 @@ namespace PragmaScript {
                 AddOp(result);
                 return result;
             }
+            public Value BuildAnd(Value left, Value right, string name = null) {
+                Value result = new Value(Op.Or, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildOr(Value left, Value right, string name = null) {
+                Value result = new Value(Op.Or, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildXor(Value left, Value right, string name = null) {
+                Value result = new Value(Op.Xor, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildIcmp(Value left, Value right, IcmpType icmpType, string name = null) {
+                Value result = new Value(Op.Icmp, left, right);
+                result.dataInt = (uint)icmpType;
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildAdd(Value left, Value right, string name = null) {
+                Value result = new Value(Op.Add, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildSub(Value left, Value right, string name = null) {
+                Value result = new Value(Op.Sub, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildMul(Value left, Value right, string name = null) {
+                Value result = new Value(Op.Mul, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildSDiv(Value left, Value right, string name = null) {
+                Value result = new Value(Op.SDiv, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildUDiv(Value left, Value right, string name = null) {
+                Value result = new Value(Op.URem, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildShl(Value left, Value right, string name = null) {
+                Value result = new Value(Op.Shl, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildAShr(Value left, Value right, string name = null) {
+                Value result = new Value(Op.AShr, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildLShr(Value left, Value right, string name = null) {
+                Value result = new Value(Op.URem, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildURem(Value left, Value right, string name = null) {
+                Value result = new Value(Op.URem, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildFAdd(Value left, Value right, string name = null) {
+                Value result = new Value(Op.FAdd, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildFSub(Value left, Value right, string name = null) {
+                Value result = new Value(Op.FSub, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildFMul(Value left, Value right, string name = null) {
+                Value result = new Value(Op.FMul, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildFDiv(Value left, Value right, string name = null) {
+                Value result = new Value(Op.FDiv, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildFRem(Value left, Value right, string name = null) {
+                Value result = new Value(Op.FRem, left, right);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildFcmp(Value left, Value right, FcmpType fcmpType, string name = null) {
+                Value result = new Value(Op.Icmp, left, right);
+                result.dataInt = (uint)fcmpType;
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+
         }
 
     }

@@ -201,7 +201,6 @@ namespace PragmaScript {
 
             Value arr_elem_ptr;
 
-            
             if (node.scope.function != null) {
                 arr_elem_ptr = builder.BuildArrayAlloca(elem_type, size, "arr_elem_alloca");
             } else {
@@ -225,6 +224,225 @@ namespace PragmaScript {
             valueStack.Push(arr_struct);
 
             builder.PositionAtEnd(insert);
+        }
+
+        public void Visit(AST.BinOp node) {
+            if (node.type == AST.BinOp.BinOpType.ConditionalOR) {
+                visitConditionalOR(node);
+                return;
+            }
+            if (node.type == AST.BinOp.BinOpType.ConditionaAND) {
+                visitConditionalAND(node);
+                return;
+            }
+
+            Visit(node.left);
+            var left = valueStack.Pop();
+            Visit(node.right);
+            var right = valueStack.Pop();
+
+            var leftFrontendType = typeChecker.GetNodeType(node.left);
+            var rightFrontendType = typeChecker.GetNodeType(node.right);
+
+            var leftType = left.type;
+            var rightType = right.type;
+
+
+            Value result;
+            if (leftFrontendType.Equals(FrontendType.bool_)) {
+                switch (node.type) {
+                    case AST.BinOp.BinOpType.LogicalAND:
+                        result = builder.BuildAnd(left, right, "and_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LogicalOR:
+                        result = builder.BuildOr(left, right, "or_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.LogicalXOR:
+                        result = builder.BuildXor(left, right, "xor_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.Equal:
+                        result = builder.BuildIcmp(left, right, IcmpType.eq, "icmp_tmp");
+                        break;
+                    case AST.BinOp.BinOpType.NotEqual:
+                        result = builder.BuildIcmp(left, right, IcmpType.ne, "icmp_tmp");
+                        break;
+                    default:
+                        throw new InvalidCodePath();
+                }
+            } else {
+                switch (leftType.kind) {
+                    case TypeKind.Integer:
+                        switch (node.type) {
+                            case AST.BinOp.BinOpType.Add:
+                                result = builder.BuildAdd(left, right, "add_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Subract:
+                                result = builder.BuildSub(left, right, "sub_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Multiply:
+                                result = builder.BuildMul(left, right, "mul_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Divide:
+                                result = builder.BuildSDiv(left, right, "div_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.DivideUnsigned:
+                                result = builder.BuildUDiv(left, right, "div_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LeftShift:
+                                result = builder.BuildShl(left, right, "shl_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.RightShift:
+                                result = builder.BuildAShr(left, right, "shr_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.RightShiftUnsigned:
+                                result = builder.BuildLShr(left, right, "shr_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Remainder:
+                                result = builder.BuildURem(left, right, "urem_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Equal:
+                                result = builder.BuildIcmp(left, right, IcmpType.eq, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.NotEqual:
+                                result = builder.BuildIcmp(left, right, IcmpType.ne, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Greater:
+                                result = builder.BuildIcmp(left, right, IcmpType.sgt, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.GreaterEqual:
+                                result = builder.BuildIcmp(left, right, IcmpType.sge, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Less:
+                                result = builder.BuildIcmp(left, right, IcmpType.slt, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LessEqual:
+                                result = builder.BuildIcmp(left, right, IcmpType.sle, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.GreaterUnsigned:
+                                result = builder.BuildIcmp(left, right, IcmpType.ugt, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.GreaterEqualUnsigned:
+                                result = builder.BuildIcmp(left, right, IcmpType.uge, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LessUnsigned:
+                                result = builder.BuildIcmp(left, right, IcmpType.ult, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LessEqualUnsigned:
+                                result = builder.BuildIcmp(left, right, IcmpType.ule, "icmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LogicalAND:
+                                result = builder.BuildAnd(left, right, "and_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LogicalOR:
+                                result = builder.BuildOr(left, right, "or_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LogicalXOR:
+                                result = builder.BuildXor(left, right, "xor_tmp");
+                                break;
+                            default:
+                                throw new InvalidCodePath();
+                        }
+                        break;
+                    case TypeKind.Double:
+                    case TypeKind.Float:
+                    case TypeKind.Half:
+                        switch (node.type) {
+                            case AST.BinOp.BinOpType.Add:
+                                result = LLVM.BuildFAdd(builder, left, right, "fadd_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Subract:
+                                result = LLVM.BuildFSub(builder, left, right, "fsub_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Multiply:
+                                result = LLVM.BuildFMul(builder, left, right, "fmul_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Divide:
+                                result = LLVM.BuildFDiv(builder, left, right, "fdiv_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Remainder:
+                                result = LLVM.BuildFRem(builder, left, right, "frem_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Equal:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.NotEqual:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Greater:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.GreaterEqual:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGE, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.Less:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, left, right, "fcmp_tmp");
+                                break;
+                            case AST.BinOp.BinOpType.LessEqual:
+                                result = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLE, left, right, "fcmp_tmp");
+                                break;
+                            default:
+                                throw new InvalidCodePath();
+                        }
+                        break;
+                    case LLVMTypeKind.LLVMPointerTypeKind: {
+                            if (LLVM.GetTypeKind(rightType) == LLVMTypeKind.LLVMIntegerTypeKind) {
+                                switch (node.type) {
+
+                                    case AST.BinOp.BinOpType.Add: {
+                                            var indices = new LLVMValueRef[] { right };
+                                            result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+                                        }
+                                        break;
+                                    case AST.BinOp.BinOpType.Subract: {
+                                            var n_right = LLVM.BuildNeg(builder, right, "ptr_add_neg");
+                                            var indices = new LLVMValueRef[] { n_right };
+                                            result = LLVM.BuildGEP(builder, left, out indices[0], 1, "ptr_add");
+                                        }
+                                        break;
+                                    default:
+                                        throw new InvalidCodePath();
+                                }
+                                break;
+                            } else if (LLVM.GetTypeKind(rightType) == LLVMTypeKind.LLVMPointerTypeKind) {
+                                switch (node.type) {
+                                    case AST.BinOp.BinOpType.Subract: {
+                                            var li = LLVM.BuildPtrToInt(builder, left, Const.mm, "ptr_to_int");
+                                            var ri = LLVM.BuildPtrToInt(builder, right, Const.mm, "ptr_to_int");
+                                            var sub = LLVM.BuildSub(builder, li, ri, "sub");
+
+                                            result = LLVM.BuildSDiv(builder, sub, LLVM.SizeOf(LLVM.GetElementType(leftType)), "div");
+                                        }
+                                        break;
+                                    case AST.BinOp.BinOpType.GreaterUnsigned:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntUGT, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.GreaterEqualUnsigned:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntUGE, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.LessUnsigned:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntULT, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.LessEqualUnsigned:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntULE, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.Equal:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, left, right, "icmp_tmp");
+                                        break;
+                                    case AST.BinOp.BinOpType.NotEqual:
+                                        result = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, left, right, "icmp_tmp");
+                                        break;
+                                    default:
+                                        throw new InvalidCodePath();
+                                }
+                            } else
+                                throw new InvalidCodePath();
+                        }
+                        break;
+                    default:
+                        throw new InvalidCodePath();
+                }
+            }
+            valueStack.Push(result);
         }
 
         public void Visit(AST.FunctionDefinition node, bool proto = false) {

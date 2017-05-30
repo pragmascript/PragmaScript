@@ -11,7 +11,27 @@ namespace PragmaScript {
         public enum Op {
             ConstInt, ConstReal, ConstPtr, ConstVoid, GlobalStringPtr, GlobalVariable, FunctionDeclaration,
             Label, Ret, Br, Call,
-            Alloca
+            Alloca,
+            BitCast,
+            Store,
+            GEP,
+            Load,
+            Or,
+            Xor,
+            Icmp,
+            Add,
+            Sub,
+            Mul,
+            SDiv,
+            URem,
+            Shl,
+            AShr,
+            FAdd,
+            FSub,
+            FMul,
+            FDiv,
+            FRem,
+            FCmp,
         }
 
         public enum TypeKind {
@@ -161,6 +181,13 @@ namespace PragmaScript {
             public List<Type> elementTypes = new List<Type>();
         }
 
+        public enum IcmpType {
+            eq, ne, ugt, uge, ult, ule, sgt, sge, slt, sle
+        }
+        public enum FcmpType {
+            @false, oeq, ogt, oge, olt, ole, one, ord, ueq, ugt, uge, ult, ule, une, uno, @true
+        }
+
         public class Value {
             public Op op;
             public Type type;
@@ -256,7 +283,7 @@ namespace PragmaScript {
                              t.kind == TypeKind.Double);
                 return new Value(Op.ConstReal, t, number, true);
             }
-          
+
             public static Type GetTypeRef(FrontendType t) {
                 return getTypeRef(t, 0);
             }
