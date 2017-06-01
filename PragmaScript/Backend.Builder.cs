@@ -12,11 +12,15 @@ namespace PragmaScript {
             public Block vars;
             public Block entry;
 
+            // TODO(pragma): ???
+            public bool isGlobal { get { return currentFunction.name == "__init"; } }
+
             public void EnterFunction(Function function) {
                 currentFunction = function;
                 vars = function.blocks["vars"];
                 entry = function.blocks["entry"];
             }
+
         }
 
         public class Builder {
@@ -28,7 +32,7 @@ namespace PragmaScript {
                 this.mod = mod;
                 // add memcpy
                 var ft = new FunctionType(Const.void_t, Const.ptr_t, Const.ptr_t, Const.i32_t, Const.bool_t);
-                intrinsic_memcpy = mod.AddFunction("llvm.memcpy.p0i8.p0i8.i32", ft).value;
+                intrinsic_memcpy = mod.AddFunction("llvm.memcpy.p0i8.p0i8.i32", ft);
             }
             public Function CreateAndEnterFunction(string name, FunctionType ft) {
                 var function = mod.AddFunction(name, ft);
@@ -50,49 +54,63 @@ namespace PragmaScript {
             public Block GetInsertBlock() {
                 return currentBlock;
             }
+            public Block AppendBasicBlock(string name) {
+                var f = context.currentFunction;
+                var result = f.AppendBasicBlock(name);
+                return result;
+            }
+            public void MoveBasicBlockAfter(Block block, Block targetPosition) {
+                block.function.MoveBasicBlockAfter(block, targetPosition);
+            }
             void AddOp(Value v) {
-                currentBlock.ops.Add(v);
+                currentBlock.args.Add(v);
             }
             void AddOpGlobal(Value v) {
-                mod.globals.ops.Add(v);
+                mod.globals.args.Add(v);
             }
 
             public Value BuildRet(Value ret) {
-                var result = new Value(Op.Ret, ret);
+                var result = new Value(Op.Ret, ret.type, ret);
                 AddOp(result);
                 return result;
             }
             public Value BuildBr(Block block) {
-                var result = new Value(Op.Br, block.value);
+                var result = new Value(Op.Br, null, block);
+                AddOp(result);
+                return result;
+            }
+            public Value BuildCondBr(Value cond, Block ifTrue, Block ifFalse) {
+                Debug.Assert(SSAType.IsBoolType(cond.type));
+                var result = new Value(Op.Br, null, cond, ifTrue, ifFalse);
                 AddOp(result);
                 return result;
             }
             public Value BuildCall(Value fun, params Value[] args) {
-                var result = new Value(Op.Call, fun);
+                Debug.Assert(fun.type.kind == TypeKind.Function);
+                var ft = (FunctionType)fun.type;
+                var result = new Value(Op.Call, ft, fun);
                 if (args != null && args.Length > 0) {
                     result.args.AddRange(args);
                 }
-                Debug.Assert(fun.type.kind == TypeKind.Function);
-                var ft = (FunctionType)fun.type;
                 result.type = ft.returnType;
 
                 AddOp(result);
                 return result;
             }
-            public Value BuildGlobalStringPtr(string str, string name = null) {
-                var result = new Value(Op.GlobalStringPtr, ptr_t, str);
+            public GlobalStringPtr BuildGlobalStringPtr(string str, string name = null) {
+                var result = new GlobalStringPtr(str, name);
                 result.name = name;
                 AddOpGlobal(result);
                 return result;
             }
 
-            public Value BuildAlloca(Type t, string name = null) {
+            public Value BuildAlloca(SSAType t, string name = null) {
                 var result = new Value(Op.Alloca, new PointerType(t));
                 result.name = name;
                 AddOp(result);
                 return result;
             }
-            public Value BuildArrayAlloca(Type t, Value size, string name = null) {
+            public Value BuildArrayAlloca(SSAType t, Value size, string name = null) {
                 var result = new Value(Op.Alloca, new PointerType(t), size);
                 Debug.Assert(size.type.kind == TypeKind.Integer);
                 result.name = name;
@@ -100,226 +118,263 @@ namespace PragmaScript {
                 return result;
             }
 
-            public Value AddGlobal(Type t, string name = null) {
-                var result = new Value(Op.GlobalVariable, new PointerType(t));
-                result.name = name;
+            public GlobalVariable AddGlobal(SSAType t, string name = null) {
+                var result = new GlobalVariable(t, name);
                 AddOpGlobal(result);
                 return result;
             }
 
-            public Value BuildBitCast(Value v, Type dest, string name = null) {
-                var result = new Value(Op.BitCast, v);
+            public Value BuildBitCast(Value v, SSAType dest, string name = null) {
+                var result = new Value(Op.BitCast, v.type, v);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildMemCpy(Value destPtr, Value srcPtr, Value count, bool isVolatile = false) {
-                Value result;
                 Value isVolatile_v;
-
                 if (isVolatile) {
                     isVolatile_v = true_v;
                 } else {
                     isVolatile_v = false_v;
                 }
-                result = BuildCall(intrinsic_memcpy, destPtr, srcPtr, count, zero_i32_v, isVolatile_v);
+                var result = BuildCall(intrinsic_memcpy, destPtr, srcPtr, count, zero_i32_v, isVolatile_v);
                 return result;
             }
             public Value BuildLoad(Value ptr, string name = null) {
                 Debug.Assert(ptr.type.kind == TypeKind.Pointer);
                 var pt = (PointerType)ptr.type;
-                Value result = new Value(Op.Load, pt.elementType, ptr);
+                var result = new Value(Op.Load, pt.elementType, ptr);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildStore(Value v, Value ptr) {
                 Debug.Assert(ptr.type.kind == TypeKind.Pointer);
-                Value result = new Value(Op.Store, v, ptr);
+                var result = new Value(Op.Store, null, v, ptr);
                 return result;
             }
-            public Value BuildGEP(Value ptr, string name = null, params Value[] indices) {
-                Value result = new Value(Op.GEP, ptr);
-                result.args.AddRange(indices);
+            public GetElementPtr BuildGEP(Value ptr, string name = null, bool inBounds = false, params Value[] indices) {
+                var result = new GetElementPtr(ptr, name, inBounds, indices);
+                AddOp(result);
+                return result;
+            }
+            public Value BuildNot(Value v, string name = null) {
+                var result = new Value(Op.Not, v.type, v);
                 result.name = name;
-
-                Debug.Assert(ptr.type.kind == TypeKind.Pointer);
-                Debug.Assert(indices != null && indices.Length > 0);
-                Debug.Assert(indices[0].type.kind == TypeKind.Integer);
-
-                var pt = (PointerType)ptr.type;
-                var resultType = pt.elementType;
-                for (int i = 1; i < indices.Length; ++i) {
-                    var idx = indices[i];
-                    Debug.Assert(idx.type.kind == TypeKind.Integer);
-                    if (resultType.kind == TypeKind.Array) {
-                        resultType = ((ArrayType)resultType).elementType;
-                    } else if (resultType.kind == TypeKind.Struct) {
-                        Debug.Assert(idx.isConst);
-                        var elementIdx = (int)idx.dataInt;
-                        var st = (StructType)resultType;
-                        resultType = st.elementTypes[elementIdx];
-                    }
-                }
-                result.type = resultType;
                 AddOp(result);
                 return result;
             }
             public Value BuildAnd(Value left, Value right, string name = null) {
-                Value result = new Value(Op.Or, left, right);
+                var result = new Value(Op.Or, left.type, left, right);
                 result.name = name;
-                result.type = left.type;
                 AddOp(result);
                 return result;
             }
             public Value BuildOr(Value left, Value right, string name = null) {
-                Value result = new Value(Op.Or, left, right);
-                result.type = left.type;
+                var result = new Value(Op.Or, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildXor(Value left, Value right, string name = null) {
-                Value result = new Value(Op.Xor, left, right);
-                result.type = left.type;
+                var result = new Value(Op.Xor, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
-            public Value BuildIcmp(Value left, Value right, IcmpType icmpType, string name = null) {
-                Value result = new Value(Op.Icmp, left, right);
-                result.type = bool_t;
-                result.dataInt = (uint)icmpType;
-                result.name = name;
+            public ICmp BuildICmp(Value left, Value right, IcmpType icmpType, string name = null) {
+                var result = new ICmp(left, right, icmpType, name);
                 AddOp(result);
                 return result;
             }
             public Value BuildAdd(Value left, Value right, string name = null) {
-                Value result = new Value(Op.Add, left, right);
-                result.type = left.type;
+                var result = new Value(Op.Add, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildSub(Value left, Value right, string name = null) {
-                Value result = new Value(Op.Sub, left, right);
-                result.type = left.type;
+                var result = new Value(Op.Sub, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildMul(Value left, Value right, string name = null) {
-                Value result = new Value(Op.Mul, left, right);
-                result.type = left.type;
+                var result = new Value(Op.Mul, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildSDiv(Value left, Value right, string name = null) {
-                Value result = new Value(Op.SDiv, left, right);
-                result.type = left.type;
+                var result = new Value(Op.SDiv, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildUDiv(Value left, Value right, string name = null) {
-                Value result = new Value(Op.URem, left, right);
-                result.type = left.type;
+                var result = new Value(Op.URem, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildShl(Value left, Value right, string name = null) {
-                Value result = new Value(Op.Shl, left, right);
-                result.type = left.type;
+                var result = new Value(Op.Shl, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildAShr(Value left, Value right, string name = null) {
-                Value result = new Value(Op.AShr, left, right);
-                result.type = left.type;
+                var result = new Value(Op.AShr, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildLShr(Value left, Value right, string name = null) {
-                Value result = new Value(Op.URem, left, right);
-                result.type = left.type;
+                var result = new Value(Op.URem, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildURem(Value left, Value right, string name = null) {
-                Value result = new Value(Op.URem, left, right);
-                result.type = left.type;
+                var result = new Value(Op.URem, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
-            public Value BuildNegt(Value v, string name = null) {
-                Value result = new Value(Op.Neg, v);
-                result.type = v.type;
+            public Value BuildNeg(Value v, string name = null) {
+                var result = new Value(Op.Neg, v.type, v);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFAdd(Value left, Value right, string name = null) {
-                Value result = new Value(Op.FAdd, left, right);
-                result.type = left.type;
+                var result = new Value(Op.FAdd, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFSub(Value left, Value right, string name = null) {
-                Value result = new Value(Op.FSub, left, right);
-                result.type = left.type;
+                var result = new Value(Op.FSub, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFMul(Value left, Value right, string name = null) {
-                Value result = new Value(Op.FMul, left, right);
-                result.type = left.type;
+                var result = new Value(Op.FMul, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFDiv(Value left, Value right, string name = null) {
-                Value result = new Value(Op.FDiv, left, right);
-                result.type = left.type;
+                var result = new Value(Op.FDiv, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFRem(Value left, Value right, string name = null) {
-                Value result = new Value(Op.FRem, left, right);
-                result.type = left.type;
+                var result = new Value(Op.FRem, left.type, left, right);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
             public Value BuildFCmp(Value left, Value right, FcmpType fcmpType, string name = null) {
-                Value result = new Value(Op.Icmp, left, right);
-                result.type = bool_t;
-                result.dataInt = (uint)fcmpType;
+                var result = new FCmp(left, right, fcmpType, name);
+                AddOp(result);
+                return result;
+            }
+            public Value BuildFNeg(Value v, string name = null) {
+                var result = new Value(Op.FNeg, v.type, v);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
-            public Value BuildPtrToInt(Value v, Type integerType, string name = null) {
-                var result = new Value(Op.PtrToInt, v);
-                result.type = integerType;
+            public Value BuildPtrToInt(Value v, SSAType integerType, string name = null) {
+                var result = new Value(Op.PtrToInt, integerType, v);
                 result.name = name;
                 AddOp(result);
                 return result;
             }
-            public Value BuildSizeOf(Type t, string name = null) {
-                var np = new Value(Op.ConstPtr, new PointerType(t), 0, true);
+            public Value BuildIntToPtr(Value v, SSAType pointerType, string name = null) {
+                var result = new Value(Op.IntToPtr, pointerType, v);
+                result.name = name;
+                AddOp(result);
+                return result;
+            }
+            public Value BuildSizeOf(SSAType t, string name = null) {
+                var np = new ConstPtr(new PointerType(t), 0);
                 var size = BuildGEP(np, "size_of_trick", one_i32_v);
                 var result = BuildPtrToInt(size, Const.mm_t, name);
                 return result;
             }
+            public Phi BuildPhi(SSAType t, string name = null, params (Value, Block)[] incoming) {
+                var result = new Phi(t, name, incoming);
+                AddOp(result);
+                return result;
+            }
+            public Value BuildSExt(Value v, SSAType targetType, string name = null) {
+                var result = new Value(Op.SExt, targetType, v);
+                result.name = name;
+                return result;
+            }
+            public Value BuildZExt(Value v, SSAType targetType, string name = null) {
+                var result = new Value(Op.ZExt, targetType, v);
+                result.name = name;
+                return result;
+            }
+            public Value BuildTrunc(Value v, SSAType targetType, string name = null) {
+                var result = new Value(Op.Trunc, targetType, v);
+                result.name = name;
+                return result;
+            }
+            public Value BuildFPToSI(Value v, SSAType targetType, string name = null) {
+                var result = new Value(Op.FPToSI, targetType, v);
+                result.name = name;
+                return result;
+            }
+            public Value BuildFPToUI(Value v, SSAType targetType, string name = null) {
+                var result = new Value(Op.FPToUI, targetType, v);
+                result.name = name;
+                return result;
+            }
+            public Value BuildSIToFP(Value v, SSAType targetType, string name = null) {
+                var result = new Value(Op.SIToFP, targetType, v);
+                result.name = name;
+                return result;
+            }
+            public Value BuildUIToFP(Value v, SSAType targetType, string name = null) {
+                var result = new Value(Op.UIToFP, targetType, v);
+                result.name = name;
+                return result;
+            }
+            public Value BuildFPCast(Value v, SSAType targetType, string name = null) {
+                var result = new Value(Op.FPCast, targetType, v);
+                result.name = name;
+                return result;
+            }
+            public GetElementPtr BuildStructGEP(Value structPointer, int idx, string name = null) {
+                return new GetElementPtr(structPointer, name, true, new ConstInt(i32_t, (ulong)idx));
+            }
+            public Value ConstNull(SSAType t) {
+                
+                switch (t.kind) {
+                    case TypeKind.Integer:
+                        return new ConstInt(t, 0);
+                    case TypeKind.Float:
+                        return new ConstReal(t, 0.0);
+                    case TypeKind.Pointer:
+                        return new ConstPtr(t, 0);
+                    case TypeKind.Struct:
+                    case TypeKind.Array:
+                        // store <{ float, float, float }> zeroinitializer, <{ float, float, float }> * % struct_arg_1
+                        return new Value(Op.ConstAggregateZero, t);
+                    default:
+                        throw new System.NotImplementedException();
+                }
+            }
+            public Value GetParam(Function f, int idx) {
+
+            }
+
         }
 
     }

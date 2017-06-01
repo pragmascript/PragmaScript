@@ -855,9 +855,7 @@ namespace PragmaScript {
             var arr_elem_ptr = LLVM.BuildArrayAlloca(builder, elem_type, size, "arr_elem_alloca");
             LLVM.PositionBuilderAtEnd(builder, insert);
 
-
             // set array length in struct
-
             var gep_idx_0 = new LLVMValueRef[] { Const.ZeroInt32, Const.ZeroInt32 };
             var gep_arr_length = LLVM.BuildGEP(builder, arr_struct_ptr, out gep_idx_0[0], 2, "gep_arr_elem_ptr");
             LLVM.BuildStore(builder, LLVM.ConstInt(Const.Int32Type, (ulong)ac.elements.Count, true), gep_arr_length);
@@ -1068,9 +1066,6 @@ namespace PragmaScript {
         }
 
         public void Visit(AST.FunctionCall node) {
-            if (node.token.Line == 55) {
-                int breakHere = 42;
-            }
             var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
 
             if (feft.specialFun) {
