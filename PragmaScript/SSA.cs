@@ -48,6 +48,7 @@ namespace PragmaScript {
             IntToPtr,
             ConstAggregateZero,
             FunctionParam,
+            ExtractValue,
         }
 
         public enum TypeKind {
@@ -75,12 +76,6 @@ namespace PragmaScript {
         public class Module {
             public Block globals;
             public Dictionary<string, Function> functions = new Dictionary<string, Function>();
-            public Function AddFunction(string name, FunctionType ft) {
-                var value = new Value(Op.Function, ft);
-                var f = new Function(value);
-                functions.Add(name, f);
-                return f;
-            }
             public Module() {
                 globals = new Block(null, "globals");
             }
@@ -297,12 +292,23 @@ namespace PragmaScript {
                     this.args.AddRange(args);
                 }
             }
+            public bool IsTerminator() {
+                switch (op) {
+                    case Op.Ret:
+                    case Op.Br:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+
         }
         public class Function : Value {
             public Dictionary<string, Block> blocks;
             public bool ExportDLL = false;
             public Function(FunctionType ft, string name, string[] paramNames = null)
                 : base(Op.Function, ft) {
+                args = new List<Value>();
                 blocks = null;
                 this.name = name;
                 Debug.Assert(paramNames == null || paramNames.Length == ft.argumentTypes.Count);
@@ -315,6 +321,9 @@ namespace PragmaScript {
                 }
             }
             public Block AppendBasicBlock(string name) {
+                if (blocks == null) {
+                    blocks = new Dictionary<string, Block>();
+                }
                 var b = new Block(this, name);
                 blocks.Add(name, b);
                 args.Add(b);
@@ -332,6 +341,7 @@ namespace PragmaScript {
                 var idx = args.IndexOf(targetBlock);
                 args.Insert(idx, b);
             }
+            
         }
 
         public class Block : Value {
@@ -340,6 +350,26 @@ namespace PragmaScript {
             : base(Op.Label, Const.label_t) {
                 this.name = name;
                 this.function = f;
+                args = new List<Value>();
+            }
+            public bool HasTerminator() {
+                if (args.Count == 0) {
+                    return false;
+                }
+                var last = args.Last();
+                return last.IsTerminator();
+            }
+
+            public Value GetTerminator() {
+                if (args.Count == 0) {
+                    return null;
+                }
+                var last = args.Last();
+                if (last.IsTerminator()) {
+                    return last;
+                } else {
+                    return null;
+                }
             }
         }
 
@@ -385,7 +415,7 @@ namespace PragmaScript {
         public class GlobalVariable : Value {
             public Value initializer = null;
             public GlobalVariable(SSAType t, string name)
-                : base(Op.GlobalVariable, t) {
+                : base(Op.GlobalVariable, new PointerType(t)) {
             }
             public void SetInitializer(Value v) {
                 initializer = v;
@@ -417,7 +447,7 @@ namespace PragmaScript {
                 Debug.Assert(incoming != null && incoming.Length > 0);
 #if DEBUG
                 for (int idx = 0; idx < incoming.Length; ++idx) {
-                    Debug.Assert(t == incoming[idx].Item1.type)
+                    Debug.Assert(t == incoming[idx].Item1.type);
                 }
 #endif
                 this.incoming.AddRange(incoming);
@@ -450,10 +480,11 @@ namespace PragmaScript {
                 }
 
                 this.name = name;
-                this.type = resultType;
+                this.type = new PointerType(resultType);
             }
         }
 
+        
         public class Const {
             const int NATIVE_POINTER_WIDTH = 64;
 

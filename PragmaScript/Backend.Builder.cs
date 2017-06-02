@@ -8,9 +8,13 @@ namespace PragmaScript {
         public Builder builder;
 
         public class Context {
+
             public Function currentFunction;
             public Block vars;
             public Block entry;
+            public AST.Node callsite;
+
+            System.Collections.Generic.Stack<(Block next, Block end)> loopStack = new System.Collections.Generic.Stack<(Block next, Block end)>();
 
             // TODO(pragma): ???
             public bool isGlobal { get { return currentFunction.name == "__init"; } }
@@ -21,6 +25,22 @@ namespace PragmaScript {
                 entry = function.blocks["entry"];
             }
 
+            public void SetCallsite(AST.Node callsite) {
+                this.callsite = callsite;
+            }
+
+            public void PushLoop(Block loopNext, Block loopEnd) {
+                loopStack.Push((loopNext, loopEnd));
+            }
+            public void PopLoop() {
+            }
+            public bool IsLoop() {
+                return loopStack.Count > 0;
+            }
+            public (Block next, Block end) PeekLoop() {
+                return loopStack.Peek();
+            }
+
         }
 
         public class Builder {
@@ -29,15 +49,11 @@ namespace PragmaScript {
             public Block currentBlock;
             Value intrinsic_memcpy;
             public Builder(Module mod) {
+                context = new Context();
                 this.mod = mod;
                 // add memcpy
                 var ft = new FunctionType(Const.void_t, Const.ptr_t, Const.ptr_t, Const.i32_t, Const.bool_t);
-                intrinsic_memcpy = mod.AddFunction("llvm.memcpy.p0i8.p0i8.i32", ft);
-            }
-            public Function CreateAndEnterFunction(string name, FunctionType ft) {
-                var function = mod.AddFunction(name, ft);
-                EnterFunction(function);
-                return function;
+                intrinsic_memcpy = AddFunction(ft, "llvm.memcpy.p0i8.p0i8.i32");
             }
             public void EnterFunction(Function function) {
                 context.EnterFunction(function);
@@ -74,6 +90,12 @@ namespace PragmaScript {
                 AddOp(result);
                 return result;
             }
+            public Value BuildRetVoid() {
+                var result = new Value(Op.Ret, Const.void_t);
+                AddOp(result);
+                return result;
+            }
+
             public Value BuildBr(Block block) {
                 var result = new Value(Op.Br, null, block);
                 AddOp(result);
@@ -85,7 +107,7 @@ namespace PragmaScript {
                 AddOp(result);
                 return result;
             }
-            public Value BuildCall(Value fun, params Value[] args) {
+            public Value BuildCall(Value fun, string name = null, params Value[] args) {
                 Debug.Assert(fun.type.kind == TypeKind.Function);
                 var ft = (FunctionType)fun.type;
                 var result = new Value(Op.Call, ft, fun);
@@ -137,7 +159,7 @@ namespace PragmaScript {
                 } else {
                     isVolatile_v = false_v;
                 }
-                var result = BuildCall(intrinsic_memcpy, destPtr, srcPtr, count, zero_i32_v, isVolatile_v);
+                var result = BuildCall(intrinsic_memcpy, "memcpy", destPtr, srcPtr, count, zero_i32_v, isVolatile_v);
                 return result;
             }
             public Value BuildLoad(Value ptr, string name = null) {
@@ -156,6 +178,28 @@ namespace PragmaScript {
             public GetElementPtr BuildGEP(Value ptr, string name = null, bool inBounds = false, params Value[] indices) {
                 var result = new GetElementPtr(ptr, name, inBounds, indices);
                 AddOp(result);
+                return result;
+            }
+            public Value BuildExtractValue(Value v, string name = null, params Value[] indices) {
+                Debug.Assert(indices != null && indices.Length > 0);
+                var result = new Value(Op.ExtractValue, null, indices);
+
+                Debug.Assert(indices != null && indices.Length > 0);
+                Debug.Assert(indices[0].type.kind == TypeKind.Integer);
+                SSAType resultType = v.type;
+                for (int i = 0; i < indices.Length; ++i) {
+                    var idx = indices[i];
+                    Debug.Assert(idx.type.kind == TypeKind.Integer);
+                    if (resultType.kind == TypeKind.Array) {
+                        resultType = ((ArrayType)resultType).elementType;
+                    } else if (resultType.kind == TypeKind.Struct) {
+                        Debug.Assert(idx.isConst);
+                        var elementIdx = (int)(idx as ConstInt).data;
+                        var st = (StructType)resultType;
+                        resultType = st.elementTypes[elementIdx];
+                    }
+                }
+                result.type = resultType;
                 return result;
             }
             public Value BuildNot(Value v, string name = null) {
@@ -302,7 +346,7 @@ namespace PragmaScript {
             }
             public Value BuildSizeOf(SSAType t, string name = null) {
                 var np = new ConstPtr(new PointerType(t), 0);
-                var size = BuildGEP(np, "size_of_trick", one_i32_v);
+                var size = BuildGEP(np, "size_of_trick", false, one_i32_v);
                 var result = BuildPtrToInt(size, Const.mm_t, name);
                 return result;
             }
@@ -366,14 +410,23 @@ namespace PragmaScript {
                     case TypeKind.Struct:
                     case TypeKind.Array:
                         // store <{ float, float, float }> zeroinitializer, <{ float, float, float }> * % struct_arg_1
-                        return new Value(Op.ConstAggregateZero, t);
+                        var result = new Value(Op.ConstAggregateZero, t);
+                        result.isConst = true;
+                        return result;
                     default:
                         throw new System.NotImplementedException();
                 }
             }
-            public Value GetParam(Function f, int idx) {
 
+            public Function AddFunction(FunctionType ft, string name, string[] paramNames = null) {
+                var result = new Function(ft, name, paramNames);
+                mod.functions.Add(name, result);
+                return result;
             }
+            public Value GetParam(Function f, int idx) {
+                return f.args[idx];
+            }
+
 
         }
 

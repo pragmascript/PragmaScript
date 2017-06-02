@@ -79,7 +79,11 @@ namespace PragmaScript {
 
             // var blockTemp = LLVM.GetInsertBlock(builder);
 
-            builder.CreateAndEnterFunction("__init", ft);
+            var init = builder.AddFunction(ft, "__init");
+            init.AppendBasicBlock("vars");
+            init.AppendBasicBlock("entry");
+            var blockTemp = builder.GetInsertBlock();
+            builder.EnterFunction(init);
 
             foreach (var decl in functionDefinitions) {
                 Visit(decl as AST.FunctionDefinition, proto: true);
@@ -93,7 +97,6 @@ namespace PragmaScript {
             foreach (var decl in other) {
                 Visit(decl);
             }
-
 
             var entry = builder.PositionAtEnd("entry");
 
@@ -110,6 +113,8 @@ namespace PragmaScript {
 
             builder.PositionAtEnd("vars");
             builder.BuildBr(entry);
+
+            builder.PositionAtEnd(blockTemp);
         }
 
         public void Visit(AST.Namespace node) {
@@ -411,7 +416,7 @@ namespace PragmaScript {
                                         }
                                         break;
                                     case AST.BinOp.BinOpType.GreaterUnsigned:
-                                        result = builder.BuildICmp(left, right, IcmpType.ugt  ,"icmp_tmp");
+                                        result = builder.BuildICmp(left, right, IcmpType.ugt, "icmp_tmp");
                                         break;
                                     case AST.BinOp.BinOpType.GreaterEqualUnsigned:
                                         result = builder.BuildICmp(left, right, IcmpType.uge, "icmp_tmp");
@@ -469,12 +474,12 @@ namespace PragmaScript {
             builder.BuildBr(cor_end);
 
             cor_rhs = builder.GetInsertBlock();
-            
+
             // cor.end:
             builder.PositionAtEnd(cor_end);
 
             var phi = builder.BuildPhi(bool_t, "corphi", (true_v, block), (cor_rhs_tv, cor_rhs));
-            
+
             valueStack.Push(phi);
         }
 
@@ -504,7 +509,7 @@ namespace PragmaScript {
             // cor.end:
             builder.PositionAtEnd(cand_end);
             var phi = builder.BuildPhi(bool_t, "candphi", (false_v, block), (cand_rhs_tv, cand_rhs));
-            
+
             valueStack.Push(phi);
         }
 
@@ -512,7 +517,7 @@ namespace PragmaScript {
             if (node.type == AST.UnaryOp.UnaryOpType.SizeOf) {
                 var fet = typeChecker.GetNodeType(node.expression);
                 var et = GetTypeRef(fet);
-            
+
                 valueStack.Push(builder.BuildSizeOf(et));
                 return;
             }
@@ -577,7 +582,7 @@ namespace PragmaScript {
                                 result = builder.BuildFAdd(result, new ConstReal(vet, 1.0), "preinc");
                                 break;
                             case TypeKind.Pointer:
-                                result = builder.BuildGEP(result, "ptr_pre_inc", one_i32_v);
+                                result = builder.BuildGEP(result, "ptr_pre_inc", false, one_i32_v);
                                 break;
                             default:
                                 throw new InvalidCodePath();
@@ -600,7 +605,7 @@ namespace PragmaScript {
                                 result = builder.BuildFSub(result, new ConstReal(vet, 1.0), "predec");
                                 break;
                             case TypeKind.Pointer:
-                                result = builder.BuildGEP(result, "ptr_pre_dec", neg_1_i32_v);
+                                result = builder.BuildGEP(result, "ptr_pre_dec", false, neg_1_i32_v);
                                 break;
                             default:
                                 throw new InvalidCodePath();
@@ -627,7 +632,7 @@ namespace PragmaScript {
                                 }
                                 break;
                             case TypeKind.Pointer: {
-                                    var inc = builder.BuildGEP(result, "ptr_post_inc", one_i32_v);
+                                    var inc = builder.BuildGEP(result, "ptr_post_inc", false, one_i32_v);
                                     builder.BuildStore(inc, v);
                                 }
                                 break;
@@ -655,7 +660,7 @@ namespace PragmaScript {
                                 }
                                 break;
                             case TypeKind.Pointer: {
-                                    var inc = builder.BuildGEP(result, "ptr_post_dec", neg_1_i32_v);
+                                    var inc = builder.BuildGEP(result, "ptr_post_dec", false, neg_1_i32_v);
                                     builder.BuildStore(inc, v);
                                 }
                                 break;
@@ -678,7 +683,7 @@ namespace PragmaScript {
 
             var typeName = node.typeString.ToString(); // node.type.ToString();
 
-            Value result;
+            Value result = null;
             var targetType = GetTypeRef(typeChecker.GetNodeType(node));
 
             if (targetType.EqualType(vtype)) {
@@ -751,54 +756,11 @@ namespace PragmaScript {
                     throw new InvalidCodePath();
 
             }
+
+            Debug.Assert(result != null);
             valueStack.Push(result);
         }
 
-        public void Visit(AST.FunctionDefinition node, bool proto = false) {
-            var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
-            if (fun.inactiveConditional) {
-                return;
-            }
-            if (proto) {
-                if (node.isFunctionTypeDeclaration()) {
-                    return;
-                }
-                var funPointer = GetTypeRef(fun) as PointerType;
-                var funType = funPointer.elementType as FunctionType;
-                Debug.Assert(funPointer != null);
-                Debug.Assert(funType != null);
-                // TODO(pragma): 
-                // if (node.HasAttribute("STUB")) {
-                var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
-                var function = mod.AddFunction(functionName, funType);
-                variables.Add(node.variableDefinition, function);
-            } else {
-                if (node.external || node.body == null) {
-                    return;
-                }
-                var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
-                var function = mod.functions[functionName];
-
-
-                if (node.HasAttribute("DLL.EXPORT")) {
-                    function.ExportDLL = true;
-                }
-
-                var vars = function.AppendBasicBlock("vars");
-                var entry = function.AppendBasicBlock("entry");
-                builder.EnterFunction(function);
-
-                if (node.body != null) {
-                    Visit(node.body);
-                }
-
-                var returnType = GetTypeRef(fun.returnType);
-                // insertMissingReturn(returnType);
-
-                builder.PositionAtEnd(vars);
-                builder.BuildBr(entry);
-            }
-        }
 
         public void Visit(AST.StructConstructor node) {
             var sc = node;
@@ -996,31 +958,461 @@ namespace PragmaScript {
             var vd = node.scope.GetVar(node.variableName, node.token);
             // if variable is function paramter just return it immediately
             if (vd.isFunctionParameter) {
-                var pr = LLVM.GetParam(ctx.Peek().function, (uint)vd.parameterIdx);
+
+                var f = builder.context.currentFunction;
+                var pr = builder.GetParam(f, vd.parameterIdx);
                 valueStack.Push(pr);
                 return;
             }
-            LLVMValueRef v;
             var nt = typeChecker.GetNodeType(node);
-            v = variables[vd];
-            var v_type = typeToString(GetTypeRef(nt));
-            LLVMValueRef result;
-            bool is_global = LLVM.IsAGlobalVariable(v).Pointer != IntPtr.Zero;
-
+            var v = variables[vd];
+            Value result;
             if (vd.isConstant) {
                 result = v;
                 // Debug.Assert(LLVM.IsConstant(v));
             } else {
                 result = v;
                 if (!node.returnPointer) {
-                    result = LLVM.BuildLoad(builder, v, vd.name);
+                    result = builder.BuildLoad(v, vd.name);
                 }
             }
-            var ltype = LLVM.TypeOf(result);
-            var ltype_string = typeToString(ltype);
             valueStack.Push(result);
         }
 
+        public void VisitSpecialFunction(AST.FunctionCall node, FrontendFunctionType feft) {
+            switch (feft.funName) {
+                case "__file_pos__": {
+                        var callsite = builder.context.callsite;
+                        var s = new AST.ConstString(node.left.token, callsite.scope);
+                        var fp = node.left.token.FilePosBackendString();
+                        if (callsite != null) {
+                            fp = callsite.token.FilePosBackendString();
+                        }
+
+                        s.s = fp;
+                        Visit(s, false);
+                    }
+                    break;
+            }
+        }
+
+        public void Visit(AST.FunctionCall node) {
+            var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
+
+            if (feft.specialFun) {
+                VisitSpecialFunction(node, feft);
+                return;
+            }
+            if (feft.inactiveConditional) {
+                return;
+            }
+
+            Visit(node.left);
+            var f = valueStack.Pop();
+
+            if (f.type.kind == TypeKind.Pointer) {
+
+                f = builder.BuildLoad(f, "fun_ptr_load");
+
+            }
+
+            var cnt = feft.parameters.Count;
+            Value[] parameters = new Value[node.argumentList.Count];
+
+            var ft = f.type as FunctionType;
+            var rt = ft.returnType;
+            var ps = ft.argumentTypes;
+            for (int i = 0; i < node.argumentList.Count; ++i) {
+                Visit(node.argumentList[i]);
+                parameters[i] = valueStack.Pop();
+
+                // HACK: RETHINK THIS NONSENSE SOON
+                if (!parameters[i].type.EqualType(ps[i])) {
+                    parameters[i] = builder.BuildBitCast(parameters[i], ps[i], "fun_param_hack");
+                }
+            }
+
+            if (node.argumentList.Count < feft.parameters.Count) {
+                var fd = typeChecker.GetFunctionDefinition(feft);
+                var fts = fd.typeString.functionTypeString;
+                for (int idx = node.argumentList.Count; idx < feft.parameters.Count; ++idx) {
+                    builder.context.SetCallsite(node);
+                    Visit(fts.parameters[idx].defaultValueExpression);
+                    builder.context.SetCallsite(null);
+                    parameters[idx] = valueStack.Pop();
+                }
+            }
+
+            // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
+            if (rt.kind == TypeKind.Void) {
+                builder.BuildCall(f, null, parameters);
+            } else {
+                var v = builder.BuildCall(f, "fun_call", parameters);
+                valueStack.Push(v);
+            }
+        }
+
+        public void Visit(AST.ReturnFunction node) {
+            if (node.expression != null) {
+                Visit(node.expression);
+                var v = valueStack.Pop();
+                builder.BuildRet(v);
+            } else {
+                builder.BuildRetVoid();
+            }
+        }
+
+        public void Visit(AST.IfCondition node) {
+            Visit(node.condition);
+            var condition = valueStack.Pop();
+            Debug.Assert(SSAType.IsBoolType(condition.type));
+
+            var insert = builder.GetInsertBlock();
+
+            var thenBlock = builder.AppendBasicBlock("then");
+            builder.MoveBasicBlockAfter(thenBlock, insert);
+
+            var lastBlock = thenBlock;
+            var elifBlocks = new List<Block>();
+            var idx = 0;
+            foreach (var elif in node.elifs) {
+                var elifBlock = builder.AppendBasicBlock("elif_" + (idx++));
+                builder.MoveBasicBlockAfter(elifBlock, lastBlock);
+                lastBlock = elifBlock;
+                elifBlocks.Add(elifBlock);
+            }
+
+            Block elseBlock = null;
+            Block endIfBlock = null;
+            if (node.elseBlock != null) {
+                elseBlock = builder.AppendBasicBlock("else");
+                builder.MoveBasicBlockAfter(elseBlock, lastBlock);
+                lastBlock = elseBlock;
+            }
+
+            endIfBlock = builder.AppendBasicBlock("endif");
+            builder.MoveBasicBlockAfter(endIfBlock, lastBlock);
+            lastBlock = endIfBlock;
+
+            var nextFail = endIfBlock;
+            if (elifBlocks.Count > 0) {
+                nextFail = elifBlocks.First();
+            } else if (node.elseBlock != null) {
+                nextFail = elseBlock;
+            }
+
+            builder.BuildCondBr(condition, thenBlock, nextFail);
+
+            builder.PositionAtEnd(thenBlock);
+            Visit(node.thenBlock);
+
+            if (!builder.GetInsertBlock().HasTerminator()) {
+                builder.BuildBr(endIfBlock);
+            }
+
+            for (int i = 0; i < elifBlocks.Count; ++i) {
+                var elif = elifBlocks[i];
+
+                var elifThen = builder.AppendBasicBlock("elif_" + i + "_then");
+                builder.MoveBasicBlockAfter(elifThen, elif);
+
+                builder.PositionAtEnd(elif);
+                var elifNode = node.elifs[i] as AST.Elif;
+                Visit(elifNode.condition);
+                var elifCond = valueStack.Pop();
+
+
+                var nextBlock = endIfBlock;
+                if (node.elseBlock != null) {
+                    nextBlock = elseBlock;
+                }
+                if (i < elifBlocks.Count - 1) {
+                    nextBlock = elifBlocks[i + 1];
+                }
+                builder.BuildCondBr(elifCond, elifThen, nextBlock);
+
+                builder.PositionAtEnd(elifThen);
+                Visit(elifNode.thenBlock);
+
+
+                if (!builder.GetInsertBlock().HasTerminator()) {
+                    builder.BuildBr(endIfBlock);
+                }
+            }
+
+            if (node.elseBlock != null) {
+                builder.PositionAtEnd(elseBlock);
+                Visit(node.elseBlock);
+                if (!builder.GetInsertBlock().HasTerminator()) {
+                    builder.BuildBr(endIfBlock);
+                }
+            }
+
+            builder.PositionAtEnd(endIfBlock);
+        }
+
+        public void Visit(AST.ForLoop node) {
+            var insert = builder.GetInsertBlock();
+
+            var loopPre = builder.AppendBasicBlock("for_cond");
+            builder.MoveBasicBlockAfter(loopPre, insert);
+            var loopBody = builder.AppendBasicBlock("for");
+            builder.MoveBasicBlockAfter(loopBody, loopPre);
+            var loopIter = builder.AppendBasicBlock("for_iter");
+            builder.MoveBasicBlockAfter(loopIter, loopBody);
+            var endFor = builder.AppendBasicBlock("end_for");
+            builder.MoveBasicBlockAfter(endFor, loopIter);
+
+            foreach (var n in node.initializer) {
+                Visit(n);
+            }
+            builder.BuildBr(loopPre);
+
+            builder.PositionAtEnd(loopPre);
+            Visit(node.condition);
+
+            var condition = valueStack.Pop();
+            Debug.Assert(SSAType.IsBoolType(condition.type));
+            builder.BuildCondBr(condition, loopBody, endFor);
+            builder.PositionAtEnd(loopBody);
+
+            builder.context.PushLoop(loopIter, endFor);
+            Visit(node.loopBody);
+            if (!builder.GetInsertBlock().HasTerminator()) {
+                builder.BuildBr(loopIter);
+            }
+            builder.context.PopLoop();
+
+            builder.PositionAtEnd(loopIter);
+            foreach (var n in node.iterator) {
+                Visit(n);
+            }
+
+            builder.BuildBr(loopPre);
+            builder.PositionAtEnd(endFor);
+        }
+
+        public void Visit(AST.WhileLoop node) {
+            var insert = builder.GetInsertBlock();
+
+            var loopPre = builder.AppendBasicBlock("while_cond");
+            builder.MoveBasicBlockAfter(loopPre, insert);
+            var loopBody = builder.AppendBasicBlock("while");
+            builder.MoveBasicBlockAfter(loopBody, loopPre);
+            var loopEnd = builder.AppendBasicBlock("while_end");
+            builder.MoveBasicBlockAfter(loopEnd, loopBody);
+
+            builder.BuildBr(loopPre);
+
+            builder.PositionAtEnd(loopPre);
+            Visit(node.condition);
+
+            var condition = valueStack.Pop();
+            Debug.Assert(SSAType.IsBoolType(condition.type));
+
+            builder.BuildCondBr(condition, loopBody, loopEnd);
+            builder.PositionAtEnd(loopBody);
+
+            builder.context.PushLoop(loopPre, loopEnd);
+            Visit(node.loopBody);
+            builder.context.PopLoop();
+
+            if (!builder.GetInsertBlock().HasTerminator()) {
+                builder.BuildBr(loopPre);
+            }
+            builder.PositionAtEnd(loopEnd);
+        }
+
+        void insertMissingReturn(SSAType returnType) {
+            if (!builder.GetInsertBlock().HasTerminator()) {
+                if (returnType.kind == TypeKind.Void) {
+                    builder.BuildRetVoid();
+                } else {
+                    var dummy = builder.BuildBitCast(zero_i32_v, returnType, "dummy");
+                    builder.BuildRet(dummy);
+                }
+            }
+        }
+
+        public void Visit(AST.FunctionDefinition node, bool proto = false) {
+            var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
+            if (fun.inactiveConditional) {
+                return;
+            }
+            if (proto) {
+                if (node.isFunctionTypeDeclaration()) {
+                    return;
+                }
+                var funPointer = GetTypeRef(fun) as PointerType;
+                var funType = funPointer.elementType as FunctionType;
+                Debug.Assert(funPointer != null);
+                Debug.Assert(funType != null);
+                // TODO(pragma): 
+                // if (node.HasAttribute("STUB")) {
+                var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
+                var function = builder.AddFunction(funType, functionName, fun.parameters.Select(p => p.name).ToArray());
+                variables.Add(node.variableDefinition, function);
+            } else {
+                if (node.external || node.body == null) {
+                    return;
+                }
+                //var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
+                //var function = mod.functions[functionName];
+                var function = variables[node.variableDefinition] as Function;
+
+                if (node.HasAttribute("DLL.EXPORT")) {
+                    function.ExportDLL = true;
+                }
+
+                var vars = function.AppendBasicBlock("vars");
+                var entry = function.AppendBasicBlock("entry");
+                builder.EnterFunction(function);
+
+                if (node.body != null) {
+                    Visit(node.body);
+                }
+
+                var returnType = GetTypeRef(fun.returnType);
+                insertMissingReturn(returnType);
+
+                builder.PositionAtEnd(vars);
+                builder.BuildBr(entry);
+            }
+        }
+
+
+        public void Visit(AST.BreakLoop node) {
+            Debug.Assert(builder.context.IsLoop());
+            builder.BuildBr(builder.context.PeekLoop().end);
+        }
+
+        public void Visit(AST.ContinueLoop node) {
+            Debug.Assert(builder.context.IsLoop());
+            builder.BuildBr(builder.context.PeekLoop().next);
+        }
+
+
+        public void Visit(AST.ArrayElementAccess node) {
+            Visit(node.left);
+            var arr = valueStack.Pop();
+
+            Visit(node.index);
+            var idx = valueStack.Pop();
+
+            Value arr_elem_ptr;
+
+            // is not function argument?
+            if (arr.op != Op.FunctionParam) {
+                var gep_arr_elem_ptr = builder.BuildGEP(arr, "gep_arr_elem_ptr", false, zero_i32_v, one_i32_v);
+                arr_elem_ptr = builder.BuildLoad(gep_arr_elem_ptr, "arr_elem_ptr");
+            } else {
+                arr_elem_ptr = builder.BuildExtractValue(arr, "gep_arr_elem_ptr", one_i32_v);
+            }
+
+            var gep_arr_elem = builder.BuildGEP(arr_elem_ptr, "gep_arr_elem", false, idx);
+            Value result = gep_arr_elem;
+
+            if (!node.returnPointer) {
+                result = builder.BuildLoad(gep_arr_elem, "arr_elem");
+            }
+            valueStack.Push(result);
+        }
+
+
+        // TODO(pragma): generate this code
+        public void Visit(AST.Node node) {
+            switch (node) {
+                case AST.ProgramRoot n:
+                    Visit(n);
+                    break;
+                case AST.FileRoot n:
+                    Visit(n);
+                    break;
+                case AST.Namespace n:
+                    Visit(n);
+                    break;
+                case AST.Block n:
+                    Visit(n);
+                    break;
+                case AST.Elif n:
+                    Visit(n);
+                    break;
+                case AST.IfCondition n:
+                    Visit(n);
+                    break;
+                case AST.ForLoop n:
+                    Visit(n);
+                    break;
+                case AST.WhileLoop n:
+                    Visit(n);
+                    break;
+                case AST.VariableDefinition n:
+                    Visit(n);
+                    break;
+                case AST.FunctionDefinition n:
+                    Visit(n);
+                    break;
+                case AST.StructConstructor n:
+                    Visit(n);
+                    break;
+                case AST.StructDeclaration n:
+                    Visit(n);
+                    break;
+                case AST.FunctionCall n:
+                    Visit(n);
+                    break;
+                case AST.VariableReference n:
+                    Visit(n);
+                    break;
+                case AST.Assignment n:
+                    Visit(n);
+                    break;
+                case AST.ConstInt n:
+                    Visit(n);
+                    break;
+                case AST.ConstFloat n:
+                    Visit(n);
+                    break;
+                case AST.ConstBool n:
+                    Visit(n);
+                    break;
+                case AST.ConstString n:
+                    Visit(n);
+                    break;
+                case AST.ArrayConstructor n:
+                    Visit(n);
+                    break;
+                case AST.FieldAccess n:
+                    Visit(n);
+                    break;
+                case AST.ArrayElementAccess n:
+                    Visit(n);
+                    break;
+                case AST.BreakLoop n:
+                    Visit(n);
+                    break;
+                case AST.ContinueLoop n:
+                    Visit(n);
+                    break;
+                case AST.ReturnFunction n:
+                    Visit(n);
+                    break;
+                case AST.BinOp n:
+                    Visit(n);
+                    break;
+                case AST.UnaryOp n:
+                    Visit(n);
+                    break;
+                case AST.TypeCastOp n:
+                    Visit(n);
+                    break;
+                case AST.TypeString n:
+                    Visit(n);
+                    break;
+                default:
+                    throw new System.NotImplementedException();
+            }
+        }
 
     }
 }
