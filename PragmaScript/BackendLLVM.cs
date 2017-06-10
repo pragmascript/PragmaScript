@@ -296,6 +296,7 @@ namespace PragmaScript {
 
         void BuildMemCpy(LLVMValueRef dest, LLVMValueRef source, LLVMValueRef count) {
             var args = new LLVMValueRef[] { dest, source, count, Const.ZeroInt32, Const.False };
+            var ft = typeToString(LLVM.TypeOf(intrinsic_memcpy));
             LLVM.BuildCall(builder, intrinsic_memcpy, out args[0], 5, "");
         }
 

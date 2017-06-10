@@ -9,8 +9,6 @@ using static PragmaScript.SSA.Const;
 
 namespace PragmaScript {
     partial class Backend {
-
-
         TypeChecker typeChecker;
         Dictionary<Scope.VariableDefinition, Value> variables = new Dictionary<Scope.VariableDefinition, Value>();
         Stack<Value> valueStack = new Stack<Value>();
@@ -77,14 +75,16 @@ namespace PragmaScript {
                 ft = new FunctionType(void_t);
             }
 
-            // var blockTemp = LLVM.GetInsertBlock(builder);
+            var function = builder.AddFunction(ft, "__init");
+            var vars = builder.AppendBasicBlock(function, "vars");
+            var entry = builder.AppendBasicBlock(function, "entry");
+            builder.context.SetFunctionBlocks(function, vars, entry);
 
-            var init = builder.AddFunction(ft, "__init");
-            init.AppendBasicBlock("vars");
-            init.AppendBasicBlock("entry");
-            var blockTemp = builder.GetInsertBlock();
-            builder.EnterFunction(init);
+            // var blockTemp = builder.GetInsertBlock();
+            builder.PositionAtEnd(entry);
 
+            
+            
             foreach (var decl in functionDefinitions) {
                 Visit(decl as AST.FunctionDefinition, proto: true);
             }
@@ -98,7 +98,7 @@ namespace PragmaScript {
                 Visit(decl);
             }
 
-            var entry = builder.PositionAtEnd("entry");
+            builder.PositionAtEnd(entry);
 
             if (main != null) {
                 var mf = variables[main.scope.GetVar(main.funName, main.token)];
@@ -111,10 +111,10 @@ namespace PragmaScript {
                 builder.BuildRet(void_v);
             }
 
-            builder.PositionAtEnd("vars");
+            builder.PositionAtEnd(vars);
             builder.BuildBr(entry);
 
-            builder.PositionAtEnd(blockTemp);
+            // builder.PositionAtEnd(blockTemp);
         }
 
         public void Visit(AST.Namespace node) {
@@ -195,7 +195,7 @@ namespace PragmaScript {
             var arr_struct_type = GetTypeRef(type);
             var insert = builder.GetInsertBlock();
 
-            builder.PositionAtEnd(builder.context.vars);
+            builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
 
             var arr_struct_ptr = builder.BuildAlloca(arr_struct_type, "arr_struct_alloca");
             var str_length = (uint)str.Length;
@@ -211,7 +211,7 @@ namespace PragmaScript {
                 var at = new ArrayType(elem_type, str_length);
                 arr_elem_ptr = builder.AddGlobal(at, "str_arr");
                 // if we are in a "global" scope dont allocate on the stack
-                arr_elem_ptr = builder.AddGlobal(at, "str_arr");
+                ((GlobalVariable)arr_elem_ptr).SetInitializer(builder.ConstNull(at));
                 arr_elem_ptr = builder.BuildBitCast(arr_elem_ptr, new PointerType(elem_type), "str_ptr");
             }
             builder.BuildMemCpy(arr_elem_ptr, str_ptr, size);
@@ -768,7 +768,7 @@ namespace PragmaScript {
             var structType = GetTypeRef(sft);
 
             var insert = builder.GetInsertBlock();
-            builder.PositionAtEnd("vars");
+            builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
             var struct_ptr = builder.BuildAlloca(structType, "struct_alloca");
             builder.PositionAtEnd(insert);
 
@@ -794,7 +794,7 @@ namespace PragmaScript {
             var arr_struct_type = GetTypeRef(ac_type);
 
             var insert = builder.GetInsertBlock();
-            builder.PositionAtEnd("vars");
+            builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
             var arr_struct_ptr = builder.BuildAlloca(arr_struct_type, "arr_struct_alloca");
             var elem_type = GetTypeRef(ac_type.elementType);
             var size = new ConstInt(i32_t, (ulong)ac.elements.Count);
@@ -853,7 +853,7 @@ namespace PragmaScript {
                     result = v;
                 } else {
                     var insert = builder.GetInsertBlock();
-                    builder.PositionAtEnd("vars");
+                    builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
                     result = builder.BuildAlloca(vType, node.variable.name);
                     variables[node.variable] = result;
                     builder.PositionAtEnd(insert);
@@ -863,7 +863,7 @@ namespace PragmaScript {
                 }
                 if (node.typeString != null && node.typeString.allocationCount > 0) {
                     var insert = builder.GetInsertBlock();
-                    builder.PositionAtEnd("vars");
+                    builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
                     Debug.Assert(node.expression == null);
 
                     var ac = new ConstInt(i32_t, (ulong)node.typeString.allocationCount);
@@ -883,7 +883,7 @@ namespace PragmaScript {
                     var v = builder.AddGlobal(structType, node.variable.name);
                     // LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                     variables[node.variable] = v;
-                    // LLVM.SetInitializer(v, LLVM.ConstNull(structType));
+                    v.SetInitializer(builder.ConstNull(structType));
 
                     for (int i = 0; i < sc.argumentList.Count; ++i) {
                         Visit(sc.argumentList[i]);
@@ -1010,16 +1010,14 @@ namespace PragmaScript {
             Visit(node.left);
             var f = valueStack.Pop();
 
-            if (f.type.kind == TypeKind.Pointer) {
-
+            if (!(f is Function)) {
                 f = builder.BuildLoad(f, "fun_ptr_load");
-
             }
 
-            var cnt = feft.parameters.Count;
-            Value[] parameters = new Value[node.argumentList.Count];
+            var cnt = System.Math.Max(1, feft.parameters.Count);
+            Value[] parameters = new Value[cnt];
 
-            var ft = f.type as FunctionType;
+            var ft = (f.type as PointerType).elementType as FunctionType;
             var rt = ft.returnType;
             var ps = ft.argumentTypes;
             for (int i = 0; i < node.argumentList.Count; ++i) {
@@ -1209,7 +1207,6 @@ namespace PragmaScript {
 
             var condition = valueStack.Pop();
             Debug.Assert(SSAType.IsBoolType(condition.type));
-
             builder.BuildCondBr(condition, loopBody, loopEnd);
             builder.PositionAtEnd(loopBody);
 
@@ -1264,9 +1261,12 @@ namespace PragmaScript {
                     function.ExportDLL = true;
                 }
 
-                var vars = function.AppendBasicBlock("vars");
-                var entry = function.AppendBasicBlock("entry");
-                builder.EnterFunction(function);
+                var vars = builder.AppendBasicBlock(function, "vars");
+                var entry = builder.AppendBasicBlock(function, "entry");
+                builder.context.SetFunctionBlocks(function, vars, entry);
+                
+                var blockTemp = builder.GetInsertBlock();
+                builder.PositionAtEnd(entry);
 
                 if (node.body != null) {
                     Visit(node.body);
@@ -1277,6 +1277,8 @@ namespace PragmaScript {
 
                 builder.PositionAtEnd(vars);
                 builder.BuildBr(entry);
+
+                builder.PositionAtEnd(blockTemp);
             }
         }
 
@@ -1302,7 +1304,7 @@ namespace PragmaScript {
             Value arr_elem_ptr;
 
             // is not function argument?
-            if (arr.op != Op.FunctionParam) {
+            if (arr.op != Op.FunctionArgument) {
                 var gep_arr_elem_ptr = builder.BuildGEP(arr, "gep_arr_elem_ptr", false, zero_i32_v, one_i32_v);
                 arr_elem_ptr = builder.BuildLoad(gep_arr_elem_ptr, "arr_elem_ptr");
             } else {
@@ -1316,6 +1318,79 @@ namespace PragmaScript {
                 result = builder.BuildLoad(gep_arr_elem, "arr_elem");
             }
             valueStack.Push(result);
+        }
+
+
+
+        public void Visit(AST.FieldAccess node) {
+            Visit(node.left);
+
+            var v = valueStack.Pop();
+
+            FrontendStructType s;
+            if (node.IsArrow) {
+                s = (typeChecker.GetNodeType(node.left) as FrontendPointerType).elementType
+                    as FrontendStructType;
+            } else {
+                s = typeChecker.GetNodeType(node.left) as FrontendStructType;
+            }
+            var idx = s.GetFieldIndex(node.fieldName);
+            Value gep;
+
+            // is not function argument?
+            // assume that when its _NOT_ a pointer then it will be a function argument
+            if (!(v.op == Op.FunctionArgument) && v.type.kind == TypeKind.Pointer) {
+                if (node.IsArrow) {
+                    v = builder.BuildLoad(v, "struct_arrow_load");
+                }
+
+                // HACK: we hit limit of recursive type so just perform bitcast
+                if ((v.type as PointerType).elementType.kind != TypeKind.Struct) { 
+                    var sp = new PointerType(GetTypeRef(s));
+                    v = builder.BuildBitCast(v, sp, "hack_bitcast");
+                }
+
+                Value result;
+
+                result = builder.BuildGEP(v, "struct_field_ptr", true, zero_i32_v, new ConstInt(i32_t, (ulong)idx));
+
+                var fe_nt = typeChecker.GetNodeType(node);
+                var be_nt = new PointerType(GetTypeRef(fe_nt));
+
+                if (!be_nt.EqualType(result.type)) {
+                    result = builder.BuildBitCast(result, be_nt, "hack_cast");
+                }
+                if (!node.returnPointer) {
+                    result = builder.BuildLoad(result, "struct_field");
+                }
+                valueStack.Push(result);
+
+                return;
+            } else {
+                Value result;
+                if (node.IsArrow) {
+                    result = builder.BuildGEP(v, "struct_field_ptr", true, zero_i32_v, new ConstInt(i32_t, (ulong)idx));
+
+                    var fe_nt = typeChecker.GetNodeType(node);
+                    var be_nt = new PointerType(GetTypeRef(fe_nt));
+
+                    if (!be_nt.EqualType(result.type)) {
+                        result = builder.BuildBitCast(result, be_nt, "hack_cast");
+                    }
+                    if (!node.returnPointer) {
+                        result = builder.BuildLoad(result, "struct_arrow");
+                    }
+                } else {
+                    uint[] uindices = { (uint)idx };
+                    result = builder.BuildExtractValue(v, "struct_field_extract", new ConstInt(i32_t, (ulong)idx));
+                }
+
+                valueStack.Push(result);
+                return;
+            }
+        }
+
+        public void Visit(AST.StructDeclaration node) {
         }
 
 

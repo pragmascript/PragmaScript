@@ -1,4 +1,7 @@
-﻿using System;
+﻿// #define OLD_BACKEND
+
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -25,7 +28,7 @@ namespace PragmaScript
     }
     static class CompilerOptions
     {
-        public static bool debug = false;
+        public static bool debug = true;
         public static string inputFilename;
         public static int optimizationLevel;
         public static string cpu = "native";
@@ -584,13 +587,9 @@ namespace PragmaScript
 #else
             Console.WriteLine();
 #endif
-#if OLD_BACKEND
             backend.AOT();
-#else
-            // TODO
-#endif
 #if DEBUG
-            Console.ReadLine();
+            // Console.ReadLine();
 #endif
         }
     }

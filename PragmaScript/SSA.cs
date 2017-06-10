@@ -47,7 +47,7 @@ namespace PragmaScript {
             FPCast,
             IntToPtr,
             ConstAggregateZero,
-            FunctionParam,
+            FunctionArgument,
             ExtractValue,
         }
 
@@ -75,7 +75,6 @@ namespace PragmaScript {
 
         public class Module {
             public Block globals;
-            public Dictionary<string, Function> functions = new Dictionary<string, Function>();
             public Module() {
                 globals = new Block(null, "globals");
             }
@@ -157,6 +156,20 @@ namespace PragmaScript {
                 fp16, fp32, fp64
             }
             public FloatWidths width;
+            public int BitWidth {
+                get {
+                    switch (width) {
+                        case FloatWidths.fp16:
+                            return 16;
+                        case FloatWidths.fp32:
+                            return 32;
+                        case FloatWidths.fp64:
+                            return 64;
+                        default:
+                            throw new InvalidCodePath();
+                    }
+                }
+            }
             public FloatType(FloatWidths width)
                 : base(TypeKind.Float) {
                 this.width = width;
@@ -250,9 +263,11 @@ namespace PragmaScript {
         }
 
         public class StructType : SSAType {
-            public StructType()
+            public StructType(bool packed)
                 : base(TypeKind.Struct) {
+                this.packed = packed;
             }
+            public bool packed;
             public List<SSAType> elementTypes = new List<SSAType>();
             public override bool EqualType(SSAType other) {
                 if (other is StructType st) {
@@ -303,17 +318,33 @@ namespace PragmaScript {
             }
 
         }
+
+        public class FunctionArgument : Value {
+            public bool noalias = false;
+            public bool nocapture = false;
+            public bool @readonly = false;
+            public FunctionArgument(SSAType type)
+                : base(Op.FunctionArgument, type) {
+                if (type.kind == TypeKind.Pointer) {
+                    noalias = true;
+                }
+            }
+        }
+
         public class Function : Value {
-            public Dictionary<string, Block> blocks;
+            public List<Block> blocks;
             public bool ExportDLL = false;
-            public Function(FunctionType ft, string name, string[] paramNames = null)
-                : base(Op.Function, ft) {
+            public Function(FunctionType ft, string name)
+                : base(Op.Function, new PointerType(ft)) {
                 args = new List<Value>();
                 blocks = null;
                 this.name = name;
+            }
+            public void SetParamNames(string[] paramNames) {
+                var ft = (FunctionType)((PointerType)type).elementType;
                 Debug.Assert(paramNames == null || paramNames.Length == ft.argumentTypes.Count);
                 for (int idx = 0; idx < ft.argumentTypes.Count; ++idx) {
-                    var arg = new Value(Op.FunctionParam, ft.argumentTypes[idx]);
+                    var arg = new FunctionArgument(ft.argumentTypes[idx]);
                     if (paramNames != null) {
                         arg.name = paramNames[idx];
                     }
@@ -322,26 +353,25 @@ namespace PragmaScript {
             }
             public Block AppendBasicBlock(string name) {
                 if (blocks == null) {
-                    blocks = new Dictionary<string, Block>();
+                    blocks = new List<Block>();
                 }
                 var b = new Block(this, name);
-                blocks.Add(name, b);
-                args.Add(b);
+                blocks.Add(b);
                 return b;
             }
             public void MoveBasicBlockAfter(Block b, Block targetBlock) {
                 Debug.Assert(b.function == this && targetBlock.function == this);
-                args.Remove(b);
-                var idx = args.IndexOf(targetBlock);
-                args.Insert(idx + 1, b);
+                blocks.Remove(b);
+                var idx = blocks.IndexOf(targetBlock);
+                blocks.Insert(idx + 1, b);
             }
             public void MoveBasicBlockBefore(Block b, Block targetBlock) {
                 Debug.Assert(b.function == this && targetBlock.function == this);
-                args.Remove(b);
-                var idx = args.IndexOf(targetBlock);
-                args.Insert(idx, b);
+                blocks.Remove(b);
+                var idx = blocks.IndexOf(targetBlock);
+                blocks.Insert(idx, b);
             }
-            
+
         }
 
         public class Block : Value {
@@ -416,6 +446,7 @@ namespace PragmaScript {
             public Value initializer = null;
             public GlobalVariable(SSAType t, string name)
                 : base(Op.GlobalVariable, new PointerType(t)) {
+                this.name = name;
             }
             public void SetInitializer(Value v) {
                 initializer = v;
@@ -441,10 +472,11 @@ namespace PragmaScript {
         }
 
         public class Phi : Value {
-            public List<(Value, Block)> incoming;
+            public List<(Value v, Block b)> incoming;
             public Phi(SSAType t, string name = null, params (Value, Block)[] incoming)
                 : base(Op.Phi, t) {
                 Debug.Assert(incoming != null && incoming.Length > 0);
+                this.incoming = new List<(Value v, Block b)>();
 #if DEBUG
                 for (int idx = 0; idx < incoming.Length; ++idx) {
                     Debug.Assert(t == incoming[idx].Item1.type);
@@ -457,7 +489,7 @@ namespace PragmaScript {
 
         public class GetElementPtr : Value {
             bool inBounds;
-            public GetElementPtr(Value ptr, string name = null, bool inBounds = false, params Value[] indices) 
+            public GetElementPtr(Value ptr, string name = null, bool inBounds = false, params Value[] indices)
                 : base(Op.GEP, null, indices) {
 
                 Debug.Assert(ptr.type.kind == TypeKind.Pointer);
@@ -484,7 +516,7 @@ namespace PragmaScript {
             }
         }
 
-        
+
         public class Const {
             const int NATIVE_POINTER_WIDTH = 64;
 
@@ -561,14 +593,16 @@ namespace PragmaScript {
                 throw new InvalidCodePath();
             }
             static SSAType getTypeRef(FrontendStructType t, int depth) {
-                var result = new StructType();
+                // TODO(pragma): don't assume PACKED!
+                var result = new StructType(true);
                 foreach (var f in t.fields) {
                     result.elementTypes.Add(getTypeRef(f.type, depth + 1));
                 }
                 return result;
             }
             static SSAType getTypeRef(FrontendArrayType t, int depth) {
-                var result = new StructType();
+                // TODO(pragma): don't assume PACKED!
+                var result = new StructType(true);
                 result.elementTypes.Add(Const.i32_t);
                 result.elementTypes.Add(new PointerType(getTypeRef(t.elementType, depth)));
                 return result;

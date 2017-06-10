@@ -289,11 +289,6 @@ namespace Random
 	);
 	var state: State = State{seed, seed, seed, seed};
 
-	var z1: i32 = seed;
-	var z2: i32 = seed;
-	var z3: i32 = seed;
-	var z4: i32 = seed;
-
 	let init_seed = fun (seed: i32; state: State* = &state) => void {
 		state.z1 = seed;
 		state.z2 = seed;
@@ -302,7 +297,7 @@ namespace Random
 	}
 
 	// http://www.iro.umontreal.ca/~simardr/rng/lfsr113.c
-	let rand_i32 = fun (state: State* = &state) => i32 {
+	let rand_i32 = fun (@state: State* = &state) => i32 {
 		var b: i32;
 		b  = ((z1 << 6) ^ z1) >>\ 13;
 		z1 = ((z1 & 4294967294) << 18) ^ b;

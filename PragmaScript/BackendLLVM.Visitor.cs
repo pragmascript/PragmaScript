@@ -72,7 +72,6 @@ namespace PragmaScript {
             }
 
             var function = LLVM.AddFunction(mod, "__init", funType);
-
             var vars = LLVM.AppendBasicBlock(function, "vars");
             var entry = LLVM.AppendBasicBlock(function, "entry");
 
@@ -957,6 +956,7 @@ namespace PragmaScript {
                         Visit(node.expression);
                         var result = valueStack.Pop();
                         var resultType = LLVM.TypeOf(result);
+                        
                         var v = LLVM.AddGlobal(mod, resultType, node.variable.name);
                         variables[node.variable] = v;
                         LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
@@ -1352,6 +1352,9 @@ namespace PragmaScript {
                     //}
                     // variables.Add(fun.parameters[i].name, new TypedValue(param, TypedValue.MapType(fun.parameters[i].type)));
                 }
+
+                var ts = typeToString(LLVM.TypeOf(function));
+
                 variables.Add(node.variableDefinition, function);
             } else {
                 if (node.external || node.body == null) {

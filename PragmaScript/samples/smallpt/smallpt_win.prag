@@ -302,7 +302,8 @@ let sphere_count = 9;
 var spheres: Sphere*;
 
 let create_spheres = fun() => void {
-    spheres = (Sphere*)VirtualAlloc(nullptr, (mm)(size_of(Sphere) * (mm)sphere_count), MEM_COMMIT, PAGE_READWRITE);
+    spheres = (Sphere*)VirtualAlloc(nullptr, (mm)(size_of(Sphere) * (mm)sphere_count),
+               MEM_COMMIT, PAGE_READWRITE);
     var s = spheres;
     
     // crashes the compiler
@@ -510,7 +511,7 @@ let render_tile = fun (@tile: Tile*; random_state: Random.State*) => void {
 }
 
 
-let RenderJob = struct
+let RenderJob = struct 
 (
     random_state: Random.State;
     thread_idx: i32;
@@ -667,10 +668,9 @@ let get_perf_counter = fun() => i64 {
     return result;
 }
 
-// 3840 x 2160
 
-let x_tiles = 60/4;
-let y_tiles = 33/4;
+let x_tiles = 40/2;
+let y_tiles = 32/2;
 let samples = 100;
 let tile_size = 64;
 let thread_count = 8;
@@ -781,6 +781,10 @@ let start_render = fun () => void {
     
     let width  = x_tiles * tile_size;
     let height = y_tiles * tile_size;
+
+    debug_print_i32("width", width);
+    debug_print_i32("height", height);
+
     var pixel_data = (Vec*)VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, MEM_COMMIT, PAGE_READWRITE);
 
     var cam: Ray;
