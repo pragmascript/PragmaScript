@@ -4,10 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-
-using Shields.GraphViz.Models;
-using System.Threading;
 using System.Text;
 using static PragmaScript.AST;
 using System.Diagnostics;

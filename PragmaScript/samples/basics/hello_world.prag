@@ -22,7 +22,7 @@ let main = fun () => void {
 	var bar = foo;
 	var x = bar();
 	debug_print_i32("x", x);
-
+	debug_print_f32("pi", Math.pi_32);
 	print_string("\n");
 }
 

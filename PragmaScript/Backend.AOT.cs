@@ -1,14 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 using static PragmaScript.SSA;
-using static PragmaScript.SSA.Const;
 
 namespace PragmaScript {
     partial class Backend {
@@ -193,7 +188,7 @@ namespace PragmaScript {
         }
 
         bool isIndented = false;
-        void AppendOp(SSA.Value v) {
+        void AppendOp(SSA.Value v, bool isConst = false) {
             switch (v.op) {
                 case Op.FunctionArgument:
                 case Op.ConstAggregateZero:
@@ -269,6 +264,7 @@ namespace PragmaScript {
                         } else {
                             AL(") #0");
                         }
+                        AL();
                     }
                     break;
                 case Op.Br:
@@ -290,8 +286,6 @@ namespace PragmaScript {
                         AppendArgument(fun);
                         AP("(");
                         for (int i = 1; i < v.args.Count; ++i) {
-                            AppendType(v.args[i].type);
-                            AP(" ");
                             AppendArgument(v.args[i]);
                             if (i != v.args.Count - 1) {
                                 AP(", ");
