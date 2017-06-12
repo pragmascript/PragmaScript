@@ -16,6 +16,7 @@ namespace PragmaScript {
             Store,
             GEP,
             Load,
+            And,
             Or,
             Xor,
             ICmp,
@@ -23,10 +24,12 @@ namespace PragmaScript {
             Sub,
             Mul,
             SDiv,
+            UDiv,
             URem,
+            SRem,
             Shl,
             AShr,
-            Neg,
+            LShr,
             FAdd,
             FSub,
             FMul,
@@ -35,7 +38,6 @@ namespace PragmaScript {
             FCmp,
             PtrToInt,
             Phi,
-            FNeg,
             Not,
             SExt,
             ZExt,
@@ -488,15 +490,18 @@ namespace PragmaScript {
         }
 
         public class GetElementPtr : Value {
-            bool inBounds;
+            public bool inBounds;
+            public SSAType baseType;
             public GetElementPtr(Value ptr, string name = null, bool inBounds = false, params Value[] indices)
-                : base(Op.GEP, null, indices) {
+                : base(Op.GEP, null, ptr) {
+                args.AddRange(indices);
 
                 Debug.Assert(ptr.type.kind == TypeKind.Pointer);
                 Debug.Assert(indices != null && indices.Length > 0);
                 Debug.Assert(indices[0].type.kind == TypeKind.Integer);
 
                 var pt = (PointerType)ptr.type;
+                baseType = pt.elementType;
                 var resultType = pt.elementType;
                 for (int i = 1; i < indices.Length; ++i) {
                     var idx = indices[i];
@@ -513,6 +518,7 @@ namespace PragmaScript {
 
                 this.name = name;
                 this.type = new PointerType(resultType);
+                this.inBounds = inBounds;
             }
         }
 

@@ -998,7 +998,7 @@ namespace PragmaScript {
 
         public void Visit(AST.FunctionCall node) {
             var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
-
+            
             if (feft.specialFun) {
                 VisitSpecialFunction(node, feft);
                 return;
@@ -1014,7 +1014,7 @@ namespace PragmaScript {
                 f = builder.BuildLoad(f, "fun_ptr_load");
             }
 
-            var cnt = System.Math.Max(1, feft.parameters.Count);
+            var cnt = feft.parameters.Count; // System.Math.Max(1, feft.parameters.Count);
             Value[] parameters = new Value[cnt];
 
             var ft = (f.type as PointerType).elementType as FunctionType;
@@ -1029,6 +1029,8 @@ namespace PragmaScript {
                     parameters[i] = builder.BuildBitCast(parameters[i], ps[i], "fun_param_hack");
                 }
             }
+
+
 
             if (node.argumentList.Count < feft.parameters.Count) {
                 var fd = typeChecker.GetFunctionDefinition(feft);

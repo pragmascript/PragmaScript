@@ -74,6 +74,9 @@ namespace PragmaScript {
                 return loopStack.Peek();
             }
             public string RequestLocalName(string n, Function f = null) {
+                if (n == null) {
+                    return null;
+                }
                 if (f == null) {
                     f = currentFunction;
                 }
@@ -180,7 +183,9 @@ namespace PragmaScript {
                     result.args.AddRange(args);
                 }
                 result.type = ft.returnType;
-                result.name = context.RequestLocalName(name);
+                if (result.type.kind != TypeKind.Void) {
+                    result.name = context.RequestLocalName(name);
+                }
 
                 AddOp(result);
                 return result;
@@ -212,7 +217,7 @@ namespace PragmaScript {
                 return result;
             }
             public Value BuildBitCast(Value v, SSAType dest, string name = null) {
-                var result = new Value(Op.BitCast, v.type, v);
+                var result = new Value(Op.BitCast, dest, v);
                 result.name = context.RequestLocalName(name);
                 AddOp(result);
                 return result;
@@ -253,7 +258,8 @@ namespace PragmaScript {
             }
             public Value BuildExtractValue(Value v, string name = null, params Value[] indices) {
                 Debug.Assert(indices != null && indices.Length > 0);
-                var result = new Value(Op.ExtractValue, null, indices);
+                var result = new Value(Op.ExtractValue, null, v);
+                result.args.AddRange(indices);
 
                 Debug.Assert(indices != null && indices.Length > 0);
                 Debug.Assert(indices[0].type.kind == TypeKind.Integer);
@@ -282,7 +288,7 @@ namespace PragmaScript {
                 return result;
             }
             public Value BuildAnd(Value left, Value right, string name = null) {
-                var result = new Value(Op.Or, left.type, left, right);
+                var result = new Value(Op.And, left.type, left, right);
                 result.name = context.RequestLocalName(name);
                 AddOp(result);
                 return result;
@@ -330,7 +336,7 @@ namespace PragmaScript {
                 return result;
             }
             public Value BuildUDiv(Value left, Value right, string name = null) {
-                var result = new Value(Op.URem, left.type, left, right);
+                var result = new Value(Op.UDiv, left.type, left, right);
                 result.name = context.RequestLocalName(name);
                 AddOp(result);
                 return result;
@@ -348,7 +354,7 @@ namespace PragmaScript {
                 return result;
             }
             public Value BuildLShr(Value left, Value right, string name = null) {
-                var result = new Value(Op.URem, left.type, left, right);
+                var result = new Value(Op.LShr, left.type, left, right);
                 result.name = context.RequestLocalName(name);
                 AddOp(result);
                 return result;
@@ -359,11 +365,15 @@ namespace PragmaScript {
                 AddOp(result);
                 return result;
             }
-            public Value BuildNeg(Value v, string name = null) {
-                var result = new Value(Op.Neg, v.type, v);
+            public Value BuildSRem(Value left, Value right, string name = null) {
+                var result = new Value(Op.SRem, left.type, left, right);
                 result.name = context.RequestLocalName(name);
                 AddOp(result);
                 return result;
+            }
+            public Value BuildNeg(Value v, string name = null) {
+                Debug.Assert(v.type.kind == TypeKind.Integer);
+                return BuildSub(ConstNull(v.type), v, name);
             }
             public Value BuildFAdd(Value left, Value right, string name = null) {
                 var result = new Value(Op.FAdd, left.type, left, right);
@@ -402,10 +412,7 @@ namespace PragmaScript {
                 return result;
             }
             public Value BuildFNeg(Value v, string name = null) {
-                var result = new Value(Op.FNeg, v.type, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
-                return result;
+                return BuildSub(ConstNull(v.type), v);
             }
             public Value BuildPtrToInt(Value v, SSAType integerType, string name = null) {
                 var result = new Value(Op.PtrToInt, integerType, v);

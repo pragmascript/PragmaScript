@@ -1,4 +1,11 @@
 ﻿ !!!READ!!!!
+
+
+
+ // SSE
+ // https://godbolt.org/g/TK9xqt
+ 
+
  http://llvm.org/docs/Atomics.html
  http://weeb.ddns.net/0/programming/c_without_standard_library_linux.txt
 

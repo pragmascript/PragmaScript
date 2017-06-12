@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -35,7 +36,9 @@ namespace PragmaScript {
             sb.Append(s);
         }
 
+        NumberFormatInfo nfi = new NumberFormatInfo();
         public void AOT() {
+            nfi.NumberDecimalSeparator = ".";
             sb = new StringBuilder();
             AL("target datalayout = \"e-m:w-i64:64-f80:128-n8:16:32:64-S128\"");
             AL("target triple = \"x86_64-pc-windows-msvc\"");
@@ -54,8 +57,7 @@ namespace PragmaScript {
             System.IO.File.WriteAllText("output.ll", sb.ToString());
         }
 
-
-        void AppendInitializer(SSA.Value v) {
+        void AppendConstValue(SSA.Value v) {
             switch (v) {
                 case ConstInt i:
                     var it = i.type as IntegerType;
@@ -70,7 +72,7 @@ namespace PragmaScript {
                     }
                     break;
                 case ConstReal r:
-                    AP(r.data.ToString());
+                    AP(r.data.ToString(nfi));
                     break;
                 case ConstPtr p:
                     if (p.data == 0) {
@@ -149,8 +151,59 @@ namespace PragmaScript {
             }
         }
 
+        void Indent() {
+            if (isIndented) {
+                AP("  ");
+            }
+        }
+
+        void AppendAssignSSA(Value v) {
+            Indent();
+            AP($"{v.name} = ");
+        }
+
+        void AppendArgument(Value arg, bool appendType = true) {
+            if (appendType) {
+                AppendType(arg.type);
+                AP(" ");
+            }
+            // TODO(pragma): handle constant properly
+            if (arg.isConst) {
+                AppendConstValue(arg);
+            } else {
+                AP(arg.name);
+            }
+        }
+
+        void AppendConversionOp(Value v, string name) {
+            AppendAssignSSA(v);
+            AP($"{name} ");
+            AppendArgument(v.args[0]);
+            AP(" to ");
+            AppendType(v.type);
+            AL();
+        }
+        void AppendBinOp(Value v, string name) {
+            AppendAssignSSA(v);
+            AP($"{name} ");
+            AppendArgument(v.args[0]);
+            AP(", ");
+            AppendArgument(v.args[1], false);
+            AL();
+        }
+
+        bool isIndented = false;
         void AppendOp(SSA.Value v) {
             switch (v.op) {
+                case Op.FunctionArgument:
+                case Op.ConstAggregateZero:
+                case Op.ConstInt:
+                case Op.ConstReal:
+                case Op.ConstPtr:
+                case Op.ConstVoid:
+                case Op.Label:
+                    throw new InvalidCodePath();
+
                 case Op.GlobalStringPtr: {
                         var gsp = (GlobalStringPtr)v;
                         var es = EscapeString(gsp.data);
@@ -159,11 +212,12 @@ namespace PragmaScript {
                     break;
                 case Op.GlobalVariable: {
                         var gv = (GlobalVariable)v;
-                        AP($"{gv.name} = internal global {(gv.isConst ? "constant " : "")}");
+                        AppendAssignSSA(gv);
+                        AP($"internal global {(gv.isConst ? "constant " : "")}");
                         var pt = (PointerType)gv.type;
                         AppendType(pt.elementType);
                         AP(" ");
-                        AppendInitializer(gv.initializer);
+                        AppendConstValue(gv.initializer);
                         AL();
                     }
                     break;
@@ -205,6 +259,11 @@ namespace PragmaScript {
                             AL(") #0 {");
                             foreach (var b in f.blocks) {
                                 AL($"{b.name.Substring(1)}:");
+                                isIndented = true;
+                                foreach (var op in b.args) {
+                                    AppendOp(op);
+                                }
+                                isIndented = false;
                             }
                             AL("}");
                         } else {
@@ -212,98 +271,212 @@ namespace PragmaScript {
                         }
                     }
                     break;
-                case Op.ConstInt:
-                    break;
-                case Op.ConstReal:
-                    break;
-                case Op.ConstPtr:
-                    break;
-                case Op.ConstVoid:
-                    break;
-                case Op.Label:
-                    break;
-                case Op.Ret:
-                    break;
                 case Op.Br:
-                    break;
-                case Op.Call:
-                    break;
-                case Op.Alloca:
-                    break;
-                case Op.BitCast:
-                    break;
-                case Op.Store:
-                    break;
-                case Op.GEP:
-                    break;
-                case Op.Load:
-                    break;
-                case Op.Or:
-                    break;
-                case Op.Xor:
-                    break;
-                case Op.ICmp:
-                    break;
-                case Op.Add:
-                    break;
-                case Op.Sub:
-                    break;
-                case Op.Mul:
-                    break;
-                case Op.SDiv:
-                    break;
-                case Op.URem:
-                    break;
-                case Op.Shl:
-                    break;
-                case Op.AShr:
-                    break;
-                case Op.Neg:
-                    break;
-                case Op.FAdd:
-                    break;
-                case Op.FSub:
-                    break;
-                case Op.FMul:
-                    break;
-                case Op.FDiv:
-                    break;
-                case Op.FRem:
-                    break;
-                case Op.FCmp:
-                    break;
-                case Op.PtrToInt:
+                    Indent();
+                    AP("br label");
+                    AppendArgument(v.args[0]);
+                    AL();
                     break;
                 case Op.Phi:
                     break;
-                case Op.FNeg:
+                case Op.Call: {
+                        if (v.type.kind != TypeKind.Void) {
+                            AppendAssignSSA(v);
+                        } else {
+                            Indent();
+                        }
+                        AP("call ");
+                        var fun = v.args[0];
+                        AppendArgument(fun);
+                        AP("(");
+                        for (int i = 1; i < v.args.Count; ++i) {
+                            AppendType(v.args[i].type);
+                            AP(" ");
+                            AppendArgument(v.args[i]);
+                            if (i != v.args.Count - 1) {
+                                AP(", ");
+                            }
+                        }
+                        AL(")");
+                    }
+                    break;
+                case Op.Ret:
+                    Indent();
+                    AP("ret ");
+                    if (v.type.kind == TypeKind.Void) {
+                        AL("void");
+                    } else {
+                        AppendArgument(v.args[0]);
+                        AL();
+                    }
+                    break;
+                case Op.Alloca:
+                    AppendAssignSSA(v);
+                    AP("alloca ");
+                    var et = ((PointerType)v.type).elementType;
+                    AppendType(et);
+                    AL();
+                    break;
+           
+                case Op.Store: {
+                        Indent();
+                        AP("store ");
+                        var val = v.args[0];
+                        var ptr = v.args[1];
+                        AppendArgument(val);
+                        AP(", ");
+                        AppendArgument(ptr);
+                        AL();
+                    }
+                    break;
+                case Op.Load:
+                    AppendAssignSSA(v);
+                    AP("load ");
+                    AppendType(v.type);
+                    AP(", ");
+                    AppendArgument(v.args[0]);
+                    AL();
+                    break;
+                case Op.GEP: {
+                        var gep = (GetElementPtr)v;
+                        var arg0 = v.args[0];
+                        AppendAssignSSA(v);
+                        AP("getelementptr ");
+                        if (gep.inBounds) {
+                            AP("inbounds ");
+                        }
+                        AppendType(gep.baseType);
+                        AP(", ");
+                        AppendArgument(arg0);
+                        for (int i = 1; i < gep.args.Count; ++i) {
+                            AP(", ");
+                            AppendArgument(v.args[i]);
+                        }
+                        AL();
+                    }
+                    break;
+                case Op.ExtractValue: {
+                        var arg0 = v.args[0];
+                        AppendAssignSSA(v);
+                        AP("extractvalue ");
+                        AppendArgument(arg0);
+                        for (int i = 1; i < v.args.Count; ++i) {
+                            AP(", ");
+                            AppendArgument(v.args[i], false);
+                        }
+                        AL();
+                    }
+                    break;
+                case Op.And:
+                    AppendBinOp(v, "and");
+                    break;
+                case Op.Or:
+                    AppendBinOp(v, "or");
+                    break;
+                case Op.Xor:
+                    AppendBinOp(v, "xor");
                     break;
                 case Op.Not:
+                    AppendAssignSSA(v);
+                    AP("xor");
+                    AppendArgument(v);
+                    AP(", -1");
                     break;
-                case Op.SExt:
+                case Op.Add:
+                    AppendBinOp(v, "add");
                     break;
-                case Op.ZExt:
+                case Op.Sub:
+                    AppendBinOp(v, "sub");
                     break;
-                case Op.Trunc:
+                case Op.Mul:
+                    AppendBinOp(v, "mul");
                     break;
-                case Op.FPToSI:
+                case Op.SDiv:
+                    AppendBinOp(v, "sdiv");
                     break;
-                case Op.FPToUI:
+                case Op.UDiv:
+                    AppendBinOp(v, "udiv");
                     break;
-                case Op.SIToFP:
+                case Op.URem:
+                    AppendBinOp(v, "urem");
                     break;
-                case Op.UIToFP:
+                case Op.SRem:
+                    AppendBinOp(v, "srem");
                     break;
-                case Op.FPCast:
+                case Op.Shl:
+                    AppendBinOp(v, "shl");
+                    break;
+                case Op.AShr:
+                    AppendBinOp(v, "ashr");
+                    break;
+                case Op.LShr:
+                    AppendBinOp(v, "lshr");
+                    break;
+                case Op.FAdd:
+                    AppendBinOp(v, "fadd");
+                    break;
+                case Op.FSub:
+                    AppendBinOp(v, "fsub");
+                    break;
+                case Op.FMul:
+                    AppendBinOp(v, "fmul");
+                    break;
+                case Op.FDiv:
+                    AppendBinOp(v, "fdiv");
+                    break;
+                case Op.FRem:
+                    AppendBinOp(v, "frem");
+                    break;
+                case Op.ICmp:
+                    AppendBinOp(v, "icmp");
+                    break;
+                case Op.FCmp:
+                    AppendBinOp(v, "fcmp");
+                    break;
+                case Op.BitCast:
+                    AppendConversionOp(v, "bitcast");
+                    break;
+                case Op.PtrToInt:
+                    AppendConversionOp(v, "ptrtoint");
                     break;
                 case Op.IntToPtr:
+                    AppendConversionOp(v, "inttoptr");
                     break;
-                case Op.ConstAggregateZero:
+                case Op.Trunc:
+                    AppendConversionOp(v, "trunc");
                     break;
-                case Op.FunctionArgument:
+                case Op.ZExt:
+                    AppendConversionOp(v, "zext");
                     break;
-                case Op.ExtractValue:
+                case Op.SExt:
+                    AppendConversionOp(v, "sext");
                     break;
+                case Op.FPToSI:
+                    AppendConversionOp(v, "fptosi");
+                    break;
+                case Op.FPToUI:
+                    AppendConversionOp(v, "fptoui");
+                    break;
+                case Op.SIToFP:
+                    AppendConversionOp(v, "sitofp");
+                    break;
+                case Op.UIToFP:
+                    AppendConversionOp(v, "uitofp");
+                    break;
+                case Op.FPCast: {
+                        var sourceType = (FloatType)v.args[0].type;
+                        var destType = (FloatType)v.type;
+                        if (sourceType.BitWidth > destType.BitWidth) {
+                            AppendConversionOp(v, "fptrunc");
+                        } else if (sourceType.BitWidth < destType.BitWidth) {
+                            AppendConversionOp(v, "fpext");
+                        } else {
+                            throw new InvalidCodePath();
+                        }
+                    }
+                    break;
+                default:
+                    throw new NotImplementedException();
             }
         }
 
