@@ -608,7 +608,8 @@ namespace PragmaScript {
             }
             static SSAType getTypeRef(FrontendStructType t, int depth) {
                 // TODO(pragma): don't assume PACKED!
-                var result = new StructType(true);
+                bool packed = true;
+                var result = new StructType(packed);
                 foreach (var f in t.fields) {
                     result.elementTypes.Add(getTypeRef(f.type, depth + 1));
                 }
