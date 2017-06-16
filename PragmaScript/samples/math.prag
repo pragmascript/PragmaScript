@@ -9,27 +9,47 @@ namespace Math
 	let tau = 2.0 * pi;
 	let tau_32 = 2.0 * pi_32;
 
-
+	["READNONE"]
 	let sin     = extern("llvm.sin.f32")    fun (x: f32) => f32;
+	["READNONE"]
 	let cos     = extern("llvm.cos.f32")    fun (x: f32) => f32;
+	["READNONE"]
 	let tan     = extern("tanf")  		    fun (x: f32) => f32;
+	["READNONE"]
 	let asin    = extern("asinf")           fun (x: f32) => f32;
+	["READNONE"]
 	let acos    = extern("acosf")           fun (x: f32) => f32;
+	["READNONE"]
 	let atan    = extern("atanf")           fun (x: f32) => f32;
+	["READNONE"]
 	let atan2   = extern("atan2f")          fun (x: f32) => f32;
+	["READNONE"]
 	let sqrt    = extern("llvm.sqrt.f32")   fun (x: f32) => f32;
+	["READNONE"]
 	let pow     = extern("llvm.pow.f32")    fun (x: f32; p: f32) => f32;
+	["READNONE"]
 	let abs     = extern("llvm.fabs.f32")   fun (x: f32) => f32;
+	["READNONE"]
 	let floor   = extern("llvm.floor.f32")  fun (x: f32) => f32;
+	["READNONE"]
 	let trunc   = extern("llvm.trunc.f32")  fun (x: f32) => f32;
+	["READNONE"]
 	let ceil    = extern("llvm.ceil.f32")   fun (x: f32) => f32;
+	["READNONE"]
 	let round   = extern("llvm.round.f32")  fun (x: f32) => f32;
+	["READNONE"]
 	let exp     = extern("llvm.exp.f32")    fun (x: f32) => f32;
+	["READNONE"]
 	let exp2    = extern("llvm.exp2.f32")   fun (x: f32) => f32;
+	["READNONE"]
 	let log     = extern("llvm.log.f32")    fun (x: f32) => f32;
+	["READNONE"]
 	let log2    = extern("llvm.log2.f32")   fun (x: f32) => f32;
+	["READNONE"]
 	let log10   = extern("llvm.log10.f32")  fun (x: f32) => f32;
+	["READNONE"]
 	let min     = extern("llvm.minnum.f32") fun (a: f32; b: f32) => f32;
+	["READNONE"]
 	let max     = extern("llvm.maxnum.f32") fun (a: f32; b: f32) => f32;
 
 	let round_to_i32 = fun (x: f32) => i32 {

@@ -332,15 +332,22 @@ namespace PragmaScript {
                 }
             }
         }
-
+        [Flags]
+        public enum FunctionAttribs {
+            nounwind=1, readnone=2, argmemonly=4,
+        }
         public class Function : Value {
             public List<Block> blocks;
-            public bool ExportDLL = false;
-            public Function(FunctionType ft, string name)
+            public bool exportDLL = false;
+            public bool internalLinkage = true;
+            public bool isStub = false;
+            
+            public FunctionAttribs attribs = FunctionAttribs.nounwind;
+
+            public Function(FunctionType ft)
                 : base(Op.Function, new PointerType(ft)) {
                 args = new List<Value>();
                 blocks = null;
-                this.name = name;
             }
             public void SetParamNames(string[] paramNames) {
                 var ft = (FunctionType)((PointerType)type).elementType;
@@ -437,18 +444,20 @@ namespace PragmaScript {
 
         public class GlobalStringPtr : Value {
             public string data;
-            public GlobalStringPtr(string data, string name)
-                : base(Op.GlobalStringPtr, Const.ptr_t) {
-                this.name = name;
+            public GlobalStringPtr(string data)
+                : base(Op.GlobalStringPtr, new PointerType(new ArrayType(Const.i8_t, (uint)data.Length + 1))) {
+                isConst = true;
                 this.data = data;
             }
         }
 
         public class GlobalVariable : Value {
+            
             public Value initializer = null;
-            public GlobalVariable(SSAType t, string name)
+            public bool isConstantVariable = false;
+            public GlobalVariable(SSAType t)
                 : base(Op.GlobalVariable, new PointerType(t)) {
-                this.name = name;
+                isConst = true;
             }
             public void SetInitializer(Value v) {
                 initializer = v;
@@ -492,7 +501,7 @@ namespace PragmaScript {
         public class GetElementPtr : Value {
             public bool inBounds;
             public SSAType baseType;
-            public GetElementPtr(Value ptr, string name = null, bool inBounds = false, params Value[] indices)
+            public GetElementPtr(Value ptr, bool inBounds = false, params Value[] indices)
                 : base(Op.GEP, null, ptr) {
                 args.AddRange(indices);
 
@@ -516,7 +525,6 @@ namespace PragmaScript {
                     }
                 }
 
-                this.name = name;
                 this.type = new PointerType(resultType);
                 this.inBounds = inBounds;
             }

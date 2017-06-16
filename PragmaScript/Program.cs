@@ -55,7 +55,7 @@ namespace PragmaScript
             // CompilerOptions.optimizationLevel = 3;
             // CompilerOptions.runAfterCompile = true;
 #endif
-#if true
+#if false
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..", "samples"));
             // CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");

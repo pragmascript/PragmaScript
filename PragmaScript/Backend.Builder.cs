@@ -73,7 +73,7 @@ namespace PragmaScript {
             public (Block next, Block end) PeekLoop() {
                 return loopStack.Peek();
             }
-            public string RequestLocalName(string n, Function f = null) {
+            public string RequestLocalName_(string n, Function f = null) {
                 if (n == null) {
                     return null;
                 }
@@ -118,14 +118,20 @@ namespace PragmaScript {
                 context = new Context();
                 this.mod = mod;
                 // add memcpy
-                var ft = new FunctionType(Const.void_t, Const.ptr_t, Const.ptr_t, Const.i32_t, Const.bool_t);
+                var ft = new FunctionType(Const.void_t, Const.ptr_t, Const.ptr_t, Const.i32_t, Const.i32_t, Const.bool_t);
                 intrinsic_memcpy = AddFunction(ft, "llvm.memcpy.p0i8.p0i8.i32");
-                GetParam((Function)intrinsic_memcpy, 0).noalias = false;
-                GetParam((Function)intrinsic_memcpy, 0).nocapture = true;
-                GetParam((Function)intrinsic_memcpy, 1).noalias = false;
-                GetParam((Function)intrinsic_memcpy, 1).nocapture = true;
-                GetParam((Function)intrinsic_memcpy, 1).@readonly = true;
+                var p0 = GetParam((Function)intrinsic_memcpy, 0);
+                var p1 = GetParam((Function)intrinsic_memcpy, 1);
+                p0.noalias = false;
+                p0.nocapture = true;
+                p1.noalias = false;
+                p1.nocapture = true;
+                p1.@readonly = true;
+                var f = (Function)intrinsic_memcpy;
+                f.attribs |= FunctionAttribs.argmemonly;
             }
+
+
             public void PositionAtEnd(Block block) {
                 context.SetCurrentBlock(block);
             }
@@ -133,7 +139,7 @@ namespace PragmaScript {
                 return context.currentBlock;
             }
             public Block AppendBasicBlock(Function f, string name) {
-                name = context.RequestLocalName(name, f);
+                name = context.RequestLocalName_(name, f);
                 var result = f.AppendBasicBlock(name);
                 return result;
             }
@@ -143,14 +149,22 @@ namespace PragmaScript {
             public void MoveBasicBlockAfter(Block block, Block targetPosition) {
                 block.function.MoveBasicBlockAfter(block, targetPosition);
             }
-            void AddOp(Value v) {
-                context.currentBlock.args.Add(v);
+            void AddOp(Value v, string name = null, Function f = null) {
+                if (!v.isConst) {
+                    if (name != null) {
+                        v.name = context.RequestLocalName_(name, f);
+                    }
+                    context.currentBlock.args.Add(v);
+                }
             }
-            void AddOpGlobal(Value v) {
+            void AddOpGlobal(Value v, string name) {
                 Debug.Assert(v is GlobalVariable || v is GlobalStringPtr || v is Function);
+
+                if (name != null) {
+                    v.name = context.RequestGlobalName(name);
+                }
                 mod.globals.args.Add(v);
             }
-
             public Value BuildRet(Value ret) {
                 var result = new Value(Op.Ret, ret.type, ret);
                 AddOp(result);
@@ -184,42 +198,42 @@ namespace PragmaScript {
                 }
                 result.type = ft.returnType;
                 if (result.type.kind != TypeKind.Void) {
-                    result.name = context.RequestLocalName(name);
+                    AddOp(result, name);
+                } else {
+                    AddOp(result);
                 }
 
-                AddOp(result);
                 return result;
             }
-            public GlobalStringPtr BuildGlobalStringPtr(string str, string name = null) {
-                name = context.RequestGlobalName(name);
-                var result = new GlobalStringPtr(str, name);
-                AddOpGlobal(result);
+            public Value BuildGlobalStringPtr(string str, string name = null) {
+                var gs = new GlobalStringPtr(str);
+                AddOpGlobal(gs, name);
+                var result = BuildBitCast(gs, ptr_t);
+                Debug.Assert(result.isConst);
                 return result;
             }
 
             public Value BuildAlloca(SSAType t, string name = null) {
                 var result = new Value(Op.Alloca, new PointerType(t));
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                AddOp(result, name);
                 return result;
             }
             public Value BuildArrayAlloca(SSAType t, Value size, string name = null) {
                 var result = new Value(Op.Alloca, new PointerType(t), size);
                 Debug.Assert(size.type.kind == TypeKind.Integer);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                AddOp(result, name);
                 return result;
             }
 
             public GlobalVariable AddGlobal(SSAType t, string name = null) {
-                var result = new GlobalVariable(t, context.RequestGlobalName(name));
-                AddOpGlobal(result);
+                var result = new GlobalVariable(t);
+                AddOpGlobal(result, name);
                 return result;
             }
             public Value BuildBitCast(Value v, SSAType dest, string name = null) {
                 var result = new Value(Op.BitCast, dest, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildMemCpy(Value destPtr, Value srcPtr, Value count, bool isVolatile = false) {
@@ -236,8 +250,7 @@ namespace PragmaScript {
                 Debug.Assert(ptr.type.kind == TypeKind.Pointer);
                 var pt = (PointerType)ptr.type;
                 var result = new Value(Op.Load, pt.elementType, ptr);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                AddOp(result, name);
                 return result;
             }
             public Value BuildStore(Value v, Value ptr) {
@@ -247,13 +260,15 @@ namespace PragmaScript {
                 return result;
             }
             public GetElementPtr BuildGEP(Value ptr, string name = null, bool inBounds = false, params Value[] indices) {
-                var result = new GetElementPtr(ptr, context.RequestLocalName(name), inBounds, indices);
-                AddOp(result);
+                var result = new GetElementPtr(ptr, inBounds, indices);
+                result.isConst = ptr.isConst && indices.All(idx => idx.isConst);
+                AddOp(result, name);
                 return result;
             }
             public GetElementPtr BuildStructGEP(Value structPointer, int idx, string name = null) {
-                var result = new GetElementPtr(structPointer, context.RequestLocalName(name), true, new ConstInt(i32_t, (ulong)idx));
-                AddOp(result);
+                var result = new GetElementPtr(structPointer, true, zero_i32_v, new ConstInt(i32_t, (ulong)idx));
+                result.isConst = structPointer.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildExtractValue(Value v, string name = null, params Value[] indices) {
@@ -267,6 +282,7 @@ namespace PragmaScript {
                 for (int i = 0; i < indices.Length; ++i) {
                     var idx = indices[i];
                     Debug.Assert(idx.type.kind == TypeKind.Integer);
+                    Debug.Assert(idx.isConst);
                     if (resultType.kind == TypeKind.Array) {
                         resultType = ((ArrayType)resultType).elementType;
                     } else if (resultType.kind == TypeKind.Struct) {
@@ -276,99 +292,99 @@ namespace PragmaScript {
                         resultType = st.elementTypes[elementIdx];
                     }
                 }
-                result.name = context.RequestLocalName(name);
                 result.type = resultType;
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildNot(Value v, string name = null) {
                 var result = new Value(Op.Not, v.type, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildAnd(Value left, Value right, string name = null) {
                 var result = new Value(Op.And, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildOr(Value left, Value right, string name = null) {
                 var result = new Value(Op.Or, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildXor(Value left, Value right, string name = null) {
                 var result = new Value(Op.Xor, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public ICmp BuildICmp(Value left, Value right, IcmpType icmpType, string name = null) {
                 var result = new ICmp(left, right, icmpType, name);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildAdd(Value left, Value right, string name = null) {
                 var result = new Value(Op.Add, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildSub(Value left, Value right, string name = null) {
                 var result = new Value(Op.Sub, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildMul(Value left, Value right, string name = null) {
                 var result = new Value(Op.Mul, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildSDiv(Value left, Value right, string name = null) {
                 var result = new Value(Op.SDiv, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildUDiv(Value left, Value right, string name = null) {
                 var result = new Value(Op.UDiv, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildShl(Value left, Value right, string name = null) {
                 var result = new Value(Op.Shl, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildAShr(Value left, Value right, string name = null) {
                 var result = new Value(Op.AShr, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildLShr(Value left, Value right, string name = null) {
                 var result = new Value(Op.LShr, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildURem(Value left, Value right, string name = null) {
                 var result = new Value(Op.URem, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildSRem(Value left, Value right, string name = null) {
                 var result = new Value(Op.SRem, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildNeg(Value v, string name = null) {
@@ -377,113 +393,113 @@ namespace PragmaScript {
             }
             public Value BuildFAdd(Value left, Value right, string name = null) {
                 var result = new Value(Op.FAdd, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildFSub(Value left, Value right, string name = null) {
                 var result = new Value(Op.FSub, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildFMul(Value left, Value right, string name = null) {
                 var result = new Value(Op.FMul, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildFDiv(Value left, Value right, string name = null) {
                 var result = new Value(Op.FDiv, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildFRem(Value left, Value right, string name = null) {
                 var result = new Value(Op.FRem, left.type, left, right);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildFCmp(Value left, Value right, FcmpType fcmpType, string name = null) {
                 var result = new FCmp(left, right, fcmpType, name);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = left.isConst && right.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildFNeg(Value v, string name = null) {
-                return BuildSub(ConstNull(v.type), v);
+                return BuildFSub(ConstNull(v.type), v, name);
             }
             public Value BuildPtrToInt(Value v, SSAType integerType, string name = null) {
                 var result = new Value(Op.PtrToInt, integerType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildIntToPtr(Value v, SSAType pointerType, string name = null) {
                 var result = new Value(Op.IntToPtr, pointerType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildSizeOf(SSAType t, string name = null) {
                 var np = new ConstPtr(new PointerType(t), 0);
                 var size = BuildGEP(np, "size_of_trick", false, one_i32_v);
                 var result = BuildPtrToInt(size, Const.mm_t, name);
+                Debug.Assert(result.isConst);
                 return result;
             }
             public Phi BuildPhi(SSAType t, string name = null, params (Value, Block)[] incoming) {
                 var result = new Phi(t, name, incoming);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                AddOp(result, name);
                 return result;
             }
             public Value BuildSExt(Value v, SSAType targetType, string name = null) {
                 var result = new Value(Op.SExt, targetType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildZExt(Value v, SSAType targetType, string name = null) {
                 var result = new Value(Op.ZExt, targetType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildTrunc(Value v, SSAType targetType, string name = null) {
                 var result = new Value(Op.Trunc, targetType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildFPToSI(Value v, SSAType targetType, string name = null) {
                 var result = new Value(Op.FPToSI, targetType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildFPToUI(Value v, SSAType targetType, string name = null) {
                 var result = new Value(Op.FPToUI, targetType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildSIToFP(Value v, SSAType targetType, string name = null) {
                 var result = new Value(Op.SIToFP, targetType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildUIToFP(Value v, SSAType targetType, string name = null) {
                 var result = new Value(Op.UIToFP, targetType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value BuildFPCast(Value v, SSAType targetType, string name = null) {
                 var result = new Value(Op.FPCast, targetType, v);
-                result.name = context.RequestLocalName(name);
-                AddOp(result);
+                result.isConst = v.isConst;
+                AddOp(result, name);
                 return result;
             }
             public Value ConstNull(SSAType t) {
@@ -506,15 +522,15 @@ namespace PragmaScript {
             }
 
             public Function AddFunction(FunctionType ft, string name, string[] paramNames = null) {
-                var result = new Function(ft, context.RequestGlobalName(name));
+                var result = new Function(ft);
                 context.CreateFunctionContext(result);
                 if (paramNames != null) {
                     for (int i = 0; i < paramNames.Length; ++i) {
-                        paramNames[i] = context.RequestLocalName(paramNames[i], result);
+                        paramNames[i] = context.RequestLocalName_(paramNames[i], result);
                     }
                 }
                 result.SetParamNames(paramNames);
-                AddOpGlobal(result);
+                AddOpGlobal(result, name);
                 return result;
             }
             public FunctionArgument GetParam(Function f, int idx) {

@@ -336,7 +336,7 @@
     let GetDC = extern fun (hWnd: mm) => mm;
     let ReleaseDC = extern fun (hWnd: mm; hdc: mm) => i32;
     let GetCompatibleDC = extern fun (hdc: mm) => mm;
-    ["stub"]
+    
     let VirtualAlloc = extern fun 
     (
       address: ptr;

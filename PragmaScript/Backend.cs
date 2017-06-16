@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,11 +16,229 @@ namespace PragmaScript {
         Stack<Value> valueStack = new Stack<Value>();
         Dictionary<string, Value> stringTable = new Dictionary<string, Value>();
 
+        Dictionary<FunctionAttribs, int> functionAttribs;
+        string exeDir;
+
         public Backend(TypeChecker typeChecker) {
+            functionAttribs = new Dictionary<FunctionAttribs, int>();
             this.typeChecker = typeChecker;
             mod = new Module();
             builder = new Builder(mod);
+            exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location);
+            functionAttribs.Add(FunctionAttribs.nounwind, 0);
+        }
 
+        public void AOT() {
+#if DISPLAY_TIMINGS
+            var timer = new Stopwatch();
+            timer.Start();
+#endif
+            var ll = emitLL();
+
+
+            int optLevel = CompilerOptions.optimizationLevel;
+            Debug.Assert(optLevel >= 0 && optLevel <= 3);
+            var arch = "x86-64";
+
+            var outputDir = Path.GetDirectoryName(CompilerOptions.inputFilename);
+            var outputTempDir = Path.Combine(outputDir, "obj");
+            var outputTemp = Path.Combine(outputTempDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
+            var outputBinDir = Path.Combine(outputDir, "bin");
+            var outputBin = Path.Combine(outputBinDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
+
+            Func<string, string> oxt = (ext) => outputTemp + ext;
+            Func<string, string> ox = (ext) => outputBin + ext;
+
+            Directory.CreateDirectory(outputTempDir);
+            Directory.CreateDirectory(outputBinDir);
+
+            if (CompilerOptions.ll) {
+                File.WriteAllText(oxt(".ll"), ll);
+            }
+            var bufferSize = 100 * 1024 * 1024;
+            var buffer = new byte[bufferSize];
+
+
+#if DISPLAY_TIMINGS
+            timer.Stop();
+            Console.WriteLine($"backend preperation time: {timer.ElapsedMilliseconds}ms");
+            timer.Reset();
+            timer.Start();
+#endif
+            var mcpu = CompilerOptions.cpu;
+            bool error = false;
+
+            if (optLevel > 0) {
+                Console.WriteLine($"optimizer... (O{optLevel})");
+                var optProcess = new Process();
+                optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
+                if (CompilerOptions.ll) {
+                    optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} -march={arch} -mcpu={mcpu} -S -o {oxt("_opt.ll")}";
+                    optProcess.StartInfo.RedirectStandardInput = false;
+                    optProcess.StartInfo.RedirectStandardOutput = false;
+                    optProcess.StartInfo.UseShellExecute = false;
+                    optProcess.Start();
+                    optProcess.WaitForExit();
+                } else {
+                    optProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu={mcpu} -f";
+                    optProcess.StartInfo.RedirectStandardInput = true;
+                    optProcess.StartInfo.RedirectStandardOutput = true;
+                    optProcess.StartInfo.UseShellExecute = false;
+                    optProcess.Start();
+                    var writer = optProcess.StandardInput;
+                    var reader = optProcess.StandardOutput;
+                    writer.Write(ll);
+                    writer.Close();
+                    //writer.BaseStream.Write(buffer, 0, bufferSize);
+                    //writer.Close();
+
+                    var pos = 0;
+                    var count = 0;
+                    while (true) {
+                        var bytes_read = reader.BaseStream.Read(buffer, pos, buffer.Length - count);
+                        pos += bytes_read;
+                        count += bytes_read;
+                        if (bytes_read == 0) {
+                            break;
+                        }
+                    }
+                    Debug.Assert(count < buffer.Length);
+                    reader.Close();
+                    bufferSize = count;
+                    if (CompilerOptions.bc) {
+                        File.WriteAllBytes(oxt("_opt.bc"), buffer.Take(bufferSize).ToArray());
+                    }
+                    optProcess.WaitForExit();
+                }
+                if (optProcess.ExitCode != 0) {
+                    error = true;
+                }
+                optProcess.Close();
+            }
+            var inp = oxt("_opt.ll");
+            if (optLevel == 0) {
+                inp = oxt(".ll");
+            }
+            if (!error && CompilerOptions.asm) {
+                Console.WriteLine("assembler...(debug)");
+                var llcProcess = new Process();
+                llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
+                if (CompilerOptions.ll) {
+                    llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=asm -o {oxt(".asm")}";
+                    llcProcess.StartInfo.RedirectStandardInput = false;
+                    llcProcess.StartInfo.RedirectStandardOutput = false;
+                    llcProcess.StartInfo.UseShellExecute = false;
+                    llcProcess.Start();
+                    llcProcess.WaitForExit();
+                } else {
+                    llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu={mcpu} -filetype=asm -o {oxt(".asm")}";
+                    llcProcess.StartInfo.RedirectStandardInput = true;
+                    llcProcess.StartInfo.RedirectStandardOutput = false;
+                    llcProcess.StartInfo.UseShellExecute = false;
+                    llcProcess.Start();
+                    var writer = llcProcess.StandardInput;
+                    if (optLevel > 0) {
+                        writer.BaseStream.Write(buffer, 0, bufferSize);
+                    } else {
+                        writer.Write(ll);
+                    }
+                    writer.Close();
+                    llcProcess.WaitForExit();
+                }
+
+                if (llcProcess.ExitCode != 0) {
+                    error = true;
+                }
+                llcProcess.Close();
+            }
+            if (!error) {
+                Console.WriteLine("assembler...");
+                var llcProcess = new Process();
+                llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
+                if (CompilerOptions.ll) {
+                    llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=obj -o {oxt(".o")}";
+                    llcProcess.StartInfo.RedirectStandardInput = false;
+                    llcProcess.StartInfo.RedirectStandardOutput = false;
+                    llcProcess.StartInfo.UseShellExecute = false;
+                    llcProcess.Start();
+                    llcProcess.WaitForExit();
+                } else {
+                    llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu={mcpu} -filetype=obj -o {oxt(".o")}";
+                    llcProcess.StartInfo.RedirectStandardInput = true;
+                    llcProcess.StartInfo.RedirectStandardOutput = false;
+                    llcProcess.StartInfo.UseShellExecute = false;
+                    llcProcess.Start();
+                    var writer = llcProcess.StandardInput;
+                    if (optLevel > 0) {
+                        writer.BaseStream.Write(buffer, 0, bufferSize);
+                    } else {
+                        writer.Write(ll);
+                    }
+                    writer.Close();
+                    llcProcess.WaitForExit();
+                }
+                if (llcProcess.ExitCode != 0) {
+                    error = true;
+                }
+                llcProcess.Close();
+            }
+            if (!error) {
+                var libs = String.Join(" ", CompilerOptions.libs);
+                var lib_path = String.Join(" /libpath:", CompilerOptions.lib_path.Select(s => "\"" + s + "\""));
+                Console.WriteLine("linker...");
+                var lldProcess = new Process();
+                lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
+                var flags = "/entry:__init";
+                if (CompilerOptions.dll) {
+                    flags += $" /NODEFAULTLIB /dll /out:\"{ox(".dll")}\"";
+                } else {
+                    flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
+                }
+
+                lldProcess.StartInfo.Arguments = $"{libs} \"{oxt(".o")}\" {flags} /libpath:{lib_path}";
+                lldProcess.StartInfo.RedirectStandardInput = false;
+                lldProcess.StartInfo.RedirectStandardOutput = false;
+                lldProcess.StartInfo.UseShellExecute = false;
+                lldProcess.Start();
+                lldProcess.WaitForExit();
+                if (lldProcess.ExitCode != 0) {
+                    error = true;
+                }
+                lldProcess.Close();
+            }
+
+#if DISPLAY_TIMINGS
+            timer.Stop();
+            Console.WriteLine($"backend llvm time: {timer.ElapsedMilliseconds}ms");
+#endif
+
+            if (!error && CompilerOptions.runAfterCompile) {
+                Console.WriteLine("running...");
+                var outputProcess = new Process();
+                outputProcess.StartInfo.WorkingDirectory = outputBinDir;
+                outputProcess.StartInfo.FileName = ox(".exe");
+                outputProcess.StartInfo.Arguments = "";
+                outputProcess.StartInfo.RedirectStandardInput = false;
+                outputProcess.StartInfo.RedirectStandardOutput = false;
+                outputProcess.StartInfo.UseShellExecute = false;
+                outputProcess.Start();
+                outputProcess.WaitForExit();
+                if (outputProcess.ExitCode != 0) {
+                    error = true;
+                }
+                outputProcess.Close();
+            }
+
+#if DEBUG
+            Console.ReadLine();
+#endif
+            Console.WriteLine("done.");
+
+        }
+
+        public string RelDir(string dir) {
+            string result = Path.Combine(exeDir, dir);
+            return result;
         }
 
         static bool isConstVariableDefinition(AST.Node node) {
@@ -76,6 +296,7 @@ namespace PragmaScript {
             }
 
             var function = builder.AddFunction(ft, "__init");
+            function.internalLinkage = false;
             var vars = builder.AppendBasicBlock(function, "vars");
             var entry = builder.AppendBasicBlock(function, "entry");
             builder.context.SetFunctionBlocks(function, vars, entry);
@@ -1250,6 +1471,16 @@ namespace PragmaScript {
                 // if (node.HasAttribute("STUB")) {
                 var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
                 var function = builder.AddFunction(funType, functionName, fun.parameters.Select(p => p.name).ToArray());
+                function.isStub = node.HasAttribute("STUB");
+                if (node.HasAttribute("READNONE")) {
+                    function.attribs |= FunctionAttribs.readnone;
+                }
+                if (node.HasAttribute("ARGMEMONLY")) {
+                    function.attribs |= FunctionAttribs.argmemonly;
+                }
+                if (function.isStub) {
+                    Debug.Assert(function.name == $"@{functionName}");
+                }
                 variables.Add(node.variableDefinition, function);
             } else {
                 if (node.external || node.body == null) {
@@ -1260,7 +1491,7 @@ namespace PragmaScript {
                 var function = variables[node.variableDefinition] as Function;
 
                 if (node.HasAttribute("DLL.EXPORT")) {
-                    function.ExportDLL = true;
+                    function.exportDLL = true;
                 }
 
                 var vars = builder.AppendBasicBlock(function, "vars");

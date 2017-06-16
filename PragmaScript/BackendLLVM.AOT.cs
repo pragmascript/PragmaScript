@@ -75,7 +75,7 @@ namespace PragmaScript
                 memoryBuffer = LLVM.WriteBitcodeToMemoryBuffer(mod);
                 bufferSize = LLVM.GetBufferSize(memoryBuffer);
                 bufferStart = GetBufferStart(memoryBuffer);
-                // PIGGY 
+                // PIGGY HAT
                 buffer = new byte[100 * 1024 * 1024];
                 Marshal.Copy(bufferStart, buffer, 0, bufferSize);
                 if (CompilerOptions.bc) {
