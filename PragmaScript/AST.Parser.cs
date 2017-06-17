@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
 
-namespace PragmaScript
-{
+namespace PragmaScript {
     partial class AST
     {
 

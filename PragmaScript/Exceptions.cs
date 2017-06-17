@@ -1,4 +1,6 @@
-﻿using LLVMSharp;
+﻿#if !DOTNETCORE
+using LLVMSharp;
+#endif
 using System;
 
 namespace PragmaScript
@@ -123,6 +125,7 @@ namespace PragmaScript
         }
     }
 
+#if !DOTNETCORE
     class BackendTypeMismatchException : BackendException
     {
         public BackendTypeMismatchException(LLVMTypeRef type1, LLVMTypeRef type2)
@@ -131,4 +134,5 @@ namespace PragmaScript
 
         }
     }
+#endif
 }

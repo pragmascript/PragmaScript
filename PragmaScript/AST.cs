@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Linq;
 
-namespace PragmaScript
-{
+namespace PragmaScript {
     partial class AST
     {
 

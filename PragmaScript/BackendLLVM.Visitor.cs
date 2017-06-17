@@ -1,9 +1,9 @@
-﻿using LLVMSharp;
+﻿#if !DOTNETCORE
+using LLVMSharp;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 
 namespace PragmaScript {
     partial class BackendLLVM {
@@ -1616,3 +1616,4 @@ namespace PragmaScript {
         }
     }
 }
+#endif

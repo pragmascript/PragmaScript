@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using static PragmaScript.AST;
 
-namespace PragmaScript
-{
+namespace PragmaScript {
     class ParseTreeTransformations
     {
 

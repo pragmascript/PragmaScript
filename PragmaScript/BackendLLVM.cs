@@ -1,7 +1,8 @@
-﻿using LLVMSharp;
+﻿#if !DOTNETCORE
+using LLVMSharp;
+
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -342,3 +343,4 @@ namespace PragmaScript {
         }
     }
 }
+#endif

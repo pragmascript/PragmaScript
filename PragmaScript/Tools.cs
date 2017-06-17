@@ -1,4 +1,6 @@
-﻿using LLVMSharp;
+﻿#if !DOTNETCORE
+using LLVMSharp;
+#endif
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -31,12 +33,13 @@ namespace PragmaScript
               .GetAwaiter()
               .GetResult();
         }
-
+#if !DOTNETCORE
         public static string GetTypeString(this LLVMValueRef v)
         {
             var t = LLVM.TypeOf(v);
             return Marshal.PtrToStringAnsi(LLVM.PrintTypeToString(t));
             
         }
+#endif
     }
 }

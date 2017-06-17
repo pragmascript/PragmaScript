@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using static PragmaScript.SSA;
 using static PragmaScript.SSA.Const;
@@ -1568,7 +1566,6 @@ namespace PragmaScript {
                 s = typeChecker.GetNodeType(node.left) as FrontendStructType;
             }
             var idx = s.GetFieldIndex(node.fieldName);
-            Value gep;
 
             // is not function argument?
             // assume that when its _NOT_ a pointer then it will be a function argument

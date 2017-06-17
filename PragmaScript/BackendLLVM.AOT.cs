@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿#if !DOTNETCORE
+using System;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -11,8 +9,7 @@ using LLVMSharp;
 using System.IO;
 
 
-namespace PragmaScript
-{
+namespace PragmaScript {
     partial class BackendLLVM
     {
         // NOTE: function signature is broken in LLVMSharp 3.7 so we declare it here manually
@@ -246,3 +243,4 @@ namespace PragmaScript
         }
     }
 }
+#endif

@@ -2,12 +2,9 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace PragmaScript
-{
+namespace PragmaScript {
     partial class AST
     {
 
@@ -16,7 +13,6 @@ namespace PragmaScript
             public string name;
             public TypeString typeString;
 
-            public int allocationCount;
 
             public bool embed;
             public Node defaultValueExpression;
@@ -860,7 +856,6 @@ namespace PragmaScript
             }
             public override IEnumerable<Node> GetChilds()
             {
-                var idx = 0;
                 foreach (var x in elements) {
                     yield return x;
                 }
@@ -1507,7 +1502,6 @@ namespace PragmaScript
             public int pointerLevel = 0;
             public TypeKind kind = TypeKind.Other;
             public FunctionTypeString functionTypeString;
-            public StructTypeString structTypeString;
             public int allocationCount;
 
 
