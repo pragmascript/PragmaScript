@@ -5,10 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using static PragmaScript.AST;
 using System.Diagnostics;
 
-
+using static PragmaScript.AST;
 
 namespace PragmaScript
 {
@@ -159,66 +158,6 @@ namespace PragmaScript
                 }
             }
         }
-
-
-#if FALSE
-        static Graph getRenderGraph(Graph g, AST.Node node, string id)
-        {
-            var ns = NodeStatement.For(id);
-            ns = ns.Set("label", node.ToString().Replace(@"\", @"\\")).Set("font", "Consolas");
-            ns = ns.Set("shape", "box");
-            var result = g.Add(ns);
-            foreach (var c in node.GetChilds())
-            {
-                var cid = Guid.NewGuid().ToString();
-                result = getRenderGraph(result, c, cid);
-                if (c is AST.AnnotatedNode)
-                {
-                    var ca = (c as AST.AnnotatedNode);
-                    var edge = EdgeStatement.For(id, cid).Set("label", ca.annotation).Set("font", "Consolas").Set("fontsize", "10");
-                    result = result.Add(edge);
-                }
-                else
-                {
-                    result = result.Add(EdgeStatement.For(id, cid));
-                }
-            }
-            return result;
-        }
-
-        static void renderGraph(AST.Node root, string label)
-        {
-            if (root == null)
-                return;
-
-            var filename = Path.GetFileNameWithoutExtension(root.token.filename) + ".png";
-
-            var g = getRenderGraph(Graph.Undirected, root, Guid.NewGuid().ToString());
-            //g = g.Add(AttributeStatement.Graph.Set("label", label))
-            //    .Add(AttributeStatement.Graph.Set("labeljust", "l"))
-            //    .Add(AttributeStatement.Graph.Set("fontname", "Consolas"));
-            // g = g.Add(AttributeStatement.Node.Set("shape", "box"));
-
-
-            var gv_path = @"C:\Users\pragma\Downloads\graphviz-2.38\release\bin\";
-
-            if (Directory.Exists(gv_path))
-            {
-                var renderer = new Shields.GraphViz.Components.Renderer(gv_path);
-                using (Stream file = File.Create(filename))
-                {
-                    AsyncHelper.RunSync(() =>
-                        renderer.RunAsync(g, file, Shields.GraphViz.Services.RendererLayouts.Dot, Shields.GraphViz.Services.RendererFormats.Png, CancellationToken.None)
-                     );
-                }
-            }
-            else
-            {
-                Console.WriteLine("graphviz not found skipping rendering graph!");
-            }
-        }
-
-#endif
 
         static Token[] tokenize(string text, string filename)
         {
@@ -513,15 +452,6 @@ namespace PragmaScript
                 setEntryPoint(entry);
             }
 
-
-#if DEBUG
-            //Console.WriteLine("rendering graph...");
-            //foreach (var fr in root.files)
-            //{
-            //    renderGraph(fr, "");
-            //}
-
-#endif
             timer.Stop();
 #if DISPLAY_TIMINGS
             Console.WriteLine($"{timer.ElapsedMilliseconds}ms");
