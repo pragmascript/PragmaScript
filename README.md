@@ -1,4 +1,5 @@
-# PragmaScript
+# pragma
+A programming language that aims to be slightly more comfy than C without sacrificing performance.
 
 ## Small Pathtracer Example
 [video](https://www.youtube.com/watch?v=KslrcXqJ4iU)
