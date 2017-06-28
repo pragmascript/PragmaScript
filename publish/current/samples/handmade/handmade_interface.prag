@@ -1,0 +1,87 @@
+namespace Handmade
+{
+    let game_sound_output = struct
+    (
+        sample_out: i16*;
+        sample_count: i32;
+        samples_per_second: i32;
+        sample_start_time: f32;
+    );
+
+    let game_button = struct
+    (
+        pressed: bool;
+        down: bool;
+        up: bool;
+    );
+
+    let game_time = struct
+    (
+        dt: f32;
+        t: f32;
+    );
+
+    let game_input = struct
+    (
+        time: game_time; 
+
+        up_arrow:    game_button;
+        left_arrow:  game_button;
+        right_arrow: game_button;
+        down_arrow:  game_button;
+
+        left_mb:  game_button;
+        right_mb: game_button;
+        middle_mb: game_button;
+        mouse_x: i32;
+        mouse_y: i32;
+        mouse_z: i32;
+
+
+        request_quit: bool;
+    );
+
+    let game_render_target = struct 
+    (
+        memory: ptr;
+        width:  i32;
+        height: i32;
+        pitch:  i32;
+    );
+
+
+    let game_memory = struct
+    (
+        platform: platform_interface*;
+        permanent_size: mm;
+        permanent_data: ptr;
+
+        transient_size: mm;
+        transient_data: ptr;
+    );
+
+    let game_update_and_render = fun
+    (
+        memory: game_memory*;
+        input: game_input*;
+        render_target: game_render_target*;
+    ) => bool;
+
+    let game_output_sound = fun 
+    (
+        game_memory: game_memory*; 
+        @sound_output: game_sound_output*;
+    ) => void;
+
+    // ********************************************************
+
+    let platform_write_file = fun (name: string; buffer: i8[]) => bool;
+    let platform_read_file = fun (name: string) => i8[];
+    let platform_free_file_memory = fun (mem: ptr) => void;
+    let platform_interface = struct
+    (
+        write_file: platform_write_file;
+        read_file: platform_read_file;
+        free_file_memory: platform_free_file_memory;
+    );
+}

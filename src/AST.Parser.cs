@@ -5,7 +5,6 @@ using System.Globalization;
 namespace PragmaScript {
     partial class AST
     {
-
         public struct ParseState
         {
             public Token[] tokens;
@@ -106,7 +105,6 @@ namespace PragmaScript {
                 expectTokenType(t, tts);
                 return t;
             }
-
 
             public void SkipWhitespace(bool requireOneWS = false)
             {
@@ -730,19 +728,6 @@ namespace PragmaScript {
                 if (!activateReturnPointer(a.left)) {
                     if (a.left is VariableReference) {
                         throw new ParserError("Cannot assign to constant variable", a.left.token);
-                        //var vr = a.left as VariableReference;
-                        //if (vr.vd == null)
-                        //{
-                        //    throw new ParserError($"Variable \"{vr.variableName}\" could not be found and this is either constant or missing, and cannot be assigned to", a.left.token);
-                        //}
-                        //else
-                        //{
-                        //    if (vr.vd.isConstant)
-                        //    {
-                        //        throw new ParserError("Variable is constant and cannot be assigned to.", a.left.token);
-                        //    }
-                        //}
-                        //throw new ParserError("Cannot assign to constant variable", a.left.token);
                     } else {
                         throw new ParserErrorExpected(a.left.GetType().Name, "cannot take address of left side for assignment", a.left.token);
                     }
@@ -753,35 +738,7 @@ namespace PragmaScript {
 
         static Node parseUninitializedArray(ref ParseState ps, Scope scope)
         {
-
             throw new System.NotImplementedException();
-            //// var x = int32
-            //var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
-
-            //var result = new UninitializedArray(current);
-            //result.elementTypeName = current.text;
-
-            //// var x = int32[]
-            //ps.ExpectNextToken(Token.TokenType.ArrayTypeBrackets);
-
-            //// var x = int32[] { 
-            //ps.ExpectNextToken(Token.TokenType.OpenCurly);
-
-            //// var x = int32[] { 12
-            //var cnt = ps.NextToken();
-            //try
-            //{
-            //    result.length = int.Parse(cnt.text);
-            //}
-            //catch
-            //{
-            //    throw new ParserErrorExpected("compile time constant integer array length", cnt.text, cnt);
-            //}
-
-            //var cc = ps.NextToken();
-            //expectTokenType(cc, Token.TokenType.CloseCurly);
-
-            //return result;
         }
 
         static Node parseArrayConstructor(ref ParseState ps, Scope scope)
@@ -805,12 +762,6 @@ namespace PragmaScript {
             ps.NextToken();
             return result;
         }
-
-        //static Node parseVar(ref ParseState ps, Scope scope)
-        //{
-        //    var current = ps.ExpectCurrentToken(Token.TokenType.Var);
-        //    return parseVariableDefinition(ref ps, scope);
-        //}
 
         static Node parseVariableDefinition(ref ParseState ps, Scope scope)
         {
@@ -1170,46 +1121,6 @@ namespace PragmaScript {
             return result;
         }
 
-        //static Node parseStructConstructor(ref ParseState ps, Scope scope)
-        //{
-
-        //    // var x = vec3_i32
-        //    var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
-
-        //    var result = new StructConstructor(current, scope);
-
-        //    result.structName = current.text;
-
-        //    // var x = vec3_i32 {
-        //    var oc = ps.NextToken();
-        //    expectTokenType(oc, Token.TokenType.OpenCurly);
-
-        //    var next = ps.PeekToken();
-        //    if (next.type != Token.TokenType.CloseCurly)
-        //    {
-        //        while (true)
-        //        {
-        //            ps.NextToken();
-        //            var exp = parseBinOp(ref ps, scope);
-        //            result.argumentList.Add(exp);
-        //            next = ps.PeekToken();
-        //            if (next.type != Token.TokenType.Comma)
-        //            {
-        //                break;
-        //            }
-        //            else
-        //            {
-        //                // skip comma
-        //                ps.NextToken();
-        //            }
-        //        }
-        //    }
-
-        //    ps.ExpectNextToken(Token.TokenType.CloseCurly);
-        //    return result;
-        //}
-
-
         static Node parseStructFieldAccess(ref ParseState ps, Scope scope, Node left, bool returnPointer = false)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.Dot);
@@ -1408,9 +1319,6 @@ namespace PragmaScript {
 
         }
 
-
-
-
         public static List<NamedParameter> parseParamList(ref ParseState ps, Scope scope)
         {
             var result = new List<NamedParameter>();
@@ -1467,8 +1375,6 @@ namespace PragmaScript {
 
             return result;
         }
-
-
 
         public static Node parseFunctionDefinition(ref ParseState ps, Scope scope)
         {

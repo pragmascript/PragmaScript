@@ -123,9 +123,6 @@ DocProject/Help/*.hhp
 DocProject/Help/Html2
 DocProject/Help/html
 
-# Click-Once directory
-publish/
-
 # Publish Web Output
 *.[Pp]ublish.xml
 *.azurePubxml
@@ -197,3 +194,7 @@ ModelManifest.xml
 
 Browse.VC.db
 Browse.VC.opendb
+
+publish/
+!publish/current/bin/external
+

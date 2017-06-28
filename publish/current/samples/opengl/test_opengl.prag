@@ -1,0 +1,258 @@
+import "..\preamble.prag"
+import "..\windows.prag"
+import "..\math.prag"
+
+import "opengl.prag"
+
+with Windows;
+
+let offscreen_buffer = struct
+(
+    info:   BITMAPINFO;
+    memory: ptr;
+    width:  i32;
+    height: i32;
+    pitch:  i32;
+);
+let window_state = struct 
+(
+    handle: mm;
+    dc: mm;
+    width: i32;
+    height: i32;
+    wants_to_quit: bool;
+    backbuffer: offscreen_buffer;
+);
+
+
+let get_perf_counter = fun() => i64 {
+    var result: i64;
+    QueryPerformanceCounter(&result);
+    return result;
+}
+var perf_count_freq: i64;
+let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return (f64)(t1 - t0) / (f64)perf_count_freq;
+}
+
+var window: window_state;
+let create_backbuffer = fun 
+(
+    @buffer: offscreen_buffer*;
+    target_width: i32;
+    target_height: i32) => void
+{
+    let bytes_per_pixel = 4;
+    width = target_width;
+    height = target_height;
+    info.header.biSize = 40;
+    info.header.biWidth = width;
+    info.header.biHeight = height;
+    info.header.biPlanes = 1;
+    info.header.biBitCount = 32;
+    info.header.biCompression = BI_RGB;
+    var bitmap_size = bytes_per_pixel * width * height;
+    if (memory != nullptr) {
+        VirtualFree(memory, null, MEM_RELEASE);
+    }
+    memory = VirtualAlloc(nullptr, (mm\)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
+    pitch = buffer.width * bytes_per_pixel;
+}
+
+let blit_to_screen = fun (window_dc: mm; @buffer: offscreen_buffer*) => void {
+
+//     StretchDIBits(window.dc,
+//         0, 0, buffer.width, buffer.height,
+//         0, 0, buffer.width, buffer.height, 
+//         buffer.memory, &buffer.info,
+//         DIB_RGB_COLORS, SRCCOPY);
+// 
+    glViewport(0, 0, width, height);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+
+    glBegin(GL_TRIANGLES);
+    glColor3f(1.0, 0.0, 0.0);
+    glVertex3f(0.0, 1.0, 0.0);
+    
+    glColor3f(1.0, 1.0, 0.0);
+    glVertex3f(-1.0, -1.0, 0.0);
+    
+    glColor3f(0.0, 0.0, 1.0);
+    glVertex3f(1.0, -1.0, 0.0);
+    glEnd();
+
+    SwapBuffers(window_dc);
+
+}
+
+
+let process_pending_messages = fun() => void {
+    var msg: MSG;
+    while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE|PM_NOYIELD) != 0) {
+        var message = msg.message;
+        if (message == WM_QUIT) {
+            window.wants_to_quit = true;
+        } 
+        elif (message == WM_SYSKEYDOWN
+            || message == WM_SYSKEYUP
+            || message == WM_KEYDOWN
+            || message == WM_KEYUP) {
+
+            var w_param = (i32)(msg.wParam >> (mm)32);
+            var l_param = (i32)(msg.lParam >> (mm)32);
+            var vk_code = w_param;
+
+            var was_down = (l_param & (1 << 30)) != 0;
+            var is_down = (l_param & (1 << 31)) == 0;
+            var key_up = was_down && !is_down;
+            var key_down = !was_down && is_down; 
+
+            if(vk_code == VK_ESCAPE) {
+                window.wants_to_quit = true;
+            }
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+        }
+    }
+}
+
+let PROCESS_SYSTEM_DPI_AWARE = 1;
+let SetProcessDpiAwareness = extern fun(
+    value: i32;
+) => i32;
+
+let main_window_callback = fun
+(
+    window_handle: mm;
+    message: i32;
+    w_param: mm;
+    l_param: mm;
+) => mm {
+    var result = null;
+    if (message == WM_SIZE || message == WM_SIZING) {
+    }
+    elif (message == WM_CLOSE) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_DESTROY) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_PAINT) {
+        var paint: PAINTSTRUCT;
+        var context = BeginPaint(window_handle, &paint);
+        blit_to_screen(window.dc, &window.backbuffer);
+        EndPaint(window_handle, &paint);
+    } 
+    else {
+        result = DefWindowProcA(window_handle, message, w_param, l_param);
+    }
+    return result;
+}
+
+
+let init_opengl = fun (window: window_state*) => void {
+    var dc = window.dc;
+    var pfd = PIXELFORMATDESCRIPTOR { };
+    pfd.nSize = (i16)(size_of(PIXELFORMATDESCRIPTOR));
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
+    pfd.cColorBits = 32;
+    pfd.cAlphaBits = 8;
+
+    var pfd_idx = ChoosePixelFormat(dc, &pfd);
+    var suggested_pfd: PIXELFORMATDESCRIPTOR;
+    DescribePixelFormat(dc, pfd_idx, (i32)(size_of(PIXELFORMATDESCRIPTOR)), &suggested_pfd);
+    SetPixelFormat(dc, pfd_idx, &suggested_pfd);
+
+    debug_print_i32("color_bits", (i32\)suggested_pfd.cColorBits);
+
+    var gl_rc = wglCreateContext(dc);
+    var result = wglMakeCurrent(dc, gl_rc);
+    assert(result != 0);
+}
+
+[
+	"compile.output": "opengl_test.exe",
+	"compile.entry" : "true",
+ 	"compile.opt"   : "0",
+    "compile.asm"   : "false",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun() => void {
+    
+    QueryPerformanceFrequency(&perf_count_freq);
+
+    SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+
+    var t0 = get_perf_counter();
+    
+    let buffer_width  = 1280;
+    let buffer_height = 720;
+
+    var client_rect = RECT { 0, 0, buffer_width, buffer_height };
+    AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
+
+    window.width = client_rect.right - client_rect.left;
+    assert(window.width > 0);
+    window.height = client_rect.bottom - client_rect.top;
+    assert(window.height > 0);
+    
+    // debug_print_i32("window_height", window.height);
+    
+    create_backbuffer(&window.backbuffer, buffer_width, buffer_height);
+    assert(window.backbuffer.memory != nullptr);
+
+    var class_name  = cstr("opengl_test_window_class\0");
+    var window_name = cstr("opengl test\0");
+    var module_handle = GetModuleHandleA(null);
+    var window_class = WNDCLASSEX {};
+    window_class.cbSize = (i32)(size_of(WNDCLASSEX));
+    window_class.style = CS_HREDRAW|CS_VREDRAW;
+    window_class.lpfnWndProc = (ptr)main_window_callback;
+    window_class.hInstance = module_handle;
+    window_class.lpszClassName = class_name;
+    window_class.hCursor = LoadCursorA(null, IDC_ARROW);
+    RegisterClassExA(&window_class);
+    
+    let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
+    let dw_ex_style = WS_EX_TOPMOST;
+ 
+    window.handle = CreateWindowExA(
+        dw_ex_style,
+        class_name,
+        window_name,
+        dw_style,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        window.width,
+        window.height,
+        null,
+        null,
+        module_handle,
+        null
+    );
+    window.dc = GetDC(window.handle);
+
+    var gl_t0 = get_perf_counter();
+    init_opengl(&window);
+    var gl_t1 = get_perf_counter();
+    
+    debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
+
+
+    while (!window.wants_to_quit) {
+        process_pending_messages();
+        blit_to_screen(window.dc, &window.backbuffer);
+        Sleep(33);
+    }
+
+    var t1 = get_perf_counter();
+    var t = (f64)(t1-t0) / (f64)perf_count_freq;
+    debug_print_f64("seconds elapsed: ", t);
+    ExitProcess(0);
+}

@@ -300,9 +300,7 @@ namespace PragmaScript
             }
         }
 
-        static void setEntryPoint(FunctionDefinition entry)
-        {
-
+        static void setEntryPoint(FunctionDefinition entry) {
             Debug.Assert(entry.GetAttribute("COMPILE.ENTRY") == "TRUE");
             var d = entry;
 
@@ -375,8 +373,7 @@ namespace PragmaScript
             }
         }
 
-        static void compile(string filename)
-        {
+        static void compile(string filename)  {
             var timer = new Stopwatch();
             Console.Write("parsing...");
             timer.Start();

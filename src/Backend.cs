@@ -1249,8 +1249,6 @@ namespace PragmaScript {
                 }
             }
 
-
-
             if (node.argumentList.Count < feft.parameters.Count) {
                 var fd = typeChecker.GetFunctionDefinition(feft);
                 var fts = fd.typeString.functionTypeString;
