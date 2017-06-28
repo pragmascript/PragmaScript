@@ -1,5 +1,8 @@
 # PragmaScript
 
+## Small Pathtracer Example
+[video](https://www.youtube.com/watch?v=KslrcXqJ4iU)
+
 ## Syntax Example (everything is still in flux)
 
 ```csharp
