@@ -1,7 +1,4 @@
-﻿#if !DOTNETCORE
-using LLVMSharp;
-#endif
-using System;
+﻿using System;
 
 namespace PragmaScript
 {
@@ -125,14 +122,4 @@ namespace PragmaScript
         }
     }
 
-#if !DOTNETCORE
-    class BackendTypeMismatchException : BackendException
-    {
-        public BackendTypeMismatchException(LLVMTypeRef type1, LLVMTypeRef type2)
-            : base(string.Format("Type mismatch: type {0} != type {1}", BackendLLVM.typeToString(type1), BackendLLVM.typeToString(type2)))
-        {
-
-        }
-    }
-#endif
 }

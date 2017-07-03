@@ -7,7 +7,7 @@ namespace PragmaScript {
     class SSA {
 
         public enum Op {
-            ConstInt, ConstReal, ConstPtr, ConstVoid, GlobalStringPtr, GlobalVariable, Function,
+            ConstInt, ConstReal, ConstPtr, ConstVoid, ConstArray, GlobalStringPtr, GlobalVariable, Function,
             Label, Ret, Br, Call,
             Alloca,
             BitCast,
@@ -440,6 +440,24 @@ namespace PragmaScript {
             }
         }
 
+        public class ConstArray : Value {
+            public List<Value> data;
+            public ConstArray(SSAType arrayType, List<Value> data)
+                : base(Op.ConstArray, arrayType) {
+                isConst = true;
+                this.data = data;
+#if DEBUG                
+                Debug.Assert(arrayType.kind == TypeKind.Array);
+                var at = arrayType as ArrayType;
+                Debug.Assert(at.elementCount == data.Count);
+                foreach (var d in data) {
+                    Debug.Assert(d.isConst);
+                    Debug.Assert(d.type.EqualType(at.elementType));
+                }
+#endif
+            }
+        }
+
         public class GlobalStringPtr : Value {
             public string data;
             public GlobalStringPtr(string data)
@@ -590,7 +608,7 @@ namespace PragmaScript {
                     return Const.void_t;
                 }
                 if (t.Equals(FrontendType.string_)) {
-                    return getTypeRef(t as FrontendArrayType, depth);
+                    return getTypeRef(t as FrontendSliceType, depth);
                 }
                 switch (t) {
                     case FrontendArrayType ta:
@@ -613,6 +631,16 @@ namespace PragmaScript {
                 return result;
             }
             static SSAType getTypeRef(FrontendArrayType t, int depth) {
+                Debug.Assert(t.dims.Count > 0);
+                uint length = 1;
+                foreach (var d in t.dims) {
+                    Debug.Assert(d >= 0);
+                    length *= (uint)d;
+                }
+                var result = new ArrayType(getTypeRef(t.elementType, depth), (uint)length);
+                return result;
+            }
+            static SSAType getTypeRef(FrontendSliceType t, int depth) {
                 var result = new StructType(false);
                 result.elementTypes.Add(Const.i32_t);
                 result.elementTypes.Add(new PointerType(getTypeRef(t.elementType, depth)));

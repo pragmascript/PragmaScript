@@ -1212,6 +1212,43 @@ namespace PragmaScript {
                         Visit(s, false);
                     }
                     break;
+                case "len": {
+                    var at = (FrontendArrayType)typeChecker.GetNodeType(node.argumentList[0]);
+                    int length= -1;
+                    Debug.Assert(at.dims.Count > 0);
+                    Value result;
+                    if (at.dims.Count == 1) {
+                        length = at.dims.First();                  
+                        result = new ConstInt(i32_t, (ulong)length);
+                    } else {
+                        if (node.argumentList.Count > 1) {
+                            var data = new List<Value>();
+                            foreach (var d in at.dims) {
+                                data.Add(new ConstInt(i32_t, (ulong)d));
+                            }
+                            var arr = new ConstArray(new ArrayType(i32_t, (uint)data.Count), data);
+                            Visit(node.argumentList[1]);
+                            var idx = valueStack.Pop();
+                            if (!idx.isConst) {
+                                throw new ParserError("Argument 2 of \"len\" must be a compile-time constant.", node.argumentList[1].token);
+                            }
+                            result = builder.BuildExtractValue(arr, "len_extract", idx);
+                        } else {
+                            int mul = 1;
+                            foreach (var d in at.dims) {
+                                mul *= d;
+                            }
+                            result = new ConstInt(i32_t, (ulong)mul);
+                        }
+                        
+                    }
+                    valueStack.Push(result);
+                }
+                break;
+
+                default:
+                    Debug.Assert(false);
+                    break;
             }
         }
 
@@ -1523,28 +1560,75 @@ namespace PragmaScript {
         }
 
 
-        public void Visit(AST.ArrayElementAccess node) {
+        public void Visit(AST.IndexedElementAccess node) {
             Visit(node.left);
             var arr = valueStack.Pop();
 
-            Visit(node.index);
-            var idx = valueStack.Pop();
-
-            Value arr_elem_ptr;
-
-            // is not function argument?
-            if (arr.op != Op.FunctionArgument) {
-                var gep_arr_elem_ptr = builder.BuildGEP(arr, "gep_arr_elem_ptr", false, zero_i32_v, one_i32_v);
-                arr_elem_ptr = builder.BuildLoad(gep_arr_elem_ptr, "arr_elem_ptr");
-            } else {
-                arr_elem_ptr = builder.BuildExtractValue(arr, "gep_arr_elem_ptr", one_i32_v);
+            var indices = new List<Value>();
+            foreach (var idx in node.indices) {
+                Visit(idx);
+                var v = valueStack.Pop();
+                indices.Add(v);
             }
 
-            var gep_arr_elem = builder.BuildGEP(arr_elem_ptr, "gep_arr_elem", false, idx);
-            Value result = gep_arr_elem;
+            Value arr_elem_ptr = arr;
 
-            if (!node.returnPointer) {
-                result = builder.BuildLoad(gep_arr_elem, "arr_elem");
+            Value result = null;
+            bool isValue = false;
+
+            var lt = typeChecker.GetNodeType(node.left);
+            if (lt is FrontendArrayType at){
+                Value idx = null;
+                if (indices.Count == 1) {
+                    idx = indices[0];
+                } else {
+                    var multiply = new int[at.dims.Count];
+                    for (int i = 0; i < at.dims.Count; ++i) {
+                        multiply[i] = 1;
+                        for (int j = i + 1; j < at.dims.Count; ++j) {
+                            multiply[i] *= at.dims[j];
+                        }
+                    }
+                    for (int i = 0; i < indices.Count; ++i) {
+                        var mp = multiply[i];
+                        Value temp;
+                        if (mp != 1) {
+                            temp = builder.BuildMul(indices[i], new ConstInt(i32_t, (ulong)multiply[i]), name:"arr_dim_mul");
+                        } else  {
+                            temp = indices[i];
+                        }
+                        if (idx != null) {
+                            idx = builder.BuildAdd(idx, temp, name:"arr_dim_add");
+                        } else {
+                            idx = temp;
+                        }
+                    }
+                }
+                if (arr.op != Op.FunctionArgument) {
+                    result = builder.BuildGEP(arr_elem_ptr, "gep_arr_elem", false, zero_i32_v, idx);
+                } else {
+                    result = builder.BuildExtractValue(arr, "gep_arr_elem_ptr", idx);
+                    isValue = true;
+                    Debug.Assert(!node.returnPointer);
+                }
+            } else 
+            if (lt is FrontendSliceType st){
+                Debug.Assert(indices.Count == 1);
+                var idx = indices[0];
+                // is not function argument?
+                if (arr.op != Op.FunctionArgument) {
+                    var gep_arr_elem_ptr = builder.BuildGEP(arr, "gep_arr_elem_ptr", false, zero_i32_v, one_i32_v);
+                    arr_elem_ptr = builder.BuildLoad(gep_arr_elem_ptr, "arr_elem_ptr");
+                } else {
+                    arr_elem_ptr = builder.BuildExtractValue(arr, "gep_arr_elem_ptr", one_i32_v);
+                }
+                var gep_arr_elem = builder.BuildGEP(arr_elem_ptr, "gep_arr_elem", false, idx);
+                result = gep_arr_elem;
+            } else {
+                Debug.Assert(false);
+            }
+            if (!isValue && !node.returnPointer) {
+                result = builder.BuildLoad(result, "arr_elem");
             }
             valueStack.Push(result);
         }
@@ -1689,7 +1773,7 @@ namespace PragmaScript {
                 case AST.FieldAccess n:
                     Visit(n);
                     break;
-                case AST.ArrayElementAccess n:
+                case AST.IndexedElementAccess n:
                     Visit(n);
                     break;
                 case AST.BreakLoop n:

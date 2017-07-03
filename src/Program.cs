@@ -1,7 +1,4 @@
-﻿// #define OLD_BACKEND
-
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -49,20 +46,10 @@ namespace PragmaScript
             parseARGS(args);
             
 #if DEBUG
-            // CompilerOptions.debug = true;
-            // CompilerOptions.asm = false;
-            // CompilerOptions.optimizationLevel = 3;
-            // CompilerOptions.runAfterCompile = true;
-#endif
-#if false
-#if DOTNETCORE
-            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "samples"));
-#else
-            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..", "samples"));
-#endif
+            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\publish\current\samples"));
             // CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
-            // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
-            CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "test", "array.prag");
 #endif
             if (CompilerOptions.inputFilename == null) {
                 Console.WriteLine("Input file name missing!");
@@ -501,14 +488,10 @@ namespace PragmaScript
             Console.Write("backend...");
             timer.Reset();
             timer.Start();
-#if OLD_BACKEND
-            var backend = new BackendLLVM(BackendLLVM.TargetPlatform.x64, tc);
-            backend.Emit(root, entry);
-#else 
+
             var backend = new Backend(tc);
             backend.Visit(root, entry);
 
-#endif
             timer.Stop();
 #if DISPLAY_TIMINGS
             Console.WriteLine($"{timer.ElapsedMilliseconds}ms");

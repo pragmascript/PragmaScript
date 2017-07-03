@@ -138,6 +138,20 @@ define void @__chkstk() #0 {
                         AP(p.data.ToString());
                     }
                     break;
+                case ConstArray a: {
+                    AP("[ ");   
+                    for (int i = 0; i < a.data.Count; ++i) {
+                        var d = a.data[i];
+                        AppendType(d.type);
+                        AP(" ");
+                        AppendConstValue(d);
+                        if (i != a.data.Count - 1) {
+                            AP(", ");
+                         }
+                    } 
+                    AP(" ]");
+                }
+                break;
                 case Value caz when caz.op == Op.ConstAggregateZero:
                     AP("zeroinitializer");
                     break;
@@ -284,6 +298,7 @@ define void @__chkstk() #0 {
                 case Op.ConstAggregateZero:
                 case Op.ConstInt:
                 case Op.ConstReal:
+                case Op.ConstArray:
                 case Op.ConstPtr:
                 case Op.ConstVoid:
                 case Op.Label:
@@ -510,7 +525,9 @@ define void @__chkstk() #0 {
                     break;
                 case Op.ExtractValue: {
                         var arg0 = v.args[0];
-                        AppendAssignSSA(v);
+                        if (!isConst) {
+                            AppendAssignSSA(v);
+                        }
                         AP("extractvalue ");
                         if (isConst) {
                             AP("(");

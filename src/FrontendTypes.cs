@@ -16,7 +16,7 @@ namespace PragmaScript {
         public static readonly FrontendType bool_ = new FrontendType("bool");
         public static readonly FrontendType mm = new FrontendType("mm");
 
-        public static readonly FrontendArrayType string_ = new FrontendArrayType(i8);
+        public static readonly FrontendSliceType string_ = new FrontendSliceType(i8);
         public static readonly FrontendPointerType ptr = new FrontendPointerType(i8);
 
 
@@ -249,17 +249,30 @@ namespace PragmaScript {
         }
     }
 
-
-    public class FrontendArrayType : FrontendStructType
+    public class FrontendSliceType : FrontendStructType
     {
         public FrontendType elementType;
-        public FrontendArrayType(FrontendType elementType)
+        public FrontendSliceType(FrontendType elementType)
             : base("")
         {
             this.elementType = elementType;
             name = "[" + elementType + "]";
             AddField("length", FrontendType.i32);
             AddField("data", new FrontendPointerType(elementType));
+        }
+    }
+
+    public class FrontendArrayType : FrontendType
+    {
+        public FrontendType elementType;
+        public List<int> dims;
+        public FrontendArrayType(FrontendType elementType, List<int> dim)
+            : base("")
+        {
+            this.elementType = elementType;
+            this.dims = new List<int>();
+            this.dims.AddRange(dim);
+            name = $"[({string.Join(", ", dim)}) x {elementType}]";
         }
     }
 

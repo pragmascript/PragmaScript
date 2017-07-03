@@ -18,7 +18,7 @@ namespace PragmaScript {
             {
                 return tokens[pos];
             }
-
+ 
             public ParseState Peek(bool tokenMustExist = false, bool skipWS = true)
             {
                 int tempPos = pos;
@@ -382,9 +382,13 @@ namespace PragmaScript {
 
             TypeString typeString = null;
 
+
+            
             if (tempState.PeekToken().type == Token.TokenType.Colon) {
                 tempState.NextToken();
                 tempState.NextToken();
+
+                // TODO(pragma): why are calling parseTypeString twice? Here and in parseVariableDefinition.
                 typeString = parseTypeString(ref tempState, scope);
             }
             if (tempState.PeekToken().type == Token.TokenType.Assignment) {
@@ -1017,10 +1021,18 @@ namespace PragmaScript {
             // try to parse a struct constructor
             {
                 var temp = ps;
-                var typeString = parseTypeString(ref temp, scope);
+
+                // TODO(pragma): this is ugly and a hack.
+                bool legalTypeString = true;
+                TypeString typeString = null;
+                try {
+                    typeString = parseTypeString(ref temp, scope);
+                } catch {
+                    legalTypeString = false;
+                }
 
                 // oki we found a struct constructor
-                if (temp.PeekToken().type == Token.TokenType.OpenCurly) {
+                if (legalTypeString && temp.PeekToken().type == Token.TokenType.OpenCurly) {
                     ps = temp;
                     ps.NextToken();
                     result = new StructConstructor(current, scope);
@@ -1081,15 +1093,14 @@ namespace PragmaScript {
 
                         }
                         ps.NextToken();
-                        next = parseArrayElementAccess(ref ps, scope, result, false);
+                        next = parseIndexedElementAccess(ref ps, scope, result, false);
                         break;
 
-                    //case Token.TokenType.OpenCurly:
-                    //    next = parseStructConstructor(ref ps, scope);
-                    //    break;
-                    case Token.TokenType.ArrayTypeBrackets:
-                        next = parseUninitializedArray(ref ps, scope);
-                        break;
+                    
+                    // TODO(pragma): unitialized array handling:
+                    // case Token.TokenType.ArrayTypeBrackets:
+                    //     next = parseUninitializedArray(ref ps, scope);
+                    //     break;
                     case Token.TokenType.Increment:
                     case Token.TokenType.Decrement:
                         if (result == null) {
@@ -1138,16 +1149,24 @@ namespace PragmaScript {
         }
 
 
-        // TODO: handle multi dimensional arrays
-        static Node parseArrayElementAccess(ref ParseState ps, Scope scope, Node left, bool returnPointer = false)
+        static Node parseIndexedElementAccess(ref ParseState ps, Scope scope, Node left, bool returnPointer = false)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.OpenSquareBracket);
             ps.NextToken();
 
-            var result = new ArrayElementAccess(current, scope);
+            var result = new IndexedElementAccess(current, scope);
             result.left = left;
             result.returnPointer = returnPointer;
-            result.index = parseBinOp(ref ps, scope);
+
+            while (true) {
+                result.indices.Add(parseBinOp(ref ps, scope));
+                if (ps.PeekToken().type == Token.TokenType.CloseSquareBracket) {
+                    break;
+                }
+                ps.ExpectNextToken(Token.TokenType.Comma);
+                ps.NextToken();
+            }
+
 
             ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
 
@@ -1292,9 +1311,25 @@ namespace PragmaScript {
                     next = ps.PeekToken();
                 }
 
-                if (next.type == Token.TokenType.ArrayTypeBrackets) {
-                    result.isArrayType = true;
+                if (next.type == Token.TokenType.SliceBrackets) {
+                    result.isSliceType = true;
                     ps.NextToken();
+                }
+                if (next.type == Token.TokenType.OpenSquareBracket) {
+                    result.isArrayType = true;
+                    result.arrayDims = new List<int>();
+                    ps.NextToken();
+                    while (true) {
+                        var length = ps.ExpectNextToken(Token.TokenType.IntNumber);
+                        result.arrayDims.Add(int.Parse(length.text));
+                        if (ps.PeekToken().type == Token.TokenType.CloseSquareBracket) {
+                            break;
+                        } else {
+                            ps.ExpectNextToken(Token.TokenType.Comma);
+                        }
+                    }
+                    ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
+
                 } else if (next.type == Token.TokenType.Multiply) {
                     result.isPointerType = true;
                     while (ps.PeekToken().type == Token.TokenType.Multiply) {
@@ -1316,7 +1351,6 @@ namespace PragmaScript {
                 }
                 return result;
             }
-
         }
 
         public static List<NamedParameter> parseParamList(ref ParseState ps, Scope scope)

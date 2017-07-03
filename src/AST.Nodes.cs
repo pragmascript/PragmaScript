@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace PragmaScript {
@@ -948,32 +949,36 @@ namespace PragmaScript {
             }
         }
 
-        public class ArrayElementAccess : Node, ICanReturnPointer
+        public class IndexedElementAccess : Node, ICanReturnPointer
         {
             public Node left;
-            public Node index;
+            public List<Node> indices = new List<Node>();
 
             public bool returnPointer { get; set; }
             public bool CanReturnPointer()
             {
                 return true;
             }
-            public ArrayElementAccess(Token t, Scope s)
+            public IndexedElementAccess(Token t, Scope s)
                 : base(t, s)
             {
             }
             public override Node DeepCloneTree()
             {
-                var result = new ArrayElementAccess(token, scope);
+                var result = new IndexedElementAccess(token, scope);
                 result.left = left.DeepCloneTree();
-                result.index = index.DeepCloneTree();
+                foreach (var i in indices) {
+                    result.indices.Add(i.DeepCloneTree());
+                }
                 result.returnPointer = returnPointer;
                 return result;
             }
             public override IEnumerable<Node> GetChilds()
             {
                 yield return left;
-                yield return index;
+                foreach (var i in indices) {
+                    yield return i;
+                }
             }
             public override string ToString()
             {
@@ -982,12 +987,12 @@ namespace PragmaScript {
 
             public override void Replace(Node old, Node @new)
             {
-                if (index == old) {
-                    index = @new;
-                } else if (left == old) {
+                if (left == old) {
                     left = @new;
                 } else {
-                    throw new InvalidCodePath();
+                    var idx = indices.IndexOf(old);
+                    Debug.Assert(idx != -1);
+                    indices[idx] = @new;
                 }
             }
         }
@@ -1498,8 +1503,10 @@ namespace PragmaScript {
 
             public Scope.FullyQualifiedName fullyQualifiedName = new Scope.FullyQualifiedName();
             public bool isArrayType = false;
+            public bool isSliceType = false;
             public bool isPointerType = false;
             public int pointerLevel = 0;
+            public List<int> arrayDims;
             public TypeKind kind = TypeKind.Other;
             public FunctionTypeString functionTypeString;
             public int allocationCount;
@@ -1513,6 +1520,7 @@ namespace PragmaScript {
                 var result = new TypeString(token, scope);
                 result.fullyQualifiedName = fullyQualifiedName;
                 result.isArrayType = isArrayType;
+                result.isSliceType = isSliceType;
                 result.isPointerType = isPointerType;
                 result.pointerLevel = pointerLevel;
                 result.kind = kind;
@@ -1566,8 +1574,10 @@ namespace PragmaScript {
                     default:
                         break;
                 }
-                if (isArrayType)
+                if (isSliceType)
                     result += "[]";
+                if (isArrayType)
+                    result += $"[{string.Join(", ", this.arrayDims.Select(x => x.ToString()))}]";
                 if (isPointerType) {
                     for (int i = 0; i < pointerLevel; ++i) {
                         result += "*";

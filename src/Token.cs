@@ -78,9 +78,10 @@ namespace PragmaScript
             While,
             OpenSquareBracket,
             CloseSquareBracket,
+            SliceBrackets,
             Dot,
             Struct,
-            ArrayTypeBrackets,
+            // ArrayTypeBrackets,
             SizeOf,
             Extern,
             Import,
@@ -143,6 +144,7 @@ namespace PragmaScript
             operators.Add(")", TokenType.CloseBracket);
             operators.Add("[", TokenType.OpenSquareBracket);
             operators.Add("]", TokenType.CloseSquareBracket);
+            operators.Add("[]", TokenType.SliceBrackets);
             operators.Add("{", TokenType.OpenCurly);
             operators.Add("}", TokenType.CloseCurly);
             operators.Add("+", TokenType.Add);
@@ -191,7 +193,7 @@ namespace PragmaScript
             operators.Add("<<=", TokenType.LeftShiftEquals);
             operators.Add(">>=", TokenType.RightShiftEquals);
             operators.Add(">>=\\", TokenType.RightShiftEqualsUnsigned);
-            operators.Add("[]", TokenType.ArrayTypeBrackets);
+            // operators.Add("[]", TokenType.ArrayTypeBrackets);
             operators.Add("@", TokenType.At);
 
             foreach (var op in operators.Keys) {

@@ -282,7 +282,6 @@ namespace PragmaScript {
                 for (int i = 0; i < indices.Length; ++i) {
                     var idx = indices[i];
                     Debug.Assert(idx.type.kind == TypeKind.Integer);
-                    Debug.Assert(idx.isConst);
                     if (resultType.kind == TypeKind.Array) {
                         resultType = ((ArrayType)resultType).elementType;
                     } else if (resultType.kind == TypeKind.Struct) {

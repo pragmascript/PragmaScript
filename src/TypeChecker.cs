@@ -509,24 +509,48 @@ namespace PragmaScript {
                 }
             }
             if (f_type != null) {
-                if (node.argumentList.Count > f_type.parameters.Count) {
-                    throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
-                }
-                if (argumentTypes.Count == node.argumentList.Count) {
-                    for (int idx = 0; idx < f_type.parameters.Count; ++idx) {
-                        if (idx >= argumentTypes.Count) {
-                            if (!f_type.parameters[idx].optional) {
-                                throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
-                            }
-                            break;
+                
+                // TODO(pragma): ugly hack
+                if (f_type.specialFun && f_type.funName == "len") {
+                    var arg_t = argumentTypes[0] as FrontendArrayType;
+                    if (arg_t == null) {
+                        throw new ParserError($"Argument type to \"len\" fuction must be array", node.argumentList[0].token);
+                    }
+                    if (arg_t.dims.Count > 1) {
+                        if (!(node.argumentList.Count == 2 || node.argumentList.Count == 1)) {
+                            throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected 2 or 1 arguments.", node.token);
                         }
-                        var arg = argumentTypes[idx];
-                        if (!FrontendType.CompatibleAndLateBind(arg, f_type.parameters[idx].type)) {
-                            throw new ParserExpectedArgumentType(f_type.parameters[idx].type, arg, idx + 1, node.argumentList[idx].token);
+                        if (node.argumentList.Count == 2) {
+                            if (!FrontendType.CompatibleAndLateBind(argumentTypes[1], FrontendType.i32)) {
+                                throw new ParserExpectedArgumentType(FrontendType.i32, argumentTypes[1], 2, node.argumentList[1].token);
+                            }
+                        }
+                    } else {
+                        if (node.argumentList.Count != 1) {
+                            throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {1}.", node.token);
+                        }
+                    }
+                    
+                } else {
+                    if (node.argumentList.Count > f_type.parameters.Count) {
+                        throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
+                    } 
+                    if (argumentTypes.Count == node.argumentList.Count) {
+                        for (int idx = 0; idx < f_type.parameters.Count; ++idx) {
+                            if (idx >= argumentTypes.Count) {
+                                if (!f_type.parameters[idx].optional) {
+                                    throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
+                                }
+                                // NOTE(pragma): all remaining parameters must be optional so so we just break out of the loop
+                                break;
+                            }
+                            var arg = argumentTypes[idx];
+                            if (!FrontendType.CompatibleAndLateBind(arg, f_type.parameters[idx].type)) {
+                                throw new ParserExpectedArgumentType(f_type.parameters[idx].type, arg, idx + 1, node.argumentList[idx].token);
+                            }
                         }
                     }
                 }
-
                 resolve(node, f_type.returnType);
             }
         }
@@ -554,7 +578,6 @@ namespace PragmaScript {
                     throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
                 }
                 if (vd != null && vd.isEmbedded) {
-
                     embeddings.Add(node);
                 } else {
                     var isLocal = (vd != null) && !vd.isGlobal && !vd.isConstant && !vd.isFunctionParameter && !vd.isNamespace;
@@ -730,31 +753,55 @@ namespace PragmaScript {
             }
         }
 
-        void checkType(AST.ArrayElementAccess node)
+        void checkType(AST.IndexedElementAccess node)
         {
             checkTypeDynamic(node.left);
             var lt = getType(node.left);
-            FrontendArrayType at;
+            FrontendType et;
             if (lt == null) {
                 addUnresolved(node, node.left);
-                at = null;
+                et = null;
             } else {
-                at = lt as FrontendArrayType;
-                if (at == null) {
-                    throw new ParserError("left side is not a struct type", node.token);
+                // TODO(pragma): handle slice (and pointer
+                switch (lt) {
+                    case FrontendArrayType at: {
+                        et = at.elementType;
+                        if (node.indices.Count > 1) {
+                            if (node.indices.Count != at.dims.Count) {
+                                throw new ParserError("Index count must be 1 or match dimension of array", node.token);
+                            }
+                        }
+                    }
+                    break;
+                    case FrontendSliceType st:
+                        et = st.elementType;
+                    break;
+                    default:
+                        throw new ParserError("left side is not an array or slice type", node.token);
+                }                
+            }
+
+            List<FrontendType> indexTypes = new List<FrontendType>();
+            foreach (var idx in node.indices) {
+                checkTypeDynamic(idx);
+                var idx_t = getType(idx);
+                if (idx_t != null) {
+                    indexTypes.Add(idx_t);
+                } else {
+                    addUnresolved(node, idx);
                 }
             }
-            checkTypeDynamic(node.index);
-            var idx_t = getType(node.index);
-            if (idx_t == null) {
-                addUnresolved(node, node.index);
-            } else {
-                if (!FrontendType.CompatibleAndLateBind(idx_t, FrontendType.i32)) {
-                    throw new ParserExpectedType(FrontendType.i32, idx_t, node.index.token);
+            if (indexTypes.Count == node.indices.Count) {
+                for (int i = 0; i < indexTypes.Count; ++i) {
+                    var idx_t = indexTypes[i];
+                    if (!FrontendType.CompatibleAndLateBind(idx_t, FrontendType.i32)) {
+                        throw new ParserExpectedType(FrontendType.i32, idx_t, node.indices[i].token);
+                    }
                 }
             }
-            if (at != null && idx_t != null) {
-                resolve(node, at.elementType);
+
+            if (et != null && indexTypes.Count == node.indices.Count) {
+                resolve(node, et);
             }
         }
 
@@ -930,7 +977,6 @@ namespace PragmaScript {
 
         void checkType(AST.TypeString node)
         {
-
             switch (node.kind) {
                 case AST.TypeString.TypeKind.Other: {
                         var base_t_def = node.scope.GetType(node.fullyQualifiedName, node.token);
@@ -955,8 +1001,17 @@ namespace PragmaScript {
                             FrontendType result = base_t;
                             if (node.isArrayType) {
                                 Debug.Assert(!node.isPointerType);
-                                result = new FrontendArrayType(base_t);
-                            } else if (node.isPointerType) {
+                                Debug.Assert(!node.isSliceType);
+                                result = new FrontendArrayType(base_t, node.arrayDims);
+                            } else
+                            if (node.isSliceType) {
+                                Debug.Assert(!node.isPointerType);
+                                Debug.Assert(!node.isArrayType);
+                                result = new FrontendSliceType(base_t);
+                            } else
+                            if (node.isPointerType) {
+                                Debug.Assert(!node.isSliceType);
+                                Debug.Assert(!node.isArrayType);
                                 result = base_t;
                                 for (int i = 0; i < node.pointerLevel; ++i) {
                                     result = new FrontendPointerType(result);
@@ -1095,7 +1150,7 @@ namespace PragmaScript {
                 case AST.FieldAccess n:
                     checkType(n);
                     break;
-                case AST.ArrayElementAccess n:
+                case AST.IndexedElementAccess n:
                     checkType(n);
                     break;
                 case AST.BreakLoop n:

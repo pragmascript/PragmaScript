@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace PragmaScript {
     partial class AST
@@ -52,6 +53,12 @@ namespace PragmaScript {
             file_pos.returnType = FrontendType.string_;
             file_pos.specialFun = true;
             scope.AddVar("__file_pos__", file_pos, Token.Undefined, isConst: true);
+
+            var len = new FrontendFunctionType("len");
+            len.returnType = FrontendType.i32;
+            len.specialFun = true;
+            len.AddParam("x", new FrontendArrayType(null, new List<int>()));
+            scope.AddVar("len", len, Token.Undefined, isConst: true);
 
         }
 
