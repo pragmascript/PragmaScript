@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 
 namespace PragmaScript {
     partial class AST
@@ -745,25 +746,80 @@ namespace PragmaScript {
             throw new System.NotImplementedException();
         }
 
+
+
+
+        /*
+        i32[2, 4, 3]
+        [
+            [
+                [1,2,3], [1,2,3], [1,2,3], [1,2,3]
+            ],
+            [
+                [3,4,5], [3,4,5], [3,4,5], [3,4,5]
+            ]
+        ]
+
+        i32[3, 4]
+        [
+            [1,2,3,4],
+            [4,5,6,7],
+            [8,9,0,1]
+        ]
+         */
+
+        static void arrayConstructorRec(ref ParseState ps, Scope scope, List<Node> elements, out List<int> dimensions) {
+                dimensions = new List<int>();
+            ps.ExpectCurrentToken(Token.TokenType.OpenSquareBracket);
+            var current = ps.NextToken();
+
+            if (current.type == Token.TokenType.OpenSquareBracket) {
+                List<int> lastDims = null;
+                int outerDim = 0;
+                while (true) {
+                    outerDim++;
+                    arrayConstructorRec(ref ps, scope, elements, out var dims);
+                      if (lastDims != null) {
+                        if (!Enumerable.SequenceEqual(lastDims, dims)) {
+                            throw new ParserError("Array constructor has non matching dimensions", ps.CurrentToken());
+                        }
+                    }
+                    lastDims = dims;
+                    current = ps.ExpectNextToken(Token.TokenType.Comma, Token.TokenType.CloseSquareBracket);
+                    if (current.type == Token.TokenType.CloseSquareBracket) {
+                        break;
+                    } else {
+                        ps.NextToken();
+                    }
+                }
+                ps.ExpectCurrentToken(Token.TokenType.CloseSquareBracket);
+                dimensions = new List<int>();
+                dimensions.Add(outerDim);
+                dimensions.AddRange(lastDims);
+            } else {
+                int count = 0;
+                while (current.type != Token.TokenType.CloseSquareBracket) {
+                    count++;
+                    var elem = parseBinOp(ref ps, scope);
+                    elements.Add(elem);
+                    current = ps.ExpectNextToken(Token.TokenType.Comma, Token.TokenType.CloseSquareBracket);
+                    if (current.type == Token.TokenType.Comma) {
+                        ps.NextToken();
+                    }
+                }
+                dimensions = new List<int>();
+                dimensions.Add(count);
+            }
+        }
+
+
         static Node parseArrayConstructor(ref ParseState ps, Scope scope)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.OpenSquareBracket);
             var next = ps.PeekToken();
-
             var result = new ArrayConstructor(current, scope);
-            while (next.type != Token.TokenType.CloseSquareBracket) {
-                current = ps.NextToken();
-                var elem = parseBinOp(ref ps, scope);
-                result.elements.Add(elem);
-                next = ps.PeekToken();
-                if (next.type == Token.TokenType.Comma) {
-                    ps.NextToken();
-                } else {
-                    expectTokenType(next, Token.TokenType.CloseSquareBracket);
-                }
-            }
-
-            ps.NextToken();
+            arrayConstructorRec(ref ps, scope, result.elements, out result.dims);
+            
             return result;
         }
 

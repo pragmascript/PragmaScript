@@ -61,12 +61,6 @@ let create_backbuffer = fun
 
 let blit_to_screen = fun (window_dc: mm; @buffer: offscreen_buffer*) => void {
 
-//     StretchDIBits(window.dc,
-//         0, 0, buffer.width, buffer.height,
-//         0, 0, buffer.width, buffer.height, 
-//         buffer.memory, &buffer.info,
-//         DIB_RGB_COLORS, SRCCOPY);
-// 
     glViewport(0, 0, width, height);
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -84,9 +78,7 @@ let blit_to_screen = fun (window_dc: mm; @buffer: offscreen_buffer*) => void {
     glEnd();
 
     SwapBuffers(window_dc);
-
 }
-
 
 let process_pending_messages = fun() => void {
     var msg: MSG;
@@ -152,7 +144,6 @@ let main_window_callback = fun
     return result;
 }
 
-
 let init_opengl = fun (window: window_state*) => void {
     var dc = window.dc;
     var pfd = PIXELFORMATDESCRIPTOR { };
@@ -177,17 +168,18 @@ let init_opengl = fun (window: window_state*) => void {
 [
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "0",
-    "compile.asm"   : "false",
+ 	"compile.opt"   : "3",
+    "compile.asm"   : "true",
+    "compile.cpu"   : "nehalem",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun() => void {
-    
     QueryPerformanceFrequency(&perf_count_freq);
-
+#if FALSE
     SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+#endif
 
     var t0 = get_perf_counter();
     

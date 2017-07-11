@@ -63,7 +63,7 @@ namespace PragmaScript {
             timer.Reset();
             timer.Start();
 #endif
-            var mcpu = CompilerOptions.cpu;
+            var mcpu = CompilerOptions.cpu.ToLower();
             bool error = false;
 
             if (optLevel > 0) {
@@ -1009,37 +1009,21 @@ namespace PragmaScript {
         public void Visit(AST.ArrayConstructor node) {
             var ac = node;
             var ac_type = typeChecker.GetNodeType(node) as FrontendArrayType;
-
-            var arr_struct_type = GetTypeRef(ac_type);
-
+            var arr_type = GetTypeRef(ac_type);
             var insert = builder.GetInsertBlock();
+
             builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-            var arr_struct_ptr = builder.BuildAlloca(arr_struct_type, "arr_struct_alloca");
-            var elem_type = GetTypeRef(ac_type.elementType);
-            var size = new ConstInt(i32_t, (ulong)ac.elements.Count);
-            var arr_elem_ptr = builder.BuildArrayAlloca(elem_type, size, "arr_elem_alloca");
-            builder.PositionAtEnd(insert);
+            var arr_ptr = builder.BuildAlloca(arr_type, "arr_alloca");
 
-            // set array length in struct
-            // TODO(pragma): this should be StructGEP?
-            var gep_arr_length = builder.BuildGEP(arr_struct_ptr, "gep_arr_elem_ptr", false, zero_i32_v, zero_i32_v);
-            builder.BuildStore(new ConstInt(i32_t, (ulong)ac.elements.Count), gep_arr_length);
-
-            // set array elem pointer in struct
-            var gep_arr_elem_ptr = builder.BuildGEP(arr_struct_ptr, "gep_arr_elem_ptr", false, zero_i32_v, one_i32_v);
-            builder.BuildStore(arr_elem_ptr, gep_arr_elem_ptr);
-
-            for (int i = 0; i < ac.elements.Count; ++i) {
-                var elem = ac.elements[i];
-                Visit(elem);
-                var arg = valueStack.Pop();
-                // var arg_type_string = typeToString(LLVM.TypeOf(arg));
-                var gep_idx = new ConstInt(i32_t, (ulong)i);
-                var gep = builder.BuildGEP(arr_elem_ptr, "array_elem_" + i, false, gep_idx);
-
-                builder.BuildStore(arg, gep);
-            }
-            valueStack.Push(arr_struct_ptr);
+            builder.PositionAtEnd(insert);            
+            // TODO(pragma): possible optimization for all constant elements
+            for (int i = 0; i < node.elements.Count; ++i) {
+                Visit(node.elements[i]);
+                var elem = valueStack.Pop();
+                var dest = builder.BuildGEP(arr_ptr, "arr_elem_store", true, zero_i32_v, new ConstInt(i32_t, (ulong)i));
+                builder.BuildStore(elem, dest);
+            }           
+            valueStack.Push(arr_ptr);
         }
 
         public void Visit(AST.VariableDefinition node) {

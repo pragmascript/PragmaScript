@@ -32,6 +32,7 @@ namespace Handmade
 
     let center_half_size_rect = fun (x: i32; y: i32; half_size: i32) => rectangle 
     {
+        
         var pos  = vec2 { (f32)(x - half_size), (f32)(y - half_size) };
         var size = vec2 { (f32)(2 * half_size), (f32)(2 * half_size) };
         var result = rectangle{pos, size};

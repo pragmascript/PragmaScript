@@ -841,6 +841,7 @@ namespace PragmaScript {
         public class ArrayConstructor : Node
         {
             public List<Node> elements = new List<Node>();
+            public List<int> dims = new List<int>();
 
             public ArrayConstructor(Token t, Scope s)
                 : base(t, s)
@@ -853,6 +854,8 @@ namespace PragmaScript {
                 foreach (var e in elements) {
                     result.elements.Add(e.DeepCloneTree());
                 }
+                result.dims.AddRange(dims);
+
                 return result;
             }
             public override IEnumerable<Node> GetChilds()

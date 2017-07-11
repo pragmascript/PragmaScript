@@ -21,7 +21,7 @@ namespace PragmaScript
     }
     static class CompilerOptions
     {
-        public static bool debug = true;
+        public static bool debug = false;
         public static string inputFilename;
         public static int optimizationLevel;
         public static string cpu = "native";
@@ -48,7 +48,7 @@ namespace PragmaScript
 #if DEBUG
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\publish\current\samples"));
             // CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
-            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
+            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "test", "array.prag");
 #endif
             if (CompilerOptions.inputFilename == null) {

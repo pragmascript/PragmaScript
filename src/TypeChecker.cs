@@ -498,6 +498,7 @@ namespace PragmaScript {
                 Debug.Assert(f_type != null);
             }
 
+
             List<FrontendType> argumentTypes = new List<FrontendType>();
             foreach (var arg in node.argumentList) {
                 checkTypeDynamic(arg);
@@ -509,7 +510,6 @@ namespace PragmaScript {
                 }
             }
             if (f_type != null) {
-                
                 // TODO(pragma): ugly hack
                 if (f_type.specialFun && f_type.funName == "len") {
                     var arg_t = argumentTypes[0] as FrontendArrayType;
@@ -530,7 +530,7 @@ namespace PragmaScript {
                             throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {1}.", node.token);
                         }
                     }
-                    
+                    resolve(node, f_type.returnType);
                 } else {
                     if (node.argumentList.Count > f_type.parameters.Count) {
                         throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
@@ -549,9 +549,9 @@ namespace PragmaScript {
                                 throw new ParserExpectedArgumentType(f_type.parameters[idx].type, arg, idx + 1, node.argumentList[idx].token);
                             }
                         }
+                        resolve(node, f_type.returnType);
                     }
                 }
-                resolve(node, f_type.returnType);
             }
         }
 
@@ -683,7 +683,8 @@ namespace PragmaScript {
                 if (!same) {
                     throw new ParserError("all elements in an array must have the same type", node.token);
                 }
-                resolve(node, first);
+                var at = new FrontendArrayType(first, node.dims);
+                resolve(node, at);
             }
         }
 

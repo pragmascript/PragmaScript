@@ -1,16 +1,28 @@
 import "../preamble.prag"
 import "../math.prag"
 
+let some_struct = struct 
+(
+	x: i32; y: i32; z: i32;
+);
+let game_state = struct
+(
+	is_initialized: bool;
 
-let foo = fun () => i32 {
-	return 42;
+	exit: bool;
+
+	player_x: f32;
+	player_y: f32;
+);
+
+let foo = fun(x: i32) => void {
+	debug_print_i32("x", x);
 }
-
 
 [
 	"compile.output": "hello.exe",
 	"compile.entry" : "true",
-	"compile.ll"    : "false",
+	"compile.ll"    : "true",
 	"compile.asm"   : "false",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
@@ -18,13 +30,32 @@ let foo = fun () => i32 {
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
-	print_string("hello, world!\n");
-	var bar = foo;
-	var x = bar();
-	debug_print_i32("x", x);
-	debug_print_f32("pi", Math.pi_32);
-	debug_print_i32("test", -1);
-	print_string("\n");
+	// print_string("hello, world!\n");
+
+	// var color: color;
+	// let red = color {1.0, 0.0, 0.0, 1.0};
+	// let green = color {0.0, 1.0, 0.0, 1.0};
+	// color = red;
+	
+
+	// var c: some_struct;
+	// let a = some_struct {1, 2, 3};
+	// let b = some_struct {4, 5, 6};
+	// var d = a;
+	// print_i32(d.x);
+	// print_i32(d.y);
+	// print_i32(d.z);
+	
+	// c = some_struct {7, 8, 9};
+	
+
+	// debug_print_i32("c.x", c.x);
+	// debug_print_i32("c.y", c.y);
+	// debug_print_i32("c.z", c.z);
+	var x = game_state{};
+	foo(x.player_x);
+
+
 }
 
 

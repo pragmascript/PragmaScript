@@ -1,5 +1,9 @@
-﻿import "../preamble.prag"
+﻿#define WIN_10
+
+import "../preamble.prag"
 import "handmade_interface.prag"
+
+
 
 namespace Handmade.Platform
 {
@@ -183,7 +187,6 @@ namespace Handmade.Platform
 
 		print_string("load library\n");
 		return result;
-		
 	}
 
 	let unload_game_dll = fun (@interface: game_interface*) => void
@@ -701,27 +704,36 @@ namespace Handmade.Platform
 		}
 	}
 
+	let PROCESS_SYSTEM_DPI_AWARE = 1;
+	let SetProcessDpiAwareness = extern fun(
+    	value: i32;
+	) => i32;
 	
 	[
 	"compile.entry",
+	"compile.cpu"   : "nehalem",
 	"compile.output": "win_handmade.exe",
 	"compile.opt"   : "0",
 	"compile.ll"    : "true",
 	"compile.run"   : "false",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib",
-	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib, libopenlibm.a"
+	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib, shcore.lib, libopenlibm.a"
 	]
 	let main = fun () => void 
 	{
 		QueryPerformanceFrequency(&perf_count_freq);
+	#if WIN_10
+		SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+	#endif
+
 		var error = 0;
 
 		let desired_sheduler_granularity = 1;
 		error = timeBeginPeriod(desired_sheduler_granularity);
 		assert(error == 0);
 
-		window.width = 1024;
-		window.height = 768;
+		window.width = 1280;
+		window.height = 720;
 
 		create_backbuffer(&backbuffer, window.width, window.height);
 
@@ -838,9 +850,6 @@ namespace Handmade.Platform
 			game_render_target.pitch = backbuffer.pitch;
 			
 			var t = get_duration(frame_start_counter, game_start_time);
-			// if ((i32)t > (i32)game_time.t) {
-            // 	debug_print_i32("s", (i32)t);
-			// }
 
 			game_time.t = t;
 			game_time.dt = get_duration(frame_start_counter, last_frame_start_counter);
