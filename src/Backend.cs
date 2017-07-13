@@ -1027,7 +1027,11 @@ namespace PragmaScript {
         }
 
         public void Visit(AST.VariableDefinition node) {
+            if (node.token.Line == 24) {
+                    int breakHere = 42;
+                }
             if (node.variable.isConstant) {
+                
                 Visit(node.expression);
                 var v = valueStack.Pop();
                 // Debug.Assert(LLVM.IsConstant(v));
