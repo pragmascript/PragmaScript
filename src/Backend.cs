@@ -227,9 +227,6 @@ namespace PragmaScript {
                 outputProcess.Close();
             }
 
-#if DEBUG
-            Console.ReadLine();
-#endif
             Console.WriteLine("done.");
 
         }
@@ -981,60 +978,98 @@ namespace PragmaScript {
         }
 
 
-        public void Visit(AST.StructConstructor node) {
+        public void Visit(AST.StructConstructor node, bool isConst = false) {
             var sc = node;
             var sft = typeChecker.GetNodeType(node) as FrontendStructType;
-            var structType = GetTypeRef(sft);
+            var structType = (StructType)GetTypeRef(sft);
 
-            var insert = builder.GetInsertBlock();
-            builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-            var struct_ptr = builder.BuildAlloca(structType, "struct_alloca");
-            builder.PositionAtEnd(insert);
-
-            for (int i = 0; i < sft.fields.Count; ++i) {
-                if (i < node.argumentList.Count) {
-                    Visit(sc.argumentList[i]);
-                    var arg = valueStack.Pop();
-                    var arg_ptr = builder.BuildStructGEP(struct_ptr, i, "struct_arg_" + i);
-                    builder.BuildStore(arg, arg_ptr);
-                } else {
-                    var arg_ptr = builder.BuildStructGEP(struct_ptr, i, "struct_arg_" + i);
-                    var pt = (arg_ptr.type as PointerType).elementType;
-                    builder.BuildStore(builder.ConstNull(pt), arg_ptr);
+            if (!isConst) {
+                var insert = builder.GetInsertBlock();
+                builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
+                var struct_ptr = builder.BuildAlloca(structType, "struct_alloca");
+                builder.PositionAtEnd(insert);
+                for (int i = 0; i < sft.fields.Count; ++i) {
+                    if (i < node.argumentList.Count) {
+                        Visit(sc.argumentList[i]);
+                        var arg = valueStack.Pop();
+                        var arg_ptr = builder.BuildStructGEP(struct_ptr, i, "struct_arg_" + i);
+                        builder.BuildStore(arg, arg_ptr);
+                    } else {
+                        var arg_ptr = builder.BuildStructGEP(struct_ptr, i, "struct_arg_" + i);
+                        var et = (arg_ptr.type as PointerType).elementType;
+                        builder.BuildStore(builder.ConstNull(et), arg_ptr);
+                    }
                 }
+                valueStack.Push(struct_ptr);
+            } else {
+                var elements = new List<Value>();
+                for (int i = 0; i < sft.fields.Count; ++i) {
+                    if (i < node.argumentList.Count) {
+                        Visit(sc.argumentList[i]);
+                        var el = valueStack.Pop();
+                        if (!el.isConst) {
+                            throw new ParserError($"Element {i+1} of struct constructor must be a compile-time constant.", node.argumentList[1].token);
+                        }
+                        elements.Add(el);
+                    } else {
+                        var et = structType.elementTypes[i];
+                        elements.Add(builder.ConstNull(et));
+                    }
+                }
+                var result = new ConstStruct(structType, elements);
+                valueStack.Push(result);
             }
-            valueStack.Push(struct_ptr);
         }
 
-        public void Visit(AST.ArrayConstructor node) {
+        public void Visit(AST.ArrayConstructor node, bool isConst = false) {
             var ac = node;
             var ac_type = typeChecker.GetNodeType(node) as FrontendArrayType;
-            var arr_type = GetTypeRef(ac_type);
-            var insert = builder.GetInsertBlock();
+            var arr_type = (ArrayType)GetTypeRef(ac_type);
 
-            builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-            var arr_ptr = builder.BuildAlloca(arr_type, "arr_alloca");
+            if (!isConst) {
+                var insert = builder.GetInsertBlock();
+                builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
+                var arr_ptr = builder.BuildAlloca(arr_type, "arr_alloca");
 
-            builder.PositionAtEnd(insert);            
-            // TODO(pragma): possible optimization for all constant elements
-            for (int i = 0; i < node.elements.Count; ++i) {
-                Visit(node.elements[i]);
-                var elem = valueStack.Pop();
-                var dest = builder.BuildGEP(arr_ptr, "arr_elem_store", true, zero_i32_v, new ConstInt(i32_t, (ulong)i));
-                builder.BuildStore(elem, dest);
-            }           
-            valueStack.Push(arr_ptr);
+                builder.PositionAtEnd(insert);            
+                Debug.Assert(arr_type.elementCount == node.elements.Count);
+                // TODO(pragma): possible optimization for all constant elements
+                for (int i = 0; i < node.elements.Count; ++i) {
+                    Visit(node.elements[i]);
+                    var elem = valueStack.Pop();
+                    var dest = builder.BuildGEP(arr_ptr, "arr_elem_store", true, zero_i32_v, new ConstInt(i32_t, (ulong)i));
+                    builder.BuildStore(elem, dest);
+                }           
+                valueStack.Push(arr_ptr);
+            } else {
+                var elements = new List<Value>();
+                Debug.Assert(arr_type.elementCount == node.elements.Count);
+                for (int i = 0; i < node.elements.Count; ++i) {
+                    Visit(node.elements[i]);
+                    var el = valueStack.Pop();
+                    if (!el.isConst) {
+                        throw new ParserError($"Element {i+1} of array constructor must be a compile-time constant.", node.elements[1].token);
+                    }
+                    elements.Add(el);
+                }
+                var result = new ConstStruct(arr_type, elements);
+                valueStack.Push(result);
+            }
         }
 
         public void Visit(AST.VariableDefinition node) {
-            if (node.token.Line == 24) {
-                    int breakHere = 42;
-                }
             if (node.variable.isConstant) {
-                
-                Visit(node.expression);
+                switch (node.expression) {
+                    case AST.StructConstructor sc:
+                        Visit(sc, isConst: true);
+                    break;
+                    case AST.ArrayConstructor ac:
+                        throw new NotImplementedException();
+                    default:
+                        Visit(node.expression);
+                        break;
+                }
                 var v = valueStack.Pop();
-                // Debug.Assert(LLVM.IsConstant(v));
                 variables[node.variable] = v;
                 return;
             }

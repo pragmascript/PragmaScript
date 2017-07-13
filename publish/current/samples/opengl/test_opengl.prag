@@ -171,7 +171,7 @@ let init_opengl = fun (window: window_state*) => void {
  	"compile.opt"   : "3",
     "compile.asm"   : "true",
     "compile.cpu"   : "nehalem",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]

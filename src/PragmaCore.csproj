@@ -6,7 +6,10 @@
     <RuntimeIdentifier>win7-x64</RuntimeIdentifier>
     <DefineConstants>DISPLAY_TIMINGS</DefineConstants>
   </PropertyGroup>
-  <Target Name="MyPostCompileTarget" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Exec Command="python postbuild.py" />
+  <Target Name="MyPostCompileTarget1" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="python postbuild.py -release" />
+  </Target>
+  <Target Name="MyPostCompileTarget2" AfterTargets="Build" Condition="'$(Configuration)' == 'debug'">
+    <Exec Command="python postbuild.py -debug"  />
   </Target>
 </Project>

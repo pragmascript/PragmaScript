@@ -57,14 +57,15 @@ namespace Handmade.Game
         assert(len(tile_map, 1) == 16);
         let tile_size = 72;
         let offset = tile_size / 2;
-        
+        let red = color {1.0, 0.0, 0.0, 1.0};
+        let green = color {0.0, 1.0, 0.0, 1.0};
+        let blue =  color {0.0, 0.0, 1.0, 1.0};
         for (var y = 0; y < len(tile_map, 0); ++y) {
             for (var x = 0; x < len(tile_map, 1); ++x) {
                 var tile_id = tile_map[y, x];
 
                 var color = color {};
-                var red = color {1.0, 0.0, 0.0, 1.0};
-                // var green = color {0.0, 1.0, 0.0, 1.0};
+                
                 
                 if (tile_id == 0) {
                     color = background_color;
@@ -92,23 +93,23 @@ namespace Handmade.Game
                 
         var pos_x = offset + player_tile_x * tile_size;
         var pos_y = offset + player_tile_y * tile_size;
-        var blue =  color {0.0, 0.0, 1.0, 1.0};
+        
         draw_rectangle(render_target, center_half_size_rect(pos_x, pos_y, tile_size/2), blue);
 
         // draw player
-        var player_color = color { 0.3, 0.5, 0.8, 1.0 };
+        let player_color = color { 0.3, 0.5, 0.8, 1.0 };
         var px = game_state.player_x;
         var py = game_state.player_y;
         var player_size = tile_size / 2;
         draw_rectangle(render_target, center_half_size_rect(Math.round_to_i32(px), Math.round_to_i32(py), player_size/2), player_color);
         
         // draw mouse cursor
-        var red = color {0.5, 0.5, 0.5, 1.0};
+        let cursor_color = color {0.5, 0.5, 0.5, 1.0};
         let cursor_size = 15;
         if (!input.left_mb.pressed) {
-            draw_rectangle(render_target, center_half_size_rect(input.mouse_x, input.mouse_y, cursor_size), red);
+            draw_rectangle(render_target, center_half_size_rect(input.mouse_x, input.mouse_y, cursor_size), cursor_color);
         } else {
-            draw_rectangle(render_target, center_half_size_rect(input.mouse_x, input.mouse_y, cursor_size + 5), red);   
+            draw_rectangle(render_target, center_half_size_rect(input.mouse_x, input.mouse_y, cursor_size + 5), cursor_color);   
         }
         
         consume_buttons(input);
@@ -200,7 +201,7 @@ namespace Handmade.Game
         delta_x *= 128;
         delta_y *= 128;
         new_player_x = player_x + delta_x * time.dt;
-        new_player_y = player_x + delta_y * time.dt;
+        new_player_y = player_y + delta_y * time.dt;
     }
 
     let consume_buttons = fun

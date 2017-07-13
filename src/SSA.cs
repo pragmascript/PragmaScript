@@ -7,7 +7,7 @@ namespace PragmaScript {
     class SSA {
 
         public enum Op {
-            ConstInt, ConstReal, ConstPtr, ConstVoid, ConstArray, GlobalStringPtr, GlobalVariable, Function,
+            ConstInt, ConstReal, ConstPtr, ConstVoid, ConstArray, ConstStruct, GlobalStringPtr, GlobalVariable, Function,
             Label, Ret, Br, Call,
             Alloca,
             BitCast,
@@ -456,6 +456,26 @@ namespace PragmaScript {
                 }
 #endif
             }
+        }
+
+        public class ConstStruct : Value {
+            public List<Value> elements;
+            public ConstStruct(SSAType structType, List<Value> elements) 
+                : base(Op.ConstStruct, structType) {
+                    isConst = true;
+                    this.elements = elements;
+#if DEBUG
+                Debug.Assert(structType.kind == TypeKind.Struct);
+                var st = structType as StructType;
+                Debug.Assert(st.elementTypes.Count == elements.Count);
+                for (int i = 0; i < elements.Count; ++i) {
+                    var el = elements[i];
+                    Debug.Assert(el.isConst);
+                    Debug.Assert(el.type.EqualType(st.elementTypes[i]));
+                }
+#endif
+            }
+
         }
 
         public class GlobalStringPtr : Value {

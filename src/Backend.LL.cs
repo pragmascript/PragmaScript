@@ -152,6 +152,20 @@ define void @__chkstk() #0 {
                     AP(" ]");
                 }
                 break;
+                case ConstStruct st: {
+                    AP("{ ");
+                    for (int i = 0; i < st.elements.Count; ++i) {
+                        var el = st.elements[i];
+                        AppendType(el.type);
+                        AP(" ");
+                        AppendConstValue(el);
+                        if (i != st.elements.Count - 1) {
+                            AP(", ");
+                        }
+                    }
+                    AP(" }");
+                }
+                break;
                 case Value caz when caz.op == Op.ConstAggregateZero:
                     AP("zeroinitializer");
                     break;

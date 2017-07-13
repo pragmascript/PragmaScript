@@ -21,9 +21,9 @@ let main = fun () => void {
 	// print_string("hello, world!\n");
 
 	var c: some_struct;
-	let a = some_struct {1, 2, 3};
-	let b = some_struct {4, 5, 6};
-	var d = a;
+	// var a = some_struct {1, 2, 3};
+	// var b = some_struct {4, 5, 6};
+	// var d = a;
 	
 	// debug_print_i32("a.x", a.x);
 	// debug_print_i32("a.y", a.y);
@@ -40,9 +40,7 @@ let main = fun () => void {
 	// d.z: 0
 
 
-	// c = some_struct {7, 8, 9};
-	
-
+	c = some_struct {7, 8, 9};
 	// debug_print_i32("c.x", c.x);
 	// debug_print_i32("c.y", c.y);
 	// debug_print_i32("c.z", c.z);
