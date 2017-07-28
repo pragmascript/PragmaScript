@@ -75,10 +75,33 @@ let cstr = fun(value: string) => i8*
 }
 #endif
 
+let from_cstr = fun(cstr: ptr; maxLength: i32 = 1024) => string {
+	var result: string;
+	result.data = cstr;
+	result.length = 0;
+	var ptr = cstr;
+	while (*ptr++ != 0 && result.length <\ maxLength) {
+		result.length++;
+	}
+	return result;
+}
+
 let ord = fun(value: string) => i32
 {
 	assert(value.length == 1);
 	return (i32)value[0];
+}
+
+let strings_are_equal = fun(a: string; b: string) => bool {
+	if (a.length != b.length) {
+		return false;
+	}
+	for (var idx = 0; idx < a.length; ++idx) {
+		if (a[idx] != b[idx]) {
+			return false;
+		}
+	}
+	return true;
 }
 
 // let __chkstk = fun() => void 
@@ -234,6 +257,13 @@ let print_f64 = fun (value: f64; precision: i32 = 4) => void
 	pd.buffer.length = pd.pos;
 	print_string(pd.buffer);
 }
+
+let debug_print_string = fun(name: string; value: string) => void {
+	print_string(name);
+	print_string(": ");
+	print_string(value);
+	print_string("\n");
+}	
 
 let debug_print_i64 = fun (name: string; value: i64; signed: bool = true) => void
 {

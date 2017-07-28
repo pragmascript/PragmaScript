@@ -371,8 +371,6 @@ namespace PragmaScript {
             calcTypeName();
         }
 
-
-
         public void AddParam(string name, FrontendType type, bool optional = false, bool embed = false)
         {
             parameters.Add(new Param { name = name, type = type, optional = optional, embed = embed });

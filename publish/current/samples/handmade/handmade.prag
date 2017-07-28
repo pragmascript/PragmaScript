@@ -19,6 +19,18 @@ namespace Handmade.Game
     );
 
 
+    let world = struct 
+    (
+        offset: i32;
+        tile_size: i32;
+        tile_maps: tile_map[2, 2];
+    );
+    
+    let tile_map = struct
+    (        
+        data: i32[9, 16];
+    );
+
     ["dll.export"]
     let game_update_and_render = fun
     (
@@ -40,9 +52,12 @@ namespace Handmade.Game
         var background_color = color { 0.25, 0.35, 0.45, 1.0 };
         // animate_background_color(&background_color, input.time.t);
         draw_rectangle(render_target, min_max_rect(0, 0, render_target.width, render_target.height), background_color);
+
+        let tile_size = 72;
+        let offset = tile_size / 2;
         
-        var tile_map = 
-        [
+        
+        let data_00 = [
             [1, 1, 1, 1,  1, 1, 1, 1,  0, 1, 1, 1,  1, 1, 1, 1],
             [1, 1, 0, 0,  0, 1, 0, 0,  0, 0, 0, 0,  0, 0, 1, 1],
             [1, 1, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 1],
@@ -53,54 +68,75 @@ namespace Handmade.Game
             [1, 1, 1, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 1],
             [1, 1, 1, 1,  1, 1, 1, 1,  0, 1, 1, 1,  1, 1, 1, 1]
         ];
-        assert(len(tile_map, 0) == 9);
-        assert(len(tile_map, 1) == 16);
-        let tile_size = 72;
-        let offset = tile_size / 2;
-        let red = color {1.0, 0.0, 0.0, 1.0};
-        let green = color {0.0, 1.0, 0.0, 1.0};
-        let blue =  color {0.0, 0.0, 1.0, 1.0};
-        for (var y = 0; y < len(tile_map, 0); ++y) {
-            for (var x = 0; x < len(tile_map, 1); ++x) {
-                var tile_id = tile_map[y, x];
+        let data_10 = [
+            [1, 1, 1, 1,  1, 1, 1, 1,  0, 1, 1, 1,  1, 1, 1, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1]
+        ];
+        let data_01 = [
+            [1, 1, 1, 1,  1, 1, 1, 1,  0, 1, 1, 1,  1, 1, 1, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [0, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1]
+        ];
+        let data_11 = [
+            [1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 1,  0, 0, 0, 0,  0, 0, 0, 1],
+            [0, 0, 0, 0,  0, 0, 0, 1,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 1,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1],
+            [1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1]
+        ];
 
-                var color = color {};
-                
-                
-                if (tile_id == 0) {
-                    color = background_color;
-                } elif (tile_id == 1) {
-                    color = red;
-                }
-                var pos_x = offset + x * tile_size;
-                var pos_y = offset + y * tile_size;
-                
-                draw_rectangle(render_target, center_half_size_rect(pos_x, pos_y, tile_size/2), color);
-            }
-        }
 
-        var player_tile_x = Math.round_to_i32((game_state.new_player_x - (f32)offset) / (f32)tile_size);
-        var player_tile_y = Math.round_to_i32((game_state.new_player_y - (f32)offset) / (f32)tile_size);
-
-        if (player_tile_x >= 0 && player_tile_x < len(tile_map, 1) && 
-            player_tile_y >= 0 && player_tile_y < len(tile_map, 0)) {
-            var tile_value = tile_map[player_tile_y, player_tile_x];
-            if (tile_value == 0) {
-                game_state.player_x = game_state.new_player_x;
-                game_state.player_y = game_state.new_player_y;
-            }
-        }
-                
-        var pos_x = offset + player_tile_x * tile_size;
-        var pos_y = offset + player_tile_y * tile_size;
+        var world: world;
+        world.tile_size = tile_size;
+        world.offset = offset;
+        world.tile_maps[0, 0].data = data_00;
+        world.tile_maps[1, 0].data = data_10;
+        world.tile_maps[0, 1].data = data_01;
+        world.tile_maps[1, 1].data = data_11;
         
-        draw_rectangle(render_target, center_half_size_rect(pos_x, pos_y, tile_size/2), blue);
+        var current_tile_map = &world.tile_maps[0, 0];
+        render_tilemap(&world, current_tile_map, render_target);
+
+        var player_size = tile_size / 2;
+        var hs = (f32)player_size / 2;
+        
+        var is_valid = true;
+        is_valid &= !is_blocked(&world, current_tile_map, game_state.new_player_x + hs, game_state.new_player_y + hs);
+        is_valid &= !is_blocked(&world, current_tile_map, game_state.new_player_x - hs, game_state.new_player_y + hs);
+        if (is_valid) {
+            game_state.player_x = game_state.new_player_x;
+            game_state.player_y = game_state.new_player_y;
+        }        
 
         // draw player
         let player_color = color { 0.3, 0.5, 0.8, 1.0 };
         var px = game_state.player_x;
         var py = game_state.player_y;
-        var player_size = tile_size / 2;
+        var tsh = (f32)tile_size / 2;
+        var tx = (i32)((px+hs - (f32)offset + tsh) / (f32)tile_size);
+        var ty = (i32)((py+hs - (f32)offset + tsh) / (f32)tile_size);
+        var pos_x = offset + tx * tile_size;
+        var pos_y = offset + ty * tile_size;
+
+        let blue = color { 0, 0, 1, 1};
+        draw_rectangle(render_target, center_half_size_rect(pos_x, pos_y, tile_size/2), blue);
         draw_rectangle(render_target, center_half_size_rect(Math.round_to_i32(px), Math.round_to_i32(py), player_size/2), player_color);
         
         // draw mouse cursor
@@ -114,6 +150,47 @@ namespace Handmade.Game
         
         consume_buttons(input);
         return result;
+    }
+
+    let render_tilemap = fun(world: world*; tile_map: tile_map*; render_target: game_render_target*) => void {
+        var background_color = color { 0.25, 0.35, 0.45, 1.0 };
+        let red = color {1.0, 0.0, 0.0, 1.0};
+        let green = color {0.0, 1.0, 0.0, 1.0};
+        let blue =  color {0.0, 0.0, 1.0, 1.0};
+        for (var y = 0; y < len(tile_map.data, 0); ++y) {
+            for (var x = 0; x < len(tile_map.data, 1); ++x) {
+                var tile_id = tile_map.data[y, x];
+                var color = color {};
+                
+                
+                if (tile_id == 0) {
+                    color = background_color;
+                } elif (tile_id == 1) {
+                    color = red;
+                }
+                var pos_x = world.offset + x * world.tile_size;
+                var pos_y = world.offset + y * world.tile_size;
+                
+                draw_rectangle(render_target, center_half_size_rect(pos_x, pos_y, world.tile_size/2), color);
+            }
+        }
+    }
+
+    let is_blocked = fun (world: world*; @tile_map: tile_map*; x: f32; y: f32) => bool {
+        var tsh = (f32)world.tile_size/2;
+        var tx = (i32)((x - (f32)world.offset + tsh) / (f32)world.tile_size);
+        var ty = (i32)((y - (f32)world.offset + tsh) / (f32)world.tile_size);
+        // debug_print_i32("tx", tx);
+        // debug_print_i32("ty", ty);
+
+        if (tx >= 0 && tx < len(data, 1) && 
+            ty >= 0 && ty < len(data, 0)) {
+            var tile_value = data[ty, tx];
+            if (tile_value == 0) {
+                return false;
+            } 
+        }
+        return true;
     }
 
     let animate_background_color = fun
@@ -277,7 +354,7 @@ namespace Handmade.Game
     "compile.dll"   : "true",
     "compile.output": "handmade.dll",
     "compile.opt"   : "0",
-    "compile.ll"   : "false",
+    "compile.ll"    : "true",
     "compile.run"   : "false",
     "compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib",
     "compile.libs"  : "kernel32.lib, libopenlibm.a"

@@ -66,6 +66,7 @@ namespace PragmaScript {
                 loopStack.Push((loopNext, loopEnd));
             }
             public void PopLoop() {
+                loopStack.Pop();
             }
             public bool IsLoop() {
                 return loopStack.Count > 0;

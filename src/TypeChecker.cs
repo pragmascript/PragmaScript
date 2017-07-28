@@ -675,13 +675,14 @@ namespace PragmaScript {
                     first = nt.Default();
                 }
                 for (int i = 1; i < elementTypes.Count; ++i) {
-                    if (!FrontendType.CompatibleAndLateBind(first, elementTypes[i])) {
+                    var et = elementTypes[i];
+                    if (!FrontendType.CompatibleAndLateBind(first, et)) {
                         same = false;
                         break;
                     }
-                }
+               }
                 if (!same) {
-                    throw new ParserError("all elements in an array must have the same type", node.token);
+                    throw new ParserError("all elements in an array must be of the same type", node.token);
                 }
                 var at = new FrontendArrayType(first, node.dims);
                 resolve(node, at);

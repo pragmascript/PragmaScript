@@ -978,7 +978,7 @@ namespace PragmaScript {
         }
 
 
-        public void Visit(AST.StructConstructor node, bool isConst = false) {
+        public void Visit(AST.StructConstructor node, bool isConst = false, bool returnPointer = false) {
             var sc = node;
             var sft = typeChecker.GetNodeType(node) as FrontendStructType;
             var structType = (StructType)GetTypeRef(sft);
@@ -1000,7 +1000,13 @@ namespace PragmaScript {
                         builder.BuildStore(builder.ConstNull(et), arg_ptr);
                     }
                 }
-                valueStack.Push(struct_ptr);
+
+                if (node.returnPointer || returnPointer) {
+                    valueStack.Push(struct_ptr);    
+                } else {
+                    var load = builder.BuildLoad(struct_ptr);
+                    valueStack.Push(load);
+                }
             } else {
                 var elements = new List<Value>();
                 for (int i = 0; i < sft.fields.Count; ++i) {
@@ -1021,7 +1027,7 @@ namespace PragmaScript {
             }
         }
 
-        public void Visit(AST.ArrayConstructor node, bool isConst = false) {
+        public void Visit(AST.ArrayConstructor node, bool isConst = false, bool returnPointer = false) {
             var ac = node;
             var ac_type = typeChecker.GetNodeType(node) as FrontendArrayType;
             var arr_type = (ArrayType)GetTypeRef(ac_type);
@@ -1040,7 +1046,16 @@ namespace PragmaScript {
                     var dest = builder.BuildGEP(arr_ptr, "arr_elem_store", true, zero_i32_v, new ConstInt(i32_t, (ulong)i));
                     builder.BuildStore(elem, dest);
                 }           
-                valueStack.Push(arr_ptr);
+
+                
+                if (node.returnPointer || returnPointer) {
+                    valueStack.Push(arr_ptr);
+                } else {
+                    var load = builder.BuildLoad(arr_ptr, "arr_cstr_load");
+                    valueStack.Push(load);
+                }
+
+                
             } else {
                 var elements = new List<Value>();
                 Debug.Assert(arr_type.elementCount == node.elements.Count);
@@ -1052,7 +1067,7 @@ namespace PragmaScript {
                     }
                     elements.Add(el);
                 }
-                var result = new ConstStruct(arr_type, elements);
+                var result = new ConstArray(arr_type, elements);
                 valueStack.Push(result);
             }
         }
@@ -1064,7 +1079,8 @@ namespace PragmaScript {
                         Visit(sc, isConst: true);
                     break;
                     case AST.ArrayConstructor ac:
-                        throw new NotImplementedException();
+                        Visit(ac, isConst: true);
+                        break;
                     default:
                         Visit(node.expression);
                         break;
@@ -1080,7 +1096,17 @@ namespace PragmaScript {
                 SSAType vType;
                 Value v;
                 if (node.expression != null) {
-                    Visit(node.expression);
+                    switch (node.expression) {
+                        case AST.StructConstructor sc:
+                            Visit(sc, returnPointer: true);
+                            break;
+                        case AST.ArrayConstructor ac:
+                            Visit(ac, returnPointer: true);
+                            break;
+                        default:
+                            Visit(node.expression);
+                            break;
+                    }
                     v = valueStack.Pop();
                     vType = v.type;
                 } else {
@@ -1207,7 +1233,11 @@ namespace PragmaScript {
                 return;
             }
             var nt = typeChecker.GetNodeType(node);
-            var v = variables[vd];
+
+
+            if (!variables.TryGetValue(vd, out var v)) {
+                throw new ParserError("Ordering violation or can't use non constant Value in constant declaration!", node.token);
+            }
             Value result;
             if (vd.isConstant) {
                 result = v;
@@ -1627,7 +1657,7 @@ namespace PragmaScript {
                         }
                     }
                 }
-                if (arr.op != Op.FunctionArgument) {
+                if (arr.op != Op.FunctionArgument && !arr.isConst) {
                     result = builder.BuildGEP(arr_elem_ptr, "gep_arr_elem", false, zero_i32_v, idx);
                 } else {
                     result = builder.BuildExtractValue(arr, "gep_arr_elem_ptr", idx);

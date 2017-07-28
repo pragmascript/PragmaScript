@@ -487,7 +487,7 @@ namespace PragmaScript {
             }
         }
 
-        public class StructConstructor : Node
+        public class StructConstructor : Node, ICanReturnPointer
         {
             public TypeString typeString;
             public List<Node> argumentList = new List<Node>();
@@ -496,6 +496,13 @@ namespace PragmaScript {
                 : base(t, s)
             {
             }
+
+            public bool returnPointer { get; set; }
+            public bool CanReturnPointer()
+            {
+                return true;
+            }
+
             public override Node DeepCloneTree()
             {
                 var result = new StructConstructor(token, scope);
@@ -503,6 +510,7 @@ namespace PragmaScript {
                 foreach (var arg in argumentList) {
                     result.argumentList.Add(arg.DeepCloneTree());
                 }
+                result.returnPointer = returnPointer;
                 return result;
             }
             public override IEnumerable<Node> GetChilds()
@@ -838,7 +846,7 @@ namespace PragmaScript {
             }
         }
 
-        public class ArrayConstructor : Node
+        public class ArrayConstructor : Node, ICanReturnPointer
         {
             public List<Node> elements = new List<Node>();
             public List<int> dims = new List<int>();
@@ -848,6 +856,13 @@ namespace PragmaScript {
             {
 
             }
+
+            public bool returnPointer { get; set; }
+            public bool CanReturnPointer()
+            {
+                return true;
+            }
+
             public override Node DeepCloneTree()
             {
                 var result = new ArrayConstructor(token, scope);
@@ -855,6 +870,7 @@ namespace PragmaScript {
                     result.elements.Add(e.DeepCloneTree());
                 }
                 result.dims.AddRange(dims);
+                result.returnPointer = returnPointer;
 
                 return result;
             }

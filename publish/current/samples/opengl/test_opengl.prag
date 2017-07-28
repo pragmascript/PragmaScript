@@ -6,23 +6,16 @@ import "opengl.prag"
 
 with Windows;
 
-let offscreen_buffer = struct
-(
-    info:   BITMAPINFO;
-    memory: ptr;
-    width:  i32;
-    height: i32;
-    pitch:  i32;
-);
+
 let window_state = struct 
 (
     handle: mm;
     dc: mm;
-    width: i32;
-    height: i32;
+    client_width: i32;
+    client_height: i32;
     wants_to_quit: bool;
-    backbuffer: offscreen_buffer;
 );
+var window: window_state;
 
 
 let get_perf_counter = fun() => i64 {
@@ -35,33 +28,10 @@ let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
     return (f64)(t1 - t0) / (f64)perf_count_freq;
 }
 
-var window: window_state;
-let create_backbuffer = fun 
-(
-    @buffer: offscreen_buffer*;
-    target_width: i32;
-    target_height: i32) => void
-{
-    let bytes_per_pixel = 4;
-    width = target_width;
-    height = target_height;
-    info.header.biSize = 40;
-    info.header.biWidth = width;
-    info.header.biHeight = height;
-    info.header.biPlanes = 1;
-    info.header.biBitCount = 32;
-    info.header.biCompression = BI_RGB;
-    var bitmap_size = bytes_per_pixel * width * height;
-    if (memory != nullptr) {
-        VirtualFree(memory, null, MEM_RELEASE);
-    }
-    memory = VirtualAlloc(nullptr, (mm\)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
-    pitch = buffer.width * bytes_per_pixel;
-}
 
-let blit_to_screen = fun (window_dc: mm; @buffer: offscreen_buffer*) => void {
-
-    glViewport(0, 0, width, height);
+let render_opengl = fun (@window_state: window_state*) => void {
+    
+    glViewport(0, 0, client_width, client_height);
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -77,7 +47,7 @@ let blit_to_screen = fun (window_dc: mm; @buffer: offscreen_buffer*) => void {
     glVertex3f(1.0, -1.0, 0.0);
     glEnd();
 
-    SwapBuffers(window_dc);
+    SwapBuffers(dc);
 }
 
 let process_pending_messages = fun() => void {
@@ -135,12 +105,70 @@ let main_window_callback = fun
     elif (message == WM_PAINT) {
         var paint: PAINTSTRUCT;
         var context = BeginPaint(window_handle, &paint);
-        blit_to_screen(window.dc, &window.backbuffer);
+        // blit_to_screen(window.dc, &window.backbuffer);
         EndPaint(window_handle, &paint);
     } 
     else {
         result = DefWindowProcA(window_handle, message, w_param, l_param);
     }
+    return result;
+}
+
+
+let opengl_info = struct (
+    shading_language_version: string;
+    vendor: string;
+    renderer: string;
+    version: string;
+    extensions: string;
+);
+
+let get_opengl_info = fun() => opengl_info {
+    var result: opengl_info;
+    result.shading_language_version = from_cstr(glGetString(GL_SHADING_LANGUAGE_VERSION), -1);
+    result.vendor = from_cstr(glGetString(GL_VENDOR), -1);
+    result.renderer = from_cstr(glGetString(GL_RENDERER), -1);
+    result.version = from_cstr(glGetString(GL_VERSION), -1);
+    result.extensions = from_cstr(glGetString(GL_EXTENSIONS), -1);
+    print_string("OPENGL INFO:\n");
+    debug_print_string("shading language verison", result.shading_language_version);
+    debug_print_string("vendor", result.vendor);
+    debug_print_string("renderer", result.renderer);
+    debug_print_string("version", result.version);
+    debug_print_string("extensions", result.extensions);
+    print_string("\n");
+
+    var ext: string;
+    ext.data = result.extensions.data;
+    ext.length = 0;
+    var at: i8*;    
+    var ext_idx = 0;
+    var ws = (i8)ord(" ");
+    while (true) {
+        at = ext.data;
+        while (*at != ws && *at != 0) {
+            at++;
+            if (*at != 0) {
+                ext.length++;
+            }
+        }
+        debug_print_i32(ext, ext_idx++);
+
+        while (*at == ws) { at++; }
+        if (*at == 0) {
+            print_string("break\n");
+            break;
+        }
+
+        // if (strings_are_equal(ext, "EXT_texture_sRGB_decode")) {
+        //      debug_print_string(ext, "true");
+        // }
+        
+        ext.data = at;
+        ext.length = 0;
+    }
+
+
     return result;
 }
 
@@ -163,13 +191,22 @@ let init_opengl = fun (window: window_state*) => void {
     var gl_rc = wglCreateContext(dc);
     var result = wglMakeCurrent(dc, gl_rc);
     assert(result != 0);
+
+    var wglSwapInterval: fun(value: i32) => void;
+    *((ptr*)(&wglSwapInterval)) = wglGetProcAddress(cstr("wglSwapIntervalEXT\0"));
+    assert((ptr)wglSwapInterval != nullptr);
+    wglSwapInterval(1);
+    
+    var info = get_opengl_info();
+
 }
 
 [
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
  	"compile.opt"   : "3",
-    "compile.asm"   : "true",
+    "compile.ll"    : "false",
+    "compile.asm"   : "false",
     "compile.cpu"   : "nehalem",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
@@ -177,7 +214,8 @@ let init_opengl = fun (window: window_state*) => void {
 ]
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
-#if FALSE
+
+#if TRUE
     SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
 #endif
 
@@ -189,16 +227,13 @@ let main = fun() => void {
     var client_rect = RECT { 0, 0, buffer_width, buffer_height };
     AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
 
-    window.width = client_rect.right - client_rect.left;
-    assert(window.width > 0);
-    window.height = client_rect.bottom - client_rect.top;
-    assert(window.height > 0);
+    var window_width = client_rect.right - client_rect.left;
+    assert(window_width > 0);
+    var window_height = client_rect.bottom - client_rect.top;
+    assert(window_height > 0);
+    window.client_width = buffer_width;
+    window.client_height = buffer_height;
     
-    // debug_print_i32("window_height", window.height);
-    
-    create_backbuffer(&window.backbuffer, buffer_width, buffer_height);
-    assert(window.backbuffer.memory != nullptr);
-
     var class_name  = cstr("opengl_test_window_class\0");
     var window_name = cstr("opengl test\0");
     var module_handle = GetModuleHandleA(null);
@@ -221,8 +256,8 @@ let main = fun() => void {
         dw_style,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
-        window.width,
-        window.height,
+        window_width,
+        window_height,
         null,
         null,
         module_handle,
@@ -236,11 +271,20 @@ let main = fun() => void {
     
     debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
 
-
+    var frames = 0;
     while (!window.wants_to_quit) {
+        var t0 = get_perf_counter();
+
         process_pending_messages();
-        blit_to_screen(window.dc, &window.backbuffer);
-        Sleep(33);
+        render_opengl(&window);
+
+        var t1 = get_perf_counter();
+        frames++;
+        if (frames == 60) {
+            var t = (f64)(t1-t0) / (f64)perf_count_freq;
+            debug_print_f64("ms elapsed: ", t * 1000.0);
+            frames = 0;
+        }
     }
 
     var t1 = get_perf_counter();

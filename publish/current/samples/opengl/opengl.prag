@@ -1,5 +1,6 @@
 let wglCreateContext = extern fun(window_dc: mm) => mm;
 let wglMakeCurrent = extern fun(window_dc: mm; gl_rc: mm) => i32;
+let wglGetProcAddress = extern fun(str: ptr) => ptr;
 
 let glClearColor = extern fun(r: f32; g: f32; b: f32; a: f32) => void;
 let glClear = extern fun(flags: i32) => void;
@@ -10,9 +11,18 @@ let glColor3f = extern fun(r: f32; g: f32; b: f32) => void;
 let glVertex3f = extern fun(x: f32; y: f32; z: f32) => void;
 let glEnd = extern fun() => void;
 
+let glGetString = extern fun(flags: i32) => ptr;
+
 
 
 let GL_DEPTH_BUFFER_BIT   = 0x00000100;
 let GL_STENCIL_BUFFER_BIT = 0x00000400;
 let GL_COLOR_BUFFER_BIT   = 0x00004000;
 let GL_TRIANGLES          =     0x0004;
+
+
+let GL_SHADING_LANGUAGE_VERSION = 0x8B8C;
+let GL_VENDOR             =       0x1F00;
+let GL_RENDERER           =       0x1F01;
+let GL_VERSION            =       0x1F02;
+let GL_EXTENSIONS         =       0x1F03;

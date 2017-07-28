@@ -313,6 +313,7 @@ define void @__chkstk() #0 {
                 case Op.ConstInt:
                 case Op.ConstReal:
                 case Op.ConstArray:
+                case Op.ConstStruct:
                 case Op.ConstPtr:
                 case Op.ConstVoid:
                 case Op.Label:
