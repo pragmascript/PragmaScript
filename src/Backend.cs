@@ -1272,14 +1272,14 @@ namespace PragmaScript {
                     Value result;
                     if (at.dims.Count == 1) {
                         length = at.dims.First();                  
-                        result = new ConstInt(i32_t, (ulong)length);
+                        result = new ConstInt(mm_t, (ulong)length);
                     } else {
                         if (node.argumentList.Count > 1) {
                             var data = new List<Value>();
                             foreach (var d in at.dims) {
-                                data.Add(new ConstInt(i32_t, (ulong)d));
+                                data.Add(new ConstInt(mm_t, (ulong)d));
                             }
-                            var arr = new ConstArray(new ArrayType(i32_t, (uint)data.Count), data);
+                            var arr = new ConstArray(new ArrayType(mm_t, (uint)data.Count), data);
                             Visit(node.argumentList[1]);
                             var idx = valueStack.Pop();
                             if (!idx.isConst) {
@@ -1287,11 +1287,11 @@ namespace PragmaScript {
                             }
                             result = builder.BuildExtractValue(arr, "len_extract", idx);
                         } else {
-                            int mul = 1;
+                            ulong mul = 1;
                             foreach (var d in at.dims) {
-                                mul *= d;
+                                mul *= (ulong)d;
                             }
-                            result = new ConstInt(i32_t, (ulong)mul);
+                            result = new ConstInt(mm_t, (ulong)mul);
                         }
                         
                     }

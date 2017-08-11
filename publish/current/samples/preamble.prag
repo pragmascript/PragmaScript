@@ -104,6 +104,16 @@ let strings_are_equal = fun(a: string; b: string) => bool {
 	return true;
 }
 
+let is_end_of_line = fun(char: i8) => bool {
+	var result = char == 10 || char == 13;
+	return result;
+}
+
+let is_whitespace = fun(char: i8) => bool {
+	var result = char == 32 || char == 09 || char == 11 || char == 12 || is_end_of_line(char);
+	return result;
+}
+
 // let __chkstk = fun() => void 
 // {
 // 	return;
@@ -153,6 +163,8 @@ let memset = fun
 	}
 	return dest;
 }
+
+let memcpy =  extern("CopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
 
 let print_i32 = fun (value: i32; signed: bool = true) => void
 {

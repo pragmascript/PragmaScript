@@ -55,7 +55,7 @@ namespace PragmaScript {
             scope.AddVar("__file_pos__", file_pos, Token.Undefined, isConst: true);
 
             var len = new FrontendFunctionType("len");
-            len.returnType = FrontendType.i32;
+            len.returnType = FrontendType.mm;
             len.specialFun = true;
             len.AddParam("x", new FrontendArrayType(null, new List<int>()));
             scope.AddVar("len", len, Token.Undefined, isConst: true);

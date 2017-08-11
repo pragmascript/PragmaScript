@@ -27,28 +27,167 @@ var perf_count_freq: i64;
 let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
     return (f64)(t1 - t0) / (f64)perf_count_freq;
 }
+let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return get_seconds_elapsed(t0, t1) * 1000;
+}
+// let platform_write_file = fun (name: string; buffer: i8[]) => bool;
+let write_file = fun (name: string; buffer: string) => bool
+{
+    var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
+    if (handle == null) {
+        CloseHandle(handle);
+        return false;
+    }
+    var bytes_written: i32 = 0;
+    var result = WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
+    if (result != 0) {
+        CloseHandle(handle);
+        assert(buffer.length == bytes_written);
+        return true;
+    } else {
+        CloseHandle(handle);
+        return false;
+    }
 
+    CloseHandle(handle);
+    return false;
+}
 
-let render_opengl = fun (@window_state: window_state*) => void {
-    
+let read_file = fun (name: string) => string  
+{
+    var result: string;
+    result.data = nullptr;
+    result.length = 0;
+    var handle = CreateFileA(cstr(name), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, 0);
+    if (handle == null) {
+        return result;
+    }
+
+    var size: i64 = 0;
+    var fsr = GetFileSizeEx(handle, &size);
+    if (fsr == 0 || size == 0) {
+        CloseHandle(handle);
+        return result;
+    }
+
+    var buffer = VirtualAlloc(nullptr, (mm)size, MEM_COMMIT, PAGE_READWRITE);
+    if ((mm)buffer == null) {
+        CloseHandle(handle);
+        return result;
+    }
+    assert((mm)size <=\ gigabytes(4));
+    var size_32 = (i32)size;
+    var bytes_read: i32;
+    var rfr = ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
+    assert(bytes_read == size_32);
+    if (rfr == 0) {
+        VirtualFree(buffer, null, MEM_RELEASE);
+        CloseHandle(handle);
+        return result;		
+    }
+
+    result.data = buffer;
+    result.length = size_32;
+    CloseHandle(handle);
+    return result;
+} 
+
+let render_opengl = fun (@window_state: window_state*; time: f32) => void {
+    if (!gl_resources_initialized) {
+        init_gl_resources();
+    }
     glViewport(0, 0, client_width, client_height);
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    // https://hero.handmade.network/episode/code/day368
 
-    glBegin(GL_TRIANGLES);
-    glColor3f(1.0, 0.0, 0.0);
-    glVertex3f(0.0, 1.0, 0.0);
-    
-    glColor3f(1.0, 1.0, 0.0);
-    glVertex3f(-1.0, -1.0, 0.0);
-    
-    glColor3f(0.0, 0.0, 1.0);
-    glVertex3f(1.0, -1.0, 0.0);
-    glEnd();
 
     SwapBuffers(dc);
 }
+
+
+
+var gl_resources_initialized = false;
+let init_gl_resources = fun() => void {
+    // make a dummy VAO
+    // https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
+    var DummyVAO: i32;
+    glGenVertexArrays(1, &DummyVAO);
+    glBindVertexArray(DummyVAO);
+
+
+
+    var vs_source = read_file("..\\vs.glsl\0");
+    var vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vs_source.data, (i32*)0);
+    glCompileShader(vertexShader);
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+        if (success == 0) {
+            glGetShaderInfoLog(vertexShader, (i32\)len(infoLog), (i32*)0, &infoLog[0]);
+            debug_print_string("vs.glsl", from_cstr(&infoLog[0]));
+        }
+    }
+    
+
+    var fs_source = read_file("..\\fs.glsl\0");
+    var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fs_source.data, (i32*)0);
+    glCompileShader(fragmentShader);
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+        if (success == 0) {
+            glGetShaderInfoLog(fragmentShader, (i32\)len(infoLog), (i32*)0, &infoLog[0]);
+            debug_print_string("fs.glsl", from_cstr(&infoLog[0]));
+        }
+    }
+
+    var shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+        if (success == 0) {
+            glGetProgramInfoLog(shaderProgram, (i32\)len(infoLog), (i32*)0, &infoLog[0]);
+            debug_print_string("program", from_cstr(&infoLog[0]));
+        }
+    }
+    
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    
+
+    var vertices = [
+        -0.5, -0.5, 0.0,
+         0.5, -0.5, 0.0,
+         0.0,  0.5, 0.0 
+    ];
+    var size = len(vertices) * size_of(f32);
+    var vp = (ptr)(&vertices[0]);
+
+    var VBO: i32;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, size, vp, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * (i32\)(size_of(f32)), nullptr);
+    glEnableVertexAttribArray(0);
+
+    glUseProgram(shaderProgram);
+
+    gl_resources_initialized = true;
+}
+
 
 let process_pending_messages = fun() => void {
     var msg: MSG;
@@ -114,6 +253,72 @@ let main_window_callback = fun
     return result;
 }
 
+let load_wgl_extensions = fun() => void {
+    var window_class = WNDCLASSEX {};
+    var class_name = cstr("wgl_extension_dummy_window\0");
+    var window_name = cstr("dummy window\0");
+
+    window_class.cbSize = (i32)(size_of(WNDCLASSEX));
+    window_class.hInstance = GetModuleHandleA(0);
+    window_class.lpszClassName = class_name;
+    window_class.lpfnWndProc = (ptr)DefWindowProcA;
+    RegisterClassExA(&window_class);
+    var dummy_wnd = CreateWindowExA(
+        0,
+        window_class.lpszClassName,
+        window_name,
+        0,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        null,
+        null,
+        window_class.hInstance,
+        null
+    );
+    
+    var dummy_dc = GetDC(dummy_wnd);
+    assert(dummy_dc != null);
+
+    var pfd = PIXELFORMATDESCRIPTOR { };
+    pfd.nSize = (i16)(size_of(PIXELFORMATDESCRIPTOR));
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
+    pfd.cColorBits = 32;
+    pfd.cAlphaBits = 8;
+    
+    var t0 = get_perf_counter();
+    var pfd_idx = ChoosePixelFormat(dummy_dc, &pfd);
+    var suggested_pfd: PIXELFORMATDESCRIPTOR;
+    DescribePixelFormat(dummy_dc, pfd_idx, (i32)(size_of(PIXELFORMATDESCRIPTOR)), &suggested_pfd);
+    SetPixelFormat(dummy_dc, pfd_idx, &suggested_pfd);
+    var t1 = get_perf_counter();
+
+    var gl_rc = wglCreateContext(dummy_dc);
+    var success = wglMakeCurrent(dummy_dc, gl_rc);
+    assert(success != 0);
+
+    *((ptr*)(&wglChoosePixelFormatARB)) = wglGetProcAddress(cstr("wglChoosePixelFormatARB\0"));
+    assert((ptr)wglChoosePixelFormatARB != nullptr);
+
+    *((ptr*)(&wglCreateContextAttribsARB)) = wglGetProcAddress(cstr("wglCreateContextAttribsARB\0"));
+    assert((ptr)wglCreateContextAttribsARB != nullptr);
+
+    *((ptr*)(&wglSwapIntervalEXT)) = wglGetProcAddress(cstr("wglSwapIntervalEXT\0"));
+    assert((ptr)wglSwapIntervalEXT != nullptr);
+
+    *((ptr*)(&wglGetExtensionsStringEXT)) = wglGetProcAddress(cstr("wglGetExtensionsStringEXT\0"));
+    assert((ptr)wglGetExtensionsStringEXT != nullptr);
+
+    wglMakeCurrent(0, 0);
+    wglDeleteContext(gl_rc);
+    ReleaseDC(dummy_wnd, dummy_dc);
+    DestroyWindow(dummy_wnd);
+
+    // debug_print_string("wgl extensions", from_cstr(wglGetExtensionsStringEXT()));
+    // debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
+}
 
 let opengl_info = struct (
     shading_language_version: string;
@@ -123,88 +328,211 @@ let opengl_info = struct (
     extensions: string;
 );
 
+
+let print_opengl_info = fun(@info: opengl_info*) => void {
+    print_string("OPENGL INFO:\n");
+    debug_print_string("shading language verison", shading_language_version);
+    debug_print_string("vendor", vendor);
+    debug_print_string("renderer", renderer);
+    debug_print_string("version", version);
+    debug_print_string("extensions", extensions);
+    print_string("\n");
+}
+
 let get_opengl_info = fun() => opengl_info {
     var result: opengl_info;
+    
     result.shading_language_version = from_cstr(glGetString(GL_SHADING_LANGUAGE_VERSION), -1);
     result.vendor = from_cstr(glGetString(GL_VENDOR), -1);
     result.renderer = from_cstr(glGetString(GL_RENDERER), -1);
     result.version = from_cstr(glGetString(GL_VERSION), -1);
-    result.extensions = from_cstr(glGetString(GL_EXTENSIONS), -1);
-    print_string("OPENGL INFO:\n");
-    debug_print_string("shading language verison", result.shading_language_version);
-    debug_print_string("vendor", result.vendor);
-    debug_print_string("renderer", result.renderer);
-    debug_print_string("version", result.version);
-    debug_print_string("extensions", result.extensions);
-    print_string("\n");
+    
+    // TODO(pragma): GL_EXTENSIONS is deprecated use
+    //   glGetStringi with GL_EXTENSIONS, i and
+    //   GL_NUM_EXTENSIONS
+    // result.extensions = from_cstr(glGetString(GL_EXTENSIONS), -1);
+
+    // print_opengl_info(&result);
 
     var ext: string;
     ext.data = result.extensions.data;
     ext.length = 0;
     var at: i8*;    
     var ext_idx = 0;
-    var ws = (i8)ord(" ");
     while (true) {
         at = ext.data;
-        while (*at != ws && *at != 0) {
+        while (!is_whitespace(*at) && *at != 0) {
             at++;
             if (*at != 0) {
                 ext.length++;
             }
         }
-        debug_print_i32(ext, ext_idx++);
-
-        while (*at == ws) { at++; }
+        while (is_whitespace(*at)) { at++; }
         if (*at == 0) {
-            print_string("break\n");
             break;
         }
 
-        // if (strings_are_equal(ext, "EXT_texture_sRGB_decode")) {
-        //      debug_print_string(ext, "true");
+        // if (strings_are_equal(ext, "GL_EXT_texture_sRGB_decode")) {
+        //     debug_print_string(ext, "true");
         // }
-        
+        // elif (strings_are_equal(ext, "GL_ARB_framebuffer_sRGB")) {
+        //     debug_print_string(ext, "true");
+        // }
         ext.data = at;
         ext.length = 0;
     }
-
-
     return result;
 }
 
+
+// http://mariuszbartosik.com/opengl-4-x-initialization-in-windows-without-a-framework/
 let init_opengl = fun (window: window_state*) => void {
+    load_wgl_extensions();
+
     var dc = window.dc;
-    var pfd = PIXELFORMATDESCRIPTOR { };
-    pfd.nSize = (i16)(size_of(PIXELFORMATDESCRIPTOR));
-    pfd.nVersion = 1;
-    pfd.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
-    pfd.cColorBits = 32;
-    pfd.cAlphaBits = 8;
 
-    var pfd_idx = ChoosePixelFormat(dc, &pfd);
-    var suggested_pfd: PIXELFORMATDESCRIPTOR;
-    DescribePixelFormat(dc, pfd_idx, (i32)(size_of(PIXELFORMATDESCRIPTOR)), &suggested_pfd);
-    SetPixelFormat(dc, pfd_idx, &suggested_pfd);
+    var t0 = get_perf_counter();
+    var int_attrib_list = [
+        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+        WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+        WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+        WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+        WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, GL_TRUE,
+        0
+    ];
 
-    debug_print_i32("color_bits", (i32\)suggested_pfd.cColorBits);
+    var suggested_pixel_format_index = 0;
+    var extended_pick = 0;
+    wglChoosePixelFormatARB(dc, &int_attrib_list[0], (f32*)0, 1, 
+        &suggested_pixel_format_index, &extended_pick);
 
-    var gl_rc = wglCreateContext(dc);
+    // debug_print_i32("suggested_pixel_format_index", suggested_pixel_format_index);
+    // debug_print_i32("extended_pick", extended_pick);
+    assert(extended_pick == 1);
+
+    var pfd: PIXELFORMATDESCRIPTOR;
+    DescribePixelFormat(dc, suggested_pixel_format_index, (i32)(size_of(PIXELFORMATDESCRIPTOR)), &pfd);
+    SetPixelFormat(dc, suggested_pixel_format_index, &pfd);
+    
+    var t1 = get_perf_counter();
+
+    var opengl_attribs = [
+        WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+        WGL_CONTEXT_MINOR_VERSION_ARB, 5,
+        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+        0
+    ];
+
+    var gl_rc = wglCreateContextAttribsARB(dc, null, &opengl_attribs[0]);
     var result = wglMakeCurrent(dc, gl_rc);
     assert(result != 0);
 
-    var wglSwapInterval: fun(value: i32) => void;
-    *((ptr*)(&wglSwapInterval)) = wglGetProcAddress(cstr("wglSwapIntervalEXT\0"));
-    assert((ptr)wglSwapInterval != nullptr);
-    wglSwapInterval(1);
+    wglSwapIntervalEXT(1);
     
-    var info = get_opengl_info();
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 
+    *((ptr*)(&glDebugMessageCallback)) = wglGetProcAddress(cstr("glDebugMessageCallback\0"));
+    assert((ptr)(glDebugMessageCallback) != nullptr);
+    glDebugMessageCallback((glDebugMessageCallbackType)gl_error_callback, nullptr);
+
+    
+    *((ptr*)(&glGenBuffers)) = wglGetProcAddress(cstr("glGenBuffers\0"));
+    assert((ptr)(glGenBuffers) != nullptr);
+
+    *((ptr*)(&glBindBuffer)) = wglGetProcAddress(cstr("glBindBuffer\0"));
+    assert((ptr)(glBindBuffer) != nullptr);
+
+    *((ptr*)(&glBufferData)) = wglGetProcAddress(cstr("glBufferData\0"));
+    assert((ptr)(glBufferData) != nullptr);
+
+    *((ptr*)(&glEnableVertexAttribArray)) = wglGetProcAddress(cstr("glEnableVertexAttribArray\0"));
+    assert((ptr)(glEnableVertexAttribArray) != nullptr);
+
+    *((ptr*)(&glDisableVertexAttribArray)) = wglGetProcAddress(cstr("glDisableVertexAttribArray\0"));
+    assert((ptr)(glDisableVertexAttribArray) != nullptr);
+
+    *((ptr*)(&glVertexAttribPointer)) = wglGetProcAddress(cstr("glVertexAttribPointer\0"));
+    assert((ptr)(glVertexAttribPointer) != nullptr);
+
+    *((ptr*)(&glCreateShader)) = wglGetProcAddress(cstr("glCreateShader\0"));
+    assert((ptr)(glCreateShader) != nullptr);
+
+    *((ptr*)(&glShaderSource)) = wglGetProcAddress(cstr("glShaderSource\0"));
+    assert((ptr)(glShaderSource) != nullptr);
+
+    *((ptr*)(&glCompileShader)) = wglGetProcAddress(cstr("glCompileShader\0"));
+    assert((ptr)(glCompileShader) != nullptr);
+    
+    *((ptr*)(&glDeleteShader)) = wglGetProcAddress(cstr("glDeleteShader\0"));
+    assert((ptr)(glDeleteShader) != nullptr);
+
+    *((ptr*)(&glCreateProgram)) = wglGetProcAddress(cstr("glCreateProgram\0"));
+    assert((ptr)(glCreateProgram) != nullptr);
+
+    *((ptr*)(&glAttachShader)) = wglGetProcAddress(cstr("glAttachShader\0"));
+    assert((ptr)(glAttachShader) != nullptr);
+
+    *((ptr*)(&glLinkProgram)) = wglGetProcAddress(cstr("glLinkProgram\0"));
+    assert((ptr)(glLinkProgram) != nullptr);
+
+    *((ptr*)(&glUseProgram)) = wglGetProcAddress(cstr("glUseProgram\0"));
+    assert((ptr)(glUseProgram) != nullptr);
+
+    *((ptr*)(&glDeleteProgram)) = wglGetProcAddress(cstr("glDeleteProgram\0"));
+    assert((ptr)(glDeleteProgram) != nullptr);
+
+    *((ptr*)(&glGetShaderiv)) = wglGetProcAddress(cstr("glGetShaderiv\0"));
+    assert((ptr)(glGetShaderiv) != nullptr);
+
+    *((ptr*)(&glGetProgramiv)) = wglGetProcAddress(cstr("glGetProgramiv\0"));
+    assert((ptr)(glGetProgramiv) != nullptr);
+
+    *((ptr*)(&glGetShaderInfoLog)) = wglGetProcAddress(cstr("glGetShaderInfoLog\0"));
+    assert((ptr)(glGetShaderInfoLog) != nullptr);
+
+    *((ptr*)(&glGetProgramInfoLog)) = wglGetProcAddress(cstr("glGetProgramInfoLog\0"));
+    assert((ptr)(glGetProgramInfoLog) != nullptr);
+
+    *((ptr*)(&glGenVertexArrays)) = wglGetProcAddress(cstr("glGenVertexArrays\0"));
+    assert((ptr)(glGenVertexArrays) != nullptr);
+
+    *((ptr*)(&glBindVertexArray)) = wglGetProcAddress(cstr("glBindVertexArray\0"));
+    assert((ptr)(glBindVertexArray) != nullptr);
+
+    *((ptr*)(&glDrawArrays)) = wglGetProcAddress(cstr("glDrawArrays\0"));
+    assert((ptr)(glDrawArrays) != nullptr);
+
+
+    var t2 = get_perf_counter();
+    var info = get_opengl_info();
+    var t3 = get_perf_counter();
+
+    
+
+    // debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
+    // debug_print_f64("create context: ", get_ms_elapsed(t1, t2));
+    // debug_print_f64("get info: ", get_ms_elapsed(t2, t3));
+}
+
+let gl_error_callback = fun(
+    source: i32;
+    type: i32;
+    id: i32;
+    severity: i32;
+    length: i32;
+    message: ptr;
+    userParam: ptr;
+) => void {
+    print_string("\nglerror: ");
+    print_string(from_cstr(message));
+    print_string("\n");
 }
 
 [
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "3",
+ 	"compile.opt"   : "0",
     "compile.ll"    : "false",
     "compile.asm"   : "false",
     "compile.cpu"   : "nehalem",
@@ -214,11 +542,9 @@ let init_opengl = fun (window: window_state*) => void {
 ]
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
-
 #if TRUE
     SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
 #endif
-
     var t0 = get_perf_counter();
     
     let buffer_width  = 1280;
@@ -268,27 +594,23 @@ let main = fun() => void {
     var gl_t0 = get_perf_counter();
     init_opengl(&window);
     var gl_t1 = get_perf_counter();
-    
-    debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
+
+    // debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
 
     var frames = 0;
+
+    var start_time = get_perf_counter();
     while (!window.wants_to_quit) {
-        var t0 = get_perf_counter();
-
         process_pending_messages();
-        render_opengl(&window);
-
+        var t0 = get_perf_counter();
+        var time = get_seconds_elapsed(start_time, t0);
+        render_opengl(&window, (f32)time);
         var t1 = get_perf_counter();
         frames++;
         if (frames == 60) {
-            var t = (f64)(t1-t0) / (f64)perf_count_freq;
-            debug_print_f64("ms elapsed: ", t * 1000.0);
+            debug_print_f64("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
             frames = 0;
         }
     }
-
-    var t1 = get_perf_counter();
-    var t = (f64)(t1-t0) / (f64)perf_count_freq;
-    debug_print_f64("seconds elapsed: ", t);
     ExitProcess(0);
 }

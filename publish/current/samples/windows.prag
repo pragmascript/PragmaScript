@@ -78,6 +78,7 @@
       hIconSm: mm;
     );
 
+    
     ["packed"]
     let POINT = struct 
     (
@@ -253,6 +254,7 @@
     let RegisterClassExA = extern fun (window_class: WNDCLASSEX*) => i16;
     let DefWindowProcA = extern fun (window: mm; message: i32; w_param: mm; l_param: mm) => mm;
     let ExitProcess = extern fun(signal: i32) => void;
+    
     let CreateWindowExA = extern fun
     (
        dwExStyle: i32;     
@@ -265,9 +267,13 @@
        nHeight: i32;
        hWndParent: mm;
        hMenu: mm;
-      hInstance: mm;
+       hInstance: mm;
        lpParam: mm;
     ) => mm;
+
+    let DestroyWindow = extern fun(
+      hWnd: mm;
+    ) => i32;
 
     let GetMessageA = extern fun
     (
