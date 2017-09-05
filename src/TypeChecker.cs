@@ -935,7 +935,11 @@ namespace PragmaScript {
                 switch (node.type) {
                     case AST.UnaryOp.UnaryOpType.AddressOf:
                         // TODO can i take the address of everything?
-                        resolve(node, new FrontendPointerType(et));
+                        if (et is FrontendArrayType at) {
+                            resolve(node, new FrontendPointerType(at.elementType));
+                        } else {
+                            resolve(node, new FrontendPointerType(et)); 
+                        }
                         break;
                     case AST.UnaryOp.UnaryOpType.Dereference:
                         var pet = et as FrontendPointerType;

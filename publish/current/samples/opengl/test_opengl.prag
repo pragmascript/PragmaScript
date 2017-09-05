@@ -16,8 +16,6 @@ let window_state = struct
     wants_to_quit: bool;
 );
 var window: window_state;
-
-
 let get_perf_counter = fun() => i64 {
     var result: i64;
     QueryPerformanceCounter(&result);
@@ -30,7 +28,7 @@ let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
 let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
     return get_seconds_elapsed(t0, t1) * 1000;
 }
-// let platform_write_file = fun (name: string; buffer: i8[]) => bool;
+
 let write_file = fun (name: string; buffer: string) => bool
 {
     var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
@@ -100,14 +98,12 @@ let render_opengl = fun (@window_state: window_state*; time: f32) => void {
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    // glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
     // https://hero.handmade.network/episode/code/day368
-
 
     SwapBuffers(dc);
 }
-
-
 
 var gl_resources_initialized = false;
 let init_gl_resources = fun() => void {
@@ -116,8 +112,6 @@ let init_gl_resources = fun() => void {
     var DummyVAO: i32;
     glGenVertexArrays(1, &DummyVAO);
     glBindVertexArray(DummyVAO);
-
-
 
     var vs_source = read_file("..\\vs.glsl\0");
     var vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -128,12 +122,11 @@ let init_gl_resources = fun() => void {
         var infoLog: i8[512];
         glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
         if (success == 0) {
-            glGetShaderInfoLog(vertexShader, (i32\)len(infoLog), (i32*)0, &infoLog[0]);
+            glGetShaderInfoLog(vertexShader, (i32\)len(infoLog), (i32*)0, &infoLog);
             debug_print_string("vs.glsl", from_cstr(&infoLog[0]));
         }
     }
     
-
     var fs_source = read_file("..\\fs.glsl\0");
     var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fs_source.data, (i32*)0);
@@ -143,7 +136,7 @@ let init_gl_resources = fun() => void {
         var infoLog: i8[512];
         glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
         if (success == 0) {
-            glGetShaderInfoLog(fragmentShader, (i32\)len(infoLog), (i32*)0, &infoLog[0]);
+            glGetShaderInfoLog(fragmentShader, (i32\)len(infoLog), (i32*)0, &infoLog);
             debug_print_string("fs.glsl", from_cstr(&infoLog[0]));
         }
     }
@@ -157,7 +150,7 @@ let init_gl_resources = fun() => void {
         var infoLog: i8[512];
         glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
         if (success == 0) {
-            glGetProgramInfoLog(shaderProgram, (i32\)len(infoLog), (i32*)0, &infoLog[0]);
+            glGetProgramInfoLog(shaderProgram, (i32\)len(infoLog), (i32*)0, &infoLog);
             debug_print_string("program", from_cstr(&infoLog[0]));
         }
     }
@@ -165,20 +158,28 @@ let init_gl_resources = fun() => void {
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    
-
     var vertices = [
-        -0.5, -0.5, 0.0,
+         0.5,  0.5, 0.0,
          0.5, -0.5, 0.0,
-         0.0,  0.5, 0.0 
+        -0.5, -0.5, 0.0,
+        -0.5,  0.5, 0.0
     ];
-    var size = len(vertices) * size_of(f32);
-    var vp = (ptr)(&vertices[0]);
+    var vertices_size = len(vertices) * size_of(f32);
+    var indices = [
+        0, 1, 3,
+        1, 2, 3
+    ];
+    var indices_size = len(indices) * size_of(i32);
 
     var VBO: i32;
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, size, vp, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices_size, (ptr)(&vertices), GL_STATIC_DRAW);
+
+    var EBO: i32;
+    glGenBuffers(1, &EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, (ptr)(&indices), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * (i32\)(size_of(f32)), nullptr);
     glEnableVertexAttribArray(0);
@@ -187,7 +188,6 @@ let init_gl_resources = fun() => void {
 
     gl_resources_initialized = true;
 }
-
 
 let process_pending_messages = fun() => void {
     var msg: MSG;
@@ -351,36 +351,7 @@ let get_opengl_info = fun() => opengl_info {
     //   glGetStringi with GL_EXTENSIONS, i and
     //   GL_NUM_EXTENSIONS
     // result.extensions = from_cstr(glGetString(GL_EXTENSIONS), -1);
-
     // print_opengl_info(&result);
-
-    var ext: string;
-    ext.data = result.extensions.data;
-    ext.length = 0;
-    var at: i8*;    
-    var ext_idx = 0;
-    while (true) {
-        at = ext.data;
-        while (!is_whitespace(*at) && *at != 0) {
-            at++;
-            if (*at != 0) {
-                ext.length++;
-            }
-        }
-        while (is_whitespace(*at)) { at++; }
-        if (*at == 0) {
-            break;
-        }
-
-        // if (strings_are_equal(ext, "GL_EXT_texture_sRGB_decode")) {
-        //     debug_print_string(ext, "true");
-        // }
-        // elif (strings_are_equal(ext, "GL_ARB_framebuffer_sRGB")) {
-        //     debug_print_string(ext, "true");
-        // }
-        ext.data = at;
-        ext.length = 0;
-    }
     return result;
 }
 
@@ -503,12 +474,12 @@ let init_opengl = fun (window: window_state*) => void {
     *((ptr*)(&glDrawArrays)) = wglGetProcAddress(cstr("glDrawArrays\0"));
     assert((ptr)(glDrawArrays) != nullptr);
 
+    *((ptr*)(&glDrawElements)) = wglGetProcAddress(cstr("glDrawElements\0"));
+    assert((ptr)(glDrawElements) != nullptr);
 
     var t2 = get_perf_counter();
     var info = get_opengl_info();
     var t3 = get_perf_counter();
-
-    
 
     // debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
     // debug_print_f64("create context: ", get_ms_elapsed(t1, t2));
@@ -533,7 +504,7 @@ let gl_error_callback = fun(
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
  	"compile.opt"   : "0",
-    "compile.ll"    : "false",
+    "compile.ll"    : "true",
     "compile.asm"   : "false",
     "compile.cpu"   : "nehalem",
  	"compile.run"   : "true",
@@ -596,7 +567,6 @@ let main = fun() => void {
     var gl_t1 = get_perf_counter();
 
     // debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
-
     var frames = 0;
 
     var start_time = get_perf_counter();

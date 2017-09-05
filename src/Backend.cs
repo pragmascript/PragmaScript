@@ -772,8 +772,10 @@ namespace PragmaScript {
                 case AST.UnaryOp.UnaryOpType.AddressOf:
                     // HACK: for NOW this happens via returnPointer nonsense
                     result = v;
-                    if (v.type is FunctionType) {
-                        builder.BuildBitCast(v, ptr_t, "func_pointer");
+                    if (v.type is PointerType pt) {
+                        if (pt.elementType is ArrayType at) {
+                            result = builder.BuildBitCast(v, new PointerType(at.elementType), "address_of_array");
+                        }
                     }
                     break;
                 case AST.UnaryOp.UnaryOpType.Dereference:

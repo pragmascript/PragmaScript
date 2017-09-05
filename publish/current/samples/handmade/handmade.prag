@@ -157,8 +157,8 @@ namespace Handmade.Game
         let red = color {1.0, 0.0, 0.0, 1.0};
         let green = color {0.0, 1.0, 0.0, 1.0};
         let blue =  color {0.0, 0.0, 1.0, 1.0};
-        for (var y = 0; y < len(tile_map.data, 0); ++y) {
-            for (var x = 0; x < len(tile_map.data, 1); ++x) {
+        for (var y = 0; y < (i32\)len(tile_map.data, 0); ++y) {
+            for (var x = 0; x < (i32\)len(tile_map.data, 1); ++x) {
                 var tile_id = tile_map.data[y, x];
                 var color = color {};
                 
@@ -183,8 +183,8 @@ namespace Handmade.Game
         // debug_print_i32("tx", tx);
         // debug_print_i32("ty", ty);
 
-        if (tx >= 0 && tx < len(data, 1) && 
-            ty >= 0 && ty < len(data, 0)) {
+        if (tx >= 0 && tx < (i32\)len(data, 1) && 
+            ty >= 0 && ty < (i32\)len(data, 0)) {
             var tile_value = data[ty, tx];
             if (tile_value == 0) {
                 return false;

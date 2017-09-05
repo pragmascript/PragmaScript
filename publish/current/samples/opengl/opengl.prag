@@ -167,3 +167,9 @@ var glDrawArrays: fun(
     first: i32;
     count: i32;
 ) => void;
+var glDrawElements: fun(
+    mode: i32;
+    count: i32;
+    type: i32;
+    indices: ptr;
+) => void;

@@ -335,7 +335,5 @@ namespace PragmaScript {
             td.node = null;
             types.Add(td.name, td);
         }
-
-
     }
 }
