@@ -294,6 +294,7 @@ namespace PragmaScript {
         }
 
         public class Value {
+            public AST.Node debugContextNode;
             public Op op;
             public SSAType type;
             public List<Value> args;
@@ -316,7 +317,6 @@ namespace PragmaScript {
                         return false;
                 }
             }
-
         }
 
         public class FunctionArgument : Value {

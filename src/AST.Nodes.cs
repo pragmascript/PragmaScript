@@ -93,6 +93,7 @@ namespace PragmaScript {
             public List<FileRoot> files = new List<FileRoot>();
             public ProgramRoot(Token t, Scope s) : base(t, s)
             {
+                s.owner = this;
             }
             public override Node DeepCloneTree()
             {

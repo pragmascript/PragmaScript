@@ -36,6 +36,8 @@ namespace PragmaScript {
                 }
             }
 
+            public AST.Node debugContextNode;
+
 
             public Context() {
             }
@@ -157,6 +159,7 @@ namespace PragmaScript {
                     }
                     context.currentBlock.args.Add(v);
                 }
+                v.debugContextNode = context.debugContextNode;
             }
             void AddOpGlobal(Value v, string name) {
                 Debug.Assert(v is GlobalVariable || v is GlobalStringPtr || v is Function);
@@ -165,6 +168,7 @@ namespace PragmaScript {
                     v.name = context.RequestGlobalName(name);
                 }
                 mod.globals.args.Add(v);
+                v.debugContextNode = context.debugContextNode;
             }
             public Value BuildRet(Value ret) {
                 var result = new Value(Op.Ret, ret.type, ret);
@@ -189,6 +193,10 @@ namespace PragmaScript {
                 return result;
             }
             public Value BuildCall(Value fun, string name = null, params Value[] args) {
+                if (fun.name == "@GetStdHandle") {
+                    int breakHere = 42;
+                }
+                
                 Debug.Assert(fun.type.kind == TypeKind.Pointer);
                 var ft = (fun.type as PointerType).elementType as FunctionType;
                 Debug.Assert(ft != null);

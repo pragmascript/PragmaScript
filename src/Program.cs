@@ -45,13 +45,15 @@ namespace PragmaScript
         {
             parseARGS(args);
             
-#if false
+#if true
+            CompilerOptions.debug = true;
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\publish\current\samples"));
             // CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
-            CompilerOptions.inputFilename = Path.Combine(programDir, "test", "array.prag");
-            // CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "test", "array.prag");
+            CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "opengl", "test_opengl.prag");
+            // Console.WriteLine(CompilerOptions.inputFilename);
 #endif
             if (CompilerOptions.inputFilename == null) {
                 Console.WriteLine("Input file name missing!");
@@ -377,7 +379,9 @@ namespace PragmaScript
             imported.Add(ffn);
 
             var scope = AST.MakeRootScope();
-            var root = new AST.ProgramRoot(Token.Undefined, scope);
+            var rootToken = Token.UndefinedRoot(ffn);
+        
+            var root = new AST.ProgramRoot(rootToken, scope);
 
             bool parseError = false;
 

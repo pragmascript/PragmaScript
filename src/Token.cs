@@ -29,6 +29,7 @@ namespace PragmaScript
         * Assignment = 13
         */
 
+        public static Token UndefinedRoot(string fn) => new Token("undefined") { type = TokenType.Undefined, text = "undefined", filename=fn };
         public static readonly Token Undefined = new Token("undefined") { type = TokenType.Undefined, text = "undefined" };
         public static Token NewLine(int pos, int line, string filename)
         {

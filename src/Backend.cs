@@ -289,6 +289,7 @@ namespace PragmaScript {
             } else {
                 ft = new FunctionType(void_t);
             }
+            
 
             var function = builder.AddFunction(ft, "__init");
             function.internalLinkage = false;
@@ -1574,14 +1575,17 @@ namespace PragmaScript {
                 if (node.external || node.body == null) {
                     return;
                 }
+                
                 //var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
                 //var function = mod.functions[functionName];
                 var function = variables[node.variableDefinition] as Function;
 
+                // TODO(pragma): ugly hack?
+                function.debugContextNode = node;
+
                 if (node.HasAttribute("DLL.EXPORT")) {
                     function.exportDLL = true;
                 }
-
                 var vars = builder.AppendBasicBlock(function, "vars");
                 var entry = builder.AppendBasicBlock(function, "entry");
                 builder.context.SetFunctionBlocks(function, vars, entry);
@@ -1758,12 +1762,12 @@ namespace PragmaScript {
         }
 
         public void Visit(AST.StructDeclaration node) {
-            
         }
-
 
         // TODO(pragma): generate this code
         public void Visit(AST.Node node) {
+            // TODO(pragma): make a seperate flag for this
+            
             switch (node) {
                 case AST.ProgramRoot n:
                     Visit(n);

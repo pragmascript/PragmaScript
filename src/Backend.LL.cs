@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Text;
+using System.Linq;
 
 using static PragmaScript.SSA;
 
@@ -30,7 +33,6 @@ namespace PragmaScript {
         void AP(string s) {
             sb.Append(s);
         }
-
         int AddAttrib(FunctionAttribs attrib) {
             if (functionAttribs.TryGetValue(attrib, out var idx)) {
                 return idx;
@@ -83,6 +85,7 @@ define void @__chkstk() #0 {
                 }
             }
 
+            // function attributes
             foreach (var kv in functionAttribs) {
                 AP($"attributes #{kv.Value} = {{ ");
                 var attribs = kv.Key;
@@ -96,6 +99,19 @@ define void @__chkstk() #0 {
                     AP("argmemonly ");
                 }
                 AL("}");
+            }
+
+            // debug info
+            AL();
+            AL($"!llvm.module.flags = !{{{string.Join(", ", debugInfoModuleFlags.Select(idx => $"!{idx}"))}}}");
+            AL($"!llvm.dbg.cu = !{{!{debugInfoCompileUnitIdx}}}");
+            AL();
+            var nodeLookupReverse = new Dictionary<int, string>();
+            foreach (var kv in debugInfoNodeLookup) {
+                nodeLookupReverse.Add(kv.Value, kv.Key);
+            }
+            for (int i = 0; i < nodeLookupReverse.Count; ++i) {
+                AL($"!{i} = {nodeLookupReverse[i]}");
             }
             return sb.ToString();
         }
@@ -139,33 +155,33 @@ define void @__chkstk() #0 {
                     }
                     break;
                 case ConstArray a: {
-                    AP("[ ");   
-                    for (int i = 0; i < a.data.Count; ++i) {
-                        var d = a.data[i];
-                        AppendType(d.type);
-                        AP(" ");
-                        AppendConstValue(d);
-                        if (i != a.data.Count - 1) {
-                            AP(", ");
-                         }
-                    } 
-                    AP(" ]");
-                }
-                break;
-                case ConstStruct st: {
-                    AP("{ ");
-                    for (int i = 0; i < st.elements.Count; ++i) {
-                        var el = st.elements[i];
-                        AppendType(el.type);
-                        AP(" ");
-                        AppendConstValue(el);
-                        if (i != st.elements.Count - 1) {
-                            AP(", ");
+                        AP("[ ");
+                        for (int i = 0; i < a.data.Count; ++i) {
+                            var d = a.data[i];
+                            AppendType(d.type);
+                            AP(" ");
+                            AppendConstValue(d);
+                            if (i != a.data.Count - 1) {
+                                AP(", ");
+                            }
                         }
+                        AP(" ]");
                     }
-                    AP(" }");
-                }
-                break;
+                    break;
+                case ConstStruct st: {
+                        AP("{ ");
+                        for (int i = 0; i < st.elements.Count; ++i) {
+                            var el = st.elements[i];
+                            AppendType(el.type);
+                            AP(" ");
+                            AppendConstValue(el);
+                            if (i != st.elements.Count - 1) {
+                                AP(", ");
+                            }
+                        }
+                        AP(" }");
+                    }
+                    break;
                 case Value caz when caz.op == Op.ConstAggregateZero:
                     AP("zeroinitializer");
                     break;
@@ -264,6 +280,135 @@ define void @__chkstk() #0 {
             }
         }
 
+        Dictionary<string, int> debugInfoNodeLookup = new Dictionary<string, int>();
+        Dictionary<AST.Node, int> debugInfoScopeLookup = new Dictionary<AST.Node, int>();
+        Dictionary<string, int> debugInfoFileLookup = new Dictionary<string, int>();
+        int debugInfoCompileUnitIdx = -1;
+        List<int> debugInfoModuleFlags = new List<int>();
+        void AppendDebugInfo(Value v) {
+            if (CompilerOptions.debug) {
+                var locIdx = GetDILocation(v);
+                if (locIdx >= 0) {
+                    AP($", !dbg !{locIdx}");
+                }
+            }
+        }
+        void AppendFunctionDebugInfo(Value value) {
+            if (value.debugContextNode != null) {
+                var scopeIdx = GetDIScope(value.debugContextNode);
+                if (scopeIdx >= 0) {
+                    AP($" !dbg !{scopeIdx}");
+                }
+            }
+        }
+        int AddDebugInfoNode(string info) {
+            if (!debugInfoNodeLookup.TryGetValue(info, out int result)) {
+                result = debugInfoNodeLookup.Count;
+                debugInfoNodeLookup.Add(info, result);
+            } 
+            return result;
+        }
+
+        int GetDIScope(AST.Node scopeRoot) {
+            int scopeIdx = -1;
+            if (scopeRoot != null && !debugInfoScopeLookup.TryGetValue(scopeRoot, out scopeIdx)) {
+                switch (scopeRoot) {
+                    case AST.ProgramRoot programRoot:
+                        scopeIdx = GetDICompileUnit(programRoot);
+                        break;
+                    case AST.FunctionDefinition fun:
+                        scopeIdx = GetDISubprogram(fun);
+                        break;
+                    case AST.Block block:
+                        if (block.parent is AST.FunctionDefinition fd) {
+                            scopeIdx = GetDISubprogram(fd);
+                        } else {
+                            scopeIdx = GetDILexicalBlock(block);
+                        }
+                        break;
+                    default:
+                        scopeIdx = -1;
+                        break;
+                }
+            }
+            return scopeIdx;
+        }
+        
+        int GetDILocation(Value v) {
+            var n = v.debugContextNode;
+            if (n == null) {
+                return -1;
+            }
+            var scopeRoot = n?.scope?.owner;
+            var scopeIdx = GetDIScope(scopeRoot);
+            var locationIdx = -1;
+            if (scopeIdx >= 0) {
+                string nodeString = $"!DILocation(line: {n.token.Line}, column: {n.token.Pos}, scope: !{scopeIdx})";
+                locationIdx = AddDebugInfoNode(nodeString);
+            }
+            
+            return locationIdx;
+        }
+        int GetDILexicalBlock(AST.Block block) {
+            if (!debugInfoScopeLookup.TryGetValue(block, out int lexicalBlockIdx)) {
+                var scopeIdx = GetDIScope(block.scope.parent.owner);
+                var nodeString = $"distinct !DILexicalBlock(scope: !{scopeIdx}, file: !{GetDIFile(block)}, line: {block.token.Line}, column: {block.token.Pos})";
+                lexicalBlockIdx = AddDebugInfoNode(nodeString);
+            }
+            return lexicalBlockIdx;
+        }
+        int GetDISubprogram(AST.FunctionDefinition fd) {
+            if (fd.body == null) {
+                return -1;
+            }
+
+            if (!debugInfoScopeLookup.TryGetValue(fd, out int subprogramIdx)) {
+                AST.Block block = (AST.Block)fd.body;
+                string nodeString = $"distinct !DISubprogram(name: \"{fd.funName}\", file: !{GetDIFile(block)}, line: {fd.token.Line}, type: null, isLocal: true, isDefinition: true, scopeLine: {block.token.Line}, isOptimized: false, unit: !{debugInfoCompileUnitIdx})";
+                subprogramIdx = AddDebugInfoNode(nodeString);
+                debugInfoScopeLookup.Add(fd, subprogramIdx);
+            }
+            return subprogramIdx;
+        }
+        int GetDICompileUnit(AST.ProgramRoot root) {
+            if (!debugInfoScopeLookup.TryGetValue(root, out int compileUnitIdx)) {
+                string emptyArray = "!{}";
+                var emptyArrayIdx = AddDebugInfoNode(emptyArray);
+
+                string nodeString = $"distinct !DICompileUnit(language: DW_LANG_C, file: !{GetDIFile(root)}, producer: \"pragma\", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !{emptyArrayIdx}, globals: !{emptyArrayIdx})";
+                compileUnitIdx = AddDebugInfoNode(nodeString);
+                debugInfoScopeLookup.Add(root, compileUnitIdx);
+                debugInfoCompileUnitIdx = compileUnitIdx;
+
+              
+                string debugInfoVersion = "!{i32 2, !\"Debug Info Version\", i32 3}";
+                var debugInfoVersionIdx = AddDebugInfoNode(debugInfoVersion);
+                debugInfoModuleFlags.Add(debugInfoVersionIdx);
+
+                string codeViewVersion = "!{i32 2, !\"CodeView\", i32 1}";
+                var codeViewVersionIdx = AddDebugInfoNode(codeViewVersion);
+                debugInfoModuleFlags.Add(codeViewVersionIdx);
+                
+            }
+            return compileUnitIdx;
+        }
+        int GetDIFile(AST.Node node) {
+            if (!debugInfoFileLookup.TryGetValue(node.token.filename, out int fileIdx)) {
+                var fn = System.IO.Path.GetFileName(node.token.filename);
+                var dir = System.IO.Path.GetDirectoryName(node.token.filename);
+                string checksum;
+                using (var md5 = System.Security.Cryptography.MD5.Create()) {
+                    using (var stream = File.OpenRead(node.token.filename)) {
+                        checksum = BitConverter.ToString(md5.ComputeHash(stream)).Replace("-","‌​").ToLower();
+                    }
+                }
+                var nodeString = $"!DIFile(filename: \"{fn}\", directory: \"{dir}\", checksumkind: CSK_MD5, checksum: \"{checksum}\")";
+                fileIdx = AddDebugInfoNode(nodeString);
+                debugInfoFileLookup.Add(node.token.filename, fileIdx);
+            }
+            return fileIdx;
+        }
+
         void AppendConversionOp(Value v, string name, bool isConst) {
             if (!isConst) {
                 AppendAssignSSA(v);
@@ -278,6 +423,7 @@ define void @__chkstk() #0 {
             if (isConst) {
                 AP(")");
             } else {
+                AppendDebugInfo(v);
                 AL();
             }
         }
@@ -301,6 +447,7 @@ define void @__chkstk() #0 {
             if (isConst) {
                 AP(")");
             } else {
+                AppendDebugInfo(v);
                 AL();
             }
         }
@@ -329,9 +476,9 @@ define void @__chkstk() #0 {
                             AP("define ");
                             if (f.exportDLL) {
                                 AP("dllexport ");
-                            } 
-                            if (!f.exportDLL && f.internalLinkage) { 
-                               AP("internal ");
+                            }
+                            if (!f.exportDLL && f.internalLinkage) {
+                                AP("internal ");
                             }
                             declare = false;
                         }
@@ -361,7 +508,9 @@ define void @__chkstk() #0 {
                         }
                         var attribIdx = AddAttrib(f.attribs);
                         if (!declare) {
-                            AL($") #{attribIdx} {{");
+                            AP($") #{attribIdx}");
+                            AppendFunctionDebugInfo(v);
+                            AL(" {");
                             foreach (var b in f.blocks) {
                                 AL($"{b.name.Substring(1)}:");
                                 isIndented = true;
@@ -374,6 +523,7 @@ define void @__chkstk() #0 {
                         } else {
                             AL($") #{attribIdx}");
                         }
+                        
                         AL();
                     }
                     break;
@@ -408,6 +558,7 @@ define void @__chkstk() #0 {
                             Indent();
                             AP("br ");
                             AppendArgument(v.args[0]);
+                            AppendDebugInfo(v);
                             AL();
                         } else {
                             Indent();
@@ -417,6 +568,7 @@ define void @__chkstk() #0 {
                             AppendArgument(v.args[1]);
                             AP(", ");
                             AppendArgument(v.args[2]);
+                            AppendDebugInfo(v);
                             AL();
                         }
 
@@ -440,6 +592,7 @@ define void @__chkstk() #0 {
                                 AP(", ");
                             }
                         }
+                        AppendDebugInfo(v);
                         AL();
                     }
                     break;
@@ -464,7 +617,10 @@ define void @__chkstk() #0 {
                                 AP(", ");
                             }
                         }
-                        AL(")");
+
+                        AP(")");
+                        AppendDebugInfo(v);
+                        AL();
                     }
                     break;
                 case Op.Ret:
@@ -472,9 +628,12 @@ define void @__chkstk() #0 {
                     Indent();
                     AP("ret ");
                     if (v.type.kind == TypeKind.Void) {
-                        AL("void");
+                        AP("void");
+                        AppendDebugInfo(v);
+                        AL();
                     } else {
                         AppendArgument(v.args[0]);
+                        AppendDebugInfo(v);
                         AL();
                     }
                     break;
@@ -488,6 +647,7 @@ define void @__chkstk() #0 {
                         AP(", ");
                         AppendArgument(v.args[0]);
                     }
+                    AppendDebugInfo(v);
                     AL();
                     break;
                 case Op.Store: {
@@ -499,6 +659,7 @@ define void @__chkstk() #0 {
                         AppendArgument(val);
                         AP(", ");
                         AppendArgument(ptr);
+                        AppendDebugInfo(v);
                         AL();
                     }
                     break;
@@ -509,6 +670,7 @@ define void @__chkstk() #0 {
                     AppendType(v.type);
                     AP(", ");
                     AppendArgument(v.args[0]);
+                    AppendDebugInfo(v);
                     AL();
                     break;
                 case Op.GEP: {
@@ -534,6 +696,7 @@ define void @__chkstk() #0 {
                         if (isConst) {
                             AP(")");
                         } else {
+                            AppendDebugInfo(v);
                             AL();
                         }
                     }
@@ -555,6 +718,7 @@ define void @__chkstk() #0 {
                         if (isConst) {
                             AP(")");
                         } else {
+                            AppendDebugInfo(v);
                             AL();
                         }
                     }
@@ -575,9 +739,13 @@ define void @__chkstk() #0 {
                         AppendArgument(v.args[0]);
                         var it = (IntegerType)v.args[0].type;
                         if (it.bitWidth == 1) {
-                            AL(", true");
+                            AP(", true");
+                            AppendDebugInfo(v);
+                            AL();
                         } else {
-                            AL(", -1");
+                            AP(", -1");
+                            AppendDebugInfo(v);
+                            AL();
                         }
                     }
                     break;

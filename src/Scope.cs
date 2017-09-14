@@ -15,7 +15,7 @@ namespace PragmaScript {
             {
                 this.name = name;
                 Debug.Assert(parentScope.function == null);
-                scope = new Scope(parentScope, null);
+                scope = new Scope(parentScope, null, null);
                 scope.namesp = this;
             }
 
@@ -99,10 +99,12 @@ namespace PragmaScript {
         public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
         public Dictionary<string, TypeDefinition> types = new Dictionary<string, TypeDefinition>();
 
-        public Scope(Scope parent, AST.FunctionDefinition function)
+        public AST.Node owner;
+        public Scope(Scope parent, AST.FunctionDefinition function, AST.Node owner)
         {
             this.parent = parent;
             this.function = function;
+            this.owner = owner;
         }
 
         public VariableDefinition GetVar(string name, Token from, bool recurse = true)

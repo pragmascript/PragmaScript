@@ -31,10 +31,10 @@ namespace PragmaScript {
         {
             this.name = name;
         }
-        //public override int GetHashCode()
-        //{
-        //    return ToString().GetHashCode();
-        //}
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
         public override string ToString()
         {
             return name;
@@ -43,6 +43,8 @@ namespace PragmaScript {
         {
             return ToString() == obj.ToString();
         }
+
+
 
         public static bool operator ==(FrontendType t1, FrontendType t2)
         {
