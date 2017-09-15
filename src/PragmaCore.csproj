@@ -9,7 +9,7 @@
   <Target Name="MyPostCompileTarget1" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Exec Command="python postbuild.py -release" />
   </Target>
-  <Target Name="MyPostCompileTarget2" AfterTargets="Build" Condition="'$(Configuration)' == 'debug'">
+  <Target Name="MyPostCompileTarget2" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
     <Exec Command="python postbuild.py -debug"  />
   </Target>
 </Project>

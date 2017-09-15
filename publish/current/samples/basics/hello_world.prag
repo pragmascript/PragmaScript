@@ -1,12 +1,6 @@
 import "../preamble.prag"
 // import "../math.prag"
 
-let some_struct = struct 
-(
-	x: i32; y: i32; z: i32;
-);
-
-
 [
 	"compile.output": "hello.exe",
 	"compile.entry" : "true",
@@ -19,46 +13,6 @@ let some_struct = struct
 ]
 let main = fun () => void {
 	print_string("hello, world!\n");
-
-
-	// var x = some_struct{1,2,3};
-	// var y = x.y;
-	// var x = [1,2,3];
-	// var y = x[2];
-	// y += 3;
-	// let x = [1, y, 3];
-
-
-	// let foo = [[1,2,3], [3,4,5]];
-	// var y = foo[2+3];
-	
-
-	// var c: some_struct;
-	// var a = some_struct {1, 2, 3};
-	// var b = some_struct {4, 5, 6};
-	// var d = a;
-	
-	// debug_print_i32("a.x", a.x);
-	// debug_print_i32("a.y", a.y);
-	// debug_print_i32("a.z", a.z);
-
-	// debug_print_i32("d.x", d.x);
-	// debug_print_i32("d.y", d.y);
-	// debug_print_i32("d.z", d.z);
-	// a.x: 1
-	// a.y: 2
-	// a.z: 3
-	// d.x: 269810112
-	// d.y: 226
-	// d.z: 0
-
-
-	// c = some_struct {7, 8, 9};
-	// debug_print_i32("c.x", c.x);
-	// debug_print_i32("c.y", c.y);
-	// debug_print_i32("c.z", c.z);
-
-
 }
 
 

@@ -192,6 +192,9 @@ namespace PragmaScript {
                 } else {
                     flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
                 }
+                if (CompilerOptions.debug) {
+                    flags += " /DEBUG";
+                }
 
                 lldProcess.StartInfo.Arguments = $"{libs} \"{oxt(".o")}\" {flags} /libpath:{lib_path}";
                 lldProcess.StartInfo.RedirectStandardInput = false;

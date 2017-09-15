@@ -102,17 +102,20 @@ define void @__chkstk() #0 {
             }
 
             // debug info
-            AL();
-            AL($"!llvm.module.flags = !{{{string.Join(", ", debugInfoModuleFlags.Select(idx => $"!{idx}"))}}}");
-            AL($"!llvm.dbg.cu = !{{!{debugInfoCompileUnitIdx}}}");
-            AL();
-            var nodeLookupReverse = new Dictionary<int, string>();
-            foreach (var kv in debugInfoNodeLookup) {
-                nodeLookupReverse.Add(kv.Value, kv.Key);
+            if (CompilerOptions.debug) {
+                AL();
+                AL($"!llvm.module.flags = !{{{string.Join(", ", debugInfoModuleFlags.Select(idx => $"!{idx}"))}}}");
+                AL($"!llvm.dbg.cu = !{{!{debugInfoCompileUnitIdx}}}");
+                AL();
+                var nodeLookupReverse = new Dictionary<int, string>();
+                foreach (var kv in debugInfoNodeLookup) {
+                    nodeLookupReverse.Add(kv.Value, kv.Key);
+                }
+                for (int i = 0; i < nodeLookupReverse.Count; ++i) {
+                    AL($"!{i} = {nodeLookupReverse[i]}");
+                }
             }
-            for (int i = 0; i < nodeLookupReverse.Count; ++i) {
-                AL($"!{i} = {nodeLookupReverse[i]}");
-            }
+            
             return sb.ToString();
         }
 
@@ -283,17 +286,22 @@ define void @__chkstk() #0 {
         Dictionary<string, int> debugInfoNodeLookup = new Dictionary<string, int>();
         Dictionary<AST.Node, int> debugInfoScopeLookup = new Dictionary<AST.Node, int>();
         Dictionary<string, int> debugInfoFileLookup = new Dictionary<string, int>();
+        Dictionary<FrontendType, int> debugInfoTypeLookup = new Dictionary<FrontendType, int>();
         int debugInfoCompileUnitIdx = -1;
         List<int> debugInfoModuleFlags = new List<int>();
         void AppendDebugInfo(Value v) {
-            if (CompilerOptions.debug) {
-                var locIdx = GetDILocation(v);
-                if (locIdx >= 0 && v.debugContextNode.scope.function != null) {
-                    AP($", !dbg !{locIdx}");
-                }
+            if (!CompilerOptions.debug) {
+                return;
+            }
+            var locIdx = GetDILocation(v);
+            if (locIdx >= 0 && v.debugContextNode.scope.function != null) {
+                AP($", !dbg !{locIdx}");
             }
         }
         void AppendFunctionDebugInfo(Value value) {
+            if (!CompilerOptions.debug) {
+                return;
+            }
             if (value.debugContextNode != null) {
                 var scopeIdx = GetDIScope(value.debugContextNode);
                 if (scopeIdx >= 0) {
