@@ -438,7 +438,7 @@ namespace PragmaScript {
 
             var result = new WhileLoop(current, scope);
 
-            var loopBodyScope = new Scope(scope, scope.function, null);
+            var loopBodyScope = new Scope(scope, scope.function);
 
             // while (i < 10
             ps.NextToken();
@@ -464,7 +464,7 @@ namespace PragmaScript {
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
             var result = new ForLoop(current, scope);
-            var loopBodyScope = new Scope(scope, scope.function, null);
+            var loopBodyScope = new Scope(scope, scope.function);
 
             // for(int i = 0
             var next = ps.PeekToken();
@@ -1274,7 +1274,7 @@ namespace PragmaScript {
             var current = ps.ExpectCurrentToken(Token.TokenType.OpenCurly);
 
             if (newScope == null) {
-                newScope = new Scope(parentScope, parentScope.function, null);
+                newScope = new Scope(parentScope, parentScope.function);
             }
             var result = new Block(current, newScope);
             newScope.owner = result;
@@ -1517,7 +1517,7 @@ namespace PragmaScript {
             }
 
             result.funName = id.text;
-            var funScope = new Scope(scope, result, null);
+            var funScope = new Scope(scope, result);
 
             if (!result.external) {
                 if (ps.PeekToken().type != Token.TokenType.Semicolon) {

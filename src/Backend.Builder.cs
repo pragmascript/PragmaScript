@@ -36,7 +36,7 @@ namespace PragmaScript {
                 }
             }
 
-            public AST.Node debugContextNode;
+            // public AST.Node debugContextNode;
 
 
             public Context() {
@@ -122,7 +122,7 @@ namespace PragmaScript {
                 this.mod = mod;
                 // add memcpy
                 var ft = new FunctionType(Const.void_t, Const.ptr_t, Const.ptr_t, Const.i32_t, Const.i32_t, Const.bool_t);
-                intrinsic_memcpy = AddFunction(ft, "llvm.memcpy.p0i8.p0i8.i32");
+                intrinsic_memcpy = AddFunction(ft, null, "llvm.memcpy.p0i8.p0i8.i32");
                 var p0 = GetParam((Function)intrinsic_memcpy, 0);
                 var p1 = GetParam((Function)intrinsic_memcpy, 1);
                 p0.noalias = false;
@@ -152,51 +152,56 @@ namespace PragmaScript {
             public void MoveBasicBlockAfter(Block block, Block targetPosition) {
                 block.function.MoveBasicBlockAfter(block, targetPosition);
             }
-            void AddOp(Value v, string name = null, Function f = null) {
+            void AddOp(Value v, string name = null, Function f = null, AST.Node contextNode = null) {
                 if (!v.isConst) {
                     if (name != null) {
                         v.name = context.RequestLocalName_(name, f);
                     }
                     context.currentBlock.args.Add(v);
                 }
-                v.debugContextNode = context.debugContextNode;
+                if (context.callsite == null) {
+                    v.debugContextNode = contextNode;
+                } else {
+                    v.debugContextNode = context.callsite;
+                }
+                
             }
-            void AddOpGlobal(Value v, string name) {
+            void AddOpGlobal(Value v, string name, AST.Node contextNode = null) {
                 Debug.Assert(v is GlobalVariable || v is GlobalStringPtr || v is Function);
 
                 if (name != null) {
                     v.name = context.RequestGlobalName(name);
                 }
                 mod.globals.args.Add(v);
-                v.debugContextNode = context.debugContextNode;
+                if (context.callsite == null) {
+                    v.debugContextNode = contextNode;
+                } else {
+                    v.debugContextNode = context.callsite;
+                }
             }
-            public Value BuildRet(Value ret) {
+            public Value BuildRet(Value ret, AST.Node contextNode) {
                 var result = new Value(Op.Ret, ret.type, ret);
-                AddOp(result);
+                AddOp(result, contextNode: contextNode);
                 return result;
             }
-            public Value BuildRetVoid() {
+            public Value BuildRetVoid(AST.Node contextNode) {
                 var result = new Value(Op.Ret, Const.void_t);
-                AddOp(result);
+                AddOp(result, contextNode: contextNode);
                 return result;
             }
 
-            public Value BuildBr(Block block) {
+            public Value BuildBr(Block block, AST.Node contextNode) {
                 var result = new Value(Op.Br, null, block);
-                AddOp(result);
+                AddOp(result, contextNode: contextNode);
                 return result;
             }
-            public Value BuildCondBr(Value cond, Block ifTrue, Block ifFalse) {
+            public Value BuildCondBr(Value cond, Block ifTrue, Block ifFalse, AST.Node contextNode) {
                 Debug.Assert(SSAType.IsBoolType(cond.type));
                 var result = new Value(Op.Br, null, cond, ifTrue, ifFalse);
-                AddOp(result);
+                AddOp(result, contextNode: contextNode);
                 return result;
             }
-            public Value BuildCall(Value fun, string name = null, params Value[] args) {
-                if (fun.name == "@GetStdHandle") {
-                    int breakHere = 42;
-                }
-                
+            public Value BuildCall(Value fun, AST.Node contextNode, string name = null, params Value[] args) {
                 Debug.Assert(fun.type.kind == TypeKind.Pointer);
                 var ft = (fun.type as PointerType).elementType as FunctionType;
                 Debug.Assert(ft != null);
@@ -207,80 +212,80 @@ namespace PragmaScript {
                 }
                 result.type = ft.returnType;
                 if (result.type.kind != TypeKind.Void) {
-                    AddOp(result, name);
+                    AddOp(result, name, contextNode: contextNode);
                 } else {
-                    AddOp(result);
+                    AddOp(result, contextNode: contextNode);
                 }
 
                 return result;
             }
-            public Value BuildGlobalStringPtr(string str, string name = null) {
+            public Value BuildGlobalStringPtr(string str, AST.Node contextNode, string name = null) {
                 var gs = new GlobalStringPtr(str);
-                AddOpGlobal(gs, name);
-                var result = BuildBitCast(gs, ptr_t);
+                AddOpGlobal(gs, name, contextNode: contextNode);
+                var result = BuildBitCast(gs, ptr_t, contextNode);
                 Debug.Assert(result.isConst);
                 return result;
             }
 
-            public Value BuildAlloca(SSAType t, string name = null) {
+            public Value BuildAlloca(SSAType t, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Alloca, new PointerType(t));
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildArrayAlloca(SSAType t, Value size, string name = null) {
+            public Value BuildArrayAlloca(SSAType t, Value size, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Alloca, new PointerType(t), size);
                 Debug.Assert(size.type.kind == TypeKind.Integer);
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
 
-            public GlobalVariable AddGlobal(SSAType t, string name = null) {
+            public GlobalVariable AddGlobal(SSAType t, AST.Node contextNode, string name = null) {
                 var result = new GlobalVariable(t);
                 AddOpGlobal(result, name);
                 return result;
             }
-            public Value BuildBitCast(Value v, SSAType dest, string name = null) {
+            public Value BuildBitCast(Value v, SSAType dest, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.BitCast, dest, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildMemCpy(Value destPtr, Value srcPtr, Value count, bool isVolatile = false) {
+            public Value BuildMemCpy(Value destPtr, Value srcPtr, Value count, AST.Node contextNode, bool isVolatile = false) {
                 Value isVolatile_v;
                 if (isVolatile) {
                     isVolatile_v = true_v;
                 } else {
                     isVolatile_v = false_v;
                 }
-                var result = BuildCall(intrinsic_memcpy, "memcpy", destPtr, srcPtr, count, zero_i32_v, isVolatile_v);
+                var result = BuildCall(intrinsic_memcpy, contextNode, "memcpy", destPtr, srcPtr, count, zero_i32_v, isVolatile_v);
                 return result;
             }
-            public Value BuildLoad(Value ptr, string name = null) {
+            public Value BuildLoad(Value ptr, AST.Node contextNode, string name = null) {
                 Debug.Assert(ptr.type.kind == TypeKind.Pointer);
                 var pt = (PointerType)ptr.type;
                 var result = new Value(Op.Load, pt.elementType, ptr);
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildStore(Value v, Value ptr) {
+            public Value BuildStore(Value v, Value ptr, AST.Node contextNode) {
                 Debug.Assert(ptr.type.kind == TypeKind.Pointer);
                 var result = new Value(Op.Store, null, v, ptr);
-                AddOp(result);
+                AddOp(result, contextNode: contextNode);
                 return result;
             }
-            public GetElementPtr BuildGEP(Value ptr, string name = null, bool inBounds = false, params Value[] indices) {
+            public GetElementPtr BuildGEP(Value ptr, AST.Node contextNode, string name = null, bool inBounds = false, params Value[] indices) {
                 var result = new GetElementPtr(ptr, inBounds, indices);
                 result.isConst = ptr.isConst && indices.All(idx => idx.isConst);
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public GetElementPtr BuildStructGEP(Value structPointer, int idx, string name = null) {
+            public GetElementPtr BuildStructGEP(Value structPointer, int idx, AST.Node contextNode, string name = null) {
                 var result = new GetElementPtr(structPointer, true, zero_i32_v, new ConstInt(i32_t, (ulong)idx));
                 result.isConst = structPointer.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildExtractValue(Value v, string name = null, params Value[] indices) {
+            public Value BuildExtractValue(Value v, AST.Node contextNode, string name = null, params Value[] indices) {
                 Debug.Assert(indices != null && indices.Length > 0);
                 var result = new Value(Op.ExtractValue, null, v);
                 result.args.AddRange(indices);
@@ -302,212 +307,212 @@ namespace PragmaScript {
                 }
                 result.type = resultType;
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildNot(Value v, string name = null) {
+            public Value BuildNot(Value v, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Not, v.type, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildAnd(Value left, Value right, string name = null) {
+            public Value BuildAnd(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.And, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildOr(Value left, Value right, string name = null) {
+            public Value BuildOr(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Or, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildXor(Value left, Value right, string name = null) {
+            public Value BuildXor(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Xor, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public ICmp BuildICmp(Value left, Value right, IcmpType icmpType, string name = null) {
+            public ICmp BuildICmp(Value left, Value right, IcmpType icmpType, AST.Node contextNode, string name = null) {
                 var result = new ICmp(left, right, icmpType, name);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildAdd(Value left, Value right, string name = null) {
+            public Value BuildAdd(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Add, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildSub(Value left, Value right, string name = null) {
+            public Value BuildSub(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Sub, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildMul(Value left, Value right, string name = null) {
+            public Value BuildMul(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Mul, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildSDiv(Value left, Value right, string name = null) {
+            public Value BuildSDiv(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.SDiv, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildUDiv(Value left, Value right, string name = null) {
+            public Value BuildUDiv(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.UDiv, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildShl(Value left, Value right, string name = null) {
+            public Value BuildShl(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Shl, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildAShr(Value left, Value right, string name = null) {
+            public Value BuildAShr(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.AShr, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildLShr(Value left, Value right, string name = null) {
+            public Value BuildLShr(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.LShr, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildURem(Value left, Value right, string name = null) {
+            public Value BuildURem(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.URem, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildSRem(Value left, Value right, string name = null) {
+            public Value BuildSRem(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.SRem, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildNeg(Value v, string name = null) {
+            public Value BuildNeg(Value v, AST.Node contextNode, string name = null) {
                 Debug.Assert(v.type.kind == TypeKind.Integer);
-                return BuildSub(ConstNull(v.type), v, name);
+                return BuildSub(ConstNull(v.type), v, contextNode, name);
             }
-            public Value BuildFAdd(Value left, Value right, string name = null) {
+            public Value BuildFAdd(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.FAdd, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildFSub(Value left, Value right, string name = null) {
+            public Value BuildFSub(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.FSub, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildFMul(Value left, Value right, string name = null) {
+            public Value BuildFMul(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.FMul, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildFDiv(Value left, Value right, string name = null) {
+            public Value BuildFDiv(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.FDiv, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildFRem(Value left, Value right, string name = null) {
+            public Value BuildFRem(Value left, Value right, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.FRem, left.type, left, right);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildFCmp(Value left, Value right, FcmpType fcmpType, string name = null) {
+            public Value BuildFCmp(Value left, Value right, FcmpType fcmpType, AST.Node contextNode, string name = null) {
                 var result = new FCmp(left, right, fcmpType, name);
                 result.isConst = left.isConst && right.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildFNeg(Value v, string name = null) {
-                return BuildFSub(ConstNull(v.type), v, name);
+            public Value BuildFNeg(Value v, AST.Node contextNode, string name = null) {
+                return BuildFSub(ConstNull(v.type), v, contextNode, name);
             }
-            public Value BuildPtrToInt(Value v, SSAType integerType, string name = null) {
+            public Value BuildPtrToInt(Value v, SSAType integerType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.PtrToInt, integerType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildIntToPtr(Value v, SSAType pointerType, string name = null) {
+            public Value BuildIntToPtr(Value v, SSAType pointerType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.IntToPtr, pointerType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildSizeOf(SSAType t, string name = null) {
+            public Value BuildSizeOf(SSAType t, AST.Node contextNode, string name = null) {
                 var np = new ConstPtr(new PointerType(t), 0);
-                var size = BuildGEP(np, "size_of_trick", false, one_i32_v);
-                var result = BuildPtrToInt(size, Const.mm_t, name);
+                var size = BuildGEP(np, contextNode, "size_of_trick", false, one_i32_v);
+                var result = BuildPtrToInt(size, Const.mm_t, contextNode, name);
                 Debug.Assert(result.isConst);
                 return result;
             }
-            public Phi BuildPhi(SSAType t, string name = null, params (Value, Block)[] incoming) {
+            public Phi BuildPhi(SSAType t, AST.Node contextNode, string name = null, params (Value, Block)[] incoming) {
                 var result = new Phi(t, name, incoming);
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildSExt(Value v, SSAType targetType, string name = null) {
+            public Value BuildSExt(Value v, SSAType targetType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.SExt, targetType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildZExt(Value v, SSAType targetType, string name = null) {
+            public Value BuildZExt(Value v, SSAType targetType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.ZExt, targetType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildTrunc(Value v, SSAType targetType, string name = null) {
+            public Value BuildTrunc(Value v, SSAType targetType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.Trunc, targetType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildFPToSI(Value v, SSAType targetType, string name = null) {
+            public Value BuildFPToSI(Value v, SSAType targetType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.FPToSI, targetType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildFPToUI(Value v, SSAType targetType, string name = null) {
+            public Value BuildFPToUI(Value v, SSAType targetType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.FPToUI, targetType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildSIToFP(Value v, SSAType targetType, string name = null) {
+            public Value BuildSIToFP(Value v, SSAType targetType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.SIToFP, targetType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildUIToFP(Value v, SSAType targetType, string name = null) {
+            public Value BuildUIToFP(Value v, SSAType targetType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.UIToFP, targetType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildFPCast(Value v, SSAType targetType, string name = null) {
+            public Value BuildFPCast(Value v, SSAType targetType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.FPCast, targetType, v);
                 result.isConst = v.isConst;
-                AddOp(result, name);
+                AddOp(result, name, contextNode: contextNode);
                 return result;
             }
             public Value ConstNull(SSAType t) {
@@ -529,7 +534,7 @@ namespace PragmaScript {
                 }
             }
 
-            public Function AddFunction(FunctionType ft, string name, string[] paramNames = null) {
+            public Function AddFunction(FunctionType ft, AST.Node contextNode, string name, string[] paramNames = null) {
                 var result = new Function(ft);
                 context.CreateFunctionContext(result);
                 if (paramNames != null) {
@@ -538,7 +543,7 @@ namespace PragmaScript {
                     }
                 }
                 result.SetParamNames(paramNames);
-                AddOpGlobal(result, name);
+                AddOpGlobal(result, name, contextNode: contextNode);
                 return result;
             }
             public FunctionArgument GetParam(Function f, int idx) {

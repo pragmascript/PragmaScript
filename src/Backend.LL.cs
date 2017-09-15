@@ -288,7 +288,7 @@ define void @__chkstk() #0 {
         void AppendDebugInfo(Value v) {
             if (CompilerOptions.debug) {
                 var locIdx = GetDILocation(v);
-                if (locIdx >= 0) {
+                if (locIdx >= 0 && v.debugContextNode.scope.function != null) {
                     AP($", !dbg !{locIdx}");
                 }
             }

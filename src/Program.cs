@@ -45,7 +45,7 @@ namespace PragmaScript
         {
             parseARGS(args);
             
-#if true
+#if false
             CompilerOptions.debug = true;
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\publish\current\samples"));
             // CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");

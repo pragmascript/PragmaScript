@@ -65,7 +65,7 @@ namespace PragmaScript {
         public static Scope MakeRootScope()
         {
 
-            var rootScope = new Scope(null, null, null);
+            var rootScope = new Scope(null, null);
             addBasicTypes(rootScope, Token.Undefined);
             addSpecialFunctions(rootScope);
 
