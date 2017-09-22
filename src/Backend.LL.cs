@@ -283,6 +283,10 @@ define void @__chkstk() #0 {
             }
         }
 
+
+
+        // ***********************************************************************
+        // http://eli.thegreenplace.net/2012/12/17/dumping-a-c-objects-memory-layout-with-clang/
         Dictionary<string, int> debugInfoNodeLookup = new Dictionary<string, int>();
         Dictionary<AST.Node, int> debugInfoScopeLookup = new Dictionary<AST.Node, int>();
         Dictionary<string, int> debugInfoFileLookup = new Dictionary<string, int>();
@@ -316,7 +320,6 @@ define void @__chkstk() #0 {
             } 
             return result;
         }
-
         int GetDIScope(AST.Node scopeRoot) {
             int scopeIdx = -1;
             if (scopeRoot != null && !debugInfoScopeLookup.TryGetValue(scopeRoot, out scopeIdx)) {
@@ -341,7 +344,6 @@ define void @__chkstk() #0 {
             }
             return scopeIdx;
         }
-        
         int GetDILocation(Value v) {
             var n = v.debugContextNode;
             if (n == null) {
@@ -416,6 +418,36 @@ define void @__chkstk() #0 {
             }
             return fileIdx;
         }
+#if false
+        int GetDIType(Value v) {
+            var vt = v.type;
+            string nodeString;
+            switch (vt) {
+                case IntegerType it:
+                    nodeString = $"!DIBasicType(name: \"{vt}\", size: {it.bitWidth}, encoding: DW_ATE_signed)";
+                    break;
+                case FloatType ft:
+                    nodeString = $"!DIBasicType(name: \"{vt}\", size: {ft.BitWidth}, encoding: DW_ATE_float)";
+                    break;
+                case StructType st:
+                    nodeString = $"destinct !DICompositeType(tag: DW_TAG_structure_type, name: \"{st}\", size: {GetDISizeOfStuct(st))}";
+                    break;
+            }
+
+            // var ft = typeChecker.GetNodeType(v.debugContextNode);
+            // if (!debugInfoTypeLookup.TryGetValue(ft, out int typeIdx)) {
+            //     if (FrontendType.IsIntegerType(ft)) {
+            //         var it = v.type as IntegerType;
+            //     }
+            // }
+        }
+
+        int GetDISizeOfStuct(StructType st) {
+
+        }
+
+#endif
+        // ***********************************************************************
 
         void AppendConversionOp(Value v, string name, bool isConst) {
             if (!isConst) {

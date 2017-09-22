@@ -60,7 +60,7 @@ namespace PragmaScript {
             return !(t1 == t2);
         }
 
-        static bool isIntegerType(FrontendType t)
+        public static bool IsIntegerType(FrontendType t)
         {
             bool result = false;
             result |= t.Equals(i8);
@@ -73,7 +73,7 @@ namespace PragmaScript {
 
         public static bool IsIntegerOrLateBind(FrontendType t)
         {
-            if (isIntegerType(t)) {
+            if (IsIntegerType(t)) {
                 return true;
             }
             if (t is FrontendNumberType) {
@@ -118,7 +118,7 @@ namespace PragmaScript {
                 }
 
                 if (a_is_number) {
-                    if (isIntegerType(b)) {
+                    if (IsIntegerType(b)) {
                         var an = a as FrontendNumberType;
                         if (!an.floatType) {
                             an.Bind(b);
@@ -128,7 +128,7 @@ namespace PragmaScript {
                     }
                 }
                 if (b_is_number) {
-                    if (isIntegerType(a)) {
+                    if (IsIntegerType(a)) {
                         var bn = b as FrontendNumberType;
                         if (!bn.floatType) {
                             bn.Bind(a);
@@ -160,7 +160,7 @@ namespace PragmaScript {
                 }
 
                 if (a_is_number) {
-                    if (isIntegerType(b)) {
+                    if (IsIntegerType(b)) {
                         var an = a as FrontendNumberType;
                         if (an.floatType) {
                             return false;
@@ -176,7 +176,7 @@ namespace PragmaScript {
                     }
                 }
                 if (b_is_number) {
-                    if (isIntegerType(a)) {
+                    if (IsIntegerType(a)) {
                         var bn = b as FrontendNumberType;
                         if (bn.floatType) {
                             return false;

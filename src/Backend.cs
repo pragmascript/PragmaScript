@@ -59,7 +59,7 @@ namespace PragmaScript {
 
 #if DISPLAY_TIMINGS
             timer.Stop();
-            Console.WriteLine($"backend preperation time: {timer.ElapsedMilliseconds}ms");
+            Console.WriteLine($"backend preparation time: {timer.ElapsedMilliseconds}ms");
             timer.Reset();
             timer.Start();
 #endif
