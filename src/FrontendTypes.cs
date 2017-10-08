@@ -16,7 +16,7 @@ namespace PragmaScript {
         public static readonly FrontendType bool_ = new FrontendType("bool");
         public static readonly FrontendType mm = new FrontendType("mm");
 
-        public static readonly FrontendSliceType string_ = new FrontendSliceType(i8);
+        public static readonly FrontendSliceType string_ = new FrontendSliceType(i8, "string");
         public static readonly FrontendPointerType ptr = new FrontendPointerType(i8);
 
 
@@ -69,6 +69,14 @@ namespace PragmaScript {
             result |= t.Equals(i64);
             result |= t.Equals(mm);
             return result;
+        }
+
+        public static bool IsBoolType(FrontendType t) {
+            return t.Equals(bool_);
+        }
+
+        public static bool IsVoidType(FrontendType t) {
+            return t.Equals(void_);
         }
 
         public static bool IsIntegerOrLateBind(FrontendType t)
@@ -254,11 +262,13 @@ namespace PragmaScript {
     public class FrontendSliceType : FrontendStructType
     {
         public FrontendType elementType;
-        public FrontendSliceType(FrontendType elementType)
-            : base("")
+        public FrontendSliceType(FrontendType elementType, string structName = "")
+            : base(structName)
         {
             this.elementType = elementType;
-            name = "[" + elementType + "]";
+            if (string.IsNullOrEmpty(structName)) {
+                name = "[" + elementType + "]";
+            }
             AddField("length", FrontendType.i32);
             AddField("data", new FrontendPointerType(elementType));
         }

@@ -360,7 +360,6 @@ namespace PragmaScript
                     var tp = p.Trim();
                     CompilerOptions.lib_path.Add(tp);
                 }
-
             }
         }
 
@@ -451,6 +450,7 @@ namespace PragmaScript
             Console.Write("type checking...");
             timer.Reset();
             timer.Start();
+
 
             var tc = new TypeChecker();
 

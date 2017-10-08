@@ -12,7 +12,7 @@ namespace PragmaScript {
     partial class Backend {
 
         StringBuilder sb = new StringBuilder();
-        string EscapeString(string s) {
+        static string EscapeString(string s) {
             StringBuilder result = new StringBuilder();
             foreach (var c in s) {
                 var x = (int)c;
@@ -104,8 +104,10 @@ define void @__chkstk() #0 {
             // debug info
             if (CompilerOptions.debug) {
                 AL();
-                AL($"!llvm.module.flags = !{{{string.Join(", ", debugInfoModuleFlags.Select(idx => $"!{idx}"))}}}");
                 AL($"!llvm.dbg.cu = !{{!{debugInfoCompileUnitIdx}}}");
+                AL($"!llvm.module.flags = !{{{string.Join(", ", debugInfoModuleFlags.Select(idx => $"!{idx}"))}}}");
+                AL($"!llvm.ident = !{{!{debugInfoIdentFlag}}}");
+
                 AL();
                 var nodeLookupReverse = new Dictionary<int, string>();
                 foreach (var kv in debugInfoNodeLookup) {
@@ -283,171 +285,6 @@ define void @__chkstk() #0 {
             }
         }
 
-
-
-        // ***********************************************************************
-        // http://eli.thegreenplace.net/2012/12/17/dumping-a-c-objects-memory-layout-with-clang/
-        Dictionary<string, int> debugInfoNodeLookup = new Dictionary<string, int>();
-        Dictionary<AST.Node, int> debugInfoScopeLookup = new Dictionary<AST.Node, int>();
-        Dictionary<string, int> debugInfoFileLookup = new Dictionary<string, int>();
-        Dictionary<FrontendType, int> debugInfoTypeLookup = new Dictionary<FrontendType, int>();
-        int debugInfoCompileUnitIdx = -1;
-        List<int> debugInfoModuleFlags = new List<int>();
-        void AppendDebugInfo(Value v) {
-            if (!CompilerOptions.debug) {
-                return;
-            }
-            var locIdx = GetDILocation(v);
-            if (locIdx >= 0 && v.debugContextNode.scope.function != null) {
-                AP($", !dbg !{locIdx}");
-            }
-        }
-        void AppendFunctionDebugInfo(Value value) {
-            if (!CompilerOptions.debug) {
-                return;
-            }
-            if (value.debugContextNode != null) {
-                var scopeIdx = GetDIScope(value.debugContextNode);
-                if (scopeIdx >= 0) {
-                    AP($" !dbg !{scopeIdx}");
-                }
-            }
-        }
-        int AddDebugInfoNode(string info) {
-            if (!debugInfoNodeLookup.TryGetValue(info, out int result)) {
-                result = debugInfoNodeLookup.Count;
-                debugInfoNodeLookup.Add(info, result);
-            } 
-            return result;
-        }
-        int GetDIScope(AST.Node scopeRoot) {
-            int scopeIdx = -1;
-            if (scopeRoot != null && !debugInfoScopeLookup.TryGetValue(scopeRoot, out scopeIdx)) {
-                switch (scopeRoot) {
-                    case AST.ProgramRoot programRoot:
-                        scopeIdx = GetDICompileUnit(programRoot);
-                        break;
-                    case AST.FunctionDefinition fun:
-                        scopeIdx = GetDISubprogram(fun);
-                        break;
-                    case AST.Block block:
-                        if (block.parent is AST.FunctionDefinition fd) {
-                            scopeIdx = GetDISubprogram(fd);
-                        } else {
-                            scopeIdx = GetDILexicalBlock(block);
-                        }
-                        break;
-                    default:
-                        scopeIdx = -1;
-                        break;
-                }
-            }
-            return scopeIdx;
-        }
-        int GetDILocation(Value v) {
-            var n = v.debugContextNode;
-            if (n == null) {
-                return -1;
-            }
-            var scopeRoot = n?.scope?.owner;
-            var scopeIdx = GetDIScope(scopeRoot);
-            var locationIdx = -1;
-            if (scopeIdx >= 0) {
-                string nodeString = $"!DILocation(line: {n.token.Line}, column: {n.token.Pos}, scope: !{scopeIdx})";
-                locationIdx = AddDebugInfoNode(nodeString);
-            }
-            
-            return locationIdx;
-        }
-        int GetDILexicalBlock(AST.Block block) {
-            if (!debugInfoScopeLookup.TryGetValue(block, out int lexicalBlockIdx)) {
-                var scopeIdx = GetDIScope(block.scope.parent.owner);
-                var nodeString = $"distinct !DILexicalBlock(scope: !{scopeIdx}, file: !{GetDIFile(block)}, line: {block.token.Line}, column: {block.token.Pos})";
-                lexicalBlockIdx = AddDebugInfoNode(nodeString);
-            }
-            return lexicalBlockIdx;
-        }
-        int GetDISubprogram(AST.FunctionDefinition fd) {
-            if (fd.body == null) {
-                return -1;
-            }
-
-            if (!debugInfoScopeLookup.TryGetValue(fd, out int subprogramIdx)) {
-                AST.Block block = (AST.Block)fd.body;
-                string nodeString = $"distinct !DISubprogram(name: \"{fd.funName}\", file: !{GetDIFile(block)}, line: {fd.token.Line}, type: null, isLocal: true, isDefinition: true, scopeLine: {block.token.Line}, isOptimized: false, unit: !{debugInfoCompileUnitIdx})";
-                subprogramIdx = AddDebugInfoNode(nodeString);
-                debugInfoScopeLookup.Add(fd, subprogramIdx);
-            }
-            return subprogramIdx;
-        }
-        int GetDICompileUnit(AST.ProgramRoot root) {
-            if (!debugInfoScopeLookup.TryGetValue(root, out int compileUnitIdx)) {
-                string emptyArray = "!{}";
-                var emptyArrayIdx = AddDebugInfoNode(emptyArray);
-
-                string nodeString = $"distinct !DICompileUnit(language: DW_LANG_C, file: !{GetDIFile(root)}, producer: \"pragma\", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !{emptyArrayIdx}, globals: !{emptyArrayIdx})";
-                compileUnitIdx = AddDebugInfoNode(nodeString);
-                debugInfoScopeLookup.Add(root, compileUnitIdx);
-                debugInfoCompileUnitIdx = compileUnitIdx;
-
-              
-                string debugInfoVersion = "!{i32 2, !\"Debug Info Version\", i32 3}";
-                var debugInfoVersionIdx = AddDebugInfoNode(debugInfoVersion);
-                debugInfoModuleFlags.Add(debugInfoVersionIdx);
-
-                string codeViewVersion = "!{i32 2, !\"CodeView\", i32 1}";
-                var codeViewVersionIdx = AddDebugInfoNode(codeViewVersion);
-                debugInfoModuleFlags.Add(codeViewVersionIdx);
-                
-            }
-            return compileUnitIdx;
-        }
-        int GetDIFile(AST.Node node) {
-            if (!debugInfoFileLookup.TryGetValue(node.token.filename, out int fileIdx)) {
-                var fn = System.IO.Path.GetFileName(node.token.filename);
-                var dir = System.IO.Path.GetDirectoryName(node.token.filename);
-                string checksum;
-                using (var md5 = System.Security.Cryptography.MD5.Create()) {
-                    using (var stream = File.OpenRead(node.token.filename)) {
-                        checksum = BitConverter.ToString(md5.ComputeHash(stream)).Replace("-","‌​").ToLower();
-                    }
-                }
-                var nodeString = $"!DIFile(filename: \"{fn}\", directory: \"{dir}\", checksumkind: CSK_MD5, checksum: \"{checksum}\")";
-                fileIdx = AddDebugInfoNode(nodeString);
-                debugInfoFileLookup.Add(node.token.filename, fileIdx);
-            }
-            return fileIdx;
-        }
-#if false
-        int GetDIType(Value v) {
-            var vt = v.type;
-            string nodeString;
-            switch (vt) {
-                case IntegerType it:
-                    nodeString = $"!DIBasicType(name: \"{vt}\", size: {it.bitWidth}, encoding: DW_ATE_signed)";
-                    break;
-                case FloatType ft:
-                    nodeString = $"!DIBasicType(name: \"{vt}\", size: {ft.BitWidth}, encoding: DW_ATE_float)";
-                    break;
-                case StructType st:
-                    nodeString = $"destinct !DICompositeType(tag: DW_TAG_structure_type, name: \"{st}\", size: {GetDISizeOfStuct(st))}";
-                    break;
-            }
-
-            // var ft = typeChecker.GetNodeType(v.debugContextNode);
-            // if (!debugInfoTypeLookup.TryGetValue(ft, out int typeIdx)) {
-            //     if (FrontendType.IsIntegerType(ft)) {
-            //         var it = v.type as IntegerType;
-            //     }
-            // }
-        }
-
-        int GetDISizeOfStuct(StructType st) {
-
-        }
-
-#endif
-        // ***********************************************************************
 
         void AppendConversionOp(Value v, string name, bool isConst) {
             if (!isConst) {

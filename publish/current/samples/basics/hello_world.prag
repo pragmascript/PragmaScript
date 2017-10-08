@@ -1,16 +1,49 @@
 import "../preamble.prag"
 
+let vec = struct (
+	x: f32;
+	y: f32;
+	z: f32;
+	w: i8;
+);
+["PACKED"]
+let packed_test = struct(
+	x: mm;
+	y: mm;
+	z: mm;
+	b: i8;
+);
+
+let list = struct (
+	x: i32;
+ 	next: list*;
+);
+
+let foo = fun(v: vec) => void {
+	print_f32(v.x);
+	print_string("\n");
+}
+
+let print_list = fun(l: list) => void {
+
+}
+let test_the_pack = fun(pt: packed_test) => void {
+	
+}
+
 [
 	"compile.output": "hello.exe",
 	"compile.entry" : "true",
-	"compile.ll"    : "false",
+	"compile.ll"    : "true",
 	"compile.asm"   : "false",
- 	"compile.opt"   : "0",
+ 	"compile.opt"   : "1",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
+	var x = vec {};
+	foo(x);
 	print_string("hello, world!\n");
 }
 

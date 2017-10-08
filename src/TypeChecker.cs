@@ -60,6 +60,11 @@ namespace PragmaScript {
             return getType(node, mustBeBound: true);
         }
 
+        public AST.Node GetTypeRoot(FrontendType t) {
+            typeRoots.TryGetValue(t, out var result);
+            return result;
+        }
+
         public void ResolveNode(AST.Node node, FrontendType ft)
         {
             resolve(node, ft);

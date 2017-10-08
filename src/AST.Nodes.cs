@@ -14,7 +14,6 @@ namespace PragmaScript {
             public string name;
             public TypeString typeString;
 
-
             public bool embed;
             public Node defaultValueExpression;
             public bool isOptional()

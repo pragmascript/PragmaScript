@@ -503,10 +503,10 @@ let gl_error_callback = fun(
 [
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "0",
+ 	"compile.opt"   : "3",
     "compile.ll"    : "true",
     "compile.asm"   : "false",
-    "compile.cpu"   : "nehalem",
+    "compile.cpu"   : "native",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
