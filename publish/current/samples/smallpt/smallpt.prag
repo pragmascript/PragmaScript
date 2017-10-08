@@ -497,7 +497,7 @@ let do_render_job = fun (@job: RenderJob*) => i32 {
 [
 	"compile.output": "smallpt.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "3",
+ 	"compile.opt"   : "0",
     "compile.asm"   : "false",
  	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",

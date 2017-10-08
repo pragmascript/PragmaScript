@@ -293,8 +293,9 @@ namespace PragmaScript {
                 ft = new FunctionType(void_t);
             }
             
+            var function = builder.AddFunction(ft, main.scope.owner, "__init");
 
-            var function = builder.AddFunction(ft, node, "__init");
+            
             function.internalLinkage = false;
             var vars = builder.AppendBasicBlock(function, "vars");
             var entry = builder.AppendBasicBlock(function, "entry");
@@ -1205,9 +1206,9 @@ namespace PragmaScript {
             // var resultTypeName = typeToString(resultType);
 
             var et = (targetType as PointerType).elementType;
-            if (!et.EqualType(resultType)) {
-                result = builder.BuildBitCast(result, et, node, "hmpf");
-            }
+            // if (!et.EqualType(resultType)) {
+            //     result = builder.BuildBitCast(result, et, node, "hmpf");
+            // }
             builder.BuildStore(result, target, node);
             valueStack.Push(result);
         }

@@ -63,6 +63,7 @@ define void @__chkstk() #0 {
 }
 ";
         NumberFormatInfo nfi = new NumberFormatInfo();
+        Function debugCurrentEmitFunction;
         string emitLL() {
             nfi.NumberDecimalSeparator = ".";
             sb = new StringBuilder();
@@ -81,9 +82,11 @@ define void @__chkstk() #0 {
                     if (f.isStub) {
                         continue;
                     }
+                    debugCurrentEmitFunction = f;
                     AppendOp(v);
                 }
             }
+            debugCurrentEmitFunction = null;
 
             // function attributes
             foreach (var kv in functionAttribs) {

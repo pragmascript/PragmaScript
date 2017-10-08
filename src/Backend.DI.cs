@@ -24,17 +24,18 @@ namespace PragmaScript {
                 return;
             }
             var locIdx = GetDILocation(v);
-            if (locIdx >= 0 && v.debugContextNode.scope.function != null) {
+            if (locIdx >= 0) {
                 AP($", !dbg !{locIdx}");
             }
         }
+        
         void AppendFunctionDebugInfo(Value value) {
             if (!CompilerOptions.debug) {
                 return;
             }
             if (value.debugContextNode != null) {
                 var scopeIdx = GetDIScope(value.debugContextNode);
-                if (scopeIdx >= 0) {
+                if (scopeIdx >= 0 && debugCurrentEmitFunction.name != "@__init") {
                     AP($" !dbg !{scopeIdx}");
                 }
             }
@@ -80,6 +81,17 @@ namespace PragmaScript {
                 return -1;
             }
             var scopeRoot = n?.scope?.owner;
+            // TODO(pragma): HACK
+            if (scopeRoot is AST.ProgramRoot || scopeRoot is AST.Namespace) {
+                if (debugCurrentEmitFunction != null) {
+                    scopeRoot = debugCurrentEmitFunction.debugContextNode;
+                    if (scopeRoot is AST.ProgramRoot || scopeRoot is AST.Namespace) {
+                        return -1;
+                    }
+                } else {
+                    return -1;
+                }
+            }
             var scopeIdx = GetDIScope(scopeRoot);
             var locationIdx = -1;
             if (scopeIdx >= 0) {
@@ -143,6 +155,7 @@ namespace PragmaScript {
                 // TODO(pragma): versions??
                 string ident = $"!{{!{producer}}}";
                 debugInfoIdentFlag = AddDebugInfoNode(ident);
+
 
                 debugRootNode = root;
             }
