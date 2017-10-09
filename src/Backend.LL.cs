@@ -68,7 +68,8 @@ define void @__chkstk() #0 {
             nfi.NumberDecimalSeparator = ".";
             sb = new StringBuilder();
             AL("target datalayout = \"e-m:w-i64:64-f80:128-n8:16:32:64-S128\"");
-            AL("target triple = \"x86_64-pc-windows-msvc\"");
+            // AL("target triple = \"x86_64-pc-windows-msvc\"");
+            AL("target triple = \"x86_64-pc-windows-msvc19.11.25508\"");
             AL();
             foreach (var v in mod.globals.args) {
                 Debug.Assert(v is GlobalVariable || v is GlobalStringPtr || v is Function);
@@ -528,6 +529,7 @@ define void @__chkstk() #0 {
                         AppendArgument(v.args[0]);
                     }
                     AppendDebugInfo(v);
+                    AppendDebugDeclareLocalVariable(v);
                     AL();
                     break;
                 case Op.Store: {

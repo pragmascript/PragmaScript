@@ -292,10 +292,17 @@ namespace PragmaScript {
             } else {
                 ft = new FunctionType(void_t);
             }
-            
-            var function = builder.AddFunction(ft, main.scope.owner, "__init");
 
-            
+            var initFun = new AST.FunctionDefinition(main.token, main.scope);
+            initFun.parent = main.parent;
+            initFun.body = main.body;
+            initFun.funName = "__init";
+            var tp = new FrontendFunctionType("__init");
+            tp.returnType = FrontendType.void_;
+            typeChecker.ResolveNode(initFun, tp);
+
+
+            var function = builder.AddFunction(ft, initFun, "__init");
             function.internalLinkage = false;
             var vars = builder.AppendBasicBlock(function, "vars");
             var entry = builder.AppendBasicBlock(function, "entry");
@@ -1149,8 +1156,7 @@ namespace PragmaScript {
                     builder.PositionAtEnd(insert);
                 }
                 variables[node.variable] = result;
-            } else // is global
-              {
+            } else { // is global
                 if (node.expression != null && node.expression is AST.StructConstructor) {
                     var sc = node.expression as AST.StructConstructor;
                     var structType = GetTypeRef(typeChecker.GetNodeType(sc));

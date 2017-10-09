@@ -28,16 +28,26 @@ namespace PragmaScript {
                 AP($", !dbg !{locIdx}");
             }
         }
-        
         void AppendFunctionDebugInfo(Value value) {
             if (!CompilerOptions.debug) {
                 return;
             }
             if (value.debugContextNode != null) {
+                if (debugRootNode == null) {
+                    GetDICompileUnit((AST.ProgramRoot)value.debugContextNode.parent.parent);
+                }
                 var scopeIdx = GetDIScope(value.debugContextNode);
-                if (scopeIdx >= 0 && debugCurrentEmitFunction.name != "@__init") {
+                if (scopeIdx >= 0) {
                     AP($" !dbg !{scopeIdx}");
                 }
+            }
+        }
+        void AppendDebugDeclareLocalVariable(Value value) {
+            var ft = typeChecker.GetNodeType(value.debugContextNode);
+            switch (ft) {
+                case FrontendSliceType str when ft.name == "string":
+
+                break;
             }
         }
         int AddDebugInfoNode(string info) {
@@ -226,11 +236,12 @@ namespace PragmaScript {
                     for (int idx = 0; idx < fst.fields.Count; ++idx) {
                         var f = fst.fields[idx];
                         string memberNodeString;
+
                         if (node != null) {
                             var ts = node.fields[idx].typeString;
-                            memberNodeString = $"!DIDerivedType(tag: DW_TAG_member, name: \"{f.name}\", scope: !{GetDIScope(ts.scope.owner)}, file: !{GetDIFile(ts)}, line: {ts.token.Line}, baseType: !{structIdx}, size: {8*GetSizeOfFrontendType(f.type)}, offset: {8*offsets[idx]})";
+                            memberNodeString = $"!DIDerivedType(tag: DW_TAG_member, name: \"{f.name}\", scope: !{structIdx}, file: !{GetDIFile(ts)}, line: {ts.token.Line}, baseType: !{GetDIType(f.type)}, size: {8*GetSizeOfFrontendType(f.type)}, offset: {8*offsets[idx]})";
                         } else {
-                            memberNodeString = $"!DIDerivedType(tag: DW_TAG_member, name: \"{f.name}\", scope: !{GetDIScope(debugRootNode)}, baseType: !{structIdx}, size: {8*GetSizeOfFrontendType(f.type)}, offset: {8*offsets[idx]})";
+                            memberNodeString = $"!DIDerivedType(tag: DW_TAG_member, name: \"{f.name}\", scope: !{structIdx}, baseType: !{GetDIType(f.type)}, size: {8*GetSizeOfFrontendType(f.type)}, offset: {8*offsets[idx]})";
                         }
                         memberListIndices.Add(AddDebugInfoNode(memberNodeString));
                         // token is in node.fields.typeString.token
