@@ -256,7 +256,11 @@ namespace PragmaScript {
                 }
                 else if (ft is FrontendPointerType fpt) {
                     nodeString = $"!DIDerivedType(tag: DW_TAG_pointer_type, baseType: !{GetDIType(fpt.elementType)}, size: {8*GetSizeOfFrontendType(fpt)})";
+                } else if (ft is FrontendArrayType fat) {
+                    // TODO(pragma):
+                    return -1;
                 }
+
                 Debug.Assert(nodeString != null);
                 typeIdx = AddDebugInfoNode(nodeString);
                 debugInfoTypeLookup.Add(ft, typeIdx);
@@ -289,6 +293,8 @@ namespace PragmaScript {
                     return 8;
                 case FrontendPointerType _:
                     return 8;
+                case FrontendFunctionType _:
+                    return 8;
                 case FrontendStructType fst:
                     return GetSizeOfStructType(fst);
                 case FrontendArrayType fat:
@@ -318,6 +324,8 @@ namespace PragmaScript {
                 case var _ when t.Equals(FrontendType.mm):
                     return 8;
                 case FrontendPointerType _:
+                    return 8;
+                case FrontendFunctionType _:
                     return 8;
                 case FrontendStructType fst:
                     return GetAlignmentOfStruct(fst);

@@ -256,6 +256,7 @@ namespace PragmaScript {
         public void Visit(AST.ProgramRoot node, AST.FunctionDefinition main) {
             // HACK:
             AST.FileRoot merge = new AST.FileRoot(Token.Undefined, node.scope);
+            merge.parent = node;
             foreach (var fr in node.files) {
                 foreach (var decl in fr.declarations) {
                     merge.declarations.Add(decl);
@@ -294,7 +295,7 @@ namespace PragmaScript {
             }
 
             var initFun = new AST.FunctionDefinition(main.token, main.scope);
-            initFun.parent = main.parent;
+            initFun.parent = node;
             initFun.body = main.body;
             initFun.funName = "__init";
             var tp = new FrontendFunctionType("__init");
@@ -1705,14 +1706,17 @@ namespace PragmaScript {
 
 
         public void Visit(AST.FieldAccess node) {
-            Visit(node.left);
+            
 
+            Visit(node.left);
             var v = valueStack.Pop();
+            if (node.token.Line == 28 && node.token.Pos == 18) {
+                int breakHere = 42;
+            }
 
             FrontendStructType s;
             if (node.IsArrow) {
-                s = (typeChecker.GetNodeType(node.left) as FrontendPointerType).elementType
-                    as FrontendStructType;
+                s = (typeChecker.GetNodeType(node.left) as FrontendPointerType).elementType as FrontendStructType;
             } else {
                 s = typeChecker.GetNodeType(node.left) as FrontendStructType;
             }
@@ -1720,16 +1724,17 @@ namespace PragmaScript {
 
             // is not function argument?
             // assume that when its _NOT_ a pointer then it will be a function argument
-            if (!(v.op == Op.FunctionArgument) && v.type.kind == TypeKind.Pointer) {
+            if (v.op != Op.FunctionArgument && v.type.kind == TypeKind.Pointer) {
                 if (node.IsArrow) {
                     v = builder.BuildLoad(v, node, "struct_arrow_load");
                 }
-
                 // HACK: we hit limit of recursive type so just perform bitcast
-                if ((v.type as PointerType).elementType.kind != TypeKind.Struct) { 
+                if (v.type.kind != TypeKind.Pointer || v.type is PointerType vpt && vpt.elementType.kind != TypeKind.Struct) { 
                     var sp = new PointerType(GetTypeRef(s));
                     v = builder.BuildBitCast(v, sp, node, "hack_bitcast");
                 }
+
+            
 
                 Value result;
 
