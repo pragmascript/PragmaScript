@@ -25,7 +25,7 @@ let foo = fun(v: vec) => void {
 }
 
 let print_list = fun(l: list) => void {
-	print_i32(l.next.x);
+	print_i32(l.next.next.next.next.next.next.next.x);
 	// var test: list;
 	// print_i32(test.next.x);
 	
@@ -44,7 +44,7 @@ let test_the_pack = fun(pt: packed_test) => void {
 	"compile.ll"    : "true",
 	"compile.asm"   : "true",
  	"compile.opt"   : "0",
- 	"compile.run"   : "true",
+ 	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]

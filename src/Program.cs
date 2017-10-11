@@ -49,10 +49,10 @@ namespace PragmaScript
             CompilerOptions.debug = true;
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\publish\current\samples"));
             // CompilerOptions.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
-            CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "test", "array.prag");
-            // CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "opengl", "test_opengl.prag");
             // Console.WriteLine(CompilerOptions.inputFilename);
 #endif

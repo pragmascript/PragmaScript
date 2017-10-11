@@ -1706,14 +1706,8 @@ namespace PragmaScript {
 
 
         public void Visit(AST.FieldAccess node) {
-            
-
             Visit(node.left);
             var v = valueStack.Pop();
-            if (node.token.Line == 28 && node.token.Pos == 18) {
-                int breakHere = 42;
-            }
-
             FrontendStructType s;
             if (node.IsArrow) {
                 s = (typeChecker.GetNodeType(node.left) as FrontendPointerType).elementType as FrontendStructType;
@@ -1725,19 +1719,21 @@ namespace PragmaScript {
             // is not function argument?
             // assume that when its _NOT_ a pointer then it will be a function argument
             if (v.op != Op.FunctionArgument && v.type.kind == TypeKind.Pointer) {
+                
+                var v_et = ((PointerType)v.type).elementType;
+                // HACK: we hit limit of recursive type so just perform bitcast
+                if (v_et.kind != TypeKind.Pointer || v_et is PointerType vpt && vpt.elementType.kind != TypeKind.Struct) { 
+                    var sp = new PointerType(GetTypeRef(s));
+                    if (node.IsArrow) {
+                        sp = new PointerType(sp);
+                    }
+                    v = builder.BuildBitCast(v, sp, node, "hack_bitcast");
+                }
                 if (node.IsArrow) {
                     v = builder.BuildLoad(v, node, "struct_arrow_load");
                 }
-                // HACK: we hit limit of recursive type so just perform bitcast
-                if (v.type.kind != TypeKind.Pointer || v.type is PointerType vpt && vpt.elementType.kind != TypeKind.Struct) { 
-                    var sp = new PointerType(GetTypeRef(s));
-                    v = builder.BuildBitCast(v, sp, node, "hack_bitcast");
-                }
-
-            
 
                 Value result;
-
                 result = builder.BuildGEP(v, node, "struct_field_ptr", true, zero_i32_v, new ConstInt(i32_t, (ulong)idx));
 
                 var fe_nt = typeChecker.GetNodeType(node);
