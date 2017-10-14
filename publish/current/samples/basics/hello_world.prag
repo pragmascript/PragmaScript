@@ -19,7 +19,7 @@ let list = struct (
  	next: list*;
 );
 
-let foo = fun(v: vec) => void {
+let foo = fun(v: vec*) => void {
 	print_f32(v.x);
 	print_string("\n");
 }
@@ -39,7 +39,7 @@ let test_the_pack = fun(pt: packed_test) => void {
 	"compile.entry" : "true",
 	"compile.ll"    : "true",
 	"compile.asm"   : "false",
- 	"compile.opt"   : "0",
+ 	"compile.opt"   : "1",
  	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
@@ -55,7 +55,7 @@ let main = fun () => void {
 	}
 
 	v.x += (f32)y;
-	foo(v);
+	foo(&v);
 	print_string("hello, world!\n");
 }
 

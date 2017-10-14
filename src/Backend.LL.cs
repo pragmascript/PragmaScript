@@ -105,10 +105,14 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                 if (attribs.HasFlag(FunctionAttribs.argmemonly)) {
                     AP("argmemonly ");
                 }
-                if (CompilerOptions.debug) {
-                    AP(" uwtable");
-                    // AP(" uwtable \"correctly-rounded-divide-sqrt-fp-math\"=\"false\" \"disable-tail-calls\"=\"false\" \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"false\" \"no-infs-fp-math\"=\"false\" \"no-jump-tables\"=\"false\" \"no-nans-fp-math\"=\"false\" \"no-signed-zeros-fp-math\"=\"false\" \"no-trapping-math\"=\"false\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+fxsr,+mmx,+sse,+sse2,+x87\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\"");
+                if (CompilerOptions.optimizationLevel == 0) {
+                    AP("noinline optnone ");
                 }
+                if (CompilerOptions.debug) {
+                    AP("uwtable ");
+                   //  AP("uwtable \"correctly-rounded-divide-sqrt-fp-math\"=\"false\" \"disable-tail-calls\"=\"false\" \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"false\" \"no-infs-fp-math\"=\"false\" \"no-jump-tables\"=\"false\" \"no-nans-fp-math\"=\"false\" \"no-signed-zeros-fp-math\"=\"false\" \"no-trapping-math\"=\"false\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+fxsr,+mmx,+sse,+sse2,+x87\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" ");
+                }
+               
                 AL("}");
             }
 
@@ -403,6 +407,9 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                                 debugCurrentEmitBlock = b;
                                 AL($"{b.name.Substring(1)}:");
                                 isIndented = true;
+                                if (b.name == "%vars") {
+                                    AppendFunctionArgumentsDebugInfo(v);
+                                }
                                 foreach (var op in b.args) {
                                     AppendOp(op);
                                 }
@@ -539,7 +546,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                     AppendDebugInfo(v);
                     AL();
                     AppendDebugDeclareLocalVariable(v);
-                    AL();
+                    
                     break;
                 case Op.Store: {
                         Debug.Assert(!isConst);

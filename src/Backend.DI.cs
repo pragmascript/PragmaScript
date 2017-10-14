@@ -45,6 +45,32 @@ namespace PragmaScript {
                 }
             }
         }
+        void AppendFunctionArgumentsDebugInfo(Value value) {
+            if (!CompilerOptions.debug) {
+                return;
+            }
+            var f = (Function)value;
+            var n = value.debugContextNode;
+            if (n != null) {
+                var fft = (FrontendFunctionType)typeChecker.GetNodeType(n);
+                var scopeIdx = GetDIScope(value.debugContextNode);
+                for (int paramIdx = 0; paramIdx < fft.parameters.Count; ++paramIdx) {
+                    var arg = (FunctionArgument)f.args[paramIdx];
+                    var name = fft.parameters[paramIdx].name;
+                    var param_ft = fft.parameters[paramIdx].type;
+                    var nodeString = $"!DILocalVariable(name: \"{name}\", arg: {paramIdx+1}, scope: !{GetDIScope(n)}, file: !{GetDIFile(n)}, line: {n.token.Line}, type: !{GetDIType(param_ft)})"; 
+                    var localVarIdx = AddDebugInfoNode(nodeString);
+                    var locIdx = GetDILocation(value);
+                    AP("  call void @llvm.dbg.declare(metadata ");
+                    AppendType(arg.type);
+                    AP(" ");
+                    AP(arg.name);
+                    AP($", metadata !{localVarIdx}, metadata !DIExpression()), !dbg !{locIdx}");
+                    AL();
+                }
+            }
+        }
+
         void AppendDebugDeclareLocalVariable(Value value) {
             var ft = typeChecker.GetNodeType(value.debugContextNode);
             // switch (ft) {
@@ -67,14 +93,16 @@ namespace PragmaScript {
             }
             var nodeString = $"!DILocalVariable(name: \"{name}\", scope: !{GetDIScope(n.scope.owner)}, file: !{GetDIFile(n)}, line: {n.token.Line}, type: !{GetDIType(ft)})"; 
             var localVarIdx = AddDebugInfoNode(nodeString);
-
             var locIdx = GetDILocation(value);
             AP("  call void @llvm.dbg.declare(metadata ");
             AppendType(value.type);
             AP(" ");
             AP(value.name);
             AP($", metadata !{localVarIdx}, metadata !DIExpression()), !dbg !{locIdx}");
+            AL();
         }
+
+   
         int AddDebugInfoNode(string info) {
             if (!debugInfoNodeLookup.TryGetValue(info, out int result)) {
                 result = debugInfoNodeLookup.Count;
