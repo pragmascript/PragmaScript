@@ -45,11 +45,17 @@ let test_the_pack = fun(pt: packed_test) => void {
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
-	var xuxu = vec {};
+	var v = vec {};
 	var y = 3;
 	y += 5;
-	xuxu.x += (f32)y;
-	foo(xuxu);
+	var luzluz: i32[32];
+
+	for (var i: i32; i < (i32)len(luzluz); ++i) {
+		luzluz[i] = 2 * i + 1;
+	}
+
+	v.x += (f32)y;
+	foo(v);
 	print_string("hello, world!\n");
 }
 

@@ -282,8 +282,14 @@ namespace PragmaScript {
                 else if (ft is FrontendPointerType fpt) {
                     nodeString = $"!DIDerivedType(tag: DW_TAG_pointer_type, baseType: !{GetDIType(fpt.elementType)}, size: {8*GetSizeOfFrontendType(fpt)})";
                 } else if (ft is FrontendArrayType fat) {
-                    // TODO(pragma):
-                    return -1;
+                    var subranges = new List<string>();
+                    for (int i = 0; i < fat.dims.Count; ++i) {
+                        var subrangeNodeString = $"!DISubrange(count: {fat.dims[i]})";
+                        var subrangeIdx = AddDebugInfoNode(subrangeNodeString);
+                        subranges.Add(subrangeIdx.ToString());
+                    }
+                    var elementsIdx = AddDebugInfoNode($"!{{!{string.Join(", ", subranges)}}}");
+                    nodeString = $"!DICompositeType(tag: DW_TAG_array_type, baseType: !{GetDIType(fat.elementType)}, size: {SizeOfArrayType(fat)}, elements: !{elementsIdx})";
                 }
 
                 Debug.Assert(nodeString != null);
