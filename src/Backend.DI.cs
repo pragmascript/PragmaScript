@@ -47,12 +47,33 @@ namespace PragmaScript {
         }
         void AppendDebugDeclareLocalVariable(Value value) {
             var ft = typeChecker.GetNodeType(value.debugContextNode);
-            switch (ft) {
-                case FrontendSliceType str when ft.name == "string":
-                break;
-                case var _ when FrontendType.IsIntegerType(ft):
-                break;
+            // switch (ft) {
+            //     case FrontendSliceType str when ft.name == "string":
+            //     break;
+            //     case var _ when FrontendType.IsIntegerType(ft):
+            //     break;
+            // }
+            var n = value.debugContextNode;
+            string name = null;
+            switch (n) {
+                case AST.VariableDefinition vd:
+                    name = vd.variable.name;
+                    break;
+                case AST.StructConstructor sc:
+                    name = ((AST.VariableDefinition)sc.parent).variable.name;
+                    break;
+                default:
+                    return;
             }
+            var nodeString = $"!DILocalVariable(name: \"{name}\", scope: !{GetDIScope(n.scope.owner)}, file: !{GetDIFile(n)}, line: {n.token.Line}, type: !{GetDIType(ft)})"; 
+            var localVarIdx = AddDebugInfoNode(nodeString);
+
+            var locIdx = GetDILocation(value);
+            AP("  call void @llvm.dbg.declare(metadata ");
+            AppendType(value.type);
+            AP(" ");
+            AP(value.name);
+            AP($", metadata !{localVarIdx}, metadata !DIExpression()), !dbg !{locIdx}");
         }
         int AddDebugInfoNode(string info) {
             if (!debugInfoNodeLookup.TryGetValue(info, out int result)) {
