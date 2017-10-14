@@ -23,6 +23,9 @@ namespace PragmaScript {
             if (!CompilerOptions.debug) {
                 return;
             }
+            if (debugCurrentEmitBlock.name == "%vars") {
+                return;
+            }
             var locIdx = GetDILocation(v);
             if (locIdx >= 0) {
                 AP($", !dbg !{locIdx}");
@@ -46,7 +49,8 @@ namespace PragmaScript {
             var ft = typeChecker.GetNodeType(value.debugContextNode);
             switch (ft) {
                 case FrontendSliceType str when ft.name == "string":
-
+                break;
+                case var _ when FrontendType.IsIntegerType(ft):
                 break;
             }
         }
@@ -128,7 +132,7 @@ namespace PragmaScript {
                 AST.Block block = (AST.Block)fd.body;
                 var ft = typeChecker.GetNodeType(fd);
                 var variablesIdx = AddDebugInfoNode("!{}");
-                string nodeString = $"distinct !DISubprogram(name: \"{fd.funName}\", file: !{GetDIFile(block)}, line: {fd.token.Line}, type: !{GetDIType(ft)}, isLocal: true, isDefinition: true, scopeLine: {block.token.Line}, flags: DIFlagPrototyped, isOptimized: false, unit: !{debugInfoCompileUnitIdx}, variables: !{variablesIdx})";
+                string nodeString = $"distinct !DISubprogram(name: \"{fd.funName}\", linkageName: \"{fd.funName}\", file: !{GetDIFile(block)}, line: {fd.token.Line}, type: !{GetDIType(ft)}, isLocal: true, isDefinition: true, scopeLine: {block.token.Line}, flags: DIFlagPrototyped, isOptimized: false, unit: !{debugInfoCompileUnitIdx}, variables: !{variablesIdx})";
                 subprogramIdx = AddDebugInfoNode(nodeString);
                 debugInfoScopeLookup.Add(fd, subprogramIdx);
             }
@@ -140,7 +144,7 @@ namespace PragmaScript {
                 var emptyArrayIdx = AddDebugInfoNode(emptyArray);
 
                 string producer = "\"pragma version 0.1 (build 8)\"";
-                string nodeString = $"distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !{GetDIFile(root)}, producer: {producer}, isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !{emptyArrayIdx}, globals: !{emptyArrayIdx})";
+                string nodeString = $"distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !{GetDIFile(root)}, producer: {producer}, isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, retainedTypes: !{emptyArrayIdx}, enums: !{emptyArrayIdx}, globals: !{emptyArrayIdx})";
                 compileUnitIdx = AddDebugInfoNode(nodeString);
                 debugInfoScopeLookup.Add(root, compileUnitIdx);
                 debugInfoCompileUnitIdx = compileUnitIdx;

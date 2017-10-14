@@ -25,14 +25,10 @@ let foo = fun(v: vec) => void {
 }
 
 let print_list = fun(l: list) => void {
-	print_i32(l.next.next.next.next.next.next.next.x);
-	// var test: list;
-	// print_i32(test.next.x);
-	
-	// print_i32(l.x);
-	// if ((ptr)l.next != nullptr) {
-	// 	// print_i32(l.next.x);
-	// }
+	print_i32(l.x);
+	if ((ptr)l.next != nullptr) {
+		print_i32(l.next.x);
+	}
 }
 
 let test_the_pack = fun(pt: packed_test) => void {
@@ -42,7 +38,7 @@ let test_the_pack = fun(pt: packed_test) => void {
 	"compile.output": "hello.exe",
 	"compile.entry" : "true",
 	"compile.ll"    : "true",
-	"compile.asm"   : "true",
+	"compile.asm"   : "false",
  	"compile.opt"   : "0",
  	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib",

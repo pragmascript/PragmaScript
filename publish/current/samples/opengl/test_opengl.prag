@@ -158,6 +158,8 @@ let init_gl_resources = fun() => void {
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
+    // assert(false);
+
     var vertices = [
          0.5,  0.5, 0.0,
          0.5, -0.5, 0.0,
@@ -503,7 +505,7 @@ let gl_error_callback = fun(
 [
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "3",
+ 	"compile.opt"   : "0",
     "compile.ll"    : "true",
     "compile.asm"   : "false",
     "compile.cpu"   : "native",
