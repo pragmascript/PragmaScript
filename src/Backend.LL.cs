@@ -118,11 +118,11 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
 
             // debug info
             if (CompilerOptions.debug) {
+                FixUpGlobalVariableDebugInfoList();
                 AL();
                 AL($"!llvm.dbg.cu = !{{!{debugInfoCompileUnitIdx}}}");
                 AL($"!llvm.module.flags = !{{{string.Join(", ", debugInfoModuleFlags.Select(idx => $"!{idx}"))}}}");
                 AL($"!llvm.ident = !{{!{debugInfoIdentFlag}}}");
-
                 AL();
                 var nodeLookupReverse = new Dictionary<int, string>();
                 foreach (var kv in debugInfoNodeLookup) {
@@ -442,6 +442,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                             AppendType(pt.elementType);
                             AP(" ");
                             AppendConstValue(gv.initializer);
+                            AppendGlobalVariableDebugInfo(gv);
                             AL();
                         } else {
                             AP(v.name);

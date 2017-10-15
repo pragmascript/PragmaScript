@@ -173,11 +173,7 @@ namespace PragmaScript {
                     v.name = context.RequestGlobalName(name);
                 }
                 mod.globals.args.Add(v);
-                if (context.callsite == null) {
-                    v.debugContextNode = contextNode;
-                } else {
-                    v.debugContextNode = context.callsite;
-                }
+                v.debugContextNode = contextNode;
             }
             public Value BuildRet(Value ret, AST.Node contextNode) {
                 var result = new Value(Op.Ret, ret.type, ret);
@@ -241,7 +237,7 @@ namespace PragmaScript {
 
             public GlobalVariable AddGlobal(SSAType t, AST.Node contextNode, string name = null) {
                 var result = new GlobalVariable(t);
-                AddOpGlobal(result, name);
+                AddOpGlobal(result, name, contextNode: contextNode);
                 return result;
             }
             public Value BuildBitCast(Value v, SSAType dest, AST.Node contextNode, string name = null) {

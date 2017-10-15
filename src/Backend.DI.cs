@@ -15,7 +15,9 @@ namespace PragmaScript {
         Dictionary<AST.Node, int> debugInfoScopeLookup = new Dictionary<AST.Node, int>();
         Dictionary<string, int> debugInfoFileLookup = new Dictionary<string, int>();
         Dictionary<FrontendType, int> debugInfoTypeLookup = new Dictionary<FrontendType, int>();
+        List<int> debugGlobalVariableExperssionIndices = new List<int>();
         int debugInfoCompileUnitIdx = -1;
+        string debugGlobalVariableArrayPlaceholder;
         List<int> debugInfoModuleFlags = new List<int>();
         int debugInfoIdentFlag = -1;
         AST.ProgramRoot debugRootNode;
@@ -39,9 +41,10 @@ namespace PragmaScript {
                 if (debugRootNode == null) {
                     GetDICompileUnit((AST.ProgramRoot)value.debugContextNode.parent.parent);
                 }
-                var scopeIdx = GetDIScope(value.debugContextNode);
-                if (scopeIdx >= 0) {
-                    AP($" !dbg !{scopeIdx}");
+                var fd = (AST.FunctionDefinition)value.debugContextNode;
+                var subprogramIdx = GetDISubprogram(fd);
+                if (subprogramIdx >= 0) {
+                    AP($" !dbg !{subprogramIdx}");
                 }
             }
         }
@@ -54,6 +57,8 @@ namespace PragmaScript {
             if (n != null) {
                 var fft = (FrontendFunctionType)typeChecker.GetNodeType(n);
                 var scopeIdx = GetDIScope(value.debugContextNode);
+
+                // TODO(pragma): make a copy of function arguments to stack to be able to debug them
                 for (int paramIdx = 0; paramIdx < fft.parameters.Count; ++paramIdx) {
                     var arg = (FunctionArgument)f.args[paramIdx];
                     var name = fft.parameters[paramIdx].name;
@@ -88,6 +93,9 @@ namespace PragmaScript {
                 case AST.StructConstructor sc:
                     name = ((AST.VariableDefinition)sc.parent).variable.name;
                     break;
+                case AST.ArrayConstructor ac:
+                    name =((AST.VariableDefinition)ac.parent).variable.name;
+                    break;
                 default:
                     return;
             }
@@ -102,6 +110,32 @@ namespace PragmaScript {
             AL();
         }
 
+        void AppendGlobalVariableDebugInfo(GlobalVariable gv) {
+            if (!CompilerOptions.debug) {
+                return;
+            }
+            var rootScope = gv.debugContextNode.scope.GetRootScope();
+            var rootNode = rootScope.owner;
+            var n = gv.debugContextNode;
+            var ft = typeChecker.GetNodeType(n);
+
+            string name = null;
+            if (n is AST.VariableDefinition vd) {
+                name = vd.variable.name;
+            } else if (n.parent is AST.VariableDefinition parent_vd) {
+                name = parent_vd.variable.name;
+            }
+            if (name != null) {
+                var globalVariableNodeString = $"distinct !DIGlobalVariable(name: \"{name}\", scope: !{GetDIScope(rootNode)}, file: !{GetDIFile(n)}, line: {n.token.Line}, type: !{GetDIType(ft)}, isLocal: true, isDefinition: true)";
+                var globalVariableIdx = AddDebugInfoNode(globalVariableNodeString);
+                var nodeString = $"!DIGlobalVariableExpression(var: !{globalVariableIdx}, expr: !DIExpression())";
+                var globalVariableExpressionIdx = AddDebugInfoNode(nodeString);
+                debugGlobalVariableExperssionIndices.Add(globalVariableExpressionIdx);
+                if (globalVariableExpressionIdx >= 0) {
+                    AP($", !dbg !{globalVariableExpressionIdx}");
+                }
+            }
+        }
    
         int AddDebugInfoNode(string info) {
             if (!debugInfoNodeLookup.TryGetValue(info, out int result)) {
@@ -176,24 +210,30 @@ namespace PragmaScript {
             if (fd.body == null) {
                 return -1;
             }
-
             if (!debugInfoScopeLookup.TryGetValue(fd, out int subprogramIdx)) {
                 AST.Block block = (AST.Block)fd.body;
                 var ft = typeChecker.GetNodeType(fd);
                 var variablesIdx = AddDebugInfoNode("!{}");
-                string nodeString = $"distinct !DISubprogram(name: \"{fd.funName}\", linkageName: \"{fd.funName}\", file: !{GetDIFile(block)}, line: {fd.token.Line}, type: !{GetDIType(ft)}, isLocal: true, isDefinition: true, scopeLine: {block.token.Line}, flags: DIFlagPrototyped, isOptimized: false, unit: !{debugInfoCompileUnitIdx}, variables: !{variablesIdx})";
+                string nodeString = $"distinct !DISubprogram(name: \"{fd.funName}\", linkageName: \"{fd.funName}\", file: !{GetDIFile(block)}, line: {fd.token.Line}, type: !{GetDIType(ft, true)}, isLocal: true, isDefinition: true, scopeLine: {block.token.Line}, flags: DIFlagPrototyped, isOptimized: false, unit: !{debugInfoCompileUnitIdx}, variables: !{variablesIdx})";
                 subprogramIdx = AddDebugInfoNode(nodeString);
                 debugInfoScopeLookup.Add(fd, subprogramIdx);
             }
             return subprogramIdx;
         }
+
+        
         int GetDICompileUnit(AST.ProgramRoot root) {
             if (!debugInfoScopeLookup.TryGetValue(root, out int compileUnitIdx)) {
                 string emptyArray = "!{}";
                 var emptyArrayIdx = AddDebugInfoNode(emptyArray);
 
+                // HACK: TODO(pragma): remove
+                var placeholder = System.Guid.NewGuid().ToString();
+                var debugGlobalVariableArrayIdx = AddDebugInfoNode(placeholder);
+                debugGlobalVariableArrayPlaceholder = placeholder;
+
                 string producer = "\"pragma version 0.1 (build 8)\"";
-                string nodeString = $"distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !{GetDIFile(root)}, producer: {producer}, isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, retainedTypes: !{emptyArrayIdx}, enums: !{emptyArrayIdx}, globals: !{emptyArrayIdx})";
+                string nodeString = $"distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !{GetDIFile(root)}, producer: {producer}, isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, retainedTypes: !{emptyArrayIdx}, enums: !{emptyArrayIdx}, globals: !{debugGlobalVariableArrayIdx})";
                 compileUnitIdx = AddDebugInfoNode(nodeString);
                 debugInfoScopeLookup.Add(root, compileUnitIdx);
                 debugInfoCompileUnitIdx = compileUnitIdx;
@@ -224,6 +264,14 @@ namespace PragmaScript {
             }
             return compileUnitIdx;
         }
+        void FixUpGlobalVariableDebugInfoList() {
+            var palceholderIdx = debugInfoNodeLookup[debugGlobalVariableArrayPlaceholder];
+            debugInfoNodeLookup.Remove(debugGlobalVariableArrayPlaceholder);
+            var indexStrings = debugGlobalVariableExperssionIndices.Select(idx => "!" + idx.ToString());
+            var nodeString = $"!{{{string.Join(", ", indexStrings)}}}";
+            debugInfoNodeLookup.Add(nodeString, palceholderIdx);
+        }
+
         int GetDIFile(AST.Node node) {
             if (!debugInfoFileLookup.TryGetValue(node.token.filename, out int fileIdx)) {
                 var fn = Backend.EscapeString(System.IO.Path.GetFileName(node.token.filename));
@@ -241,7 +289,7 @@ namespace PragmaScript {
             return fileIdx;
         }
         // http://www.catb.org/esr/structure-packing/
-        int GetDIType(FrontendType ft) {
+        int GetDIType(FrontendType ft, bool noFunctionPointer = false) {
             if (!debugInfoTypeLookup.TryGetValue(ft, out int typeIdx)) {
                 string nodeString = null;
                 if (FrontendType.IsIntegerType(ft)) {
@@ -254,6 +302,7 @@ namespace PragmaScript {
                     nodeString = $"!DIBasicType(name: \"bool\", size: {8*GetSizeOfFrontendType(ft)}, encoding: DW_ATE_boolean)";
                 }
                 else if (ft is FrontendFunctionType fft) {
+                    
                     string tl;
                     if (FrontendType.IsVoidType(fft.returnType)) {
                         if (fft.parameters.Count > 0) {
@@ -271,7 +320,13 @@ namespace PragmaScript {
                     var typeListNodeString = $"!{{{tl}}}";
                     var typeListIdx = AddDebugInfoNode(typeListNodeString);
 
-                    nodeString = $"!DISubroutineType(types: !{typeListIdx})";
+                    var functionNodeString = $"!DISubroutineType(types: !{typeListIdx})";
+                    if (noFunctionPointer) {
+                        nodeString = functionNodeString;
+                    } else {
+                        var functionTypeIdx = AddDebugInfoNode(functionNodeString);
+                        nodeString = $"!DIDerivedType(tag: DW_TAG_pointer_type, baseType: !{functionTypeIdx}, size: {8*GetSizeOfFrontendType(FrontendType.ptr)})";
+                    }
                 }
                 else if (ft is FrontendStructType fst) {
                     // reserve slot for new struct type
