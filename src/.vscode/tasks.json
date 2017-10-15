@@ -8,7 +8,7 @@
             "isShellCommand": true,
             "args": [
                 "build",
-                "-c", "debug"
+                "-c", "release"
             ],
             "isBuildCommand": true,
             "problemMatcher": "$msCompile"

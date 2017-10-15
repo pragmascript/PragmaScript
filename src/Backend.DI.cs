@@ -22,7 +22,7 @@ namespace PragmaScript {
         int debugInfoIdentFlag = -1;
         AST.ProgramRoot debugRootNode;
         void AppendDebugInfo(Value v) {
-            if (!CompilerOptions.debug) {
+            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
                 return;
             }
             if (debugCurrentEmitBlock.name == "%vars") {
@@ -34,7 +34,7 @@ namespace PragmaScript {
             }
         }
         void AppendFunctionDebugInfo(Value value) {
-            if (!CompilerOptions.debug) {
+            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
                 return;
             }
             if (value.debugContextNode != null) {
@@ -49,7 +49,7 @@ namespace PragmaScript {
             }
         }
         void AppendFunctionArgumentsDebugInfo(Value value) {
-            if (!CompilerOptions.debug) {
+            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
                 return;
             }
             var f = (Function)value;
@@ -77,6 +77,9 @@ namespace PragmaScript {
         }
 
         void AppendDebugDeclareLocalVariable(Value value) {
+            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
+                return;
+            }
             var ft = typeChecker.GetNodeType(value.debugContextNode);
             // switch (ft) {
             //     case FrontendSliceType str when ft.name == "string":
@@ -111,7 +114,7 @@ namespace PragmaScript {
         }
 
         void AppendGlobalVariableDebugInfo(GlobalVariable gv) {
-            if (!CompilerOptions.debug) {
+            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
                 return;
             }
             var rootScope = gv.debugContextNode.scope.GetRootScope();
@@ -369,9 +372,9 @@ namespace PragmaScript {
                     for (int i = 0; i < fat.dims.Count; ++i) {
                         var subrangeNodeString = $"!DISubrange(count: {fat.dims[i]})";
                         var subrangeIdx = AddDebugInfoNode(subrangeNodeString);
-                        subranges.Add(subrangeIdx.ToString());
+                        subranges.Add("!" + subrangeIdx.ToString());
                     }
-                    var elementsIdx = AddDebugInfoNode($"!{{!{string.Join(", ", subranges)}}}");
+                    var elementsIdx = AddDebugInfoNode($"!{{{string.Join(", ", subranges)}}}");
                     nodeString = $"!DICompositeType(tag: DW_TAG_array_type, baseType: !{GetDIType(fat.elementType)}, size: {SizeOfArrayType(fat)}, elements: !{elementsIdx})";
                 }
 

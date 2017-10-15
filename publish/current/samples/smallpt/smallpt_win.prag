@@ -146,8 +146,8 @@ let intersect = fun(ray: Ray*; t: f32*; obj: Sphere**) => bool {
     *obj = (Sphere*)nullptr;
     
     var d: f32;
-    var s = spheres;
     for (var i = 0; i < sphere_count; ++i) {
+        var s = spheres + i;
         if (intersect_sphere_ray(s, ray, &d) && d < *t) {
             *t = d;
             *obj = s;
@@ -514,21 +514,22 @@ let RenderJob = struct
     random_state: Random.State;
     thread_idx: i32;
     thread_count: i32;
-    tiles: Tile[];
+    tiles: Tile*;
+    tiles_count: i32;
     completed: bool;
 );
 
 let do_render_job = fun (@job: RenderJob*) => i32 {
     Random.init_seed(thread_idx, &random_state);
     var idx = thread_idx;
-    while (idx < tiles.length) {
+    while (idx < tiles_count) {
         // print_string("thread ");
         // print_i32(thread_idx);
         // print_string(" start rendering tile #");
         // print_i32(idx);
         // print_string("\n");
 
-        render_tile(&tiles[idx], &random_state);
+        render_tile(tiles + idx, &random_state);
 
         // print_string("thread ");
         // print_i32(thread_idx);
@@ -676,10 +677,11 @@ let thread_count = 8;
 [
 	"compile.output": "smallpt_win.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "3",
+    "compile.cpu"   : "native",
+ 	"compile.opt"   : "1",
     "compile.asm"   : "false",
     "compile.ll"    : "true",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
@@ -760,12 +762,14 @@ let main = fun() => void {
     ExitProcess(0);
 }
 
-var render_jobs: RenderJob[];
+var render_jobs: RenderJob*;
+var render_job_count = -1;
 let check_render_jobs_done = fun () => bool {
     var all_completed = true;
-    for (var i = 0; i < render_jobs.length; ++i) {
+    for (var i = 0; i < render_job_count; ++i) {
         // TODO(pragma): volatile!
-        if (!render_jobs[i].completed) {
+        var rj = render_jobs + i;
+        if (!rj.completed) {
             all_completed = false;
             break;
         }
@@ -800,13 +804,11 @@ let start_render = fun () => void {
 
     // create tiles
     var tile_count = x_tiles * y_tiles;
-    var tiles: Tile[];
-    tiles.data = (Tile*)VirtualAlloc(nullptr, size_of(Tile) * (mm)tile_count, MEM_COMMIT, PAGE_READWRITE);
-    tiles.length = tile_count;
+    var tiles = (Tile*)VirtualAlloc(nullptr, size_of(Tile) * (mm)tile_count, MEM_COMMIT, PAGE_READWRITE);
     var idx = 0;
     for (var j = 0; j < y_tiles; ++j) {
         for (var i = 0; i < x_tiles; ++i) {
-            var t = &tiles[idx++];
+            var t = tiles + idx++;
             t.sx = tile_size * i;
             t.sy = tile_size * j;
             t.start = pixel_data + (t.sy * width + t.sx);
@@ -821,19 +823,20 @@ let start_render = fun () => void {
     }
 
     // create jobs
-    render_jobs.data = (RenderJob*)VirtualAlloc(nullptr, size_of(RenderJob) * (mm)thread_count, MEM_COMMIT, PAGE_READWRITE);
-    render_jobs.length = thread_count;
-    for (var i = 0; i < render_jobs.length; ++i) {
+    render_jobs = (RenderJob*)VirtualAlloc(nullptr, size_of(RenderJob) * (mm)thread_count, MEM_COMMIT, PAGE_READWRITE);
+    render_job_count = thread_count;
+    for (var i = 0; i < render_job_count; ++i) {
         var j: RenderJob;
         j.thread_idx = i;
         j.thread_count = thread_count;
         j.tiles = tiles;
-        render_jobs[i] = j;
+        j.tiles_count = tile_count;
+        *(render_jobs + i) = j;
     }
 
     // create and run threads
-    for (var i = 0; i < render_jobs.length; ++i) {
-        var job = &render_jobs[i];
+    for (var i = 0; i < render_job_count; ++i) {
+        var job = render_jobs + i;
         var thread_id: mm;
         var thread_handle = CreateThread(nullptr, null, (ThreadProc)do_render_job, (ptr)job, 0, &thread_id);
     }

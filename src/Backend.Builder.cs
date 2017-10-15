@@ -235,8 +235,8 @@ namespace PragmaScript {
                 return result;
             }
 
-            public GlobalVariable AddGlobal(SSAType t, AST.Node contextNode, string name = null) {
-                var result = new GlobalVariable(t);
+            public GlobalVariable AddGlobal(SSAType t, AST.Node contextNode, string name = null, bool isConst = false) {
+                var result = new GlobalVariable(t, isConst);
                 AddOpGlobal(result, name, contextNode: contextNode);
                 return result;
             }

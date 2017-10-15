@@ -438,7 +438,7 @@ namespace PragmaScript {
                 arr_elem_ptr = builder.BuildArrayAlloca(elem_type, size, node, "arr_elem_alloca");
             } else {
                 var at = new ArrayType(elem_type, str_length);
-                arr_elem_ptr = builder.AddGlobal(at, node, "str_arr");
+                arr_elem_ptr = builder.AddGlobal(at, node, "str_arr", true);
                 // if we are in a "global" scope dont allocate on the stack
                 ((GlobalVariable)arr_elem_ptr).SetInitializer(builder.ConstNull(at));
                 arr_elem_ptr = builder.BuildBitCast(arr_elem_ptr, new PointerType(elem_type), node, "str_ptr");
@@ -1162,7 +1162,7 @@ namespace PragmaScript {
                     var sc = node.expression as AST.StructConstructor;
                     var structType = GetTypeRef(typeChecker.GetNodeType(sc));
 
-                    var v = builder.AddGlobal(structType, node, node.variable.name);
+                    var v = builder.AddGlobal(structType, node, node.variable.name, false);
                     // LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                     variables[node.variable] = v;
                     v.SetInitializer(builder.ConstNull(structType));
@@ -1180,7 +1180,7 @@ namespace PragmaScript {
                         Visit(node.expression);
                         var result = valueStack.Pop();
                         var resultType = result.type;
-                        var v = builder.AddGlobal(resultType, node, node.variable.name);
+                        var v = builder.AddGlobal(resultType, node, node.variable.name, false);
                         variables[node.variable] = v;
                         // LVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                         if (result.isConst) {
@@ -1192,7 +1192,7 @@ namespace PragmaScript {
                         }
                     } else {
                         var vType = GetTypeRef(typeChecker.GetNodeType(node.typeString));
-                        var v = builder.AddGlobal(vType, node, node.variable.name);
+                        var v = builder.AddGlobal(vType, node, node.variable.name, false);
                         variables[node.variable] = v;
                         // LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                         v.SetInitializer(builder.ConstNull(vType));

@@ -491,9 +491,9 @@ namespace PragmaScript {
             
             public Value initializer = null;
             public bool isConstantVariable = false;
-            public GlobalVariable(SSAType t)
+            public GlobalVariable(SSAType t, bool isConst)
                 : base(Op.GlobalVariable, new PointerType(t)) {
-                isConst = true;
+                this.isConst = isConst;
             }
             public void SetInitializer(Value v) {
                 initializer = v;
