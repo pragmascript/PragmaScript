@@ -22,7 +22,7 @@ namespace PragmaScript {
         int debugInfoIdentFlag = -1;
         AST.ProgramRoot debugRootNode;
         void AppendDebugInfo(Value v) {
-            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
+            if (!CompilerOptions.debugInfo) {
                 return;
             }
             if (debugCurrentEmitBlock.name == "%vars") {
@@ -34,7 +34,7 @@ namespace PragmaScript {
             }
         }
         void AppendFunctionDebugInfo(Value value) {
-            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
+            if (!CompilerOptions.debugInfo) {
                 return;
             }
             if (value.debugContextNode != null) {
@@ -49,7 +49,7 @@ namespace PragmaScript {
             }
         }
         void AppendFunctionArgumentsDebugInfo(Value value) {
-            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
+            if (!CompilerOptions.debugInfo) {
                 return;
             }
             var f = (Function)value;
@@ -77,7 +77,7 @@ namespace PragmaScript {
         }
 
         void AppendDebugDeclareLocalVariable(Value value) {
-            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
+            if (!CompilerOptions.debugInfo) {
                 return;
             }
             var ft = typeChecker.GetNodeType(value.debugContextNode);
@@ -114,7 +114,7 @@ namespace PragmaScript {
         }
 
         void AppendGlobalVariableDebugInfo(GlobalVariable gv) {
-            if (!CompilerOptions.debug || CompilerOptions.optimizationLevel > 1) {
+            if (!CompilerOptions.debugInfo) {
                 return;
             }
             var rootScope = gv.debugContextNode.scope.GetRootScope();

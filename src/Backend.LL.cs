@@ -108,7 +108,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                 if (CompilerOptions.optimizationLevel == 0) {
                     AP("noinline optnone ");
                 }
-                if (CompilerOptions.debug && CompilerOptions.optimizationLevel <= 1) {
+                if (CompilerOptions.debugInfo) {
                     AP("uwtable ");
                    //  AP("uwtable \"correctly-rounded-divide-sqrt-fp-math\"=\"false\" \"disable-tail-calls\"=\"false\" \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"false\" \"no-infs-fp-math\"=\"false\" \"no-jump-tables\"=\"false\" \"no-nans-fp-math\"=\"false\" \"no-signed-zeros-fp-math\"=\"false\" \"no-trapping-math\"=\"false\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+fxsr,+mmx,+sse,+sse2,+x87\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" ");
                 }
@@ -117,7 +117,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
             }
 
             // debug info
-            if (CompilerOptions.debug && CompilerOptions.optimizationLevel <= 1) {
+            if (CompilerOptions.debugInfo) {
                 FixUpGlobalVariableDebugInfoList();
                 AL();
                 AL($"!llvm.dbg.cu = !{{!{debugInfoCompileUnitIdx}}}");

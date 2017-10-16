@@ -22,6 +22,7 @@ namespace PragmaScript
     static class CompilerOptions
     {
         public static bool debug = false;
+        public static bool debugInfo = true;
         public static string inputFilename;
         public static int optimizationLevel;
         public static string cpu = "native";
@@ -323,6 +324,13 @@ namespace PragmaScript
             var opt = d.GetAttribute("COMPILE.OPT");
             if (int.TryParse(opt, out int opt_level)) {
                 CompilerOptions.optimizationLevel = opt_level;
+            }
+
+            var debugInfo = d.GetAttribute("COMPILE.DEBUGINFO");
+            if (debugInfo == "TRUE") {
+                CompilerOptions.debugInfo = true;
+            } else if (debugInfo == "FALSE") {
+                CompilerOptions.debugInfo = false;
             }
 
             var cpu = d.GetAttribute("COMPILE.CPU");
