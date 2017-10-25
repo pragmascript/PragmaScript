@@ -1006,44 +1006,6 @@ namespace PragmaScript {
                 }
                 return result;
             }
-
-            // var tempState = ps;
-            // var next = tempState.NextToken(tokenMustExist: false);
-            // var nextNext = tempState.PeekToken();
-            // // handle type cast operator (T)x
-            // if (current.type == Token.TokenType.OpenBracket
-            //     && next.type == Token.TokenType.Identifier
-            //     // && nextNext.type == Token.TokenType.CloseBracket
-            //     ) {
-            //     // there can be ambiguities here see: https://msdn.microsoft.com/en-us/library/aa691370(v=vs.71).aspx
-            //     // so we first speculatively assume its a cast expression
-            //     var temp = ps;
-
-            //     temp.NextToken();
-            //     var type = parseTypeString(ref temp, scope);
-            //     var peek = temp.PeekToken();
-            //     if (peek.type == Token.TokenType.CloseBracket || peek.type == Token.TokenType.Unsigned) {
-            //         // now we assume its a cast
-            //         ps = temp;
-            //         ps.NextToken();
-            //         ps.NextToken();
-            //         var result = new TypeCastOp(current, scope);
-            //         if (peek.type == Token.TokenType.Unsigned) {
-            //             result.unsigned = true;
-            //             ps.ExpectCurrentToken(Token.TokenType.CloseBracket);
-            //             ps.NextToken();
-            //         }
-            //         var exp = parsePrimary(ref ps, scope);
-
-            //         // TODO: check if valid type (in type check phase?)
-            //         result.typeString = type;
-            //         result.expression = exp;
-
-
-            //         return result;
-            //     }
-            // }
-
             return parsePrimary(ref ps, scope);
         }
 

@@ -265,14 +265,19 @@ namespace PragmaScript {
             Visit(merge, main);
         }
 
+
+
         public void Visit(AST.FileRoot node, AST.FunctionDefinition main) {
             var constVariables = new List<AST.Node>();
             var functionDefinitions = new List<AST.Node>();
             var globalVariables = new List<AST.Node>();
+            var namespaces = new List<AST.Namespace>();
+
             var other = new List<AST.Node>();
 
             // visit function definitions make prototypes
             foreach (var decl in node.declarations) {
+
                 if (isConstVariableDefinition(decl)) {
                     constVariables.Add(decl);
                 } else if (isGlobalVariableDefinition(decl)) {
@@ -282,6 +287,8 @@ namespace PragmaScript {
                     if (!(decl as AST.FunctionDefinition).external) {
                         other.Add(decl);
                     }
+                } else if (decl is AST.Namespace ns) {
+                    namespaces.Add(ns);
                 } else {
                     other.Add(decl);
                 }
@@ -313,7 +320,6 @@ namespace PragmaScript {
             builder.PositionAtEnd(entry);
 
             
-            
             foreach (var decl in functionDefinitions) {
                 Visit(decl as AST.FunctionDefinition, proto: true);
             }
@@ -323,9 +329,15 @@ namespace PragmaScript {
             foreach (var decl in globalVariables) {
                 Visit(decl as AST.VariableDefinition);
             }
+            foreach (var ns in namespaces) {
+                Visit(ns, definitions: true);
+            }
             foreach (var decl in other) {
                 Visit(decl);
             }
+            foreach (var ns in namespaces) {
+                Visit(ns, definitions: false);
+            } 
 
             builder.PositionAtEnd(entry);
 
@@ -346,10 +358,13 @@ namespace PragmaScript {
             // builder.PositionAtEnd(blockTemp);
         }
 
-        public void Visit(AST.Namespace node) {
+
+        // TODO(pragma): avoid calling this twice?
+        public void Visit(AST.Namespace node, bool definitions = false) {
             var functionDefinitions = new List<AST.Node>();
             var constVariables = new List<AST.Node>();
             var variables = new List<AST.Node>();
+            var namespaces = new List<AST.Namespace>();
             var other = new List<AST.Node>();
 
             // visit function definitions make prototypes
@@ -365,21 +380,32 @@ namespace PragmaScript {
                     if (!(decl as AST.FunctionDefinition).external) {
                         other.Add(decl);
                     }
+                } else if (decl is AST.Namespace ns) {
+                    namespaces.Add(ns);
                 } else {
                     other.Add(decl);
                 }
             }
-            foreach (var decl in functionDefinitions) {
-                Visit(decl as AST.FunctionDefinition, proto: true);
-            }
-            foreach (var decl in constVariables) {
-                Visit(decl as AST.VariableDefinition);
-            }
-            foreach (var decl in variables) {
-                Visit(decl as AST.VariableDefinition);
-            }
-            foreach (var decl in other) {
-                Visit(decl);
+            if (definitions) {
+                foreach (var decl in functionDefinitions) {
+                    Visit(decl as AST.FunctionDefinition, proto: true);
+                }
+                foreach (var decl in constVariables) {
+                    Visit(decl as AST.VariableDefinition);
+                }
+                foreach (var decl in variables) {
+                    Visit(decl as AST.VariableDefinition);
+                }
+                foreach (var ns in namespaces) {
+                    Visit(ns, definitions: true);
+                }
+            } else {
+                foreach (var decl in other) {
+                    Visit(decl);
+                }
+                foreach (var ns in namespaces) {
+                    Visit(ns, definitions: false);
+                }
             }
         }
 
