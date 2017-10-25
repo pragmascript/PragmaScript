@@ -213,6 +213,11 @@ namespace Handmade.Platform
 		return data.LastWriteTime;
 	}
 
+	// ********************
+	// use core audio instead
+	// https://hero.handmade.network/forums/code-discussion/t/102-day_19_-_audio_latency
+	// ********************
+
 	let init_direct_sound = fun 
 	(
 		hwnd: mm; 
@@ -229,7 +234,7 @@ namespace Handmade.Platform
 			ds: IDirectSound**;
 			unused: ptr;
 		) => i32;
-		*((ptr*)(&DirectSoundCreate)) = (ptr)GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
+		*((ptr*)(&DirectSoundCreate)) = GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
 		assert((ptr)DirectSoundCreate != nullptr);
 
 		var dsound_obj: IDirectSound*;
@@ -711,11 +716,12 @@ namespace Handmade.Platform
 	
 	[
 	"compile.entry",
-	"compile.cpu"   : "nehalem",
+	"compile.cpu"   : "native",
 	"compile.output": "win_handmade.exe",
 	"compile.opt"   : "0",
+	"compile.debuginfo": "true",
 	"compile.ll"    : "true",
-	"compile.run"   : "false",
+	"compile.run"   : "true",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib",
 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib, shcore.lib, libopenlibm.a"
 	]
@@ -781,7 +787,7 @@ namespace Handmade.Platform
 		var sound_output: sound_output;
 		sound_output.samples_per_second = 48000;
 		sound_output.bytes_per_chunk = 2 * (i32)(size_of(i16)); // 2 channels
-		sound_output.bytes_per_frame = sound_output.bytes_per_chunk *sound_output.samples_per_second / game_target_fps;
+		sound_output.bytes_per_frame = sound_output.bytes_per_chunk * sound_output.samples_per_second / game_target_fps;
 		sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
 		
 		var sound_buffer = init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);

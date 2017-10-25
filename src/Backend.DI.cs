@@ -49,6 +49,7 @@ namespace PragmaScript {
             }
         }
         void AppendFunctionArgumentsDebugInfo(Value value) {
+            return;
             if (!CompilerOptions.debugInfo) {
                 return;
             }

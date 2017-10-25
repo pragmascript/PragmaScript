@@ -349,7 +349,7 @@
     let GetDC = extern fun (hWnd: mm) => mm;
     let ReleaseDC = extern fun (hWnd: mm; hdc: mm) => i32;
     let GetCompatibleDC = extern fun (hdc: mm) => mm;
-    
+
     let VirtualAlloc = extern fun 
     (
       address: ptr;
@@ -357,6 +357,7 @@
       allocation_type: i32;
       protect: i32;
     ) => ptr;
+
     let VirtualFree = extern fun
     (
       address: ptr;

@@ -114,6 +114,7 @@ let init_gl_resources = fun() => void {
     glBindVertexArray(DummyVAO);
 
     var vs_source = read_file("..\\vs.glsl\0");
+    assert(vs_source.data != nullptr);
     var vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vs_source.data, (i32*)0);
     glCompileShader(vertexShader);
@@ -128,6 +129,7 @@ let init_gl_resources = fun() => void {
     }
     
     var fs_source = read_file("..\\fs.glsl\0");
+    assert(fs_source.data != nullptr);
     var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fs_source.data, (i32*)0);
     glCompileShader(fragmentShader);
@@ -319,7 +321,7 @@ let load_wgl_extensions = fun() => void {
     DestroyWindow(dummy_wnd);
 
     // debug_print_string("wgl extensions", from_cstr(wglGetExtensionsStringEXT()));
-    // debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
+    debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
 }
 
 let opengl_info = struct (
@@ -505,7 +507,7 @@ let gl_error_callback = fun(
 [
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "1",
+ 	"compile.opt"   : "0",
     "compile.debuginfo": "true",
     "compile.ll"    : "true",
     "compile.asm"   : "false",
