@@ -118,7 +118,7 @@ namespace Handmade.Game
         render_tilemap(&world, current_tile_map, render_target);
 
         var player_size = tile_size / 2;
-        var hs = (f32)player_size / 2;
+        var hs = player_size@f32 / 2;
         
         var is_valid = true;
         is_valid &= !is_blocked(&world, current_tile_map, game_state.new_player_x + hs, game_state.new_player_y + hs);
@@ -132,9 +132,9 @@ namespace Handmade.Game
         let player_color = color { 0.3, 0.5, 0.8, 1.0 };
         var px = game_state.player_x;
         var py = game_state.player_y;
-        var tsh = (f32)tile_size / 2;
-        var tx = (i32)((px+hs - (f32)offset + tsh) / (f32)tile_size);
-        var ty = (i32)((py+hs - (f32)offset + tsh) / (f32)tile_size);
+        var tsh = tile_size@f32 / 2;
+        var tx = @i32 ((px+hs - offset@f32 + tsh) / tile_size@f32);
+        var ty = @i32 ((py+hs - offset@f32 + tsh) / tile_size@f32);
         var pos_x = offset + tx * tile_size;
         var pos_y = offset + ty * tile_size;
 
@@ -160,8 +160,8 @@ namespace Handmade.Game
         let red = color {1.0, 0.0, 0.0, 1.0};
         let green = color {0.0, 1.0, 0.0, 1.0};
         let blue =  color {0.0, 0.0, 1.0, 1.0};
-        for (var y = 0; y < (i32\)len(tile_map.data, 0); ++y) {
-            for (var x = 0; x < (i32\)len(tile_map.data, 1); ++x) {
+        for (var y = 0; y < len(tile_map.data, 0)@\i32; ++y) {
+            for (var x = 0; x < len(tile_map.data, 1)@\i32; ++x) {
                 var tile_id = tile_map.data[y, x];
                 var color = color {};
                 
@@ -180,14 +180,14 @@ namespace Handmade.Game
     }
 
     let is_blocked = fun (world: world*; @tile_map: tile_map*; x: f32; y: f32) => bool {
-        var tsh = (f32)world.tile_size/2;
-        var tx = (i32)((x - (f32)world.offset + tsh) / (f32)world.tile_size);
-        var ty = (i32)((y - (f32)world.offset + tsh) / (f32)world.tile_size);
+        var tsh = world.tile_size@f32 / 2;
+        var tx = @i32 ((x - world.offset@f32 + tsh) / world.tile_size@f32);
+        var ty = @i32 ((y - world.offset@f32 + tsh) / world.tile_size@f32);
         // debug_print_i32("tx", tx);
         // debug_print_i32("ty", ty);
 
-        if (tx >= 0 && tx < (i32\)len(data, 1) && 
-            ty >= 0 && ty < (i32\)len(data, 0)) {
+        if (tx >= 0 && tx < len(data, 1)@\i32 && 
+            ty >= 0 && ty < len(data, 0)@\i32) {
             var tile_value = data[ty, tx];
             if (tile_value == 0) {
                 return false;
@@ -217,18 +217,18 @@ namespace Handmade.Game
         var debug_sound_output = sound_output;
         var game_state = get_game_state(game_memory);
         var sample = sample_out;
-        assert((ptr)sample != nullptr);
+        assert(sample@ptr != nullptr);
         
         let tone_hz = 800.0;
         let volume = 0.1;
-        var delta_t = 1.0 / (f32)samples_per_second;
+        var delta_t = 1.0 / @f32 samples_per_second;
         // var t = Math.remainder(game_state.sound_t, Math.tau_32);
         var t = game_state.sound_t;
 
         for (var i: i32 = 0; i < sample_count; ++i) {
             // var v = Math.lerp(game_state.volume, game_state.target_volume, t);
             var p = tone_hz * Math.tau_32 * t;
-            var x = (i16)(32767 * volume * Math.sin(p));
+            var x = @i16 (32767 * volume * Math.sin(p));
             *sample++ = x;
             *sample++ = x;
             t += delta_t;
@@ -240,7 +240,7 @@ namespace Handmade.Game
 
     let get_game_state = fun (memory: game_memory*) => game_state* 
     {
-        var game_state = (game_state*)memory.permanent_data;
+        var game_state = @game_state* memory.permanent_data;
         if (!game_state.is_initialized) {
             game_state.is_initialized = true;
             game_state.player_x = 610;
@@ -312,10 +312,10 @@ namespace Handmade.Game
         color: color;
     ) => void
     {
-        var min_x_p = (i32)Math.round(rect.pos.x);
-        var min_y_p = (i32)Math.round(rect.pos.y);
-        var max_x_p = (i32)Math.round(rect.pos.x + rect.size.x);
-        var max_y_p = (i32)Math.round(rect.pos.y + rect.size.y);
+        var min_x_p = @i32 Math.round(rect.pos.x);
+        var min_y_p = @i32 Math.round(rect.pos.y);
+        var max_x_p = @i32 Math.round(rect.pos.x + rect.size.x);
+        var max_y_p = @i32 Math.round(rect.pos.y + rect.size.y);
         if (min_x_p < 0) {
             min_x_p = 0;
         }
@@ -329,11 +329,11 @@ namespace Handmade.Game
             max_y_p = buffer.height;
         }
 
-        var r = (i32)Math.round(color.r * 255);
+        var r = @i32 Math.round(color.r * 255);
         r = Math.clamp_i32(r, 0, 255);
-        var g = (i32)Math.round(color.g * 255);
+        var g = @i32 Math.round(color.g * 255);
         g = Math.clamp_i32(g, 0, 255);
-        var b = (i32)Math.round(color.b * 255);
+        var b = @i32 Math.round(color.b * 255);
         b = Math.clamp_i32(b, 0, 255);
         var c = (r << 16) | (g << 8) | (b << 0);
 
@@ -341,7 +341,7 @@ namespace Handmade.Game
         row += min_y_p * buffer.pitch;
         row += 4 * min_x_p;
         for (var y = min_y_p; y < max_y_p; ++y) {
-            var pixel = (i32*)row;
+            var pixel = @i32* row;
             for (var x = min_x_p; x < max_x_p; ++x) {
                 *(pixel++) = c;    
             }    

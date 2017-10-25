@@ -23,7 +23,7 @@ let get_perf_counter = fun() => i64 {
 }
 var perf_count_freq: i64;
 let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
-    return (f64)(t1 - t0) / (f64)perf_count_freq;
+    return (t1 - t0)@f64 / perf_count_freq@f64;
 }
 let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
     return get_seconds_elapsed(t0, t1) * 1000;
@@ -68,13 +68,13 @@ let read_file = fun (name: string) => string
         return result;
     }
 
-    var buffer = VirtualAlloc(nullptr, (mm)size, MEM_COMMIT, PAGE_READWRITE);
-    if ((mm)buffer == null) {
+    var buffer = VirtualAlloc(nullptr, size@mm, MEM_COMMIT, PAGE_READWRITE);
+    if (buffer@mm == null) {
         CloseHandle(handle);
         return result;
     }
-    assert((mm)size <=\ gigabytes(4));
-    var size_32 = (i32)size;
+    assert(size@mm <=\ gigabytes(4));
+    var size_32 = size@i32;
     var bytes_read: i32;
     var rfr = ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
     assert(bytes_read == size_32);
@@ -116,14 +116,14 @@ let init_gl_resources = fun() => void {
     var vs_source = read_file("..\\vs.glsl\0");
     assert(vs_source.data != nullptr);
     var vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vs_source.data, (i32*)0);
+    glShaderSource(vertexShader, 1, &vs_source.data, 0@i32*);
     glCompileShader(vertexShader);
     {
         var success: i32;
         var infoLog: i8[512];
         glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
         if (success == 0) {
-            glGetShaderInfoLog(vertexShader, (i32\)len(infoLog), (i32*)0, &infoLog);
+            glGetShaderInfoLog(vertexShader, len(infoLog)@\i32, 0@i32*, &infoLog);
             debug_print_string("vs.glsl", from_cstr(&infoLog[0]));
         }
     }
@@ -131,14 +131,14 @@ let init_gl_resources = fun() => void {
     var fs_source = read_file("..\\fs.glsl\0");
     assert(fs_source.data != nullptr);
     var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fs_source.data, (i32*)0);
+    glShaderSource(fragmentShader, 1, &fs_source.data, 0@i32*);
     glCompileShader(fragmentShader);
     {
         var success: i32;
         var infoLog: i8[512];
         glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
         if (success == 0) {
-            glGetShaderInfoLog(fragmentShader, (i32\)len(infoLog), (i32*)0, &infoLog);
+            glGetShaderInfoLog(fragmentShader, len(infoLog)@\i32, 0@i32*, &infoLog);
             debug_print_string("fs.glsl", from_cstr(&infoLog[0]));
         }
     }
@@ -152,7 +152,7 @@ let init_gl_resources = fun() => void {
         var infoLog: i8[512];
         glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
         if (success == 0) {
-            glGetProgramInfoLog(shaderProgram, (i32\)len(infoLog), (i32*)0, &infoLog);
+            glGetProgramInfoLog(shaderProgram, len(infoLog)@\i32, 0@i32*, &infoLog);
             debug_print_string("program", from_cstr(&infoLog[0]));
         }
     }
@@ -178,14 +178,14 @@ let init_gl_resources = fun() => void {
     var VBO: i32;
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices_size, (ptr)(&vertices), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices_size, (&vertices)@ptr, GL_STATIC_DRAW);
 
     var EBO: i32;
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, (ptr)(&indices), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, @ptr(&indices), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * (i32\)(size_of(f32)), nullptr);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
     glEnableVertexAttribArray(0);
 
     glUseProgram(shaderProgram);
@@ -205,8 +205,8 @@ let process_pending_messages = fun() => void {
             || message == WM_KEYDOWN
             || message == WM_KEYUP) {
 
-            var w_param = (i32)(msg.wParam >> (mm)32);
-            var l_param = (i32)(msg.lParam >> (mm)32);
+            var w_param = @i32 (msg.wParam >> 32@mm);
+            var l_param = @i32 (msg.lParam >> 32@mm);
             var vk_code = w_param;
 
             var was_down = (l_param & (1 << 30)) != 0;
@@ -262,10 +262,10 @@ let load_wgl_extensions = fun() => void {
     var class_name = cstr("wgl_extension_dummy_window\0");
     var window_name = cstr("dummy window\0");
 
-    window_class.cbSize = (i32)(size_of(WNDCLASSEX));
+    window_class.cbSize = size_of(WNDCLASSEX)@i32;
     window_class.hInstance = GetModuleHandleA(0);
     window_class.lpszClassName = class_name;
-    window_class.lpfnWndProc = (ptr)DefWindowProcA;
+    window_class.lpfnWndProc = @ptr DefWindowProcA;
     RegisterClassExA(&window_class);
     var dummy_wnd = CreateWindowExA(
         0,
@@ -286,7 +286,7 @@ let load_wgl_extensions = fun() => void {
     assert(dummy_dc != null);
 
     var pfd = PIXELFORMATDESCRIPTOR { };
-    pfd.nSize = (i16)(size_of(PIXELFORMATDESCRIPTOR));
+    pfd.nSize = size_of(PIXELFORMATDESCRIPTOR)@i16;
     pfd.nVersion = 1;
     pfd.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
     pfd.cColorBits = 32;
@@ -295,7 +295,7 @@ let load_wgl_extensions = fun() => void {
     var t0 = get_perf_counter();
     var pfd_idx = ChoosePixelFormat(dummy_dc, &pfd);
     var suggested_pfd: PIXELFORMATDESCRIPTOR;
-    DescribePixelFormat(dummy_dc, pfd_idx, (i32)(size_of(PIXELFORMATDESCRIPTOR)), &suggested_pfd);
+    DescribePixelFormat(dummy_dc, pfd_idx, size_of(PIXELFORMATDESCRIPTOR)@i32, &suggested_pfd);
     SetPixelFormat(dummy_dc, pfd_idx, &suggested_pfd);
     var t1 = get_perf_counter();
 
@@ -303,17 +303,17 @@ let load_wgl_extensions = fun() => void {
     var success = wglMakeCurrent(dummy_dc, gl_rc);
     assert(success != 0);
 
-    *((ptr*)(&wglChoosePixelFormatARB)) = wglGetProcAddress(cstr("wglChoosePixelFormatARB\0"));
-    assert((ptr)wglChoosePixelFormatARB != nullptr);
+    *(&wglChoosePixelFormatARB@ptr*) = wglGetProcAddress(cstr("wglChoosePixelFormatARB\0"));
+    assert(wglChoosePixelFormatARB@ptr != nullptr);
 
-    *((ptr*)(&wglCreateContextAttribsARB)) = wglGetProcAddress(cstr("wglCreateContextAttribsARB\0"));
-    assert((ptr)wglCreateContextAttribsARB != nullptr);
+    *(&wglCreateContextAttribsARB@ptr*) = wglGetProcAddress(cstr("wglCreateContextAttribsARB\0"));
+    assert(wglCreateContextAttribsARB@ptr != nullptr);
 
-    *((ptr*)(&wglSwapIntervalEXT)) = wglGetProcAddress(cstr("wglSwapIntervalEXT\0"));
-    assert((ptr)wglSwapIntervalEXT != nullptr);
+    *(&wglSwapIntervalEXT@ptr*) = wglGetProcAddress(cstr("wglSwapIntervalEXT\0"));
+    assert(wglSwapIntervalEXT@ptr != nullptr);
 
-    *((ptr*)(&wglGetExtensionsStringEXT)) = wglGetProcAddress(cstr("wglGetExtensionsStringEXT\0"));
-    assert((ptr)wglGetExtensionsStringEXT != nullptr);
+    *(&wglGetExtensionsStringEXT@ptr*) = wglGetProcAddress(cstr("wglGetExtensionsStringEXT\0"));
+    assert(wglGetExtensionsStringEXT@ptr != nullptr);
 
     wglMakeCurrent(0, 0);
     wglDeleteContext(gl_rc);
@@ -378,7 +378,7 @@ let init_opengl = fun (window: window_state*) => void {
 
     var suggested_pixel_format_index = 0;
     var extended_pick = 0;
-    wglChoosePixelFormatARB(dc, &int_attrib_list[0], (f32*)0, 1, 
+    wglChoosePixelFormatARB(dc, &int_attrib_list[0], 0@f32*, 1, 
         &suggested_pixel_format_index, &extended_pick);
 
     // debug_print_i32("suggested_pixel_format_index", suggested_pixel_format_index);
@@ -386,7 +386,7 @@ let init_opengl = fun (window: window_state*) => void {
     assert(extended_pick == 1);
 
     var pfd: PIXELFORMATDESCRIPTOR;
-    DescribePixelFormat(dc, suggested_pixel_format_index, (i32)(size_of(PIXELFORMATDESCRIPTOR)), &pfd);
+    DescribePixelFormat(dc, suggested_pixel_format_index, @i32(size_of(PIXELFORMATDESCRIPTOR)), &pfd);
     SetPixelFormat(dc, suggested_pixel_format_index, &pfd);
     
     var t1 = get_perf_counter();
@@ -407,79 +407,79 @@ let init_opengl = fun (window: window_state*) => void {
     
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 
-    *((ptr*)(&glDebugMessageCallback)) = wglGetProcAddress(cstr("glDebugMessageCallback\0"));
-    assert((ptr)(glDebugMessageCallback) != nullptr);
-    glDebugMessageCallback((glDebugMessageCallbackType)gl_error_callback, nullptr);
+    *(&glDebugMessageCallback@ptr*) = wglGetProcAddress(cstr("glDebugMessageCallback\0"));
+    assert(glDebugMessageCallback@ptr != nullptr);
+    glDebugMessageCallback(@glDebugMessageCallbackType gl_error_callback, nullptr);
 
     
-    *((ptr*)(&glGenBuffers)) = wglGetProcAddress(cstr("glGenBuffers\0"));
-    assert((ptr)(glGenBuffers) != nullptr);
+    *(&glGenBuffers@ptr*) = wglGetProcAddress(cstr("glGenBuffers\0"));
+    assert(glGenBuffers@ptr != nullptr);
 
-    *((ptr*)(&glBindBuffer)) = wglGetProcAddress(cstr("glBindBuffer\0"));
-    assert((ptr)(glBindBuffer) != nullptr);
+    *(&glBindBuffer@ptr*) = wglGetProcAddress(cstr("glBindBuffer\0"));
+    assert(glBindBuffer@ptr != nullptr);
 
-    *((ptr*)(&glBufferData)) = wglGetProcAddress(cstr("glBufferData\0"));
-    assert((ptr)(glBufferData) != nullptr);
+    *(&glBufferData@ptr*) = wglGetProcAddress(cstr("glBufferData\0"));
+    assert(glBufferData@ptr != nullptr);
 
-    *((ptr*)(&glEnableVertexAttribArray)) = wglGetProcAddress(cstr("glEnableVertexAttribArray\0"));
-    assert((ptr)(glEnableVertexAttribArray) != nullptr);
+    *(&glEnableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glEnableVertexAttribArray\0"));
+    assert(glEnableVertexAttribArray@ptr != nullptr);
 
-    *((ptr*)(&glDisableVertexAttribArray)) = wglGetProcAddress(cstr("glDisableVertexAttribArray\0"));
-    assert((ptr)(glDisableVertexAttribArray) != nullptr);
+    *(&glDisableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glDisableVertexAttribArray\0"));
+    assert(glDisableVertexAttribArray@ptr != nullptr);
 
-    *((ptr*)(&glVertexAttribPointer)) = wglGetProcAddress(cstr("glVertexAttribPointer\0"));
-    assert((ptr)(glVertexAttribPointer) != nullptr);
+    *(&glVertexAttribPointer@ptr*) = wglGetProcAddress(cstr("glVertexAttribPointer\0"));
+    assert(glVertexAttribPointer@ptr != nullptr);
 
-    *((ptr*)(&glCreateShader)) = wglGetProcAddress(cstr("glCreateShader\0"));
-    assert((ptr)(glCreateShader) != nullptr);
+    *(&glCreateShader@ptr*) = wglGetProcAddress(cstr("glCreateShader\0"));
+    assert(glCreateShader@ptr != nullptr);
 
-    *((ptr*)(&glShaderSource)) = wglGetProcAddress(cstr("glShaderSource\0"));
-    assert((ptr)(glShaderSource) != nullptr);
+    *(&glShaderSource@ptr*) = wglGetProcAddress(cstr("glShaderSource\0"));
+    assert(glShaderSource@ptr != nullptr);
 
-    *((ptr*)(&glCompileShader)) = wglGetProcAddress(cstr("glCompileShader\0"));
-    assert((ptr)(glCompileShader) != nullptr);
+    *(&glCompileShader@ptr*) = wglGetProcAddress(cstr("glCompileShader\0"));
+    assert(glCompileShader@ptr != nullptr);
     
-    *((ptr*)(&glDeleteShader)) = wglGetProcAddress(cstr("glDeleteShader\0"));
-    assert((ptr)(glDeleteShader) != nullptr);
+    *(&glDeleteShader@ptr*) = wglGetProcAddress(cstr("glDeleteShader\0"));
+    assert(glDeleteShader@ptr != nullptr);
 
-    *((ptr*)(&glCreateProgram)) = wglGetProcAddress(cstr("glCreateProgram\0"));
-    assert((ptr)(glCreateProgram) != nullptr);
+    *(&glCreateProgram@ptr*) = wglGetProcAddress(cstr("glCreateProgram\0"));
+    assert(glCreateProgram@ptr != nullptr);
 
-    *((ptr*)(&glAttachShader)) = wglGetProcAddress(cstr("glAttachShader\0"));
-    assert((ptr)(glAttachShader) != nullptr);
+    *(&glAttachShader@ptr*) = wglGetProcAddress(cstr("glAttachShader\0"));
+    assert(glAttachShader@ptr != nullptr);
 
-    *((ptr*)(&glLinkProgram)) = wglGetProcAddress(cstr("glLinkProgram\0"));
-    assert((ptr)(glLinkProgram) != nullptr);
+    *(&glLinkProgram@ptr*) = wglGetProcAddress(cstr("glLinkProgram\0"));
+    assert(glLinkProgram@ptr != nullptr);
 
-    *((ptr*)(&glUseProgram)) = wglGetProcAddress(cstr("glUseProgram\0"));
-    assert((ptr)(glUseProgram) != nullptr);
+    *(&glUseProgram@ptr*) = wglGetProcAddress(cstr("glUseProgram\0"));
+    assert(glUseProgram@ptr != nullptr);
 
-    *((ptr*)(&glDeleteProgram)) = wglGetProcAddress(cstr("glDeleteProgram\0"));
-    assert((ptr)(glDeleteProgram) != nullptr);
+    *(&glDeleteProgram@ptr*) = wglGetProcAddress(cstr("glDeleteProgram\0"));
+    assert(glDeleteProgram@ptr != nullptr);
 
-    *((ptr*)(&glGetShaderiv)) = wglGetProcAddress(cstr("glGetShaderiv\0"));
-    assert((ptr)(glGetShaderiv) != nullptr);
+    *(&glGetShaderiv@ptr*) = wglGetProcAddress(cstr("glGetShaderiv\0"));
+    assert(glGetShaderiv@ptr != nullptr);
 
-    *((ptr*)(&glGetProgramiv)) = wglGetProcAddress(cstr("glGetProgramiv\0"));
-    assert((ptr)(glGetProgramiv) != nullptr);
+    *(&glGetProgramiv@ptr*) = wglGetProcAddress(cstr("glGetProgramiv\0"));
+    assert(glGetProgramiv@ptr != nullptr);
 
-    *((ptr*)(&glGetShaderInfoLog)) = wglGetProcAddress(cstr("glGetShaderInfoLog\0"));
-    assert((ptr)(glGetShaderInfoLog) != nullptr);
+    *(&glGetShaderInfoLog@ptr*) = wglGetProcAddress(cstr("glGetShaderInfoLog\0"));
+    assert(glGetShaderInfoLog@ptr != nullptr);
 
-    *((ptr*)(&glGetProgramInfoLog)) = wglGetProcAddress(cstr("glGetProgramInfoLog\0"));
-    assert((ptr)(glGetProgramInfoLog) != nullptr);
+    *(&glGetProgramInfoLog@ptr*) = wglGetProcAddress(cstr("glGetProgramInfoLog\0"));
+    assert(glGetProgramInfoLog@ptr != nullptr);
 
-    *((ptr*)(&glGenVertexArrays)) = wglGetProcAddress(cstr("glGenVertexArrays\0"));
-    assert((ptr)(glGenVertexArrays) != nullptr);
+    *(&glGenVertexArrays@ptr*) = wglGetProcAddress(cstr("glGenVertexArrays\0"));
+    assert(glGenVertexArrays@ptr != nullptr);
 
-    *((ptr*)(&glBindVertexArray)) = wglGetProcAddress(cstr("glBindVertexArray\0"));
-    assert((ptr)(glBindVertexArray) != nullptr);
+    *(&glBindVertexArray@ptr*) = wglGetProcAddress(cstr("glBindVertexArray\0"));
+    assert(glBindVertexArray@ptr != nullptr);
 
-    *((ptr*)(&glDrawArrays)) = wglGetProcAddress(cstr("glDrawArrays\0"));
-    assert((ptr)(glDrawArrays) != nullptr);
+    *(&glDrawArrays@ptr*) = wglGetProcAddress(cstr("glDrawArrays\0"));
+    assert(glDrawArrays@ptr != nullptr);
 
-    *((ptr*)(&glDrawElements)) = wglGetProcAddress(cstr("glDrawElements\0"));
-    assert((ptr)(glDrawElements) != nullptr);
+    *(&glDrawElements@ptr*) = wglGetProcAddress(cstr("glDrawElements\0"));
+    assert(glDrawElements@ptr != nullptr);
 
     var t2 = get_perf_counter();
     var info = get_opengl_info();
@@ -499,9 +499,41 @@ let gl_error_callback = fun(
     message: ptr;
     userParam: ptr;
 ) => void {
-    print_string("\nglerror: ");
+    print_string("\n(gl) ");
+    if (type == GL_DEBUG_TYPE_ERROR) {
+        print_string("error");
+    } elif (type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR) {
+        print_string("deprecated");
+    } elif (type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR) {
+        print_string("undefined");
+    } elif (type == GL_DEBUG_TYPE_PORTABILITY) {
+        print_string("portability");
+    } elif (type == GL_DEBUG_TYPE_PERFORMANCE) {
+        print_string("performance");
+    } elif (type == GL_DEBUG_TYPE_OTHER) {
+        print_string("other");
+    } elif (type == GL_DEBUG_TYPE_MARKER) {
+        print_string("marker");
+    } elif (type == GL_DEBUG_TYPE_PUSH_GROUP) {
+        print_string("push");
+    } elif (type == GL_DEBUG_TYPE_POP_GROUP) {
+        print_string("pop");
+    } 
+    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+        print_string("(note): ");
+    } elif (severity == GL_DEBUG_SEVERITY_LOW) {
+        print_string("(low): ");
+    } elif (severity == GL_DEBUG_SEVERITY_MEDIUM) {
+        print_string("(medium): ");
+    } elif (severity == GL_DEBUG_SEVERITY_HIGH) {
+        print_string("(high): ");
+    }
     print_string(from_cstr(message));
     print_string("\n");
+
+    if (type == GL_DEBUG_TYPE_ERROR) {
+        assert(false);
+    }
 }
 
 [
@@ -512,7 +544,7 @@ let gl_error_callback = fun(
     "compile.ll"    : "true",
     "compile.asm"   : "false",
     "compile.cpu"   : "native",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
@@ -540,9 +572,9 @@ let main = fun() => void {
     var window_name = cstr("opengl test\0");
     var module_handle = GetModuleHandleA(null);
     var window_class = WNDCLASSEX {};
-    window_class.cbSize = (i32)(size_of(WNDCLASSEX));
+    window_class.cbSize = size_of(WNDCLASSEX)@i32;
     window_class.style = CS_HREDRAW|CS_VREDRAW;
-    window_class.lpfnWndProc = (ptr)main_window_callback;
+    window_class.lpfnWndProc = @ptr main_window_callback;
     window_class.hInstance = module_handle;
     window_class.lpszClassName = class_name;
     window_class.hCursor = LoadCursorA(null, IDC_ARROW);
@@ -579,7 +611,7 @@ let main = fun() => void {
         process_pending_messages();
         var t0 = get_perf_counter();
         var time = get_seconds_elapsed(start_time, t0);
-        render_opengl(&window, (f32)time);
+        render_opengl(&window, @f32 time);
         var t1 = get_perf_counter();
         frames++;
         if (frames == 60) {

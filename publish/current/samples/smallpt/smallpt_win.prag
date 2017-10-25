@@ -137,13 +137,13 @@ let clamp_01 = fun (x: f32) => f32 {
 
 let to_int = fun (x: f32) => i32 {
     var m = Math.pow(clamp_01(x), 1.0 / 2.2) * 255.0 + 0.5;
-    return (i32)(Math.trunc(m));
+    return @i32 Math.trunc(m);
 }
 
 let intersect = fun(ray: Ray*; t: f32*; obj: Sphere**) => bool {
     let max = 10000000000.0;
     *t = max;
-    *obj = (Sphere*)nullptr;
+    *obj = nullptr@Sphere*;
     
     var d: f32;
     for (var i = 0; i < sphere_count; ++i) {
@@ -301,8 +301,11 @@ let radiance = fun(ray: Ray*; depth: i32; random_state: Random.State*) => Vec {
 let sphere_count = 9;
 var spheres: Sphere*;
 
+
+
 let create_spheres = fun() => void {
-    spheres = (Sphere*)VirtualAlloc(nullptr, (mm)(size_of(Sphere) * (mm)sphere_count),
+    
+    spheres = @Sphere* VirtualAlloc(nullptr,(size_of(Sphere)@mm) * sphere_count@mm,
                MEM_COMMIT, PAGE_READWRITE);
     var s = spheres;
     
@@ -420,15 +423,15 @@ let render_tile_position = fun (sx: i32; sy: i32) => void {
 
     let color: i32 = 0xFFFFFFFF;
     
-    var up_row = (i32*)start;
-    var down_row = (i32*)(start + buf.pitch * (tile_size - 1));
+    var up_row = @i32* start;
+    var down_row = @i32* (start + buf.pitch * (tile_size - 1));
     for (var x = 0; x < tile_size; ++x) {
         *up_row++ = color;
         *down_row++ = color;
     }
 
-    var left_column = (i32*)start;
-    var right_column = (i32*)(start + 4 * (tile_size - 1));
+    var left_column = @i32* start;
+    var right_column = @i32* (start + 4 * (tile_size - 1));
     for (var y = 0; y < tile_size; ++y) {
         *left_column = color;
         *right_column = color;
@@ -462,8 +465,8 @@ let render_tile = fun (@tile: Tile*; random_state: Random.State*) => void {
                     dy = 1.0 - Math.sqrt(2 - r2);
                 }
                 
-                var px = ((f32)sx + (f32)x + 0.5*dx) / (f32)width;
-                var py = ((f32)sy + (f32)y + 0.5*dy) / (f32)height;
+                var px = (sx@f32 + x@f32 + 0.5*dx) / width@f32;
+                var py = (sy@f32 + y@f32 + 0.5*dy) / height@f32;
 
                 var scx = scaled(&cam_x, px - 0.5);
                 var scy = scaled(&cam_y, py - 0.5);
@@ -480,7 +483,7 @@ let render_tile = fun (@tile: Tile*; random_state: Random.State*) => void {
                 var r = radiance(&sample_ray, 0, random_state);
                 sample_radiance = add(&sample_radiance, &r);
             }
-            var sr = scaled(&sample_radiance, 1.0 / (f32)samples);
+            var sr = scaled(&sample_radiance, 1.0 / @f32 samples);
            
             *pixels++ = sr;
         }
@@ -494,7 +497,7 @@ let render_tile = fun (@tile: Tile*; random_state: Random.State*) => void {
     row += 4 * sx;
     for (var y = 0; y < tile_size; ++y) {
         var tile_samples = tile_row;
-        var pixel = (i32*)row;
+        var pixel = @i32* row;
         for (var x = 0; x < tile_size; ++x) {
             var v = *tile_samples++;
             var r = to_int(v.x);
@@ -584,7 +587,7 @@ let create_backbuffer = fun
     if (memory != nullptr) {
         VirtualFree(memory, null, MEM_RELEASE);
     }
-    memory = VirtualAlloc(nullptr, (mm\)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
+    memory = VirtualAlloc(nullptr, bitmap_size@\mm, MEM_COMMIT, PAGE_READWRITE);
     pitch = buffer.width * bytes_per_pixel;
 }
 
@@ -609,8 +612,8 @@ let process_pending_messages = fun() => void {
             || message == WM_KEYDOWN
             || message == WM_KEYUP) {
 
-            var w_param = (i32)(msg.wParam >> (mm)32);
-            var l_param = (i32)(msg.lParam >> (mm)32);
+            var w_param = @i32 (msg.wParam >> 32@mm);
+            var l_param = @i32 (msg.lParam >> 32@mm);
             var vk_code = w_param;
 
             var was_down = (l_param & (1 << 30)) != 0;
@@ -716,9 +719,9 @@ let main = fun() => void {
     var window_name = cstr("smallpt\0");
     var module_handle = GetModuleHandleA(null);
     var window_class = WNDCLASSEX {};
-    window_class.cbSize = (i32)(size_of(WNDCLASSEX));
+    window_class.cbSize = @i32 (size_of(WNDCLASSEX));
     window_class.style = CS_HREDRAW|CS_VREDRAW;
-    window_class.lpfnWndProc = (ptr)main_window_callback;
+    window_class.lpfnWndProc = @ptr main_window_callback;
     window_class.hInstance = module_handle;
     window_class.lpszClassName = class_name;
     window_class.hCursor = LoadCursorA(null, IDC_ARROW);
@@ -755,7 +758,7 @@ let main = fun() => void {
     }
 
     var t1 = get_perf_counter();
-    var t = (f64)(t1-t0) / (f64)perf_count_freq;
+    var t = (t1-t0)@f64 / @f64 perf_count_freq;
     debug_print_f64("seconds elapsed: ", t);
 
 
@@ -789,7 +792,7 @@ let start_render = fun () => void {
     debug_print_i32("width", width);
     debug_print_i32("height", height);
 
-    var pixel_data = (Vec*)VirtualAlloc(nullptr, size_of(Vec) * (mm)width * (mm)height, MEM_COMMIT, PAGE_READWRITE);
+    var pixel_data = @Vec* VirtualAlloc(nullptr, size_of(Vec) * @mm width * @mm height, MEM_COMMIT, PAGE_READWRITE);
 
     var cam: Ray;
     cam.origin = v3(50,52,295.6);
@@ -797,7 +800,7 @@ let start_render = fun () => void {
     normalize(&cam.direction);
 
     let fov = 0.5135;
-    var cam_x = v3((f32)width * fov / (f32)height, 0, 0);
+    var cam_x = v3(@f32 width * fov / height@f32, 0, 0);
     var cam_y = cross(&cam_x, &cam.direction);
     normalize(&cam_y);
     cam_y = scaled(&cam_y, fov);
@@ -805,7 +808,7 @@ let start_render = fun () => void {
 
     // create tiles
     var tile_count = x_tiles * y_tiles;
-    var tiles = (Tile*)VirtualAlloc(nullptr, size_of(Tile) * (mm)tile_count, MEM_COMMIT, PAGE_READWRITE);
+    var tiles = @Tile* VirtualAlloc(nullptr, size_of(Tile) * @mm tile_count, MEM_COMMIT, PAGE_READWRITE);
     var idx = 0;
     for (var j = 0; j < y_tiles; ++j) {
         for (var i = 0; i < x_tiles; ++i) {
@@ -824,7 +827,7 @@ let start_render = fun () => void {
     }
 
     // create jobs
-    render_jobs = (RenderJob*)VirtualAlloc(nullptr, size_of(RenderJob) * (mm)thread_count, MEM_COMMIT, PAGE_READWRITE);
+    render_jobs = @RenderJob* VirtualAlloc(nullptr, size_of(RenderJob) * @mm thread_count, MEM_COMMIT, PAGE_READWRITE);
     render_job_count = thread_count;
     for (var i = 0; i < render_job_count; ++i) {
         var j: RenderJob;
@@ -839,6 +842,6 @@ let start_render = fun () => void {
     for (var i = 0; i < render_job_count; ++i) {
         var job = render_jobs + i;
         var thread_id: mm;
-        var thread_handle = CreateThread(nullptr, null, (ThreadProc)do_render_job, (ptr)job, 0, &thread_id);
+        var thread_handle = CreateThread(nullptr, null, do_render_job@ThreadProc, job@ptr, 0, &thread_id);
     }
 }

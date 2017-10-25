@@ -926,7 +926,7 @@ namespace PragmaScript {
                 return parseAssignment(ref ps, scope, precedence);
             }
             if (precedence == 1) {
-                return parseUnary(ref ps, scope);
+                return parseTypeOperator(ref ps, scope);
             }
             var left = parseBinOp(ref ps, scope, precedence - 1);
             var right = default(Node);
@@ -949,14 +949,42 @@ namespace PragmaScript {
             return left;
         }
 
+        private static Node parseTypeOperator(ref ParseState ps, Scope scope) {
+            
+            var left = parseUnary(ref ps, scope);
+            var next = ps.PeekToken();
+            while (next.type == Token.TokenType.At || next.type == Token.TokenType.UnsignedCast) {
+                ps.NextToken();
+                ps.NextToken();
+                var right = parseTypeString(ref ps, scope);
+                var result = new TypeCastOp(next, scope);
+                result.expression = left;
+                result.typeString = right;
+                result.unsigned = next.type == Token.TokenType.UnsignedCast;
+                left = result;
+                next = ps.PeekToken();
+            }
+            return left;
+        }
+
         // operator precedence 1
         private static Node parseUnary(ref ParseState ps, Scope scope)
         {
             var current = ps.CurrentToken();
 
+            if (current.type == Token.TokenType.At || current.type == Token.TokenType.UnsignedCast) {
+                ps.NextToken();
+                var ts = parseTypeString(ref ps, scope);
+                ps.NextToken();
+                var exp = parsePrimary(ref ps, scope);
+                var result = new TypeCastOp(current, scope);
+                result.typeString = ts;
+                result.expression = exp;
+                result.unsigned = current.type == Token.TokenType.UnsignedCast;
+                return result;
+            } 
             // handle unary plus and minus, ! and ~
-            if (UnaryOp.IsUnaryToken(current)) {
-
+            else if (UnaryOp.IsUnaryToken(current)) {
                 var result = new UnaryOp(current, scope);
                 result.SetTypeFromToken(current, prefix: true);
 
@@ -979,43 +1007,42 @@ namespace PragmaScript {
                 return result;
             }
 
-            var tempState = ps;
-            var next = tempState.NextToken(tokenMustExist: false);
-            var nextNext = tempState.PeekToken();
+            // var tempState = ps;
+            // var next = tempState.NextToken(tokenMustExist: false);
+            // var nextNext = tempState.PeekToken();
+            // // handle type cast operator (T)x
+            // if (current.type == Token.TokenType.OpenBracket
+            //     && next.type == Token.TokenType.Identifier
+            //     // && nextNext.type == Token.TokenType.CloseBracket
+            //     ) {
+            //     // there can be ambiguities here see: https://msdn.microsoft.com/en-us/library/aa691370(v=vs.71).aspx
+            //     // so we first speculatively assume its a cast expression
+            //     var temp = ps;
 
-            // handle type cast operator (T)x
-            if (current.type == Token.TokenType.OpenBracket
-                && next.type == Token.TokenType.Identifier
-                // && nextNext.type == Token.TokenType.CloseBracket
-                ) {
-                // there can be ambiguities here see: https://msdn.microsoft.com/en-us/library/aa691370(v=vs.71).aspx
-                // so we first speculatively assume its a cast expression
-                var temp = ps;
+            //     temp.NextToken();
+            //     var type = parseTypeString(ref temp, scope);
+            //     var peek = temp.PeekToken();
+            //     if (peek.type == Token.TokenType.CloseBracket || peek.type == Token.TokenType.Unsigned) {
+            //         // now we assume its a cast
+            //         ps = temp;
+            //         ps.NextToken();
+            //         ps.NextToken();
+            //         var result = new TypeCastOp(current, scope);
+            //         if (peek.type == Token.TokenType.Unsigned) {
+            //             result.unsigned = true;
+            //             ps.ExpectCurrentToken(Token.TokenType.CloseBracket);
+            //             ps.NextToken();
+            //         }
+            //         var exp = parsePrimary(ref ps, scope);
 
-                temp.NextToken();
-                var type = parseTypeString(ref temp, scope);
-                var peek = temp.PeekToken();
-                if (peek.type == Token.TokenType.CloseBracket || peek.type == Token.TokenType.Unsigned) {
-                    // now we assume its a cast
-                    ps = temp;
-                    ps.NextToken();
-                    ps.NextToken();
-                    var result = new TypeCastOp(current, scope);
-                    if (peek.type == Token.TokenType.Unsigned) {
-                        result.unsigned = true;
-                        ps.ExpectCurrentToken(Token.TokenType.CloseBracket);
-                        ps.NextToken();
-                    }
-                    var exp = parsePrimary(ref ps, scope);
-
-                    // TODO: check if valid type (in type check phase?)
-                    result.typeString = type;
-                    result.expression = exp;
+            //         // TODO: check if valid type (in type check phase?)
+            //         result.typeString = type;
+            //         result.expression = exp;
 
 
-                    return result;
-                }
-            }
+            //         return result;
+            //     }
+            // }
 
             return parsePrimary(ref ps, scope);
         }
@@ -1368,7 +1395,6 @@ namespace PragmaScript {
                     result.fullyQualifiedName.path.Add(ident.text);
                     next = ps.PeekToken();
                 }
-
                 if (next.type == Token.TokenType.SliceBrackets) {
                     result.isSliceType = true;
                     ps.NextToken();
@@ -1394,18 +1420,17 @@ namespace PragmaScript {
                         result.pointerLevel++;
                         ps.NextToken();
                     }
-
-                    if (ps.PeekToken().type != Token.TokenType.CloseBracket
-                        && ps.PeekToken().type != Token.TokenType.Semicolon
-                        && ps.PeekToken().type != Token.TokenType.OpenCurly
-                        && ps.PeekToken().type != Token.TokenType.Assignment) {
-                        ps.NextToken();
-                        int alloc = 0;
-                        if (ps.CurrentToken().type == Token.TokenType.IntNumber) {
-                            alloc = int.Parse(ps.CurrentToken().text);
-                        }
-                        result.allocationCount = alloc;
-                    }
+                    // if (ps.PeekToken().type != Token.TokenType.CloseBracket
+                    //     && ps.PeekToken().type != Token.TokenType.Semicolon
+                    //     && ps.PeekToken().type != Token.TokenType.OpenCurly
+                    //     && ps.PeekToken().type != Token.TokenType.Assignment) {
+                    //     ps.NextToken();
+                    //     int alloc = 0;
+                    //     if (ps.CurrentToken().type == Token.TokenType.IntNumber) {
+                    //         alloc = int.Parse(ps.CurrentToken().text);
+                    //     }
+                    //     result.allocationCount = alloc;
+                    // }
                 }
                 return result;
             }

@@ -4,8 +4,8 @@ namespace Math
 {
 	let pi: f64 = 3.1415926535897932384626433832795028841971693993751058209749445923078164062;
 	let half_pi = pi / 2.0;
-	let pi_32 = (f32)pi;
-	let half_pi_32 = (f32)half_pi;
+	let pi_32 = pi@f32;
+	let half_pi_32 = half_pi@f32;
 	let tau = 2.0 * pi;
 	let tau_32 = 2.0 * pi_32;
 
@@ -54,7 +54,7 @@ namespace Math
 
 	["READNONE"]
 	let round_to_i32 = fun (x: f32) => i32 {
-		return (i32)round(x);
+		return round(x)@i32;
 	}
 	["READNONE"]
 	let remainder = fun(x: f32; y: f32) => f32

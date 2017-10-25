@@ -227,8 +227,8 @@
       LastWriteTime: i64;
       FileSize: i64;
       Reserved: i64;
-      FileName: i8*260;
-      AlternateFileName: i8*14;
+      FileName: i8[260];
+      AlternateFileName: i8[14];
     ); 
     let FindFirstFileA = extern fun
     (
@@ -508,7 +508,7 @@
     // ********************** DIRECTSOUND ********************** 
 
     let DS_OK = 0;
-    let WAVE_FORMAT_PCM = (i16)1;
+    let WAVE_FORMAT_PCM = @i16 1;
     let DSBCAPS_PRIMARYBUFFER = 1;
     let DSBCAPS_GETCURRENTPOSITION2 = 0x10000;
     let DSBPLAY_LOOPING = 1;

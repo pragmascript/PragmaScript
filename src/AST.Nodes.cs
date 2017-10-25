@@ -1329,11 +1329,8 @@ namespace PragmaScript {
                 var ut = (node as UnaryOp).type;
                 switch (ut) {
                     case UnaryOpType.PreInc:
-                        return true;
                     case UnaryOpType.PreDec:
-                        return true;
                     case UnaryOpType.PostInc:
-                        return true;
                     case UnaryOpType.PostDec:
                         return true;
                     default:
@@ -1344,22 +1341,15 @@ namespace PragmaScript {
             {
                 switch (t.type) {
                     case Token.TokenType.Add:
-                        return true;
                     case Token.TokenType.Subtract:
-                        return true;
                     case Token.TokenType.LogicalNOT:
-                        return true;
                     case Token.TokenType.Complement:
-                        return true;
                     case Token.TokenType.LogicalAND:
-                        return true;
                     case Token.TokenType.Multiply:
-                        return true;
                     case Token.TokenType.Increment:
-                        return true;
                     case Token.TokenType.Decrement:
-                        return true;
                     case Token.TokenType.SizeOf:
+                    case Token.TokenType.At:
                         return true;
                     default:
                         return false;

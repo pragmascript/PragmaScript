@@ -18,8 +18,8 @@ let terabytes = fun (bytes: mm) => mm
 	return bytes * 1024 * 1024 * 1024 * 1024;
 }
 
-let null = (mm)0;
-let nullptr = (ptr)0;
+let null = @mm 0;
+let nullptr = @ptr 0;
 
 ["stub"]
 let _rdtsc = extern fun () => i64;
@@ -30,13 +30,13 @@ let __chkstk = extern fun () => void;
 let print_string = fun (s: string) => void
 {
 	assert(Windows.console_output_handle != Windows.INVALID_HANDLE_VALUE);
-	Windows.WriteFile(Windows.console_output_handle, s.data, s.length, (i32*)nullptr, nullptr);
+	Windows.WriteFile(Windows.console_output_handle, s.data, s.length, @i32* nullptr, nullptr);
 }
 
 let print_error = fun (s: string) => void
 {
 	assert(Windows.console_error_handle != Windows.INVALID_HANDLE_VALUE);
-	Windows.WriteFile(Windows.console_error_handle, s.data, s.length, (i32*)nullptr, nullptr);
+	Windows.WriteFile(Windows.console_error_handle, s.data, s.length, @i32* nullptr, nullptr);
 }
 
 ["conditional":"debug"]
@@ -89,7 +89,7 @@ let from_cstr = fun(cstr: ptr; maxLength: i32 = 1024) => string {
 let ord = fun(value: string) => i32
 {
 	assert(value.length == 1);
-	return (i32)value[0];
+	return @i32 value[0];
 }
 
 let strings_are_equal = fun(a: string; b: string) => bool {
@@ -159,7 +159,7 @@ let memset = fun
 {
 	var data = dest;
 	while (data != (dest + count)) {
-		*data++ = (i8\)value;
+		*data++ = @\i8 value;
 	}
 	return dest;
 }
@@ -169,9 +169,9 @@ let memcpy =  extern("CopyMemory") fun (dest: ptr; src: ptr; length: mm) => void
 let print_i32 = fun (value: i32; signed: bool = true) => void
 {
 	if (signed) {
-		print_i64((i64)value, true);
+		print_i64(@i64 value, true);
 	} else {
-		print_i64((i64\)value, false);
+		print_i64(@\i64 value, false);
 	}
 }
 
@@ -194,7 +194,7 @@ let print_i64 = fun (value: i64; signed: bool = true) => void
 
 let print_f32 = fun (value: f32; precision: i32 = 4) => void
 {
-	print_f64((f64)value, precision);	
+	print_f64(@f64 value, precision);	
 }
 
 let print_dest = struct
@@ -217,11 +217,11 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 
 	var start = &dest.buffer[dest.pos];
 	while (true) {
-		var index = (i32)(v % (i64)base);
+		var index = @i32 (v % @i64 base);
 		assert(index >= 0 && index < 10);
 		var digit = decimal_digits[index];
 		out_char(dest, digit);
-		v /=\ (i64)base;
+		v /=\ @i64 base;
 		if (v == 0) {
 			break;
 		}
@@ -248,17 +248,17 @@ let print_f64 = fun (value: f64; precision: i32 = 4) => void
 		v = -v;
 		out_char(&pd, 45);
 	}
-	var int_part = (i64\)v;
+	var int_part = @\i64 v;
 	u64_to_ascii(&pd, int_part);
-	v -= (f64)int_part;
+	v -= @f64 int_part;
 	out_char(&pd, 46);
 
 	var first_fraction_char = pd.pos;
 	var last_non_zero = pd.pos;
 	for (var i = 0; i < precision; ++i) {
 		v *= 10.0;
-		var int_part = (i32)v;
-		v -= (f64)int_part;
+		var int_part = @i32 v;
+		v -= @f64 int_part;
 		assert(int_part < 10 && int_part >= 0);
 		out_char(&pd, decimal_digits[int_part]);
 		if (int_part != 0) {
@@ -353,7 +353,7 @@ namespace Random
 	}
 	let rand_f32 = fun (min: f32 = 0.0; max: f32 = 1.0; state: State* = &state;) => f32 {
 		var x = rand_i32();
-		var result = (f32\)x / 4294967295.0;
+		var result = @\f32 x / 4294967295.0;
 		result = min + result * (max - min);
 		return result;
 	}
@@ -365,7 +365,7 @@ namespace Random
 
 let __hack_reserve_intrinsics = fun () => bool
 {
-	if ((mm)memset == 1234 || (mm)__chkstk == 1234) {
+	if (@mm memset == 1234 || @mm __chkstk == 1234) {
 		print_string("");
 		return true;
 	}

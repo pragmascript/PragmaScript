@@ -121,13 +121,13 @@ namespace Handmade.Platform
 			return result;
 		}
 
-		var buffer = VirtualAlloc(nullptr, (mm)size, MEM_COMMIT, PAGE_READWRITE);
-		if ((mm)buffer == null) {
+		var buffer = VirtualAlloc(nullptr, size@mm, MEM_COMMIT, PAGE_READWRITE);
+		if (buffer@mm == null) {
 			CloseHandle(handle);
 			return result;
 		}
-		assert((mm)size <=\ gigabytes(4));
-		var size_32 = (i32)size;
+		assert(size@mm <=\ gigabytes(4));
+		var size_32 = @i32 size;
 		var bytes_read: i32;
 		var rfr = ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
 		assert(bytes_read == size_32);
@@ -179,10 +179,10 @@ namespace Handmade.Platform
 		var copy_result = CopyFileA(cstr(source_str), cstr(temp_str), 0);
 		
 		result.library = LoadLibraryA(cstr(temp_str));
-		result.update_and_render = (game_update_and_render)GetProcAddress(result.library, cstr("game_update_and_render\0"));
-		assert((ptr)result.update_and_render != nullptr);
-		result.output_sound = (game_output_sound)GetProcAddress(result.library, cstr("game_output_sound\0"));
-		assert((ptr)result.output_sound != nullptr);
+		result.update_and_render = @game_update_and_render GetProcAddress(result.library, cstr("game_update_and_render\0"));
+		assert(result.update_and_render@ptr != nullptr);
+		result.output_sound = @game_output_sound GetProcAddress(result.library, cstr("game_output_sound\0"));
+		assert(result.output_sound@ptr != nullptr);
 		result.is_loaded = true;
 
 		print_string("load library\n");
@@ -195,8 +195,8 @@ namespace Handmade.Platform
 			var result = FreeLibrary(library);
 			assert(result != 0);
 		}
-		update_and_render = (game_update_and_render)nullptr;
-		output_sound = (game_output_sound)nullptr;
+		update_and_render = @game_update_and_render nullptr;
+		output_sound = @game_output_sound nullptr;
 		is_loaded = false;
 		library = null;
 		print_string("unload library\n");
@@ -234,8 +234,8 @@ namespace Handmade.Platform
 			ds: IDirectSound**;
 			unused: ptr;
 		) => i32;
-		*((ptr*)(&DirectSoundCreate)) = GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
-		assert((ptr)DirectSoundCreate != nullptr);
+		*(&DirectSoundCreate@ptr*) = GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
+		assert(DirectSoundCreate@ptr != nullptr);
 
 		var dsound_obj: IDirectSound*;
 		var error = DirectSoundCreate(nullptr, &dsound_obj, nullptr); 
@@ -245,10 +245,10 @@ namespace Handmade.Platform
 
 		var desc_primary = DSBUFFERDESC { };
 		desc_primary.flags = DSBCAPS_PRIMARYBUFFER;
-		desc_primary.size = (i32)(size_of(DSBUFFERDESC));
+		desc_primary.size = @i32 (size_of(DSBUFFERDESC));
 		desc_primary.bufferBytes = 0;
 		desc_primary.reserved = 0;
-		desc_primary.fxFormat = (WAVEFORMATEX*)nullptr;
+		desc_primary.fxFormat = @WAVEFORMATEX* nullptr;
 
 		var primary_buffer: IDirectSoundBuffer*;
 		error = dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_primary, &primary_buffer, nullptr);
@@ -259,14 +259,14 @@ namespace Handmade.Platform
 		wave_format.nChannels = 2;
 		wave_format.nBitsPerSample = 16;
 		wave_format.nSamplesPerSec = samples_per_second;
-		wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / (i16)8;
-		wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * (i32)wave_format.nBlockAlign;
+		wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / 8@i16;
+		wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * wave_format.nBlockAlign@i32;
 		wave_format.size = 0;
 		error = primary_buffer.vtable.SetFormat(primary_buffer, &wave_format);
 		assert(error == DS_OK);
 		
 		var desc_secondary = DSBUFFERDESC { };
-		desc_secondary.size = (i32)(size_of(DSBUFFERDESC));
+		desc_secondary.size = @i32 (size_of(DSBUFFERDESC));
 		desc_secondary.flags = DSBCAPS_GETCURRENTPOSITION2;
 		desc_secondary.bufferBytes = buffer_size;
 		desc_secondary.fxFormat = &wave_format;
@@ -294,7 +294,7 @@ namespace Handmade.Platform
 			&region2, &region2_size,
 			0);
 		assert(error == DS_OK);
-		var dest_sample = (i32*)region1;
+		var dest_sample = @i32* region1;
 		var sample_count = region1_size / bytes_per_chunk;
 		for (var i: i32 = 0; i < sample_count; ++i) {
 			*dest_sample++ = 0;
@@ -333,12 +333,12 @@ namespace Handmade.Platform
 		{
 			assert(sample_count_1 + sample_count_2 == game_sound_output.sample_count);
 			var source_sample = game_sound_output.sample_out;
-			var dest_sample = (i16*)region1;
+			var dest_sample = @i16* region1;
 			for (var i: i32 = 0; i < sample_count_1; ++i) {
 				*dest_sample++ = *source_sample++;
 				*dest_sample++ = *source_sample++;
 			}
-			dest_sample = (i16*)region2;
+			dest_sample = @i16* region2;
 			for (var i: i32 = 0; i < sample_count_2; ++i) {
 				*dest_sample++ = *source_sample++;
 				*dest_sample++ = *source_sample++;
@@ -349,12 +349,12 @@ namespace Handmade.Platform
 			assert(error == DS_OK);
 			
 			if (sample_count_2 > 0) {
-				var last_sample = (i8*)((i32*)region2 + sample_count_2);
-				byte_last_written = (i32)(last_sample - sound_output.buffer_start);
+				var last_sample = @i8* (@i32* region2 + sample_count_2);
+				byte_last_written = @i32 (last_sample - sound_output.buffer_start);
 			}
 			elif (sample_count_1 > 0) {
-				var last_sample = (i8*)((i32*)region1 + sample_count_1);
-				byte_last_written = (i32)(last_sample - sound_output.buffer_start);
+				var last_sample = @i8* (@i32* region1 + sample_count_1);
+				byte_last_written = @i32 (last_sample - sound_output.buffer_start);
 			}
 
 			assert(sample_count_2 == 0 || (sample_count_1 != 0 && sample_count_2 != 0));
@@ -384,8 +384,8 @@ namespace Handmade.Platform
 		if (play_cursor == last_play_cursor) {
 			var time: i64;
 			QueryPerformanceCounter(&time);
-			var cursor_dt = (f64)(time - last_play_cursor_change_time) / (f64)perf_count_freq;
-			var d_bytes = sound_output.bytes_per_chunk * (i32)(cursor_dt * (f64)sound_output.samples_per_second);
+			var cursor_dt = @f64 (time - last_play_cursor_change_time) / @f64 perf_count_freq;
+			var d_bytes = sound_output.bytes_per_chunk * @i32 (cursor_dt * @f64 sound_output.samples_per_second);
 			play_cursor += d_bytes;
 			write_cursor += d_bytes;
 			play_cursor = play_cursor % sound_output.buffer_size;
@@ -483,7 +483,7 @@ namespace Handmade.Platform
 		if (memory != nullptr) {
 			VirtualFree(buffer.memory, null, MEM_RELEASE);
 		}
-		memory = VirtualAlloc(nullptr, (mm\)bitmap_size, MEM_COMMIT, PAGE_READWRITE);
+		memory = VirtualAlloc(nullptr, bitmap_size@\mm, MEM_COMMIT, PAGE_READWRITE);
 		pitch = buffer.width * bytes_per_pixel;
 	}
 
@@ -554,9 +554,9 @@ namespace Handmade.Platform
 		ScreenToClient(window.handle, &cursor_pos);
 		game_input.mouse_x = cursor_pos.x;
 		game_input.mouse_y = cursor_pos.y;
-		update_game_button(&game_input.left_mb, (GetKeyState(VK_LBUTTON) & (i16)(1 << 15)) != 0);
-		update_game_button(&game_input.right_mb, (GetKeyState(VK_RBUTTON) & (i16)(1 << 15)) != 0);
-		update_game_button(&game_input.middle_mb, (GetKeyState(VK_MBUTTON) & (i16)(1 << 15)) != 0);
+		update_game_button(&game_input.left_mb, (GetKeyState(VK_LBUTTON) & @i16 (1 << 15)) != 0);
+		update_game_button(&game_input.right_mb, (GetKeyState(VK_RBUTTON) & @i16 (1 << 15)) != 0);
+		update_game_button(&game_input.middle_mb, (GetKeyState(VK_MBUTTON) & @i16 (1 << 15)) != 0);
 	}
 
 	let process_pending_messages = fun 
@@ -576,8 +576,8 @@ namespace Handmade.Platform
 				|| message == WM_KEYDOWN
 				|| message == WM_KEYUP) {
 
-				var w_param = (i32)(msg.wParam >> (mm)32);
-				var l_param = (i32)(msg.lParam >> (mm)32);
+				var w_param = @i32 (msg.wParam >> 32@mm);
+				var l_param = @i32 (msg.lParam >> 32@mm);
 				var vk_code = w_param;
 
 				var was_down = (l_param & (1 << 30)) != 0;
@@ -620,7 +620,7 @@ namespace Handmade.Platform
 	var perf_count_freq: i64;
 	let get_duration = fun (c0: i64; c1: i64) => f32
 	{
-		return (f32)(c0 - c1) / (f32)perf_count_freq;
+		return (c0 - c1)@f32 / @f32 perf_count_freq;
 	}
 
 	let get_perf_counter = fun() => i64
@@ -651,7 +651,7 @@ namespace Handmade.Platform
 
 			var total_size = game_memory.permanent_size + game_memory.transient_size;
 			assert(total_size < gigabytes(4));
-			WriteFile(win_state.recording_file_handle, game_memory.permanent_data, (i32)total_size, &bytes_written, nullptr);
+			WriteFile(win_state.recording_file_handle, game_memory.permanent_data, total_size@i32, &bytes_written, nullptr);
 		}
 		if (!win_state.is_recording && win_state.recording_started) {
 			CloseHandle(win_state.recording_file_handle);
@@ -661,7 +661,7 @@ namespace Handmade.Platform
 		{
 			assert(!win_state.is_replaying);
 			var bytes_written = 0;
-			WriteFile(win_state.recording_file_handle, (i8*)new_input, (i32)(size_of(game_input)), &bytes_written, nullptr);
+			WriteFile(win_state.recording_file_handle, new_input@i8*, size_of(game_input)@i32, &bytes_written, nullptr);
 		}
 	}
 
@@ -685,7 +685,7 @@ namespace Handmade.Platform
 			var bytes_read = 0;
 			var total_size = game_memory.permanent_size + game_memory.transient_size;
 			assert(total_size < gigabytes(4));
-			ReadFile(win_state.replaying_file_handle, game_memory.permanent_data, (i32)total_size, &bytes_read, nullptr);
+			ReadFile(win_state.replaying_file_handle, game_memory.permanent_data, total_size@i32, &bytes_read, nullptr);
 		}
 		if (!win_state.is_replaying && win_state.replaying_started) {
 			CloseHandle(win_state.replaying_file_handle);
@@ -700,7 +700,7 @@ namespace Handmade.Platform
 		{
 			assert(!win_state.is_recording);
 			var bytes_read = 0;
-			ReadFile(win_state.replaying_file_handle, (i8*)new_input, (i32)(size_of(game_input)), &bytes_read, nullptr);
+			ReadFile(win_state.replaying_file_handle, new_input@i8*, size_of(game_input)@i32, &bytes_read, nullptr);
 			if (bytes_read == 0)
 			{
 				CloseHandle(win_state.replaying_file_handle);
@@ -747,9 +747,9 @@ namespace Handmade.Platform
 		var window_name = cstr("handmade-pragmascript\0");
 		var instance = GetModuleHandleA(null);
 		var window_class = WNDCLASSEX {};
-		window_class.cbSize = (i32)(size_of(WNDCLASSEX));
+		window_class.cbSize = size_of(WNDCLASSEX)@i32;
 		window_class.style = (CS_HREDRAW|CS_VREDRAW);
-		window_class.lpfnWndProc = (ptr)main_window_callback;
+		window_class.lpfnWndProc = @ptr main_window_callback;
 		window_class.hInstance = instance;
 		window_class.lpszClassName = class_name;
 		window_class.hCursor = LoadCursorA(null, IDC_ARROW);
@@ -782,22 +782,22 @@ namespace Handmade.Platform
 		// }
 		
 		var game_target_fps = monitor_hz;
-		var target_sec_per_frame = 1.0 / (f32)game_target_fps;
+		var target_sec_per_frame = 1.0 / @f32 game_target_fps;
 		
 		var sound_output: sound_output;
 		sound_output.samples_per_second = 48000;
-		sound_output.bytes_per_chunk = 2 * (i32)(size_of(i16)); // 2 channels
+		sound_output.bytes_per_chunk = 2 * size_of(i16)@i32; // 2 channels
 		sound_output.bytes_per_frame = sound_output.bytes_per_chunk * sound_output.samples_per_second / game_target_fps;
 		sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
 		
 		var sound_buffer = init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
 		sound_output.sound_buffer = sound_buffer;
 
-		var game_sample_buffer = (i16*)VirtualAlloc(nullptr, (mm)sound_output.buffer_size, MEM_COMMIT, PAGE_READWRITE);
-		assert((ptr)game_sample_buffer != nullptr);
+		var game_sample_buffer = @i16* VirtualAlloc(nullptr, sound_output.buffer_size@mm, MEM_COMMIT, PAGE_READWRITE);
+		assert(game_sample_buffer@ptr != nullptr);
 		var base_address = nullptr;
 		if (HANDMADE_INTERAL) {
-			base_address = (ptr)terabytes(2);
+			base_address = @ptr terabytes(2);
 		} else {
 			base_address = nullptr;
 		}
@@ -842,7 +842,7 @@ namespace Handmade.Platform
 
 		var game_time = game_time{};
 
-		var frame_start_counter = get_perf_counter() - (i64)(target_sec_per_frame * (f32)perf_count_freq);
+		var frame_start_counter = get_perf_counter() - @i64(target_sec_per_frame * @f32 perf_count_freq);
 		while (running) {
 			var last_frame_start_counter = frame_start_counter;
 			frame_start_counter = get_perf_counter();
@@ -888,7 +888,7 @@ namespace Handmade.Platform
 			var frame_end_counter = get_perf_counter();
 			var wait_time = get_duration(frame_end_counter, frame_start_counter);
 			while (wait_time < target_sec_per_frame) {
-				var sleep_ms = (i32)(1000.0 * (target_sec_per_frame - wait_time));
+				var sleep_ms = @i32 (1000.0 * (target_sec_per_frame - wait_time));
 				if (sleep_ms > 0) {
 					Sleep(sleep_ms);
 				}
@@ -908,7 +908,7 @@ namespace Handmade.Platform
 					print_f32(1000.0 / frame_ms);
 					last_fps = 0.5 * last_fps + (1000.0 / frame_ms);
 					print_string("fps   ");
-					print_f64((f64)cycles_elapsed / 1000000.0);
+					print_f64(cycles_elapsed@f64 / 1000000.0);
 					print_string("mcycles   ");
 					debug_print_f32("dt", game_input.time.dt);
 				}

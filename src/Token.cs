@@ -86,7 +86,6 @@ namespace PragmaScript
             SizeOf,
             Extern,
             Import,
-            Unsigned,
             GreaterUnsigned,
             LessUnsigned,
             GreaterEqualUnsigned,
@@ -98,7 +97,8 @@ namespace PragmaScript
             With,
             Reserve,
             RightShiftUnsigned,
-            RightShiftEqualsUnsigned
+            RightShiftEqualsUnsigned,
+            UnsignedCast
         }
 
         public TokenType type { get; private set; }
@@ -175,7 +175,6 @@ namespace PragmaScript
             operators.Add("<\\", TokenType.LessUnsigned);
             operators.Add(">=\\", TokenType.GreaterEqualUnsigned);
             operators.Add("<=\\", TokenType.LessEqualUnsigned);
-            operators.Add("\\", TokenType.Unsigned);
             operators.Add("!", TokenType.LogicalNOT);
             operators.Add("~", TokenType.Complement);
             operators.Add("++", TokenType.Increment);
@@ -195,7 +194,10 @@ namespace PragmaScript
             operators.Add(">>=", TokenType.RightShiftEquals);
             operators.Add(">>=\\", TokenType.RightShiftEqualsUnsigned);
             // operators.Add("[]", TokenType.ArrayTypeBrackets);
+            
             operators.Add("@", TokenType.At);
+            operators.Add("@\\", TokenType.UnsignedCast);
+            
 
             foreach (var op in operators.Keys) {
                 foreach (var oc in op) {
@@ -359,6 +361,8 @@ namespace PragmaScript
 
             var operatorSB = new StringBuilder();
             TokenType op = TokenType.Undefined;
+            bool foundOperator = false;
+            
             while (operatorChars.Contains(current)) {
                 operatorSB.Append(current);
                 var ops = operatorSB.ToString();
@@ -367,6 +371,7 @@ namespace PragmaScript
                     t.length = ops.Length;
                     t.type = op;
                     t.text = line.Substring(t.pos_idx, t.length);
+                    foundOperator = true;
                 }
                 pos++;
                 if (pos >= line.Length)
@@ -375,7 +380,7 @@ namespace PragmaScript
             }
 
             // actually found an operator
-            if (op != TokenType.Undefined) {
+            if (foundOperator) {
                 return t;
             }
 
