@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 namespace PragmaScript {
     public class FrontendType
@@ -41,6 +42,9 @@ namespace PragmaScript {
         }
         public override bool Equals(object obj)
         {
+            Debug.Assert(!string.IsNullOrWhiteSpace(ToString()));
+            Debug.Assert(!string.IsNullOrWhiteSpace(obj.ToString()));
+
             return ToString() == obj.ToString();
         }
 
@@ -266,11 +270,11 @@ namespace PragmaScript {
             : base(structName)
         {
             this.elementType = elementType;
+            AddField("length", FrontendType.i32);
+            AddField("data", new FrontendPointerType(elementType));
             if (string.IsNullOrEmpty(structName)) {
                 name = "[" + elementType + "]";
             }
-            AddField("length", FrontendType.i32);
-            AddField("data", new FrontendPointerType(elementType));
         }
     }
 
@@ -278,6 +282,15 @@ namespace PragmaScript {
     {
         public FrontendType elementType;
         public List<int> dims;
+        public int Length {
+             get {
+                 int result = 1;
+                 foreach (var d in dims) {
+                     result *= d;
+                 }
+                return result;
+            }
+        }
         public FrontendArrayType(FrontendType elementType, List<int> dim)
             : base("")
         {
@@ -412,6 +425,4 @@ namespace PragmaScript {
             name = $"{funName}({string.Join(",", parameters)}) => {returnType}";
         }
     }
-
-
 }

@@ -968,10 +968,52 @@ namespace PragmaScript {
             }
         }
 
+        public class SliceOp: Node, ICanReturnPointer {
+            public Node left;
+            public Node from;
+            public Node to;
+            public bool returnPointer { get; set; }
+            public bool CanReturnPointer()
+            {
+                return true;
+            }
+            public SliceOp(Token t, Scope s)
+                : base(t, s)
+            {
+            }
+            public override Node DeepCloneTree()
+            {
+                var result = new SliceOp(token, scope);
+                result.left = left.DeepCloneTree();
+                result.returnPointer = returnPointer;
+                return result;
+            }
+            public override IEnumerable<Node> GetChilds()
+            {
+                yield return left;
+                yield return from;
+                yield return to;
+            }
+            public override string ToString()
+            {
+                return "[:]" + (returnPointer ? " (p)" : "");
+            }
+            public override void Replace(Node old, Node @new)
+            {
+                if (old == left) {
+                    left = @new;
+                } else if (old == from) {
+                    from = @new;
+                } else if (old == to) {
+                    to = @new;
+                } else { Debug.Assert(false); }
+            }
+        }
+
         public class IndexedElementAccess : Node, ICanReturnPointer
         {
             public Node left;
-            public List<Node> indices = new List<Node>();
+            public List<Node> indices;
 
             public bool returnPointer { get; set; }
             public bool CanReturnPointer()

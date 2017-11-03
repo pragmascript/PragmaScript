@@ -10,3 +10,5 @@ https://github.com/vsajip/llvm/blob/master/test/CodeGen/X86/sse-intrinsics-x86.l
 https://msdn.microsoft.com/library/5c53b4f8-6ff5-47d7-beb2-2d6ee3c6ea89.aspx#atomic_thread_fence_function
 
 https://peeterjoot.wordpress.com/2009/12/04/intel-memory-ordering-fence-instructions-and-atomic-operations/
+
+https://assets.bitbashing.io/papers/lockless.pdf

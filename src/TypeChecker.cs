@@ -209,7 +209,6 @@ namespace PragmaScript {
 
         void checkType(AST.IfCondition node)
         {
-
             int elifsResolved = 0;
             foreach (var elif in node.elifs) {
                 checkTypeDynamic(elif);
@@ -227,7 +226,6 @@ namespace PragmaScript {
             }
 
             checkTypeDynamic(node.thenBlock);
-
 
             if (node.elseBlock != null) {
                 checkTypeDynamic(node.elseBlock);
@@ -315,8 +313,6 @@ namespace PragmaScript {
 
         void checkType(AST.FunctionDefinition node)
         {
-
-
             FrontendType tt = null;
             if (node.typeString != null) {
                 // node.typeString.fullyQualifiedName.name = node.funName;
@@ -812,6 +808,114 @@ namespace PragmaScript {
             }
         }
 
+        void checkType(AST.SliceOp node)
+        {
+            checkTypeDynamic(node.left);
+            var lt = getType(node.left);
+            FrontendType st;
+
+            if (lt == null) {
+                addUnresolved(node, node.left);
+                st = null;
+            } else {
+                // TODO(pragma): handle slice (and pointer
+                switch (lt) {
+                    case FrontendArrayType at:
+                        st = new FrontendSliceType(at.elementType);
+                        // TODO(pragma): HACK remove
+                        if (!AST.activateReturnPointer(node.left)) {
+                            throw new ParserError("Cannot slice constant array", node.token);
+                        }
+                        if (node.to == null) {
+                            // TODO(pragma): move this to desugar????
+                            var length = new AST.ConstInt(node.token, node.scope);
+                            length.number = (ulong)at.Length;
+                            node.to = length;
+                        }
+                        if (node.from == null) {
+                            // TODO(pragma): move this to desugar????
+                            var from = new AST.ConstInt(node.token, node.scope);
+                            from.number = (ulong)0;
+                            node.from = from;
+                        }
+                        break;
+                    case FrontendSliceType other_st:
+                        st = other_st;
+                        var otherSlice = node.left;
+                        // TODO(pragma): move this to desugar????
+                        var fa = new AST.FieldAccess(node.token, node.scope);
+                        fa.fieldName = "data";
+                        fa.left = otherSlice;
+                        node.left = fa;
+                        checkTypeDynamic(node.left);
+                        Debug.Assert(getType(node.left) != null);
+                        
+                        if (node.to == null) {
+                            var fa_to = new AST.FieldAccess(node.token, node.scope);
+                            fa_to.fieldName = "length";
+                            fa_to.left = otherSlice;
+                            node.to = fa_to;
+                            checkTypeDynamic(node.to);
+                            var ntt = getType(node.to);
+                            Debug.Assert(ntt != null);
+                            Debug.Assert(FrontendType.CompatibleAndLateBind(ntt, FrontendType.i32));
+                        }
+                        if (node.from == null) {
+                            var from = new AST.ConstInt(node.token, node.scope);
+                            from.number = (ulong)0;
+                            node.from = from;
+                        }
+
+                        break;
+                    case FrontendPointerType pt:
+                        st = new FrontendSliceType(pt.elementType);
+                        if (node.to == null) {
+                            throw new ParserError("Slice operator on a pointer type requires a \"to\" index.", node.token);
+                        }
+                        if (node.from == null) {
+                            var from = new AST.ConstInt(node.token, node.scope);
+                            from.number = (ulong)0;
+                            node.from = from;
+                        }
+                        break;
+                    default:
+                        throw new ParserError("left side is not an array, slice or pointer type", node.token);
+                }                
+            }
+                        
+            FrontendType from_t = null;
+            if (node.from != null) {
+                checkTypeDynamic(node.from);
+                from_t = getType(node.from);
+                if (from_t == null) {
+                    addUnresolved(node, node.from);
+                }
+            }
+
+            FrontendType to_t = null;
+            if (node.to != null) {
+                checkTypeDynamic(node.to);
+                to_t = getType(node.to);
+                if (to_t == null) {
+                    addUnresolved(node, node.to);
+                }
+            }
+
+            bool canResolve = true;
+            if (st == null) {
+                canResolve = false;
+            }
+            if (node.from != null && from_t == null) {
+                canResolve = false;
+            }
+            if (node.to != null && to_t == null) {
+                canResolve = false;
+            }
+            if (canResolve) {
+                resolve(node, st);
+            }
+        }
+
         void checkType(AST.BreakLoop node)
         {
             resolve(node, FrontendType.none);
@@ -1183,6 +1287,9 @@ namespace PragmaScript {
                     checkType(n);
                     break;
                 case AST.TypeString n:
+                    checkType(n);
+                    break;
+                case AST.SliceOp n:
                     checkType(n);
                     break;
                 default:

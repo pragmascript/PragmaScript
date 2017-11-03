@@ -637,7 +637,7 @@ namespace PragmaScript {
             }
         }
 
-        static bool activateReturnPointer(Node node)
+        internal static bool activateReturnPointer(Node node)
         {
             if (node is ICanReturnPointer && (node as ICanReturnPointer).CanReturnPointer()) {
                 (node as ICanReturnPointer).returnPointer = true;
@@ -1129,17 +1129,37 @@ namespace PragmaScript {
                         ps.NextToken();
                         next = parseStructFieldAccess(ref ps, scope, result, false);
                         break;
+                    
                     case Token.TokenType.OpenSquareBracket:
-                        if (result == null) {
-                            result = parseVariableReference(ref ps, scope, true);
-                        } else {
-                            if (!activateReturnPointer(result)) {
-                                throw new ParserError("cannot take address of lvalue", result.token);
+                        var tempState = ps;
+                        tempState.NextToken();
+                        bool isSliceOp = false;
+                        while (true) {
+                            if (tempState.CurrentToken().type == Token.TokenType.Colon) {
+                                isSliceOp = true;
                             }
-
+                            if (tempState.PeekToken().type == Token.TokenType.CloseSquareBracket) {
+                                break;
+                            }
+                            tempState.NextToken();
                         }
-                        ps.NextToken();
-                        next = parseIndexedElementAccess(ref ps, scope, result, false);
+                        if (!isSliceOp) {
+                            if (result == null) {
+                                result = parseVariableReference(ref ps, scope, true);
+                            } else {
+                                if (!activateReturnPointer(result)) {
+                                    throw new ParserError("cannot take address of lvalue", result.token);
+                                }
+                            }
+                            ps.NextToken();
+                            next = parseIndexedElementAccess(ref ps, scope, result, false);
+                        } else {
+                            if (result == null) {
+                                result = parseVariableReference(ref ps, scope, false);
+                            }
+                            ps.NextToken();
+                            next = parseSliceOp(ref ps, scope, result, false);
+                        }
                         break;
 
                     
@@ -1195,27 +1215,45 @@ namespace PragmaScript {
         }
 
 
+        static Node parseSliceOp(ref ParseState ps, Scope scope, Node left, bool returnPointer = false) {
+            var current = ps.ExpectCurrentToken(Token.TokenType.OpenSquareBracket);
+            ps.NextToken();
+
+            var result = new SliceOp(current, scope);
+            result.left = left;
+            result.returnPointer = returnPointer;
+            if (ps.CurrentToken().type != Token.TokenType.Colon) {
+                result.from = parseBinOp(ref ps, scope);
+                ps.NextToken();
+            }
+            ps.ExpectCurrentToken(Token.TokenType.Colon);
+            ps.NextToken();
+            if (ps.CurrentToken().type != Token.TokenType.CloseSquareBracket) {
+                result.to = parseBinOp(ref ps, scope);
+                ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
+            }
+            return result;
+
+
+        }
         static Node parseIndexedElementAccess(ref ParseState ps, Scope scope, Node left, bool returnPointer = false)
         {
             var current = ps.ExpectCurrentToken(Token.TokenType.OpenSquareBracket);
             ps.NextToken();
-
+            var indices = new List<Node>();
             var result = new IndexedElementAccess(current, scope);
             result.left = left;
+            result.indices = indices;
             result.returnPointer = returnPointer;
-
             while (true) {
-                result.indices.Add(parseBinOp(ref ps, scope));
+                indices.Add(parseBinOp(ref ps, scope));
                 if (ps.PeekToken().type == Token.TokenType.CloseSquareBracket) {
                     break;
                 }
                 ps.ExpectNextToken(Token.TokenType.Comma);
                 ps.NextToken();
             }
-
-
             ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
-
             return result;
         }
 

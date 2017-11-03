@@ -1068,6 +1068,45 @@ namespace PragmaScript {
             }
         }
 
+        public void Visit(AST.SliceOp node, bool returnPointer = false) {
+            Visit(node.left);
+            var ptr =  valueStack.Pop();
+            
+
+
+            var s_ft = typeChecker.GetNodeType(node) as FrontendSliceType;
+            var structType = (StructType)GetTypeRef(s_ft);
+            var insert = builder.GetInsertBlock();
+            builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
+            var struct_ptr = builder.BuildAlloca(structType, node, "slice_alloca");
+            builder.PositionAtEnd(insert);
+
+            ptr = builder.BuildBitCast(ptr, structType.elementTypes[1], node, "slice_hack_cast");
+
+            Visit(node.from);
+            Value from = valueStack.Pop();
+
+            Visit(node.to);
+            Value to = valueStack.Pop();
+
+            Value length = builder.BuildSub(to, from, node, "slice_length");
+            Value data = builder.BuildGEP(ptr, node, "slice_ptr_offset", false, from);
+
+            var length_ptr = builder.BuildStructGEP(struct_ptr, 0, node, "slice_arg_length");
+            builder.BuildStore(length, length_ptr, node);
+
+            var data_ptr = (Value)builder.BuildStructGEP(struct_ptr, 1, node, "slice_arg_data");
+            
+            builder.BuildStore(data, data_ptr, node);
+
+             if (node.returnPointer || returnPointer) {
+                    valueStack.Push(struct_ptr);    
+            } else {
+                var load = builder.BuildLoad(struct_ptr, node, "slice_load");
+                valueStack.Push(load);
+            }
+        }
+
         public void Visit(AST.ArrayConstructor node, bool isConst = false, bool returnPointer = false) {
             var ac = node;
             var ac_type = typeChecker.GetNodeType(node) as FrontendArrayType;
@@ -1891,6 +1930,9 @@ namespace PragmaScript {
                     Visit(n);
                     break;
                 case AST.TypeString n:
+                    Visit(n);
+                    break;
+                case AST.SliceOp n:
                     Visit(n);
                     break;
                 default:
