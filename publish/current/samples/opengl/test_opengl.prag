@@ -592,7 +592,7 @@ let gl_error_callback = fun(
 [
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "0",
+ 	"compile.opt"   : "3",
     "compile.debuginfo": "true",
     "compile.ll"    : "true",
     "compile.asm"   : "false",
