@@ -838,6 +838,9 @@ namespace PragmaScript {
                             from.number = (ulong)0;
                             node.from = from;
                         }
+                        node.capacity = new AST.ConstInt(node.token, node.scope) {
+                            number = (ulong)at.Length
+                        };
                         break;
                     case FrontendSliceType other_st:
                         st = other_st;
@@ -865,7 +868,10 @@ namespace PragmaScript {
                             from.number = (ulong)0;
                             node.from = from;
                         }
-
+                        node.capacity = new AST.FieldAccess(node.token, node.scope) {
+                            fieldName = "length",
+                            left = otherSlice,
+                        };
                         break;
                     case FrontendPointerType pt:
                         st = new FrontendSliceType(pt.elementType);
@@ -877,6 +883,9 @@ namespace PragmaScript {
                             from.number = (ulong)0;
                             node.from = from;
                         }
+                        node.capacity = new AST.ConstInt(node.token, node.scope) {
+                            number = (ulong)0
+                        };
                         break;
                     default:
                         throw new ParserError("left side is not an array, slice or pointer type", node.token);
@@ -889,19 +898,41 @@ namespace PragmaScript {
                 from_t = getType(node.from);
                 if (from_t == null) {
                     addUnresolved(node, node.from);
+                } else {
+                    if (!FrontendType.CompatibleAndLateBind(from_t, FrontendType.i32)) {
+                        throw new ParserExpectedType(FrontendType.i32, from_t, node.from.token);
+                    }
                 }
             }
-
             FrontendType to_t = null;
             if (node.to != null) {
                 checkTypeDynamic(node.to);
                 to_t = getType(node.to);
                 if (to_t == null) {
                     addUnresolved(node, node.to);
+                } else {
+                    if (!FrontendType.CompatibleAndLateBind(to_t, FrontendType.i32)) {
+                        throw new ParserExpectedType(FrontendType.i32, to_t, node.to.token);
+                    }
                 }
             }
-
+            FrontendType c_t = null;
+            {
+                checkTypeDynamic(node.capacity);
+                c_t = getType(node.capacity);
+                if (c_t == null) {
+                    addUnresolved(node, node.capacity);
+                } else {
+                    if (!FrontendType.CompatibleAndLateBind(c_t, FrontendType.i32)) {
+                        throw new ParserExpectedType(FrontendType.i32, c_t, node.capacity.token);
+                    }
+                }
+            }
+            
             bool canResolve = true;
+            if (c_t == null) {
+                canResolve = false;
+            }
             if (st == null) {
                 canResolve = false;
             }

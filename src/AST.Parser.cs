@@ -647,7 +647,6 @@ namespace PragmaScript {
             }
         }
 
-
         static Node parseAssignment(ref ParseState ps, Scope scope, int precedence)
         {
             var left = parseBinOp(ref ps, scope, precedence - 1);
@@ -746,28 +745,6 @@ namespace PragmaScript {
         {
             throw new System.NotImplementedException();
         }
-
-
-
-
-        /*
-        i32[2, 4, 3]
-        [
-            [
-                [1,2,3], [1,2,3], [1,2,3], [1,2,3]
-            ],
-            [
-                [3,4,5], [3,4,5], [3,4,5], [3,4,5]
-            ]
-        ]
-
-        i32[3, 4]
-        [
-            [1,2,3,4],
-            [4,5,6,7],
-            [8,9,0,1]
-        ]
-         */
 
         static void arrayConstructorRec(ref ParseState ps, Scope scope, List<Node> elements, out List<int> dimensions) {
                 dimensions = new List<int>();

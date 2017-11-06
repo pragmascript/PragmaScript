@@ -1071,8 +1071,6 @@ namespace PragmaScript {
         public void Visit(AST.SliceOp node, bool returnPointer = false) {
             Visit(node.left);
             var ptr =  valueStack.Pop();
-            
-
 
             var s_ft = typeChecker.GetNodeType(node) as FrontendSliceType;
             var structType = (StructType)GetTypeRef(s_ft);
@@ -1083,14 +1081,47 @@ namespace PragmaScript {
 
             ptr = builder.BuildBitCast(ptr, structType.elementTypes[1], node, "slice_hack_cast");
 
+            Visit(node.capacity);
+            Value capacity = valueStack.Pop();
+
             Visit(node.from);
             Value from = valueStack.Pop();
 
             Visit(node.to);
             Value to = valueStack.Pop();
 
-            Value length = builder.BuildSub(to, from, node, "slice_length");
-            Value data = builder.BuildGEP(ptr, node, "slice_ptr_offset", false, from);
+            var slice_from_neg = builder.AppendBasicBlock("slice_from_neg");
+            builder.MoveBasicBlockAfter(slice_from_neg, insert);
+            var slice_from_neg_end = builder.AppendBasicBlock("slice_from_neg_end");
+            builder.MoveBasicBlockAfter(slice_from_neg_end, slice_from_neg);
+
+            Value from_neg_cond = builder.BuildICmp(from, Const.zero_i32_v, IcmpType.slt, node, "from_neg_cond");
+            builder.BuildCondBr(from_neg_cond, slice_from_neg, slice_from_neg_end, node);
+
+            builder.PositionAtEnd(slice_from_neg);
+            Value from_neg = builder.BuildAdd(capacity, from, node, "from_neg");
+            builder.BuildBr(slice_from_neg_end, node);
+
+            builder.PositionAtEnd(slice_from_neg_end);
+            var from_phi = builder.BuildPhi(Const.i32_t, node, "from_phi", (from, insert), (from_neg, slice_from_neg));
+
+            var slice_to_neg = builder.AppendBasicBlock("slice_to_neg");
+            builder.MoveBasicBlockAfter(slice_to_neg, slice_from_neg_end);
+            var slice_to_neg_end = builder.AppendBasicBlock("slice_to_neg_end");
+            builder.MoveBasicBlockAfter(slice_to_neg_end, slice_to_neg);
+
+            Value to_neg_cond = builder.BuildICmp(to, Const.zero_i32_v, IcmpType.slt, node, "to_neg_cond");
+            builder.BuildCondBr(to_neg_cond, slice_to_neg, slice_to_neg_end, node);
+
+            builder.PositionAtEnd(slice_to_neg);
+            Value to_neg = builder.BuildAdd(capacity, to, node, "to_neg");
+            builder.BuildBr(slice_to_neg_end, node);
+
+            builder.PositionAtEnd(slice_to_neg_end);
+            var to_phi = builder.BuildPhi(Const.i32_t, node, "to_phi", (to, slice_from_neg_end), (to_neg, slice_to_neg));
+            
+            Value length = builder.BuildSub(to_phi, from_phi, node, "slice_length");
+            Value data = builder.BuildGEP(ptr, node, "slice_ptr_offset", false, from_phi);
 
             var length_ptr = builder.BuildStructGEP(struct_ptr, 0, node, "slice_arg_length");
             builder.BuildStore(length, length_ptr, node);

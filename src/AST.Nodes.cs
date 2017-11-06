@@ -972,6 +972,8 @@ namespace PragmaScript {
             public Node left;
             public Node from;
             public Node to;
+            public Node capacity;
+            
             public bool returnPointer { get; set; }
             public bool CanReturnPointer()
             {
