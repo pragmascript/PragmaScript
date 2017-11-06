@@ -1098,10 +1098,12 @@ namespace PragmaScript {
             Value from_neg_cond = builder.BuildICmp(from, Const.zero_i32_v, IcmpType.slt, node, "from_neg_cond");
             builder.BuildCondBr(from_neg_cond, slice_from_neg, slice_from_neg_end, node);
 
+            // slice_from_neg:
             builder.PositionAtEnd(slice_from_neg);
             Value from_neg = builder.BuildAdd(capacity, from, node, "from_neg");
             builder.BuildBr(slice_from_neg_end, node);
-
+            
+            // slice_from_neg_end:
             builder.PositionAtEnd(slice_from_neg_end);
             var from_phi = builder.BuildPhi(Const.i32_t, node, "from_phi", (from, insert), (from_neg, slice_from_neg));
 
@@ -1113,10 +1115,12 @@ namespace PragmaScript {
             Value to_neg_cond = builder.BuildICmp(to, Const.zero_i32_v, IcmpType.slt, node, "to_neg_cond");
             builder.BuildCondBr(to_neg_cond, slice_to_neg, slice_to_neg_end, node);
 
+            // slice_to_neg:
             builder.PositionAtEnd(slice_to_neg);
             Value to_neg = builder.BuildAdd(capacity, to, node, "to_neg");
             builder.BuildBr(slice_to_neg_end, node);
 
+            // slice_to_neg_end:
             builder.PositionAtEnd(slice_to_neg_end);
             var to_phi = builder.BuildPhi(Const.i32_t, node, "to_phi", (to, slice_from_neg_end), (to_neg, slice_to_neg));
             
