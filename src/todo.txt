@@ -12,3 +12,5 @@ https://msdn.microsoft.com/library/5c53b4f8-6ff5-47d7-beb2-2d6ee3c6ea89.aspx#ato
 https://peeterjoot.wordpress.com/2009/12/04/intel-memory-ordering-fence-instructions-and-atomic-operations/
 
 https://assets.bitbashing.io/papers/lockless.pdf
+
+https://poshtools.com/2017/11/22/the-future-of-languages-in-visual-studio/

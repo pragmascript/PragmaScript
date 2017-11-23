@@ -6,6 +6,7 @@ import "opengl.prag"
 
 with Windows;
 
+// https://hero.handmade.network/forums/code-discussion/t/129-howto_-_building_without_import_libraries
 
 let window_state = struct 
 (
@@ -111,8 +112,8 @@ let mesh = struct (
     indices: i32[];
 );
 
-var current_mesh = mesh {};
 
+var current_mesh = mesh {};
 let create_circle = fun(center: v3; radius: f32; segments: i32 = 96) => mesh {
     var c = center;
     var result = mesh {};
@@ -149,7 +150,6 @@ let create_circle = fun(center: v3; radius: f32; segments: i32 = 96) => mesh {
         }
         *ip++ = next_idx;
     }
-
     return result;
 }
 
@@ -594,9 +594,9 @@ let gl_error_callback = fun(
 	"compile.entry" : "true",
  	"compile.opt"   : "3",
     "compile.debuginfo": "true",
-    "compile.ll"    : "true",
+    "compile.ll"    : "false",
     "compile.asm"   : "false",
-    "compile.cpu"   : "native",
+    "compile.cpu"   : "nehalem",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
@@ -606,6 +606,7 @@ let main = fun() => void {
 #if TRUE
     SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
 #endif
+
     var t0 = get_perf_counter();
     
     let buffer_width  = 1280;

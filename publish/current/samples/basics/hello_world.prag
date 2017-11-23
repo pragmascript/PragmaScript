@@ -1,38 +1,31 @@
 import "../preamble.prag"
 
-["dll.export"]
-let foo = fun() => i32 {
-	var sum = 0;
-	for (var i: i32; i < 32; ++i) {
-		sum += 1;
-	}
-	return sum;
+
+let foo = fun(bar: i32) => void {
+	debug_print_i32("fumm fumm", bar);
 }
 
 [
 	"compile.output": "hello.exe",
-	"compile.debuginfo": "true",
+	"compile.debuginfo": "false",
 	"compile.entry" : "true",
 	"compile.ll"    : "true",
 	"compile.asm"   : "false",
- 	"compile.opt"   : "3",
+ 	"compile.opt"   : "0",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
 
-	// var arr: i32[32];
-	// for (var i: i32; i <32; ++i) {
-	// 	arr[i] = i*i;
-	// }
-	var sum = 0;
-	for (var i: i32; i < 32; ++i) {
-		sum += 1;
+	var arr: i32[32];
+	for (var i = 0; i < 32; ++i) {
+		arr[i] = i;
 	}
-	debug_print_i32("sum", sum);
-	debug_print_i32("foo", foo());
-	// var slice = arr[:];
+	for (var i = 0; i < 32; ++i) {
+	 	debug_print_i32("s", arr[i]);
+	}
+
 	print_string("hello, world!\n");
 }
 
