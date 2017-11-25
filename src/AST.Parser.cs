@@ -1375,7 +1375,7 @@ namespace PragmaScript {
                 result.fullyQualifiedName.path.Add(current.text);
 
                 var next = ps.PeekToken();
-                while (next.type == Token.TokenType.Dot) {
+                while (next.type == Token.TokenType.ModuleOp) {
                     ps.NextToken();
                     var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
                     result.fullyQualifiedName.path.Add(ident.text);

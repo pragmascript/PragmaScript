@@ -131,9 +131,9 @@ let create_circle = fun(center: v3; radius: f32; segments: i32 = 96) => mesh {
     *vp++ = center;
     for (var i = 0; i < segments; ++i) {
         var v = v3{};
-        var phi = Math.tau_32 * i@f32 / segments@f32;
-        v.x = radius * Math.cos(phi);
-        v.y = aspect * radius * Math.sin(phi);
+        var phi = Math::tau_32 * i@f32 / segments@f32;
+        v.x = radius * Math::cos(phi);
+        v.y = aspect * radius * Math::sin(phi);
         v = add(&v, &c);
         *vp++ = v;
     }

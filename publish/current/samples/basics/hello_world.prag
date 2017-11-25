@@ -7,6 +7,10 @@ mod FummFumm {
 }
 
 mod Foo::Bar {
+	let vec = struct (
+		x: f32;
+		y: f32;
+	);
 	let nase = fun() => void {
 		debug_print_i32("nase", 42);
 	}
@@ -24,6 +28,9 @@ mod Foo::Bar {
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
+
+	var v: Foo::Bar::vec;
+
 	Foo::Bar::nase();
 	FummFumm::foo(12);
 	Foo::Bar::nase();

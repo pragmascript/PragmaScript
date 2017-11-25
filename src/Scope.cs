@@ -186,14 +186,14 @@ namespace PragmaScript {
                 var result = getType(name, true, from);
                 return result;
             } else {
-                var ns_name = string.Join(".", typeName.path.Take(typeName.path.Count - 1));
-                var ns = GetModule(ns_name);
-                if (ns == null && module != null) {
-                    var path = $"{module.GetPath()}.{ns_name}";
-                    ns = GetModule(path);
+                var mod_name = string.Join("::", typeName.path.Take(typeName.path.Count - 1));
+                var mod = GetModule(mod_name);
+                if (mod == null && module != null) {
+                    var path = $"{module.GetPath()}::{mod_name}";
+                    mod = GetModule(path);
                 }
-                if (ns != null) {
-                    return ns.scope.getType(typeName.GetName(), false, from);
+                if (mod != null) {
+                    return mod.scope.getType(typeName.GetName(), false, from);
                 } else {
                     return null;
                 }
@@ -221,16 +221,16 @@ namespace PragmaScript {
             }
 
             if (result == null) {
-                Module result_ns = null;
-                foreach (var ns in importedModules) {
-                    if (ns.scope.types.TryGetValue(typeName, out var td)) {
+                Module result_mod = null;
+                foreach (var mod in importedModules) {
+                    if (mod.scope.types.TryGetValue(typeName, out var td)) {
                         if (result != null) {
-                            var p0 = $"\"{result_ns.GetPath()}.{typeName}\"";
-                            var p1 = $"\"{ns.GetPath()}.{typeName}\"";
+                            var p0 = $"\"{result_mod.GetPath()}.{typeName}\"";
+                            var p1 = $"\"{mod.GetPath()}.{typeName}\"";
                             throw new ParserError($"Access to variable is ambigious between {p0} and {p1}.", from);
                         } else {
                             result = td;
-                            result_ns = ns;
+                            result_mod = mod;
                         }
                     }
                 }
@@ -283,7 +283,7 @@ namespace PragmaScript {
             }
 
             Scope parentScope = root_scope;
-            Module lastNamespace = module;
+            Module lastModule = module;
 
             foreach (var p in path) {
                 Debug.Assert(!string.IsNullOrWhiteSpace(p));
@@ -296,13 +296,13 @@ namespace PragmaScript {
                     var n = new Module(p, parentScope);
                     modules.Add(path_string, n);
                     parentScope = n.scope;
-                    lastNamespace = n;
+                    lastModule = n;
                 } else {
-                    lastNamespace = modules[path_string];
-                    parentScope = lastNamespace.scope;
+                    lastModule = modules[path_string];
+                    parentScope = lastModule.scope;
                 }
             }
-            return lastNamespace;
+            return lastModule;
         }
 
         public Module GetModule(List<string> path)
