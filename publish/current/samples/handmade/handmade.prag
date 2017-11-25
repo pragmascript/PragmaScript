@@ -4,7 +4,7 @@ import "handmade_interface.prag"
 import "handmade_math.prag"
 
 
-namespace Handmade.Game
+mod Handmade.Game
 {
     let game_state = struct
     (

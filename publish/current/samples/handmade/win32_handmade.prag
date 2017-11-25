@@ -5,7 +5,7 @@ import "handmade_interface.prag"
 
 
 
-namespace Handmade.Platform
+mod Handmade.Platform
 {
 	with Windows;
 
@@ -15,7 +15,7 @@ namespace Handmade.Platform
 	// - Saved game locations
 	// - Getting a handle to our own executable file
 	// - Asset loading pppath
-	// - Threading
+	// - Threadingawsad
 	// - Raw input
 	// - Sleep/timeBeginPeriod
 	// - ClipCursor for multimonitor support

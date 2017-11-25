@@ -29,14 +29,14 @@ let __chkstk = extern fun () => void;
 
 let print_string = fun (s: string) => void
 {
-	assert(Windows.console_output_handle != Windows.INVALID_HANDLE_VALUE);
-	Windows.WriteFile(Windows.console_output_handle, s.data, s.length, @i32* nullptr, nullptr);
+	assert(Windows::console_output_handle != Windows::INVALID_HANDLE_VALUE);
+	Windows::WriteFile(Windows::console_output_handle, s.data, s.length, @i32* nullptr, nullptr);
 }
 
 let print_error = fun (s: string) => void
 {
-	assert(Windows.console_error_handle != Windows.INVALID_HANDLE_VALUE);
-	Windows.WriteFile(Windows.console_error_handle, s.data, s.length, @i32* nullptr, nullptr);
+	assert(Windows::console_error_handle != Windows::INVALID_HANDLE_VALUE);
+	Windows::WriteFile(Windows::console_error_handle, s.data, s.length, @i32* nullptr, nullptr);
 }
 
 ["conditional":"debug"]
@@ -319,7 +319,7 @@ let debug_print_bool = fun (name: string; value: bool) => void
 }
 
 
-namespace Random 
+mod Random 
 {
 	let seed = 12345;
 	let State = struct 

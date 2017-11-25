@@ -6,35 +6,35 @@ namespace PragmaScript {
 
     class Scope
     {
-        public class Namespace
+        public class Module
         {
             public string name;
             public Scope scope;
 
-            public Namespace(string name, Scope parentScope)
+            public Module(string name, Scope parentScope)
             {
                 this.name = name;
                 Debug.Assert(parentScope.function == null);
                 scope = new Scope(parentScope, null);
-                scope.namesp = this;
+                scope.module = this;
             }
 
             public string GetPath()
             {
-                List<Namespace> ns = new List<Namespace>();
+                List<Module> mod = new List<Module>();
 
                 var current = this;
                 while (true) {
-                    ns.Add(current);
+                    mod.Add(current);
                     Debug.Assert(current.scope.parent != null);
-                    current = current.scope.parent.namesp;
+                    current = current.scope.parent.module;
                     if (current == null) {
                         break;
                     }
                 }
 
-                ns.Reverse();
-                return string.Join(".", ns.Select(nns => nns.name));
+                mod.Reverse();
+                return string.Join(".", mod.Select(nns => nns.name));
             }
 
             public override string ToString()
@@ -43,6 +43,8 @@ namespace PragmaScript {
             }
         }
 
+
+        
         public class VariableDefinition
         {
             public bool isGlobal = false;
@@ -55,6 +57,12 @@ namespace PragmaScript {
             public string name;
             public AST.Node node;
             public FrontendType type;
+        }
+
+        public class OverloadedFunctionDefinition: VariableDefinition
+        {
+            public List<AST.Node> nodes = new List<AST.Node>();
+            public List<FrontendType> types = new List<FrontendType>();
         }
 
         public class TypeDefinition
@@ -89,12 +97,12 @@ namespace PragmaScript {
 
 
         // TODO: make this non static
-        public static Dictionary<string, Namespace> namespaces = new Dictionary<string, Namespace>();
+        public static Dictionary<string, Module> modules = new Dictionary<string, Module>();
 
         public Scope parent;
         public AST.FunctionDefinition function;
-        public Namespace namesp;
-        public List<Namespace> importedNamespaces = new List<Namespace>();
+        public Module module;
+        public List<Module> importedModules = new List<Module>();
 
         public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
         public Dictionary<string, TypeDefinition> types = new Dictionary<string, TypeDefinition>();
@@ -113,8 +121,8 @@ namespace PragmaScript {
             if (variables.TryGetValue(name, out result)) {
                 return result;
             }
-            Namespace result_ns = null;
-            foreach (var ns in importedNamespaces) {
+            Module result_ns = null;
+            foreach (var ns in importedModules) {
 
                 if (ns.scope.variables.TryGetValue(name, out var vd)) {
                     if (result != null) {
@@ -141,15 +149,15 @@ namespace PragmaScript {
         public VariableDefinition AddVar(string name, AST.Node node, Token t, bool isConst = false)
         {
             Debug.Assert(node != null);
-            VariableDefinition v = new VariableDefinition();
-            v.isGlobal = parent == null;
-            v.isNamespace = this.namesp != null;
-            v.name = name;
-            v.node = node;
-            v.isConstant = isConst;
             if (variables.ContainsKey(name)) {
                 throw new RedefinedVariable(name, t);
             }
+            var v = new VariableDefinition();
+            v.isGlobal = parent == null;
+            v.isNamespace = this.module != null;
+            v.name = name;
+            v.node = node;
+            v.isConstant = isConst;
             variables.Add(name, v);
             return v;
         }
@@ -159,7 +167,7 @@ namespace PragmaScript {
             Debug.Assert(@type != null);
             VariableDefinition v = new VariableDefinition();
             v.isGlobal = parent == null;
-            v.isNamespace = this.namesp != null;
+            v.isNamespace = this.module != null;
             v.name = name;
             v.type = @type;
             v.isConstant = isConst;
@@ -176,21 +184,19 @@ namespace PragmaScript {
             if (typeName.path.Count == 1) {
                 var name = typeName.GetName();
                 var result = getType(name, true, from);
-
                 return result;
             } else {
                 var ns_name = string.Join(".", typeName.path.Take(typeName.path.Count - 1));
-                var ns = GetNamespace(ns_name);
-                if (ns == null && namesp != null) {
-                    var path = $"{namesp.GetPath()}.{ns_name}";
-                    ns = GetNamespace(path);
+                var ns = GetModule(ns_name);
+                if (ns == null && module != null) {
+                    var path = $"{module.GetPath()}.{ns_name}";
+                    ns = GetModule(path);
                 }
                 if (ns != null) {
                     return ns.scope.getType(typeName.GetName(), false, from);
                 } else {
                     return null;
                 }
-
             }
         }
 
@@ -215,8 +221,8 @@ namespace PragmaScript {
             }
 
             if (result == null) {
-                Namespace result_ns = null;
-                foreach (var ns in importedNamespaces) {
+                Module result_ns = null;
+                foreach (var ns in importedModules) {
                     if (ns.scope.types.TryGetValue(typeName, out var td)) {
                         if (result != null) {
                             var p0 = $"\"{result_ns.GetPath()}.{typeName}\"";
@@ -260,7 +266,7 @@ namespace PragmaScript {
             return result;
         }
 
-        public Namespace AddNamespace(List<string> path, bool root = false)
+        public Module AddModule(List<string> path, bool root = false)
         {
             Debug.Assert(path.Count > 0);
 
@@ -271,43 +277,43 @@ namespace PragmaScript {
                 path_string = "";
             } else {
                 root_scope = this;
-                if (namesp != null) {
-                    path_string = namesp.GetPath();
+                if (module != null) {
+                    path_string = module.GetPath();
                 }
             }
 
             Scope parentScope = root_scope;
-            Namespace lastNamespace = namesp;
+            Module lastNamespace = module;
 
             foreach (var p in path) {
                 Debug.Assert(!string.IsNullOrWhiteSpace(p));
                 if (string.IsNullOrWhiteSpace(path_string)) {
                     path_string = p;
                 } else {
-                    path_string = $"{path_string}.{p}";
+                    path_string = $"{path_string}::{p}";
                 }
-                if (!namespaces.ContainsKey(path_string)) {
-                    var n = new Namespace(p, parentScope);
-                    namespaces.Add(path_string, n);
+                if (!modules.ContainsKey(path_string)) {
+                    var n = new Module(p, parentScope);
+                    modules.Add(path_string, n);
                     parentScope = n.scope;
                     lastNamespace = n;
                 } else {
-                    lastNamespace = namespaces[path_string];
+                    lastNamespace = modules[path_string];
                     parentScope = lastNamespace.scope;
                 }
             }
             return lastNamespace;
         }
 
-        public Namespace GetNamespace(List<string> path)
+        public Module GetModule(List<string> path)
         {
-            namespaces.TryGetValue(string.Join(".", path), out Namespace result);
+            modules.TryGetValue(string.Join("::", path), out Module result);
             return result;
         }
 
-        public Namespace GetNamespace(string path)
+        public Module GetModule(string path)
         {
-            namespaces.TryGetValue(string.Join(".", path), out Namespace result);
+            modules.TryGetValue(string.Join("::", path), out Module result);
             return result;
 
         }

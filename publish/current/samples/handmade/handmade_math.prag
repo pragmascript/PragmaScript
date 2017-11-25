@@ -1,4 +1,4 @@
-namespace Handmade
+mod Handmade
 {
     let vec2 = struct 
     (

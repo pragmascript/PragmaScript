@@ -165,7 +165,7 @@ namespace PragmaScript {
                             scopeIdx = GetDILexicalBlock(block);
                         }
                         break;
-                    case AST.Namespace ns:
+                    case AST.Module ns:
                         // TODO(pragma): NAMESPACES
                         scopeIdx = GetDIScope(debugRootNode);
                         break;
@@ -183,10 +183,10 @@ namespace PragmaScript {
             }
             var scopeRoot = n?.scope?.owner;
             // TODO(pragma): HACK
-            if (scopeRoot is AST.ProgramRoot || scopeRoot is AST.Namespace) {
+            if (scopeRoot is AST.ProgramRoot || scopeRoot is AST.Module) {
                 if (debugCurrentEmitFunction != null) {
                     scopeRoot = debugCurrentEmitFunction.debugContextNode;
-                    if (scopeRoot is AST.ProgramRoot || scopeRoot is AST.Namespace) {
+                    if (scopeRoot is AST.ProgramRoot || scopeRoot is AST.Module) {
                         return -1;
                     }
                 } else {

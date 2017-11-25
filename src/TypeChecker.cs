@@ -28,7 +28,7 @@ namespace PragmaScript {
         Dictionary<AST.Node, FrontendType> pre_resolved;
 
         public List<AST.VariableReference> embeddings;
-        public List<(AST.FieldAccess fa, Scope.Namespace ns)> namespaceAccesses;
+        public List<(AST.FieldAccess fa, Scope.Module ns)> namespaceAccesses;
 
         public TypeChecker()
         {
@@ -37,7 +37,7 @@ namespace PragmaScript {
             knownTypes = new Dictionary<AST.Node, FrontendType>();
             pre_resolved = new Dictionary<AST.Node, FrontendType>();
             embeddings = new List<AST.VariableReference>();
-            namespaceAccesses = new List<(AST.FieldAccess fa, Scope.Namespace ns)>();
+            namespaceAccesses = new List<(AST.FieldAccess fa, Scope.Module ns)>();
         }
 
 
@@ -175,7 +175,7 @@ namespace PragmaScript {
             resolve(node, FrontendType.none);
         }
 
-        void checkType(AST.Namespace node)
+        void checkType(AST.Module node)
         {
             foreach (var n in node.declarations) {
                 checkTypeDynamic(n);
@@ -559,7 +559,6 @@ namespace PragmaScript {
         void checkType(AST.VariableReference node)
         {
             Scope.VariableDefinition vd = null;
-            Scope.Namespace ns = null;
             bool functionResolved = false;
             if (node.scope.function != null) {
                 Debug.Assert(node.variableName != null);
@@ -573,9 +572,15 @@ namespace PragmaScript {
                 }
             }
             if (node.scope.function == null || functionResolved) {
+                if (node.modulePath != null) {
+                    var ns = node.scope.GetModule(node.modulePath);
+                    if (ns == null) {
+                        throw new ParserError("Could not resolve module path", node.token);
+                    }
+                    node.scope = ns.scope;
+                }
                 vd = node.scope.GetVar(node.variableName, node.token);
-                ns = node.scope.GetNamespace(node.variableName);
-                if (vd == null && ns == null) {
+                if (vd == null) {
                     throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
                 }
                 if (vd != null && vd.isEmbedded) {
@@ -605,9 +610,7 @@ namespace PragmaScript {
                         addUnresolved(node, vd.node);
                     }
                 }
-            } else if (ns != null) {
-                resolve(node, FrontendType.none);
-            }
+            } 
         }
 
         void checkType(AST.Assignment node)
@@ -707,52 +710,20 @@ namespace PragmaScript {
                         }
                     }
                 }
+                if (st == null) {
+                    throw new ParserError("left side is not a struct type", node.token);
+                }
 
-                bool isNamespace = false;
-                if (st != null) {
-                    node.kind = AST.FieldAccess.AccessKind.Struct;
-                    if (st.preResolved) {
-                        addUnresolved(node, typeRoots[st]);
-                    } else {
-                        var field = st.GetField(node.fieldName);
-                        if (field == null) {
-                            throw new ParserError($"struct does not contain field \"{node.fieldName}\"", node.token);
-                        }
-                        resolve(node, field);
-                    }
-
+                node.kind = AST.FieldAccess.AccessKind.Struct;
+                if (st.preResolved) {
+                    addUnresolved(node, typeRoots[st]);
                 } else {
-                    // assume its a namespace
-                    if (lt.Equals(FrontendType.none)) {
-                        var ns = node.scope.GetNamespace(node.left.token.text);
-                        if (ns != null) {
-                            isNamespace = true;
-                            node.kind = AST.FieldAccess.AccessKind.Namespace;
-                            var vd = ns.scope.GetVar(node.fieldName, node.token, recurse: false);
-
-                            if (vd == null) {
-                                throw new ParserError($"Unknown variable \"{node.fieldName}\" in namespace \"{ns}\"", node.token);
-                            }
-
-                            if (vd.type != null) {
-                                resolve(node, vd.type);
-                            } else {
-                                var vt = getType(vd.node);
-                                if (vt != null) {
-                                    namespaceAccesses.Add((node, ns));
-                                    Debug.Assert(vd.isFunctionParameter == false);
-                                    resolve(node, vt);
-                                } else {
-                                    addUnresolved(node, vd.node);
-                                }
-                            }
-                        }
+                    var field = st.GetField(node.fieldName);
+                    if (field == null) {
+                        throw new ParserError($"struct does not contain field \"{node.fieldName}\"", node.token);
                     }
+                    resolve(node, field);
                 }
-                if (st == null && !isNamespace) {
-                    throw new ParserError("left side is not a struct type or namespace", node.token);
-                }
-
             }
         }
 
@@ -1239,7 +1210,7 @@ namespace PragmaScript {
                 case AST.FileRoot n:
                     checkType(n);
                     break;
-                case AST.Namespace n:
+                case AST.Module n:
                     checkType(n);
                     break;
                 case AST.Block n:

@@ -1,4 +1,4 @@
-namespace Handmade
+mod Handmade
 {
     let game_sound_output = struct
     (

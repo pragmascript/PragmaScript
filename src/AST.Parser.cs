@@ -161,15 +161,15 @@ namespace PragmaScript {
             return result;
         }
 
-        public static Node parseNamespace(ref ParseState ps, Scope scope)
+        public static Node parseModule(ref ParseState ps, Scope scope)
         {
-            var current = ps.ExpectCurrentToken(Token.TokenType.Namespace);
+            var current = ps.ExpectCurrentToken(Token.TokenType.Module);
 
             var ident = ps.ExpectNextToken(Token.TokenType.Identifier);
             var path = new List<string>();
             path.Add(ident.text);
             while (true) {
-                if (ps.PeekToken().type == Token.TokenType.Dot) {
+                if (ps.PeekToken().type == Token.TokenType.ModuleOp) {
                     ps.NextToken();
                     ident = ps.NextToken();
                     path.Add(ident.text);
@@ -177,9 +177,9 @@ namespace PragmaScript {
                     break;
                 }
             }
-            var ns = scope.AddNamespace(path);
+            var ns = scope.AddModule(path);
             
-            var result = new AST.Namespace(current, ns.scope);
+            var result = new AST.Module(current, ns.scope);
             ns.scope.owner = result;
 
             ps.ExpectNextToken(Token.TokenType.OpenCurly);
@@ -230,8 +230,8 @@ namespace PragmaScript {
 
                         }
                         break;
-                    case Token.TokenType.Namespace: {
-                            result = parseNamespace(ref ps, scope);
+                    case Token.TokenType.Module: {
+                            result = parseModule(ref ps, scope);
                             ignoreSemicolon = true;
                         }
                         break;
@@ -249,8 +249,8 @@ namespace PragmaScript {
                                     break;
                                 }
                             }
-                            var ns = scope.AddNamespace(path, root: true);
-                            scope.importedNamespaces.Add(ns);
+                            var ns = scope.AddModule(path, root: true);
+                            scope.importedModules.Add(ns);
                             foundWith = true;
                             ps.ExpectNextToken(Token.TokenType.Semicolon);
                             current = ps.NextToken();
@@ -1106,7 +1106,6 @@ namespace PragmaScript {
                         ps.NextToken();
                         next = parseStructFieldAccess(ref ps, scope, result, false);
                         break;
-                    
                     case Token.TokenType.OpenSquareBracket:
                         var tempState = ps;
                         tempState.NextToken();
@@ -1139,7 +1138,6 @@ namespace PragmaScript {
                         }
                         break;
 
-                    
                     // TODO(pragma): unitialized array handling:
                     // case Token.TokenType.ArrayTypeBrackets:
                     //     next = parseUninitializedArray(ref ps, scope);
@@ -1162,9 +1160,9 @@ namespace PragmaScript {
                     default:
                         if (result == null) {
                             result = parseVariableReference(ref ps, scope, false);
+                        } else {
+                            exit = true;
                         }
-
-                        exit = true;
                         break;
                 }
                 if (next != null) {
@@ -1237,9 +1235,20 @@ namespace PragmaScript {
         static Node parseVariableReference(ref ParseState ps, Scope scope, bool returnPointer = false)
         {
             var current = ps.CurrentToken();
-            expectTokenType(current, Token.TokenType.Identifier, Token.TokenType.Increment, Token.TokenType.Decrement);
+            expectTokenType(current, Token.TokenType.Identifier);
 
+            
             VariableReference result = new VariableReference(current, scope);
+            if (ps.PeekToken().type == Token.TokenType.ModuleOp) {
+                var path = new List<string>();
+                while (ps.PeekToken().type == Token.TokenType.ModuleOp) {
+                    path.Add(current.text);
+                    ps.NextToken();
+                    current = ps.ExpectNextToken(Token.TokenType.Identifier);
+                }
+                result.modulePath = path;
+            }
+            
             result.returnPointer = returnPointer;
             result.variableName = current.text;
 

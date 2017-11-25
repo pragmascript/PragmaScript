@@ -12,7 +12,7 @@ namespace PragmaScript {
             fixupParents(null, root);
         }
 
-        public static void Desugar(List<(AST.FieldAccess fa, Scope.Namespace ns)> namespaceAccesses, TypeChecker tc)
+        public static void Desugar(List<(AST.FieldAccess fa, Scope.Module ns)> namespaceAccesses, TypeChecker tc)
         {
             foreach (var na in namespaceAccesses) {
                 Debug.Assert(na.fa.kind == FieldAccess.AccessKind.Namespace);

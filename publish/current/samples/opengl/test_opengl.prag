@@ -120,7 +120,7 @@ let create_circle = fun(center: v3; radius: f32; segments: i32 = 96) => mesh {
     var size_vertices = (segments + 1) * size_of(v3)@i32;
     var size_indices = 3 * segments * size_of(i32)@i32;
     var total_size = size_vertices + size_indices;
-    var memory = Windows.VirtualAlloc(nullptr, total_size@\mm, MEM_COMMIT, PAGE_READWRITE);
+    var memory = Windows::VirtualAlloc(nullptr, total_size@\mm, MEM_COMMIT, PAGE_READWRITE);
 
     var vp = memory@v3*;
     result.vertices = vp[:segments+1];

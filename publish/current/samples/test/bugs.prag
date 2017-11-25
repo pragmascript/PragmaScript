@@ -352,7 +352,7 @@ let print_vec = fun (v: Handmade.vec2) => void
 ]
 let main = fun () => void 
 {
-	print_i64((i64)Windows.INVALID_HANDLE_VALUE, false);
+	print_i64((i64)Windows::INVALID_HANDLE_VALUE, false);
 	print_string("\n");
 	print_i64((i64)0xFFFFFFFF, false);
 

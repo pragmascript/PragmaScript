@@ -93,12 +93,13 @@ namespace PragmaScript
             DivideEqualsUnsigned,
             DivideUnsigned,
             At,
-            Namespace,
+            Module,
             With,
             Reserve,
             RightShiftUnsigned,
             RightShiftEqualsUnsigned,
-            UnsignedCast
+            UnsignedCast,
+            ModuleOp
         }
 
         public TokenType type { get; private set; }
@@ -136,7 +137,7 @@ namespace PragmaScript
             keywords.Add("size_of", TokenType.SizeOf);
             keywords.Add("extern", TokenType.Extern);
             keywords.Add("import", TokenType.Import);
-            keywords.Add("namespace", TokenType.Namespace);
+            keywords.Add("mod", TokenType.Module);
             keywords.Add("with", TokenType.With);
 
             operators = new Dictionary<string, TokenType>();
@@ -157,6 +158,7 @@ namespace PragmaScript
             operators.Add(",", TokenType.Comma);
             operators.Add(";", TokenType.Semicolon);
             operators.Add(":", TokenType.Colon);
+            operators.Add("::", TokenType.ModuleOp);
             operators.Add("<<", TokenType.LeftShift);
             operators.Add(">>", TokenType.RightShift);
             operators.Add(">>\\", TokenType.RightShiftUnsigned);

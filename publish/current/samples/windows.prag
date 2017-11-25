@@ -1,4 +1,4 @@
-﻿namespace Windows
+﻿mod Windows
 {
 
     let STD_ERROR_HANDLE  = -12;

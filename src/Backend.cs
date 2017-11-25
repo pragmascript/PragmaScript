@@ -271,7 +271,7 @@ namespace PragmaScript {
             var constVariables = new List<AST.Node>();
             var functionDefinitions = new List<AST.Node>();
             var globalVariables = new List<AST.Node>();
-            var namespaces = new List<AST.Namespace>();
+            var modules = new List<AST.Module>();
 
             var other = new List<AST.Node>();
 
@@ -287,8 +287,8 @@ namespace PragmaScript {
                     if (!(decl as AST.FunctionDefinition).external) {
                         other.Add(decl);
                     }
-                } else if (decl is AST.Namespace ns) {
-                    namespaces.Add(ns);
+                } else if (decl is AST.Module ns) {
+                    modules.Add(ns);
                 } else {
                     other.Add(decl);
                 }
@@ -329,13 +329,13 @@ namespace PragmaScript {
             foreach (var decl in globalVariables) {
                 Visit(decl as AST.VariableDefinition);
             }
-            foreach (var ns in namespaces) {
+            foreach (var ns in modules) {
                 Visit(ns, definitions: true);
             }
             foreach (var decl in other) {
                 Visit(decl);
             }
-            foreach (var ns in namespaces) {
+            foreach (var ns in modules) {
                 Visit(ns, definitions: false);
             } 
 
@@ -360,11 +360,11 @@ namespace PragmaScript {
 
 
         // TODO(pragma): avoid calling this twice?
-        public void Visit(AST.Namespace node, bool definitions = false) {
+        public void Visit(AST.Module node, bool definitions = false) {
             var functionDefinitions = new List<AST.Node>();
             var constVariables = new List<AST.Node>();
             var variables = new List<AST.Node>();
-            var namespaces = new List<AST.Namespace>();
+            var modules = new List<AST.Module>();
             var other = new List<AST.Node>();
 
             // visit function definitions make prototypes
@@ -380,8 +380,8 @@ namespace PragmaScript {
                     if (!(decl as AST.FunctionDefinition).external) {
                         other.Add(decl);
                     }
-                } else if (decl is AST.Namespace ns) {
-                    namespaces.Add(ns);
+                } else if (decl is AST.Module ns) {
+                    modules.Add(ns);
                 } else {
                     other.Add(decl);
                 }
@@ -396,15 +396,15 @@ namespace PragmaScript {
                 foreach (var decl in variables) {
                     Visit(decl as AST.VariableDefinition);
                 }
-                foreach (var ns in namespaces) {
-                    Visit(ns, definitions: true);
+                foreach (var ms in modules) {
+                    Visit(ms, definitions: true);
                 }
             } else {
                 foreach (var decl in other) {
                     Visit(decl);
                 }
-                foreach (var ns in namespaces) {
-                    Visit(ns, definitions: false);
+                foreach (var ms in modules) {
+                    Visit(ms, definitions: false);
                 }
             }
         }
@@ -1886,7 +1886,7 @@ namespace PragmaScript {
                 case AST.FileRoot n:
                     Visit(n);
                     break;
-                case AST.Namespace n:
+                case AST.Module n:
                     Visit(n);
                     break;
                 case AST.Block n:

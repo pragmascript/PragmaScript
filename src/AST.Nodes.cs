@@ -152,10 +152,10 @@ namespace PragmaScript {
             }
         }
 
-        public class Namespace : Node
+        public class Module : Node
         {
             public List<Node> declarations = new List<Node>();
-            public Namespace(Token t, Scope s)
+            public Module(Token t, Scope s)
                 : base(t, s)
             {
             }
@@ -180,7 +180,7 @@ namespace PragmaScript {
 
             public override string ToString()
             {
-                return scope.namesp.name;
+                return scope.module.name;
             }
         }
 
@@ -620,6 +620,7 @@ namespace PragmaScript {
 
         public class VariableReference : Node, ICanReturnPointer
         {
+            public List<string> modulePath;
             public string variableName;
             // HACK: returnPointer is a HACK remove this?????
             public bool returnPointer { get; set; }
@@ -639,8 +640,10 @@ namespace PragmaScript {
                 // and thus fail in the type checking phase.
                 // Debug.Assert(vd != null);
 
-
                 var result = new VariableReference(token, scope);
+                if (modulePath != null) {
+                    result.modulePath = new List<string>(modulePath);
+                }
                 result.returnPointer = returnPointer;
                 result.variableName = variableName;
                 return result;
@@ -648,6 +651,10 @@ namespace PragmaScript {
             public override string ToString()
             {
                 string name = variableName;
+                if (modulePath.Count > 0) {
+                    var mod = string.Join("::", modulePath);    
+                    name = $"{mod}::{variableName}";
+                }
                 return name + (returnPointer ? " (p)" : "");
             }
 

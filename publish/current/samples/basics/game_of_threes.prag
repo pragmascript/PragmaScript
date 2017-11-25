@@ -26,5 +26,5 @@ let main = fun () => void
 		value /= 3;
 	}
 	print_string("1\n");
-	Windows.ExitProcess(0);
+	Windows::ExitProcess(0);
 }
