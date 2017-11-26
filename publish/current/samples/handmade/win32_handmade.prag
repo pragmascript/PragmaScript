@@ -5,7 +5,7 @@ import "handmade_interface.prag"
 
 
 
-mod Handmade.Platform
+mod Handmade::Platform
 {
 	with Windows;
 
@@ -185,7 +185,7 @@ mod Handmade.Platform
 		assert(result.output_sound@ptr != nullptr);
 		result.is_loaded = true;
 
-		print_string("load library\n");
+		print("load library\n");
 		return result;
 	}
 
@@ -199,7 +199,7 @@ mod Handmade.Platform
 		output_sound = @game_output_sound nullptr;
 		is_loaded = false;
 		library = null;
-		print_string("unload library\n");
+		print("unload library\n");
 	}
 
 	let get_last_write_time = fun
@@ -902,15 +902,15 @@ mod Handmade.Platform
 					last_counter_debug_stats = frame_end_counter;
 					var cycles_elapsed = current_cycle_count - last_cycle_count;
 					var frame_ms = 1000.0 * game_input.time.dt;
-					print_string("\n");
-					print_f32(frame_ms);
-					print_string("ms/f   ");
-					print_f32(1000.0 / frame_ms);
+					print("\n");
+					print(frame_ms);
+					print("ms/f   ");
+					print(1000.0 / frame_ms);
 					last_fps = 0.5 * last_fps + (1000.0 / frame_ms);
-					print_string("fps   ");
-					print_f64(cycles_elapsed@f64 / 1000000.0);
-					print_string("mcycles   ");
-					debug_print_f32("dt", game_input.time.dt);
+					print("fps   ");
+					print(cycles_elapsed@f64 / 1000000.0);
+					print("mcycles   ");
+					debug_print("dt", game_input.time.dt);
 				}
 				refresh_game_dll(&game);
 			}

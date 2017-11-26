@@ -432,7 +432,7 @@ namespace PragmaScript {
             throw new InvalidCodePath();
         }
 
-        void calcTypeName()
+        internal void calcTypeName()
         {
             name = $"{funName}({string.Join(",", parameters)}) => {returnType}";
         }

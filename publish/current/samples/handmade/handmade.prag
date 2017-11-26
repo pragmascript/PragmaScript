@@ -4,7 +4,7 @@ import "handmade_interface.prag"
 import "handmade_math.prag"
 
 
-mod Handmade.Game
+mod Handmade::Game
 {
     let game_state = struct
     (
@@ -140,7 +140,7 @@ mod Handmade.Game
 
         let blue = color { 0, 0, 1, 1};
         draw_rectangle(render_target, center_half_size_rect(pos_x, pos_y, tile_size/2), blue);
-        draw_rectangle(render_target, center_half_size_rect(Math.round_to_i32(px), Math.round_to_i32(py), player_size/2), player_color);
+        draw_rectangle(render_target, center_half_size_rect(Math::round_to_i32(px), Math::round_to_i32(py), player_size/2), player_color);
         
         // draw mouse cursor
         let cursor_color = color {0.5, 0.5, 0.5, 1.0};
@@ -202,9 +202,9 @@ mod Handmade.Game
         t: f32;
     ) => void
     {
-        r += 0.25 * Math.sin(t * 5.0);
-        g += 0.25 * Math.sin(t * 4.2 + 0.5);
-        b += 0.25 * Math.cos(t * 5.1);
+        r += 0.25 * Math::sin(t * 5.0);
+        g += 0.25 * Math::sin(t * 4.2 + 0.5);
+        b += 0.25 * Math::cos(t * 5.1);
     }
 
     ["dll.export"]
@@ -227,8 +227,8 @@ mod Handmade.Game
 
         for (var i: i32 = 0; i < sample_count; ++i) {
             // var v = Math.lerp(game_state.volume, game_state.target_volume, t);
-            var p = tone_hz * Math.tau_32 * t;
-            var x = @i16 (32767 * volume * Math.sin(p));
+            var p = tone_hz * Math::tau_32 * t;
+            var x = @i16 (32767 * volume * Math::sin(p));
             *sample++ = x;
             *sample++ = x;
             t += delta_t;
@@ -312,10 +312,10 @@ mod Handmade.Game
         color: color;
     ) => void
     {
-        var min_x_p = @i32 Math.round(rect.pos.x);
-        var min_y_p = @i32 Math.round(rect.pos.y);
-        var max_x_p = @i32 Math.round(rect.pos.x + rect.size.x);
-        var max_y_p = @i32 Math.round(rect.pos.y + rect.size.y);
+        var min_x_p = @i32 Math::round(rect.pos.x);
+        var min_y_p = @i32 Math::round(rect.pos.y);
+        var max_x_p = @i32 Math::round(rect.pos.x + rect.size.x);
+        var max_y_p = @i32 Math::round(rect.pos.y + rect.size.y);
         if (min_x_p < 0) {
             min_x_p = 0;
         }
@@ -329,12 +329,12 @@ mod Handmade.Game
             max_y_p = buffer.height;
         }
 
-        var r = @i32 Math.round(color.r * 255);
-        r = Math.clamp_i32(r, 0, 255);
-        var g = @i32 Math.round(color.g * 255);
-        g = Math.clamp_i32(g, 0, 255);
-        var b = @i32 Math.round(color.b * 255);
-        b = Math.clamp_i32(b, 0, 255);
+        var r = @i32 Math::round(color.r * 255);
+        r = Math::clamp_i32(r, 0, 255);
+        var g = @i32 Math::round(color.g * 255);
+        g = Math::clamp_i32(g, 0, 255);
+        var b = @i32 Math::round(color.b * 255);
+        b = Math::clamp_i32(b, 0, 255);
         var c = (r << 16) | (g << 8) | (b << 0);
 
         var row: i8* = buffer.memory;

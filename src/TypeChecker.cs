@@ -389,6 +389,7 @@ namespace PragmaScript {
                     result.returnType = ft.returnType;
                     result.specialFun = ft.specialFun;
                     result.preResolved = ft.preResolved;
+                    result.calcTypeName();
 
 
                     if (!typeRoots.ContainsKey(tt)) {
@@ -547,8 +548,9 @@ namespace PragmaScript {
                     throw new ParserError($"Could not find matching overload.", node.token);
                 }
                 if (validTypes.Count > 1) {
-                    var ambigousLocations = string.Join(", ", validTypes);
-                    throw new ParserError($"Overload is ambigous between ({ambigousLocations})", node.token);
+                    // var ambigousLocations = string.Join(",", validTypes.Select(vt => (GetTypeRoot(st.types[vt.Item1]).token, vt.Item2)));
+                    var ambigousLocations = string.Join(", ", validTypes.Select(vt => vt.Item2));
+                    throw new ParserError($"Overload is ambigous between {ambigousLocations}", node.token);
                 }
                 f_type = validTypes[0].Item2;
                 

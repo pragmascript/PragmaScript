@@ -13,7 +13,8 @@ import "../preamble.prag"
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
-	print("fumm fumm");
-	print(12);
+	print("fumm fumm\n");
+	print(@i32 12);
+	print("\n");
 }
 
