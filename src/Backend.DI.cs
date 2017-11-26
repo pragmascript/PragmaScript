@@ -94,14 +94,23 @@ namespace PragmaScript {
                 case AST.VariableDefinition vd:
                     name = vd.variable.name;
                     break;
-                case AST.StructConstructor sc:
-                    name = ((AST.VariableDefinition)sc.parent).variable.name;
+                case AST.StructConstructor sc: {
+                        if (sc.parent is AST.VariableDefinition vdd) {
+                            name = vdd.variable.name;
+                        }
+                    }
                     break;
-                case AST.ArrayConstructor ac:
-                    name =((AST.VariableDefinition)ac.parent).variable.name;
+                case AST.ArrayConstructor ac: {
+                        if (ac.parent is AST.VariableDefinition vdd) {
+                            name = vdd.variable.name;
+                        }
+                    }
                     break;
                 default:
                     return;
+            }
+            if (name == null) {
+                return;
             }
             var nodeString = $"!DILocalVariable(name: \"{name}\", scope: !{GetDIScope(n.scope.owner)}, file: !{GetDIFile(n)}, line: {n.token.Line}, type: !{GetDIType(ft)})"; 
             var localVarIdx = AddDebugInfoNode(nodeString);

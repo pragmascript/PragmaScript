@@ -262,49 +262,49 @@
 
 
 
-namespace Handmade
-{
-    let vec2 = struct 
-    (
-        x: f32; y: f32;
-    );
-    let vec3 = struct 
-    (
-        x: f32; y: f32; z: f32;
-    );
-    let vec4 = struct 
-    (
-        x: f32; y: f32; z: f32; w: f32;
-    );
-    let color = struct 
-    (
-        r: f32; g: f32; b: f32; a: f32;
-    );
-    let rectangle = struct 
-    (
-        pos: vec2;
-        size: vec2; 
-    );
+// mod Handmade
+// {
+//     let vec2 = struct 
+//     (
+//         x: f32; y: f32;
+//     );
+//     let vec3 = struct 
+//     (
+//         x: f32; y: f32; z: f32;
+//     );
+//     let vec4 = struct 
+//     (
+//         x: f32; y: f32; z: f32; w: f32;
+//     );
+//     let color = struct 
+//     (
+//         r: f32; g: f32; b: f32; a: f32;
+//     );
+//     let rectangle = struct 
+//     (
+//         pos: vec2;
+//         size: vec2; 
+//     );
 
-    let min_max_rect = fun (min_x: i32; min_y: i32; max_x: i32; max_y: i32) => rectangle 
-    {
-        return rectangle{vec2{(f32)min_x, (f32)min_y}, vec2{(f32)(max_x - min_x), (f32)(max_y - min_y)}};
-    }
+//     let min_max_rect = fun (min_x: i32; min_y: i32; max_x: i32; max_y: i32) => rectangle 
+//     {
+//         return rectangle{vec2{min_x@f32, min_y@f32}, vec2{(max_x - min_x)@f32, (max_y - min_y)@f32}};
+//     }
 
-    let center_half_size_rect = fun (x: i32; y: i32; half_size: i32) => rectangle 
-    {
-        return rectangle{vec2{(f32)(x - half_size), (f32)(y - half_size)}, vec2{(f32)(x + half_size), (f32)(y + half_size)} };
-    } 
+//     let center_half_size_rect = fun (x: i32; y: i32; half_size: i32) => rectangle 
+//     {
+//         return rectangle{vec2{(x - half_size)@f32, (y - half_size)@f32}, vec2{(x + half_size)@f32, (y + half_size)@f32} };
+//     } 
 
-    // let min_max_rect = fun (min_x: i32; min_y: i32; max_x: i32; max_y: i32) => rectangle 
-    // {
-    //     var pos  = vec2 { (f32)min_x, (f32)min_y };
-    //     var size = vec2 { (f32)(max_x - min_x), (f32)(max_y - min_y) };
-    //     // var result = rectangle{pos, size};
-	// 	// return result;
-    //     return rectangle{pos, size};
-    // }
-}
+//     // let min_max_rect = fun (min_x: i32; min_y: i32; max_x: i32; max_y: i32) => rectangle 
+//     // {
+//     //     var pos  = vec2 { (f32)min_x, (f32)min_y };
+//     //     var size = vec2 { (f32)(max_x - min_x), (f32)(max_y - min_y) };
+//     //     // var result = rectangle{pos, size};
+// 	// 	// return result;
+//     //     return rectangle{pos, size};
+//     // }
+// }
 
 
 
@@ -322,11 +322,13 @@ let add = fun
 {
     
     // this works:
-    // var result = Vec { a.x + b.x, a.y + b.y, a.z + b.z};
-    // return result;
+    var result = Vec { a.x + b.x, a.y + b.y, a.z + b.z};
+    
+    // if the return is missing the backend shits itself
+    return result;
 
     // this doesn't
-    return Vec { a.x + b.x, a.y + b.y, a.z + b.z};
+    // return Vec { a.x + b.x, a.y + b.y, a.z + b.z};
 
 }
 
@@ -335,11 +337,11 @@ let foo_bar = fun (v: Vec) => void {
     var f = &v.x;
 }
 
-let print_vec = fun (v: Handmade.vec2) => void 
-{
-	debug_print_f32("x", v.x);
-	debug_print_f32("y", v.y);
-}
+// let print_v2 = fun (v: Handmade::vec2) => void 
+// {
+// 	debug_print("x", v.x);
+// 	debug_print("y", v.y);
+// }
 
 
 [
@@ -352,12 +354,12 @@ let print_vec = fun (v: Handmade.vec2) => void
 ]
 let main = fun () => void 
 {
-	print_i64((i64)Windows::INVALID_HANDLE_VALUE, false);
-	print_string("\n");
-	print_i64((i64)0xFFFFFFFF, false);
+	// print(@i64 Windows::INVALID_HANDLE_VALUE, false);
+	// print("\n");
+	// print(@i64 0xFFFFFFFF, false);
 
-	let v = Handmade.vec2{1.0, 2.0};
-	print_vec(v);
+	// let v = Handmade::vec2{1.0, 2.0};
+	// print_v2(v);
 }
 
 
