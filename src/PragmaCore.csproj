@@ -5,11 +5,12 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <RuntimeIdentifier>win7-x64</RuntimeIdentifier>
     <DefineConstants>DISPLAY_TIMINGS</DefineConstants>
+    <StartupObject></StartupObject>
   </PropertyGroup>
   <Target Name="MyPostCompileTarget1" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Exec Command="python postbuild.py -release" />
   </Target>
   <Target Name="MyPostCompileTarget2" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
-    <Exec Command="python postbuild.py -debug"  />
+    <Exec Command="python postbuild.py -debug" />
   </Target>
 </Project>

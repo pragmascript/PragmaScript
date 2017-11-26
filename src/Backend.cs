@@ -342,7 +342,7 @@ namespace PragmaScript {
             builder.PositionAtEnd(entry);
 
             if (main != null) {
-                var mf = variables[main.scope.GetVar(main.funName, main.token)];
+                var mf = variables[main.scope.GetVar(main.funName, main.token).First];
                 builder.BuildCall(mf, node);
             }
 
@@ -1337,7 +1337,14 @@ namespace PragmaScript {
         }
 
         public void Visit(AST.VariableReference node) {
-            var vd = node.scope.GetVar(node.variableName, node.token);
+            var ov = node.scope.GetVar(node.variableName, node.token);
+            Scope.VariableDefinition vd;
+            if (!ov.IsOverloaded) {
+                vd = ov.First;
+            } else {
+                // TODO(pragma):
+                vd = ov.variables[node.overloadedIdx];
+            }
             // if variable is function paramter just return it immediately
             if (vd.isFunctionParameter) {
 
@@ -1347,7 +1354,6 @@ namespace PragmaScript {
                 return;
             }
             var nt = typeChecker.GetNodeType(node);
-
 
             if (!variables.TryGetValue(vd, out var v)) {
                 throw new ParserError("Ordering violation or can't use non constant Value in constant declaration!", node.token);
@@ -1421,13 +1427,19 @@ namespace PragmaScript {
 
         public void Visit(AST.FunctionCall node) {
             var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
-            
-            if (feft.specialFun) {
-                VisitSpecialFunction(node, feft);
-                return;
-            }
-            if (feft.inactiveConditional) {
-                return;
+
+            if (feft != null) {
+                if (feft.specialFun) {
+                    VisitSpecialFunction(node, feft);
+                    return;
+                }
+                if (feft.inactiveConditional) {
+                    return;
+                }
+            } else {
+                var st = (FrontendSumType)typeChecker.GetNodeType(node.left);
+                var vr = (AST.VariableReference)node.left;
+                feft = (FrontendFunctionType)st.types[vr.overloadedIdx];
             }
 
             Visit(node.left);

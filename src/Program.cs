@@ -434,7 +434,7 @@ namespace PragmaScript
                 try
 #endif
                 {
-                    Console.WriteLine($"parsing {ps.tokens[0].filename}...");
+                    // Console.WriteLine($"parsing {ps.tokens[0].filename}...");
                     var fileRoot = AST.parseFileRoot(ref ps, scope) as FileRoot;
                     root.files.Add(fileRoot);
                 }
@@ -465,13 +465,19 @@ namespace PragmaScript
             var tc = new TypeChecker();
 
             bool success = true;
-            try {
+#if !DEBUG
+            try 
+#endif
+            {
                 tc.CheckTypes(root);
+        
             }
+#if !DEBUG
             catch (Exception e) {
                 Console.WriteLine(e.Message);
                 success = false;
             }
+#endif
             if (!success || parseError) {
                 return;
             }

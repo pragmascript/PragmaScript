@@ -172,7 +172,7 @@ let init_gl_resources = fun() => void {
         glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
         if (success == 0) {
             glGetShaderInfoLog(vertexShader, len(infoLog)@\i32, 0@i32*, &infoLog);
-            debug_print_string("vs.glsl", from_cstr(&infoLog[0]));
+            debug_print("vs.glsl", from_cstr(&infoLog[0]));
         }
     }
     
@@ -187,7 +187,7 @@ let init_gl_resources = fun() => void {
         glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
         if (success == 0) {
             glGetShaderInfoLog(fragmentShader, len(infoLog)@\i32, 0@i32*, &infoLog);
-            debug_print_string("fs.glsl", from_cstr(&infoLog[0]));
+            debug_print("fs.glsl", from_cstr(&infoLog[0]));
         }
     }
 
@@ -201,7 +201,7 @@ let init_gl_resources = fun() => void {
         glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
         if (success == 0) {
             glGetProgramInfoLog(shaderProgram, len(infoLog)@\i32, 0@i32*, &infoLog);
-            debug_print_string("program", from_cstr(&infoLog[0]));
+            debug_print("program", from_cstr(&infoLog[0]));
         }
     }
     
@@ -374,7 +374,7 @@ let load_wgl_extensions = fun() => void {
     DestroyWindow(dummy_wnd);
 
     // debug_print_string("wgl extensions", from_cstr(wglGetExtensionsStringEXT()));
-    debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
+    debug_print("choose pixel format: ", get_ms_elapsed(t0, t1));
 }
 
 let opengl_info = struct (
@@ -387,13 +387,13 @@ let opengl_info = struct (
 
 
 let print_opengl_info = fun(@info: opengl_info*) => void {
-    print_string("OPENGL INFO:\n");
-    debug_print_string("shading language verison", shading_language_version);
-    debug_print_string("vendor", vendor);
-    debug_print_string("renderer", renderer);
-    debug_print_string("version", version);
-    debug_print_string("extensions", extensions);
-    print_string("\n");
+    print("OPENGL INFO:\n");
+    debug_print("shading language verison", shading_language_version);
+    debug_print("vendor", vendor);
+    debug_print("renderer", renderer);
+    debug_print("version", version);
+    debug_print("extensions", extensions);
+    print("\n");
 }
 
 let get_opengl_info = fun() => opengl_info {
@@ -552,37 +552,37 @@ let gl_error_callback = fun(
     message: ptr;
     userParam: ptr;
 ) => void {
-    print_string("\n(gl) ");
+    print("\n(gl) ");
     if (type == GL_DEBUG_TYPE_ERROR) {
-        print_string("error");
+        print("error");
     } elif (type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR) {
-        print_string("deprecated");
+        print("deprecated");
     } elif (type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR) {
-        print_string("undefined");
+        print("undefined");
     } elif (type == GL_DEBUG_TYPE_PORTABILITY) {
-        print_string("portability");
+        print("portability");
     } elif (type == GL_DEBUG_TYPE_PERFORMANCE) {
-        print_string("performance");
+        print("performance");
     } elif (type == GL_DEBUG_TYPE_OTHER) {
-        print_string("other");
+        print("other");
     } elif (type == GL_DEBUG_TYPE_MARKER) {
-        print_string("marker");
+        print("marker");
     } elif (type == GL_DEBUG_TYPE_PUSH_GROUP) {
-        print_string("push");
+        print("push");
     } elif (type == GL_DEBUG_TYPE_POP_GROUP) {
-        print_string("pop");
+        print("pop");
     } 
     if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
-        print_string("(note): ");
+        print("(note): ");
     } elif (severity == GL_DEBUG_SEVERITY_LOW) {
-        print_string("(low): ");
+        print("(low): ");
     } elif (severity == GL_DEBUG_SEVERITY_MEDIUM) {
-        print_string("(medium): ");
+        print("(medium): ");
     } elif (severity == GL_DEBUG_SEVERITY_HIGH) {
-        print_string("(high): ");
+        print("(high): ");
     }
-    print_string(from_cstr(message));
-    print_string("\n");
+    print(from_cstr(message));
+    print("\n");
 
     if (type == GL_DEBUG_TYPE_ERROR) {
         assert(false);
@@ -669,7 +669,7 @@ let main = fun() => void {
         var t1 = get_perf_counter();
         frames++;
         if (frames == 60) {
-            debug_print_f64("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
+            debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
             frames = 0;
         }
     }

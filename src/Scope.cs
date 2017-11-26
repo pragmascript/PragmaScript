@@ -34,7 +34,7 @@ namespace PragmaScript {
                 }
 
                 mod.Reverse();
-                return string.Join(".", mod.Select(nns => nns.name));
+                return string.Join("::", mod.Select(nns => nns.name));
             }
 
             public override string ToString()
@@ -45,8 +45,7 @@ namespace PragmaScript {
 
 
         
-        public class VariableDefinition
-        {
+        public class VariableDefinition {
             public bool isGlobal = false;
             public bool isNamespace = false;
             public bool isConstant = false;
@@ -59,10 +58,14 @@ namespace PragmaScript {
             public FrontendType type;
         }
 
-        public class OverloadedFunctionDefinition: VariableDefinition
-        {
-            public List<AST.Node> nodes = new List<AST.Node>();
-            public List<FrontendType> types = new List<FrontendType>();
+        public class OverloadedVariableDefinition {
+            public List<VariableDefinition> variables;
+            public OverloadedVariableDefinition(VariableDefinition vd) {
+                variables = new List<VariableDefinition>(1);
+                variables.Add(vd);
+            }
+            public bool IsOverloaded { get { return variables.Count > 1;} }
+            public VariableDefinition First { get { return variables[0]; } }
         }
 
         public class TypeDefinition
@@ -91,7 +94,7 @@ namespace PragmaScript {
             public override string ToString()
             {
                 // return $"{string.Join(".", path)}.{name}";
-                return $"{string.Join(".", path)}";
+                return $"{string.Join("::", path)}";
             }
         }
 
@@ -104,7 +107,7 @@ namespace PragmaScript {
         public Module module;
         public List<Module> importedModules = new List<Module>();
 
-        public Dictionary<string, VariableDefinition> variables = new Dictionary<string, VariableDefinition>();
+        public Dictionary<string, OverloadedVariableDefinition> variables = new Dictionary<string, OverloadedVariableDefinition>();
         public Dictionary<string, TypeDefinition> types = new Dictionary<string, TypeDefinition>();
 
         public AST.Node owner;
@@ -114,24 +117,23 @@ namespace PragmaScript {
             this.function = function;
         }
 
-        public VariableDefinition GetVar(string name, Token from, bool recurse = true)
+        public OverloadedVariableDefinition GetVar(string name, Token from, bool recurse = true)
         {
-            VariableDefinition result;
+            OverloadedVariableDefinition result;
 
             if (variables.TryGetValue(name, out result)) {
                 return result;
             }
-            Module result_ns = null;
-            foreach (var ns in importedModules) {
-
-                if (ns.scope.variables.TryGetValue(name, out var vd)) {
+            Module result_mod = null;
+            foreach (var mod in importedModules) {
+                if (mod.scope.variables.TryGetValue(name, out var vd)) {
                     if (result != null) {
-                        var p0 = $"\"{result_ns.GetPath()}.{name}\"";
-                        var p1 = $"\"{ns.GetPath()}.{name}\"";
+                        var p0 = $"\"{result_mod.GetPath()}::{name}\"";
+                        var p1 = $"\"{mod.GetPath()}::{name}\"";
                         throw new ParserError($"Access to variable is ambigious between {p0} and {p1}.", from);
                     } else {
                         result = vd;
-                        result_ns = ns;
+                        result_mod = mod;
                     }
                 }
             }
@@ -146,10 +148,12 @@ namespace PragmaScript {
             }
         }
 
-        public VariableDefinition AddVar(string name, AST.Node node, Token t, bool isConst = false)
+        public VariableDefinition AddVar(string name, AST.Node node, Token t, bool isConst = false, bool allowOverloading = false)
         {
             Debug.Assert(node != null);
-            if (variables.ContainsKey(name)) {
+
+            bool variablePresent = variables.ContainsKey(name);
+            if (!allowOverloading && variablePresent) {
                 throw new RedefinedVariable(name, t);
             }
             var v = new VariableDefinition();
@@ -158,23 +162,41 @@ namespace PragmaScript {
             v.name = name;
             v.node = node;
             v.isConstant = isConst;
-            variables.Add(name, v);
+            OverloadedVariableDefinition ov;
+            if (variablePresent) {
+                ov = variables[name];
+                ov.variables.Add(v);
+            } else {
+                ov = new OverloadedVariableDefinition(v);
+                variables.Add(name, ov);
+            }
             return v;
         }
 
-        public VariableDefinition AddVar(string name, FrontendType @type, Token t, bool isConst = false, bool isGlobal = true)
+        public VariableDefinition AddVar(string name, FrontendType @type, Token t, bool isConst = false, bool allowOverloading = false)
         {
             Debug.Assert(@type != null);
+
+            bool variablePresent = variables.ContainsKey(name);
+            if (variables.ContainsKey(name)) {
+                throw new RedefinedVariable(name, t);
+            }
+
             VariableDefinition v = new VariableDefinition();
             v.isGlobal = parent == null;
             v.isNamespace = this.module != null;
             v.name = name;
             v.type = @type;
             v.isConstant = isConst;
-            if (variables.ContainsKey(name)) {
-                throw new RedefinedVariable(name, t);
+
+            OverloadedVariableDefinition ov;
+            if (variablePresent) {
+                ov = variables[name];
+                ov.variables.Add(v);
+            } else {
+                ov = new OverloadedVariableDefinition(v);
+                variables.Add(name, ov);
             }
-            variables.Add(name, v);
             return v;
         }
 

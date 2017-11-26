@@ -4,6 +4,7 @@
     "tasks": [
         {
             "command": "dotnet",
+            "echoCommand": true,
             "taskName": "build",
             "isShellCommand": true,
             "args": [

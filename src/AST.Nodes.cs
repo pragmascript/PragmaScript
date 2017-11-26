@@ -624,6 +624,11 @@ namespace PragmaScript {
             public string variableName;
             // HACK: returnPointer is a HACK remove this?????
             public bool returnPointer { get; set; }
+
+            // HACK: overloadedIdx is a HACK remove this?????
+            public int overloadedIdx = -1;
+
+
             public bool CanReturnPointer()
             {
                 return true;
@@ -646,6 +651,7 @@ namespace PragmaScript {
                 }
                 result.returnPointer = returnPointer;
                 result.variableName = variableName;
+                result.overloadedIdx = overloadedIdx;
                 return result;
             }
             public override string ToString()

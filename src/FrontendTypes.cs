@@ -367,6 +367,18 @@ namespace PragmaScript {
         }
     }
 
+    public class FrontendSumType : FrontendType {
+        public List<FrontendType> types;
+        public FrontendSumType(params FrontendType[] types) {
+            this.types = types.ToList();
+            name = $"{{{string.Join(" + ", this.types)}}}";
+        }
+        public FrontendSumType(List<FrontendType> types) {
+            this.types = types;
+            name = $"{{{string.Join(" + ", this.types)}}}";
+        }
+    }
+
     public class FrontendFunctionType : FrontendType
     {
         public class Param

@@ -1,20 +1,5 @@
 import "../preamble.prag"
 
-mod FummFumm {
-	let foo = fun(bar: i32) => void {
-		debug_print_i32("fumm fumm", bar);
-	}		
-}
-
-mod Foo::Bar {
-	let vec = struct (
-		x: f32;
-		y: f32;
-	);
-	let nase = fun() => void {
-		debug_print_i32("nase", 42);
-	}
-}
 
 [
 	"compile.output": "hello.exe",
@@ -28,21 +13,7 @@ mod Foo::Bar {
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
-
-	var v: Foo::Bar::vec;
-
-	Foo::Bar::nase();
-	FummFumm::foo(12);
-	Foo::Bar::nase();
-
-	// var arr: i32[32];
-	// for (var i = 0; i < 32; ++i) {
-	// 	arr[i] = i;
-	// }
-	// for (var i = 0; i < 32; ++i) {
-	//  	debug_print_i32("s", arr[i]);
-	// }
-
-	// print_string("hello, world!\n");
+	print("fumm fumm");
+	print(12);
 }
 

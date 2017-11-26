@@ -29,7 +29,14 @@ namespace PragmaScript {
                 var ft = tc.GetNodeType(e.scope.function) as FrontendFunctionType;
                 Debug.Assert(ft != null);
 
-                var vd = e.scope.GetVar(e.variableName, e.token);
+                var ov = e.scope.GetVar(e.variableName, e.token);
+                Scope.VariableDefinition vd;
+                if (!ov.IsOverloaded) {
+                    vd = ov.First;
+                } else {
+                    // TODO(pragma):
+                    throw new System.NotImplementedException();
+                }
 
                 var p = ft.parameters[vd.parameterIdx];
                 var pt = p.type;

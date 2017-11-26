@@ -27,7 +27,7 @@ let _rdtsc = extern fun () => i64;
 ["stub"]
 let __chkstk = extern fun () => void;
 
-let print_string = fun (s: string) => void
+let print = fun (s: string) => void
 {
 	assert(Windows::console_output_handle != Windows::INVALID_HANDLE_VALUE);
 	Windows::WriteFile(Windows::console_output_handle, s.data, s.length, @i32* nullptr, nullptr);
@@ -166,16 +166,16 @@ let memset = fun
 
 let memcpy =  extern("CopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
 
-let print_i32 = fun (value: i32; signed: bool = true) => void
+let print = fun (value: i32; signed: bool = true) => void
 {
 	if (signed) {
-		print_i64(@i64 value, true);
+		print(@i64 value, true);
 	} else {
-		print_i64(@\i64 value, false);
+		print(@\i64 value, false);
 	}
 }
 
-let print_i64 = fun (value: i64; signed: bool = true) => void
+let print = fun (value: i64; signed: bool = true) => void
 {
 	var v = value;
 	var pd: print_dest;
@@ -189,12 +189,12 @@ let print_i64 = fun (value: i64; signed: bool = true) => void
 	}
 	u64_to_ascii(&pd, v);
 	pd.buffer.length = pd.pos;
-	print_string(pd.buffer);
+	print(pd.buffer);
 }
 
-let print_f32 = fun (value: f32; precision: i32 = 4) => void
+let print = fun (value: f32; precision: i32 = 4) => void
 {
-	print_f64(@f64 value, precision);	
+	print(@f64 value, precision);	
 }
 
 let print_dest = struct
@@ -236,7 +236,7 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 		++start;
 	}
 }
-let print_f64 = fun (value: f64; precision: i32 = 4) => void
+let print = fun (value: f64; precision: i32 = 4) => void
 {
 	var v = value;
 	var pd: print_dest;
@@ -267,55 +267,55 @@ let print_f64 = fun (value: f64; precision: i32 = 4) => void
 	}
 	assert(pd.pos <= pd.buffer.length);
 	pd.buffer.length = pd.pos;
-	print_string(pd.buffer);
+	print(pd.buffer);
 }
 
-let debug_print_string = fun(name: string; value: string) => void {
-	print_string(name);
-	print_string(": ");
-	print_string(value);
-	print_string("\n");
+let debug_print = fun(name: string; value: string) => void {
+	print(name);
+	print(": ");
+	print(value);
+	print("\n");
 }	
 
-let debug_print_i64 = fun (name: string; value: i64; signed: bool = true) => void
+let debug_print = fun (name: string; value: i64; signed: bool = true) => void
 {
-	print_string(name);
-	print_string(": ");
-	print_i64(value, signed);
-	print_string("\n");
+	print(name);
+	print(": ");
+	print(value, signed);
+	print("\n");
 }
-let debug_print_i32 = fun (name: string; value: i32; signed: bool = true) => void
+let debug_print = fun (name: string; value: i32; signed: bool = true) => void
 {
-	print_string(name);
-	print_string(": ");
-	print_i32(value, signed);
-	print_string("\n");
+	print(name);
+	print(": ");
+	print(value, signed);
+	print("\n");
 }
-let debug_print_f32 = fun (name: string; value: f32; precision: i32 = 4) => void
+let debug_print = fun (name: string; value: f32; precision: i32 = 4) => void
 {
-	print_string(name);
-	print_string(": ");
-	print_f32(value, precision);
-	print_string("\n");
+	print(name);
+	print(": ");
+	print(value, precision);
+	print("\n");
 }
-let debug_print_f64 = fun (name: string; value: f64; precision: i32 = 4) => void
+let debug_print = fun (name: string; value: f64; precision: i32 = 4) => void
 {
-	print_string(name);
-	print_string(": ");
-	print_f64(value, precision);
-	print_string("\n");
+	print(name);
+	print(": ");
+	print(value, precision);
+	print("\n");
 }
 
-let debug_print_bool = fun (name: string; value: bool) => void
+let debug_print = fun (name: string; value: bool) => void
 {
-	print_string(name);
-	print_string(": ");
+	print(name);
+	print(": ");
 	if (value) {
-		print_string("true");
+		print("true");
 	} else {
-		print_string("false");
+		print("false");
 	}
-	print_string("\n");
+	print("\n");
 }
 
 
@@ -366,7 +366,7 @@ mod Random
 let __hack_reserve_intrinsics = fun () => bool
 {
 	if (@mm memset == 1234 || @mm __chkstk == 1234) {
-		print_string("");
+		print("");
 		return true;
 	}
 	return false;

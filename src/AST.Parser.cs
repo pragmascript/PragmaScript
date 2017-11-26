@@ -1543,7 +1543,8 @@ namespace PragmaScript {
             }
 
             if (result.external || result.body != null) {
-                result.variableDefinition = scope.AddVar(id.text, result, current, isConst: true);
+                var vd = scope.AddVar(id.text, result, current, isConst: true, allowOverloading: true);
+                result.variableDefinition = vd;
             } else {
                 if (isVar) {
                     throw new ParserError("variable type declarations are not allowed", current);

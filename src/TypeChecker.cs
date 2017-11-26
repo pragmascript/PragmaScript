@@ -140,8 +140,6 @@ namespace PragmaScript {
                     }
                 }
             }
-
-
             if (pre_resolved.ContainsKey(node)) {
                 pre_resolved.Remove(node);
             }
@@ -496,9 +494,7 @@ namespace PragmaScript {
                 addUnresolved(node, node.left);
             } else {
                 f_type = lt as FrontendFunctionType;
-                Debug.Assert(f_type != null);
             }
-
 
             List<FrontendType> argumentTypes = new List<FrontendType>();
             foreach (var arg in node.argumentList) {
@@ -510,6 +506,62 @@ namespace PragmaScript {
                     addUnresolved(node, arg);
                 }
             }
+
+            if (lt is FrontendSumType st) {
+                if (argumentTypes.Count < node.argumentList.Count) {
+                    return;
+                }
+                Debug.Assert(argumentTypes.Count == node.argumentList.Count);
+                var validTypes = new List<(int, FrontendFunctionType)>();
+                for (int i = 0; i < st.types.Count; ++i) {
+                    f_type = st.types[i] as FrontendFunctionType;
+                    if (f_type != null) {
+                        Debug.Assert(!f_type.specialFun);
+                        if (node.argumentList.Count > f_type.parameters.Count) {
+                            continue;
+                        }
+                        bool validArguments = true;
+                        for (int idx = 0; idx < f_type.parameters.Count; ++idx) {
+                            if (idx >= argumentTypes.Count) {
+                                if (!f_type.parameters[idx].optional) {
+                                    // too few arguments
+                                    validArguments = false;
+                                    break;
+                                }
+                            } else {
+                                var arg = argumentTypes[idx];
+                                if (!FrontendType.CompatibleAndLateBind(arg, f_type.parameters[idx].type)) {
+                                    validArguments = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!validArguments) {
+                            continue;
+                        } else {
+                            validTypes.Add((i, f_type));
+                        }
+                    }
+                }
+                if (validTypes.Count == 0) {
+                    throw new ParserError($"Could not find matching overload.", node.token);
+                }
+                if (validTypes.Count > 1) {
+                    var ambigousLocations = string.Join(", ", validTypes);
+                    throw new ParserError($"Overload is ambigous between ({ambigousLocations})", node.token);
+                }
+                f_type = validTypes[0].Item2;
+                
+                // HACK: TODO(pragma): remove !!!
+                var vr = (AST.VariableReference)node.left;
+                vr.overloadedIdx = validTypes[0].Item1;
+                // resolve(node.left, f_type);
+
+                resolve(node, f_type.returnType);
+                return;
+            }
+
+            
             if (f_type != null) {
                 // TODO(pragma): ugly hack
                 if (f_type.specialFun && f_type.funName == "len") {
@@ -558,7 +610,7 @@ namespace PragmaScript {
 
         void checkType(AST.VariableReference node)
         {
-            Scope.VariableDefinition vd = null;
+            Scope.OverloadedVariableDefinition ov = null;
             bool functionResolved = false;
             if (node.scope.function != null) {
                 Debug.Assert(node.variableName != null);
@@ -579,35 +631,77 @@ namespace PragmaScript {
                     }
                     node.scope = ns.scope;
                 }
-                vd = node.scope.GetVar(node.variableName, node.token);
-                if (vd == null) {
+
+                ov = node.scope.GetVar(node.variableName, node.token);
+                
+                if (ov == null) {
                     throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
                 }
-                if (vd != null && vd.isEmbedded) {
-                    embeddings.Add(node);
-                } else {
-                    var isLocal = (vd != null) && !vd.isGlobal && !vd.isConstant && !vd.isFunctionParameter && !vd.isNamespace;
-                    if (isLocal && Token.IsBefore(node.token, vd.node.token)) {
-                        throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
+                if (!ov.IsOverloaded) {
+                    var vd = ov.First;
+                    if (ov != null && vd.isEmbedded) {
+                       embeddings.Add(node);
+                    } else {
+                        var isLocal = (vd != null) && !vd.isGlobal && !vd.isConstant && !vd.isFunctionParameter && !vd.isNamespace;
+                        if (isLocal && Token.IsBefore(node.token, vd.node.token)) {
+                            throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
+                        }
                     }
+                } else {
+                    // TODO(pragma): check for "Variable can't be accessesd prior to declaration"
+                    // probably in resolution code?
+                    // maybe have a flag that indicated whether a certain type is valid
                 }
             }
-
-            if (vd != null) {
-                if (vd.type != null) {
-                    resolve(node, vd.type);
-                } else {
-                    var vt = getType(vd.node);
-                    if (vt != null) {
-                        if (vd.isFunctionParameter) {
-                            var ft = vt as FrontendFunctionType;
-                            var pt = ft.parameters[vd.parameterIdx].type;
-                            resolve(node, pt);
-                        } else {
-                            resolve(node, vt);
-                        }
+            if (ov != null) {
+                if (!ov.IsOverloaded) {
+                    var vd = ov.First;
+                    if (vd.type != null) {
+                        resolve(node, vd.type);
                     } else {
-                        addUnresolved(node, vd.node);
+                        var vt = getType(vd.node);
+                        if (vt != null) {
+                            if (vd.isFunctionParameter) {
+                                var ft = vt as FrontendFunctionType;
+                                var pt = ft.parameters[vd.parameterIdx].type;
+                                resolve(node, pt);
+                            } else {
+                                resolve(node, vt);
+                            }
+                        } else {
+                            addUnresolved(node, vd.node);
+                        }
+                    }
+                } else {
+                    var types = new List<FrontendType>();
+                    int resolvedTypes = 0;
+                    for (int i = 0; i < ov.variables.Count; ++i) {
+                        types.Add(null);
+                        var vd = ov.variables[i];
+                        if (vd.type != null) {
+                            types[i] = vd.type;
+                            resolvedTypes++;
+                        }
+                    }                    
+                    if (resolvedTypes < ov.variables.Count) { 
+                        for (int i = 0; i < types.Count; ++i) {
+                            var t = types[i];
+                            if (t == null) {
+                                t = getType(ov.variables[i].node);
+                                if (t == null) {
+                                    addUnresolved(node, ov.variables[i].node);
+                                } else {
+                                    types[i] = t;
+                                    resolvedTypes++;
+                                }
+                            }
+                        }
+                    } 
+                    if (resolvedTypes == ov.variables.Count) {
+                        Debug.Assert(types.All(t => t != null));
+                        var st = new FrontendSumType(types);
+
+                        resolve(node, st);
                     }
                 }
             } 
@@ -1200,6 +1294,7 @@ namespace PragmaScript {
         }
 
         void checkTypeDynamic(AST.Node node) {
+            // Console.WriteLine(node.token);
             if (knownTypes.ContainsKey(node)) {
                 return;
             }
