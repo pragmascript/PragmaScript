@@ -14,7 +14,7 @@ import "../preamble.prag"
 ]
 let main = fun () => void {
 	print("fumm fumm\n");
-	print(@i32 12);
+	print(12@i32);
 	print("\n");
 }
 

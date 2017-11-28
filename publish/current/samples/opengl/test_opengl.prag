@@ -99,11 +99,7 @@ let render_opengl = fun (@window_state: window_state*; time: f32) => void {
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // glDrawArrays(GL_TRIANGLES, 0, 3);
-    // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
     glDrawElements(GL_TRIANGLES, current_mesh.indices.length, GL_UNSIGNED_INT, nullptr);
-    // https://hero.handmade.network/episode/code/day368
-
     SwapBuffers(dc);
 }
 
@@ -111,7 +107,7 @@ let mesh = struct (
     vertices: v3[];
     indices: i32[];
 );
-
+// https://hero.handmade.network/episode/code/day368
 
 var current_mesh = mesh {};
 let create_circle = fun(center: v3; radius: f32; segments: i32 = 96) => mesh {

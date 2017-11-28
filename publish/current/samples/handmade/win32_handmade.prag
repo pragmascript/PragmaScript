@@ -256,11 +256,11 @@ mod Handmade::Platform
 
 		var wave_format = WAVEFORMATEX {};
 		wave_format.formatTag = WAVE_FORMAT_PCM;
-		wave_format.nChannels = 2;
-		wave_format.nBitsPerSample = 16;
-		wave_format.nSamplesPerSec = samples_per_second;
-		wave_format.nBlockAlign = (wave_format.nChannels*wave_format.nBitsPerSample) / 8@i16;
-		wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * wave_format.nBlockAlign@i32;
+		wave_format.channels = 2;
+		wave_format.bitsPerSample = 16;
+		wave_format.samplesPerSec = samples_per_second;
+		wave_format.blockAlign = (wave_format.channels*wave_format.bitsPerSample) / 8@i16;
+		wave_format.avgBytesPerSec = wave_format.samplesPerSec * wave_format.blockAlign@i32;
 		wave_format.size = 0;
 		error = primary_buffer.vtable.SetFormat(primary_buffer, &wave_format);
 		assert(error == DS_OK);

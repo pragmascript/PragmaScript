@@ -61,7 +61,7 @@
     let VK_RIGHT   = 0x27;
     let VK_SPACE   = 0x20;
 
-    ["packed"]
+    ["PACKED"]
     let WNDCLASSEX = struct 
     (
       cbSize: i32;
@@ -79,13 +79,13 @@
     );
 
     
-    ["packed"]
+    ["PACKED"]
     let POINT = struct 
     (
       x: i32;
       y: i32;
     );
-    ["packed"]
+    ["PACKED"]
     let MSG = struct
     (
       hwnd: mm;
@@ -96,7 +96,7 @@
       pt: POINT;
       pad: mm;
     );
-    ["packed"]
+    ["PACKED"]
     let RECT = struct 
     (
       left: i32;
@@ -104,7 +104,7 @@
       right: i32;
       bottom: i32;
     );
-    ["packed"]
+    ["PACKED"]
     let PAINTSTRUCT = struct
     (
       hdc: mm;
@@ -117,7 +117,7 @@
       reserved2: mm;
       reserved3: mm;
     );
-    ["packed"]
+    ["PACKED"]
     let BITMAPINFOHEADER = struct
     (
       biSize: i32;
@@ -132,7 +132,7 @@
       biClrUsed: i32;
       biClrImportant: i32;
     );
-    ["packed"]
+    ["PACKED"]
     let RGBQUAD = struct 
     (
       blue: i8;
@@ -140,7 +140,7 @@
       red: i8;
       reserved: i8;
     );
-    ["packed"]
+    ["PACKED"]
     let BITMAPINFO = struct
     (
       header: BITMAPINFOHEADER;
@@ -200,7 +200,7 @@
     ) => i32;
 
   
-    ["packed"]
+    ["PACKED"]
     let WIN32_FILE_ATTRIBUTE_DATA = struct
     (
       FileAttributes: i32;
@@ -218,7 +218,7 @@
       data: WIN32_FILE_ATTRIBUTE_DATA*;
     ) => i32;
 
-    ["packed"]
+    ["PACKED"]
     let WIN32_FIND_DATA = struct
     (
       FileAttributes: i32;
@@ -395,9 +395,32 @@
       dwCreationFlags: i32;
       lpThreadId: mm*;
     ) => mm;
+    let GetCurrentThread = extern fun() => mm;
+    let THREAD_PRIORITY_HIGHEST       = 0x00000002;
+    let THREAD_PRIORITY_NORMAL        = 0x00000000;
+    let THREAD_PRIORITY_BELOW_NORMAL  = 0xFFFFFFFF;
+    let THREAD_PRIORITY_ABOVE_NORMAL  = 0x00000001;
+    let THREAD_PRIORITY_LOWEST        = 0xFFFFFFFE;
+    let THREAD_PRIORITY_IDLE          = 0xFFFFFFF1;
+    let THREAD_PRIORITY_TIME_CRITICAL = 0x0000000F;
+    let SetThreadPriority = extern fun (
+      thread_handle: mm;
+      priority: i32;
+    ) => i32;
+    let CreateEvent = extern("CreateEventA") fun(
+      securityAttributes: ptr;
+      manualReset: i32;
+      initialState: i32;
+      name: i8*;
+    ) => mm;
+    let INFINITE: i32 = 0xFFFFFFFF;
+    let WAIT_OBJECT_0: i32 = 0;
+    let WAIT_FAILED: i32 = 0xFFFFFFFF;
+    let WaitForSingleObject = extern fun (handle: mm; milliseconds: i32) => i32;
+
+
 
     let SwapBuffers = extern fun(hdc: mm) => i32;
-
     ["PACKED"]
     let PIXELFORMATDESCRIPTOR = struct(
       nSize: i16;
@@ -479,7 +502,7 @@
     let XUSER_MAX_COUNT = 4;
     let XINPUT_SUCCESS = 0;
     let XINPUT_DEVICE_NOT_CONNECTED = 1167;
-    ["packed"]
+    ["PACKED"]
     let XINPUT_GAMEPAD = struct
     (
       Buttons: i16; 
@@ -491,7 +514,7 @@
       ThumbRY: i16; // 12
     );
 
-    ["packed"]
+    ["PACKED"]
     let XINPUT_STATE = struct
     (
       PacketNumber: i32;
@@ -514,20 +537,20 @@
     let DSBPLAY_LOOPING = 1;
     let DSSCL_PRIORITY = 2;
 
-    ["packed"]
+    ["PACKED"]
     let WAVEFORMATEX = struct
     (
       formatTag: i16;
-      nChannels: i16;
-      nSamplesPerSec: i32;
-      nAvgBytesPerSec: i32;
-      nBlockAlign: i16;
-      nBitsPerSample: i16;
+      channels: i16;
+      samplesPerSec: i32;
+      avgBytesPerSec: i32;
+      blockAlign: i16;
+      bitsPerSample: i16;
       size: i16;
     );
 
 
-    ["packed"]
+    ["PACKED"]
     let DSBUFFERDESC = struct
     (
       size: i32;
@@ -538,13 +561,13 @@
     ); 
 
 
-    ["packed"]
+    ["PACKED"]
     let IDirectSoundBuffer = struct
     (
       vtable: DirectSoundBufferFunctions*;
     );
 
-    ["packed"]
+    ["PACKED"]
     let DirectSoundBufferFunctions = struct
     (
       _unused0: ptr;
@@ -605,13 +628,13 @@
       _usused15: ptr;
     );
 
-    ["packed"]
+    ["PACKED"]
     let IDirectSound = struct
     (
       vtable: DirectSoundFunctions*;
     ); 
 
-    ["packed"]
+    ["PACKED"]
     let DirectSoundFunctions = struct
     (
       _unused0: ptr;

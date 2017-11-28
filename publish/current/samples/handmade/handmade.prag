@@ -330,11 +330,11 @@ mod Handmade::Game
         }
 
         var r = @i32 Math::round(color.r * 255);
-        r = Math::clamp_i32(r, 0, 255);
+        r = Math::clamp(r, 0, 255);
         var g = @i32 Math::round(color.g * 255);
-        g = Math::clamp_i32(g, 0, 255);
+        g = Math::clamp(g, 0, 255);
         var b = @i32 Math::round(color.b * 255);
-        b = Math::clamp_i32(b, 0, 255);
+        b = Math::clamp(b, 0, 255);
         var c = (r << 16) | (g << 8) | (b << 0);
 
         var row: i8* = buffer.memory;

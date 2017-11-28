@@ -460,10 +460,12 @@ namespace PragmaScript {
 
         public class ConstStruct : Value {
             public List<Value> elements;
+            public bool packed;
             public ConstStruct(SSAType structType, List<Value> elements) 
                 : base(Op.ConstStruct, structType) {
                     isConst = true;
                     this.elements = elements;
+                    packed = ((StructType)structType).packed;
 #if DEBUG
                 Debug.Assert(structType.kind == TypeKind.Struct);
                 var st = structType as StructType;

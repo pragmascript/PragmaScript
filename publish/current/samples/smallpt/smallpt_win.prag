@@ -673,7 +673,7 @@ let get_perf_counter = fun() => i64 {
 
 let x_tiles = 2*8;
 let y_tiles = 2*6;
-let samples = 64;
+let samples = 1024;
 let tile_size = 64;
 let thread_count = 8;
 
@@ -780,8 +780,6 @@ let check_render_jobs_done = fun () => bool {
     }
     return all_completed;
 }
-
-
 
 let start_render = fun () => void {
     create_spheres();

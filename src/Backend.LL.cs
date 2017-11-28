@@ -189,7 +189,12 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                     }
                     break;
                 case ConstStruct st: {
-                        AP("{ ");
+                        if (!st.packed) {
+                            AP("{ ");
+                        } else {
+                            AP("<{ ");
+                        }
+                        
                         for (int i = 0; i < st.elements.Count; ++i) {
                             var el = st.elements[i];
                             AppendType(el.type);
@@ -199,7 +204,12 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                                 AP(", ");
                             }
                         }
-                        AP(" }");
+                        if (!st.packed) {
+                            AP(" }");
+                        } else {
+                            AP(" }>");
+                        }
+                        
                     }
                     break;
                 case Value caz when caz.op == Op.ConstAggregateZero:
