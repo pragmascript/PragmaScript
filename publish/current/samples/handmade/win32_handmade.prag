@@ -2,7 +2,7 @@
 
 import "../preamble.prag"
 import "handmade_interface.prag"
-
+import "../wasapi/wasapi.prag"
 
 
 mod Handmade::Platform
@@ -62,24 +62,6 @@ mod Handmade::Platform
 	var window: window_info;
 	var window_requests_quit = false;
 
-	let sound_output = struct
-	(
-		sound_buffer: IDirectSoundBuffer*;
-		samples_per_second: i32;
-		bytes_per_chunk: i32;
-		bytes_per_frame: i32;
-		buffer_size: i32;
-		buffer_start: ptr;
-		
-		byte_last_written: i32;
-		last_play_cursor: i32;
-		last_play_cursor_change_time: i64;
-
-		next_write_positon: i32;
-		next_bytes_to_write: i32;
-		first_write: bool;
-	);
-	
 	// let platform_write_file = fun (name: string; buffer: i8[]) => bool;
 	let platform_write_file: platform_write_file = 
 	{
@@ -211,261 +193,6 @@ mod Handmade::Platform
 		var data: WIN32_FILE_ATTRIBUTE_DATA;
 		GetFileAttributesExA(cstr("handmade.dll\0"), GetFileExInfoStandard, &data);
 		return data.LastWriteTime;
-	}
-
-	// ********************
-	// use core audio instead
-	// https://hero.handmade.network/forums/code-discussion/t/102-day_19_-_audio_latency
-	// ********************
-
-	let init_direct_sound = fun 
-	(
-		hwnd: mm; 
-		buffer_size: i32; 
-		samples_per_second: i32;
-	) => IDirectSoundBuffer*
-	{ 
-		var dsound_library = LoadLibraryA(cstr("dsound.dll\0"));
-		assert(dsound_library != null);
-
-		var DirectSoundCreate: fun 
-		(
-			GuidDevice: ptr;
-			ds: IDirectSound**;
-			unused: ptr;
-		) => i32;
-		*(&DirectSoundCreate@ptr*) = GetProcAddress(dsound_library, cstr("DirectSoundCreate\0"));
-		assert(DirectSoundCreate@ptr != nullptr);
-
-		var dsound_obj: IDirectSound*;
-		var error = DirectSoundCreate(nullptr, &dsound_obj, nullptr); 
-		assert(error == DS_OK);
-		error = dsound_obj.vtable.SetCooperativeLevel(dsound_obj, hwnd, DSSCL_PRIORITY);
-		assert(error == DS_OK);
-
-		var desc_primary = DSBUFFERDESC { };
-		desc_primary.flags = DSBCAPS_PRIMARYBUFFER;
-		desc_primary.size = @i32 (size_of(DSBUFFERDESC));
-		desc_primary.bufferBytes = 0;
-		desc_primary.reserved = 0;
-		desc_primary.fxFormat = @WAVEFORMATEX* nullptr;
-
-		var primary_buffer: IDirectSoundBuffer*;
-		error = dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_primary, &primary_buffer, nullptr);
-		assert(error == DS_OK);
-
-		var wave_format = WAVEFORMATEX {};
-		wave_format.formatTag = WAVE_FORMAT_PCM;
-		wave_format.channels = 2;
-		wave_format.bitsPerSample = 16;
-		wave_format.samplesPerSec = samples_per_second;
-		wave_format.blockAlign = (wave_format.channels*wave_format.bitsPerSample) / 8@i16;
-		wave_format.avgBytesPerSec = wave_format.samplesPerSec * wave_format.blockAlign@i32;
-		wave_format.size = 0;
-		error = primary_buffer.vtable.SetFormat(primary_buffer, &wave_format);
-		assert(error == DS_OK);
-		
-		var desc_secondary = DSBUFFERDESC { };
-		desc_secondary.size = @i32 (size_of(DSBUFFERDESC));
-		desc_secondary.flags = DSBCAPS_GETCURRENTPOSITION2;
-		desc_secondary.bufferBytes = buffer_size;
-		desc_secondary.fxFormat = &wave_format;
-		desc_secondary.reserved = 0;
-
-		var secondary_buffer: IDirectSoundBuffer*;
-		error = dsound_obj.vtable.CreateSoundBuffer(dsound_obj, &desc_secondary, &secondary_buffer, nullptr);
-		assert(error == DS_OK);
-		return secondary_buffer;
-	}
-
-	let clear_sound_buffer = fun
-	(
-		@sound_output: sound_output*;
-	) => void
-	{
-		var region1: ptr;
-		var region1_size: i32;
-		var region2: ptr;
-		var region2_size: i32;
-		
-		var error = sound_buffer.vtable.Lock(sound_buffer, 
-			0, buffer_size, 
-			&region1, &region1_size,
-			&region2, &region2_size,
-			0);
-		assert(error == DS_OK);
-		var dest_sample = @i32* region1;
-		var sample_count = region1_size / bytes_per_chunk;
-		for (var i: i32 = 0; i < sample_count; ++i) {
-			*dest_sample++ = 0;
-		}
-		buffer_start = region1;
-		assert(region2_size == 0);
-
-		error = sound_buffer.vtable.Unlock(sound_buffer,
-			region1, region1_size, 
-			region2, region2_size);
-		assert(error == DS_OK);
-	}
-
-	let fill_sound_buffer = fun 
-	(
-		@sound_output: sound_output*;
-		game_sound_output: game_sound_output*;
-	) => void 
-	{
-		var byte_lock_position = next_write_positon;
-		var bytes_to_write = next_bytes_to_write;
-		var region1: ptr;
-		var region1_size: i32;
-		var region2: ptr;
-		var region2_size: i32;
-
-		var error = sound_buffer.vtable.Lock(sound_buffer, 
-			byte_lock_position, bytes_to_write, 
-			&region1, &region1_size,
-			&region2, &region2_size,
-			0);
-		var sample_count_1 = region1_size / sound_output.bytes_per_chunk;
-		var sample_count_2 = region2_size / sound_output.bytes_per_chunk;
-		
-		if (error == DS_OK)
-		{
-			assert(sample_count_1 + sample_count_2 == game_sound_output.sample_count);
-			var source_sample = game_sound_output.sample_out;
-			var dest_sample = @i16* region1;
-			for (var i: i32 = 0; i < sample_count_1; ++i) {
-				*dest_sample++ = *source_sample++;
-				*dest_sample++ = *source_sample++;
-			}
-			dest_sample = @i16* region2;
-			for (var i: i32 = 0; i < sample_count_2; ++i) {
-				*dest_sample++ = *source_sample++;
-				*dest_sample++ = *source_sample++;
-			}
-			error = sound_output.sound_buffer.vtable.Unlock(sound_buffer,
-				region1, region1_size, 
-				region2, region2_size);
-			assert(error == DS_OK);
-			
-			if (sample_count_2 > 0) {
-				var last_sample = @i8* (@i32* region2 + sample_count_2);
-				byte_last_written = @i32 (last_sample - sound_output.buffer_start);
-			}
-			elif (sample_count_1 > 0) {
-				var last_sample = @i8* (@i32* region1 + sample_count_1);
-				byte_last_written = @i32 (last_sample - sound_output.buffer_start);
-			}
-
-			assert(sample_count_2 == 0 || (sample_count_1 != 0 && sample_count_2 != 0));
-			assert(byte_last_written >= 0 && byte_last_written < buffer_size);
-		}
-	}
-
-	let update_next_sound_write_positon = fun 
-	(
-		@sound_output: sound_output*;
-	) => void  
-	{
-		var play_cursor: i32;
-		var write_cursor: i32;
-		var error = sound_buffer.vtable.GetCurrentPosition(sound_buffer, &play_cursor, &write_cursor);
-		assert(error == DS_OK);
-
-		if (play_cursor == write_cursor) {
-			return;
-		}
-		// we haven't written anything yet
-		if (!first_write) {
-			byte_last_written = write_cursor;
-			last_play_cursor_change_time = get_perf_counter();
-		}
-
-		if (play_cursor == last_play_cursor) {
-			var time: i64;
-			QueryPerformanceCounter(&time);
-			var cursor_dt = @f64 (time - last_play_cursor_change_time) / @f64 perf_count_freq;
-			var d_bytes = sound_output.bytes_per_chunk * @i32 (cursor_dt * @f64 sound_output.samples_per_second);
-			play_cursor += d_bytes;
-			write_cursor += d_bytes;
-			play_cursor = play_cursor % sound_output.buffer_size;
-			write_cursor = write_cursor % sound_output.buffer_size;
-		} else {
-			last_play_cursor = play_cursor;
-			last_play_cursor_change_time = get_perf_counter();
-		}
-
-		var position_to_write = byte_last_written;
-		if (play_cursor > last_play_cursor) {
-			if (byte_last_written >= last_play_cursor && byte_last_written <= play_cursor) {
-				position_to_write = write_cursor;
-			}		
-		}
-		if (play_cursor < last_play_cursor) {
-			if (byte_last_written >= last_play_cursor || byte_last_written <= play_cursor) {
-				position_to_write = write_cursor;
-			}		
-		}
-		var delta_cursor: i32;
-		if (play_cursor < write_cursor) {
-			if (position_to_write >= play_cursor && position_to_write < write_cursor) {
-				position_to_write = write_cursor;
-			}
-			delta_cursor = write_cursor - play_cursor;
-		}
-		if (play_cursor > write_cursor) {
-			if (position_to_write >= play_cursor || position_to_write < write_cursor) {
-				position_to_write = write_cursor;
-			}
-			delta_cursor = (buffer_size - play_cursor) + write_cursor;
-		}
-		assert(delta_cursor > 0);
-
-		var target_cursor: i32;
-		var safety_bytes = bytes_per_frame / 2;
-		target_cursor = write_cursor;
-		
-		while (target_cursor <= write_cursor + delta_cursor) {
-			target_cursor += bytes_per_frame;
-		}
-		target_cursor += safety_bytes;
-		if (target_cursor > buffer_size) {
-			target_cursor -= buffer_size;
-		}
-
-		var bytes_to_write = 0;
-		if (target_cursor > play_cursor) {
-			if (position_to_write < target_cursor && position_to_write > play_cursor) {
-				bytes_to_write = target_cursor - position_to_write;
-			}
-		}
-		if (target_cursor < play_cursor) {
-			if (position_to_write > play_cursor) {
-				bytes_to_write = buffer_size - position_to_write;
-				bytes_to_write += target_cursor;
-			}
-			if (position_to_write < target_cursor) {
-				bytes_to_write = target_cursor - position_to_write;
-			}
-		}
-
-		sound_output.next_write_positon = position_to_write;
-		sound_output.next_bytes_to_write = bytes_to_write;
-
-		if (!sound_output.first_write && bytes_to_write > 0) {
-			sound_output.first_write = true;
-		}
-		// if (oops) {
-		// 	print_string("oops\n");
-		// }
-		// debug_print_i32("pc ", play_cursor);
-		// debug_print_i32("last pos", sound_output.byte_last_written);
-		// debug_print_i32("ptw", position_to_write);
-		// debug_print_i32("wc ", write_cursor);
-		// debug_print_i32("tc ", target_cursor);
-		// debug_print_i32("btw", bytes_to_write);
-		// debug_print_i32("bytes per frame", sound_output.bytes_per_frame);
-		// print_string("---------------------------\n");
 	}
 
 	let create_backbuffer = fun (@buffer: offscreen_buffer*; target_width: i32; target_height: i32) => void 
@@ -713,6 +440,25 @@ mod Handmade::Platform
 	let SetProcessDpiAwareness = extern fun(
     	value: i32;
 	) => i32;
+
+
+	let win_audio_state = struct(
+		game: game_interface*;
+		game_memory: game_memory*;
+	);
+
+	let wasapi_audio_callback = fun(request: Wasapi::audio_fill_request*) => void {
+		var audio_state = request.user_data@win_audio_state*;
+		var game_sound_output: game_sound_output;
+		game_sound_output.samples_per_second = request.samples_per_second;
+		game_sound_output.num_channels = request.num_channels;
+		game_sound_output.start_buffer = request.start_buffer;
+		game_sound_output.end_buffer = request.end_buffer;
+
+		if (audio_state.game.is_loaded) {
+			audio_state.game.output_sound(audio_state.game_memory, &game_sound_output);
+		}
+	}
 	
 	[
 	"compile.entry",
@@ -723,7 +469,7 @@ mod Handmade::Platform
 	"compile.ll"    : "true",
 	"compile.run"   : "true",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib",
-	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib, shcore.lib, libopenlibm.a"
+	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, winmm.lib, shcore.lib, libopenlibm.a, ole32.lib"
 	]
 	let main = fun () => void 
 	{
@@ -783,18 +529,7 @@ mod Handmade::Platform
 		
 		var game_target_fps = monitor_hz;
 		var target_sec_per_frame = 1.0 / @f32 game_target_fps;
-		
-		var sound_output: sound_output;
-		sound_output.samples_per_second = 48000;
-		sound_output.bytes_per_chunk = 2 * size_of(i16)@i32; // 2 channels
-		sound_output.bytes_per_frame = sound_output.bytes_per_chunk * sound_output.samples_per_second / game_target_fps;
-		sound_output.buffer_size = sound_output.samples_per_second * sound_output.bytes_per_chunk * 1; // 1 seccond buffer
-		
-		var sound_buffer = init_direct_sound(window.handle, sound_output.buffer_size, sound_output.samples_per_second);
-		sound_output.sound_buffer = sound_buffer;
 
-		var game_sample_buffer = @i16* VirtualAlloc(nullptr, sound_output.buffer_size@mm, MEM_COMMIT, PAGE_READWRITE);
-		assert(game_sample_buffer@ptr != nullptr);
 		var base_address = nullptr;
 		if (HANDMADE_INTERAL) {
 			base_address = @ptr terabytes(2);
@@ -821,9 +556,6 @@ mod Handmade::Platform
 		win_state.game_memory = &game_memory;
 		
 		var game = load_game_dll(); 
-		clear_sound_buffer(&sound_output);
-		error = sound_buffer.vtable.Play(sound_buffer, 0, 0, DSBPLAY_LOOPING);
-		assert(error == DS_OK);
 			
 		var running = true;
 		var frames = 0;
@@ -836,9 +568,18 @@ mod Handmade::Platform
 		var game_start_time = get_perf_counter();
 
 		var game_input = game_input {};
+		
+		var win_audio_state: win_audio_state;
+		win_audio_state.game = &game;
+		win_audio_state.game_memory = &game_memory;
+		var wasapi_audio_state = Wasapi::audio_state {};
+		wasapi_audio_state.callback = wasapi_audio_callback@Wasapi::audio_fill_callback;
+		wasapi_audio_state.user_data = &win_audio_state@ptr;		
+		Wasapi::audio_init(&wasapi_audio_state);
+
+		
 		var game_sound_output = game_sound_output { };
-		game_sound_output.sample_out = game_sample_buffer;
-		game_sound_output.samples_per_second = sound_output.samples_per_second;
+		
 
 		var game_time = game_time{};
 
@@ -868,19 +609,6 @@ mod Handmade::Platform
 
 			assert(game.is_loaded);
 			running = game.update_and_render(&game_memory, &game_input, &game_render_target);
-
-			update_next_sound_write_positon(&sound_output);
-			game_sound_output.sample_count = sound_output.next_bytes_to_write / sound_output.bytes_per_chunk;
-
-			assert(game.is_loaded);
-			game.output_sound(&game_memory, &game_sound_output);
-
-			fill_sound_buffer(&sound_output, &game_sound_output);
-			if (!running) {
-				// TODO(oragma): this crashes on exit in optimized builds!
-				// clear_sound_buffer(&sound_output);
-				// sound_output.sound_buffer.vtable.Stop();
-			}
 
 			blit_to_screen(&backbuffer);
 

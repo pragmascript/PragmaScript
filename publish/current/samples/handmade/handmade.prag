@@ -1,5 +1,5 @@
 import "../preamble.prag"
-import "..\math.prag"
+import "../math.prag"
 import "handmade_interface.prag"
 import "handmade_math.prag"
 
@@ -17,8 +17,8 @@ mod Handmade::Game
         new_player_x: f32;
         new_player_y: f32;
 
-        sound_t: f32;
-
+        sample_index: i32;
+        amplitude: f32;
     );
 
 
@@ -50,8 +50,6 @@ mod Handmade::Game
             result = false;
         }
         
-        
-
         var background_color = color { 0.25, 0.35, 0.45, 1.0 };
         // animate_background_color(&background_color, input.time.t);
         draw_rectangle(render_target, min_max_rect(0, 0, render_target.width, render_target.height), background_color);
@@ -211,31 +209,41 @@ mod Handmade::Game
     let game_output_sound = fun
     (
         game_memory: game_memory*; 
-        @sound_output: game_sound_output*;
+        request: game_sound_output*;
     ) => void
     {
-        var debug_sound_output = sound_output;
         var game_state = get_game_state(game_memory);
-        var sample = sample_out;
-        assert(sample@ptr != nullptr);
+        var sample = request.start_buffer;
+		var end_sample = request.end_buffer;
+		var samples_per_second = request.samples_per_second;
+		var amplitude = 0.0;
+        var sample_index = game_state.sample_index;
+        var freq = 0.0;
+        freq += game_state.player_x;
         
-        let tone_hz = 800.0;
-        let volume = 0.1;
-        var delta_t = 1.0 / @f32 samples_per_second;
-        // var t = Math.remainder(game_state.sound_t, Math.tau_32);
-        var t = game_state.sound_t;
+		assert(request.num_channels == 2);
+		while (sample <\ end_sample) {
+			var seconds = sample_index@f32 / samples_per_second@f32;
+            var x = freq * seconds * Math::tau_32;
+            if (x > Math::tau_32) {
+                sample_index = 0;
+            }
+            
+			var s = amplitude * Math::sin(x) * 0x8000@f32;
+			*sample++ = s@i16;
+			s = amplitude * Math::sin(x) * 0x8000@f32;
+			*sample++ = s@i16;
 
-        for (var i: i32 = 0; i < sample_count; ++i) {
-            // var v = Math.lerp(game_state.volume, game_state.target_volume, t);
-            var p = tone_hz * Math::tau_32 * t;
-            var x = @i16 (32767 * volume * Math::sin(p));
-            *sample++ = x;
-            *sample++ = x;
-            t += delta_t;
-        }
-        // debug_print_i32("sc", sample_count);
-        // debug_print_f32("sound_t", t);
-        game_state.sound_t = t;
+			sample_index++;
+		}
+
+        // var ms = 1000.0 * (request.end_buffer - request.start_buffer)@f32 / samples_per_second@f32;
+        // if (ms > 5.0) {
+        //     print(ms);
+        //     print("\n");
+        // }
+        
+        game_state.sample_index = sample_index;
     }
 
     let get_game_state = fun (memory: game_memory*) => game_state* 

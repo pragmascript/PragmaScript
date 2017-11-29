@@ -2,10 +2,10 @@ mod Handmade
 {
     let game_sound_output = struct
     (
-        sample_out: i16*;
-        sample_count: i32;
         samples_per_second: i32;
-        sample_start_time: f32;
+        num_channels: i32;
+        start_buffer: i16*;
+        end_buffer: i16*;
     );
 
     let game_button = struct

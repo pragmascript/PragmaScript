@@ -2,315 +2,335 @@ import "../preamble.prag"
 import "../windows.prag"
 import "../math.prag"
 
-["PACKED"]
-let GUID = struct (
-	// data1: i32;
-	// data2: i16;
-	// data3: i16;
-	// data4: i64;
-	data_0: i64;
-	data_1: i64;
-);
+mod Wasapi {
 
-let eRender = 0;
-let eConsole = 0;
+	["PACKED"]
+	let GUID = struct (
+		// data1: i32;
+		// data2: i16;
+		// data3: i16;
+		// data4: i64;
+		data_0: i64;
+		data_1: i64;
+	);
 
-let CLSCTX_INPROC_SERVER  = 0x1;
-let CLSCTX_INPROC_HANDLER = 0x2;
-let CLSCTX_INPROC: i32 = CLSCTX_INPROC_SERVER|CLSCTX_INPROC_HANDLER;
-let AUDCLNT_SHAREMODE_SHARED = 0;
-let AUDCLNT_STREAMFLAGS_EVENTCALLBACK = 0x40000;
-let AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM = 0x80000000;
+	let eRender = 0;
+	let eConsole = 0;
+
+	let CLSCTX_INPROC_SERVER  = 0x1;
+	let CLSCTX_INPROC_HANDLER = 0x2;
+	let CLSCTX_INPROC: i32 = CLSCTX_INPROC_SERVER|CLSCTX_INPROC_HANDLER;
+	let AUDCLNT_SHAREMODE_SHARED = 0;
+	let AUDCLNT_STREAMFLAGS_EVENTCALLBACK = 0x40000;
+	let AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM = 0x80000000;
 
 
-let CoInitialize = extern fun(reserved: ptr) => i32;
-let CoCreateInstance = extern fun(
-	rclsid: GUID*;
-	p: ptr;
-	cls_context: i32;
-	riid: GUID*;
-	ppv: ptr*;
-) => i32;
-
-["PACKED"]
-let IMMDeviceEnumerator = struct (
-	vtable: MMDeviceEnumeratorFunctions*;
-);
-["PACKED"]
-let MMDeviceEnumeratorFunctions = struct(
-	_unused0: ptr; // QueryInterface
-	_unused1: ptr; // AddRef
-	Release: fun(this: IMMDeviceEnumerator*) => i32;
-
-	_unused3: ptr; // EnumAudioEndpoints
-	GetDefaultAudioEndpoint: fun (
-		this: IMMDeviceEnumerator*;
-		dataFlow: i32;
-		role: i32;
-		device: IMMDevice**;
-	) => i32;
-	_unused4: ptr; // GetDevice
-	_unused5: ptr; // RegisterEndpointNotificationCallback
-	_unused6: ptr; // UnregisterEndpointNotificationCallback
-);
-let IMMDevice = struct(
-	vtable: MMDeviceFunctions*;
-);
-["PACKED"]
-let MMDeviceFunctions = struct(
-	_unused0: ptr;
-	_unused1: ptr;
-	Release: fun(this: IMMDevice*) => i32;
-	Activate: fun(
-		this: IMMDevice*;
-		uuid: GUID*;
+	let CoInitialize = extern fun(reserved: ptr) => i32;
+	let CoCreateInstance = extern fun(
+		rclsid: GUID*;
+		p: ptr;
 		cls_context: i32;
-		activation_params: ptr;
-		interface: ptr;
-	) => i32;
-);
-["PACKED"]
-let IAudioClient = struct(
-	vtable: AudioClientFunctions*;
-);
-["PACKED"]
-let AudioClientFunctions = struct(
-	_unused00: ptr;  // QueryInterface
-	_unused01: ptr;  // AddRef
-	Release: fun(this: IAudioClient*) => i32;
-	Initialize: fun(
-		this: IAudioClient*;
-		sharemode: i32;
-		stream_flags: i32;
-		buffer_duration: i64;
-		periodicity: i64;
-		format: Windows::WAVEFORMATEX*;
-		audio_session_guid: GUID*;
-	) => i32;
-	GetBufferSize: fun(
-		this: IAudioClient*;
-		buffer_frame_count: i32*;
-	) => i32;
-	_unused05: ptr;  // GetStreamLatency
-	GetCurrentPadding: fun(
-		this: IAudioClient*;
-		frame_count: i32*;
-	) => i32;
-	IsFormatSupported: fun(
-		this: IAudioClient*;
-		sharemode: i32;
-		requested_format: Windows::WAVEFORMATEX*;
-		closest_format: Windows::WAVEFORMATEX**;
-	) => i32;
-	GetMixFormat: fun(
-		this: IAudioClient*;
-		mix_format: Windows::WAVEFORMATEX**
-	) => i32; 
-	GetDevicePeriod: fun(
-		this: IAudioClient*;
-		default_period: i64*;
-		min_period: i64*;
-	) => i32;
-	Start: fun(this: IAudioClient*) => i32;
-	Stop: fun(this: IAudioClient*) => i32;
-	Reset: fun(this: IAudioClient*) => i32;
-	SetEventHandle: fun(
-		this: IAudioClient*;  // SetEventHandle
-		handle: mm;
-	) => i32;
-	GetService: fun(
-		this: IAudioClient*;
-		uuid: GUID*;
+		riid: GUID*;
 		ppv: ptr*;
 	) => i32;
-);
 
-["PACKED"]
-let IAudioRenderClient = struct(
-	vtable: AudioRenderClientFunctions*;
-);
-["PACKED"]
-let AudioRenderClientFunctions = struct(
-	_unused00: ptr;  // QueryInterface
-	_unused01: ptr;  // AddRef
-	Release: fun(this: IAudioRenderClient*) => i32;
-	GetBuffer: fun(
-		this: IAudioRenderClient*;
-		num_frames_requested: i32;
-		buffer: ptr*;
-	) => i32;
-	ReleaseBuffer: fun(
-		this: IAudioRenderClient*;
-		num_frames_written: i32;
-		flags: i32;
-	) => i32;
-);
+	["PACKED"]
+	let IMMDeviceEnumerator = struct (
+		vtable: MMDeviceEnumeratorFunctions*;
+	);
+	["PACKED"]
+	let MMDeviceEnumeratorFunctions = struct(
+		_unused0: ptr; // QueryInterface
+		_unused1: ptr; // AddRef
+		Release: fun(this: IMMDeviceEnumerator*) => i32;
 
-let check = fun(hresult: i32; filepos: string = __file_pos__()) => void {
-	assert(hresult >= 0, "", filepos);
-}
+		_unused3: ptr; // EnumAudioEndpoints
+		GetDefaultAudioEndpoint: fun (
+			this: IMMDeviceEnumerator*;
+			dataFlow: i32;
+			role: i32;
+			device: IMMDevice**;
+		) => i32;
+		_unused4: ptr; // GetDevice
+		_unused5: ptr; // RegisterEndpointNotificationCallback
+		_unused6: ptr; // UnregisterEndpointNotificationCallback
+	);
+	let IMMDevice = struct(
+		vtable: MMDeviceFunctions*;
+	);
+	["PACKED"]
+	let MMDeviceFunctions = struct(
+		_unused0: ptr;
+		_unused1: ptr;
+		Release: fun(this: IMMDevice*) => i32;
+		Activate: fun(
+			this: IMMDevice*;
+			uuid: GUID*;
+			cls_context: i32;
+			activation_params: ptr;
+			interface: ptr;
+		) => i32;
+	);
+	["PACKED"]
+	let IAudioClient = struct(
+		vtable: AudioClientFunctions*;
+	);
+	["PACKED"]
+	let AudioClientFunctions = struct(
+		_unused00: ptr;  // QueryInterface
+		_unused01: ptr;  // AddRef
+		Release: fun(this: IAudioClient*) => i32;
+		Initialize: fun(
+			this: IAudioClient*;
+			sharemode: i32;
+			stream_flags: i32;
+			buffer_duration: i64;
+			periodicity: i64;
+			format: Windows::WAVEFORMATEX*;
+			audio_session_guid: GUID*;
+		) => i32;
+		GetBufferSize: fun(
+			this: IAudioClient*;
+			buffer_frame_count: i32*;
+		) => i32;
+		_unused05: ptr;  // GetStreamLatency
+		GetCurrentPadding: fun(
+			this: IAudioClient*;
+			frame_count: i32*;
+		) => i32;
+		IsFormatSupported: fun(
+			this: IAudioClient*;
+			sharemode: i32;
+			requested_format: Windows::WAVEFORMATEX*;
+			closest_format: Windows::WAVEFORMATEX**;
+		) => i32;
+		GetMixFormat: fun(
+			this: IAudioClient*;
+			mix_format: Windows::WAVEFORMATEX**
+		) => i32; 
+		GetDevicePeriod: fun(
+			this: IAudioClient*;
+			default_period: i64*;
+			min_period: i64*;
+		) => i32;
+		Start: fun(this: IAudioClient*) => i32;
+		Stop: fun(this: IAudioClient*) => i32;
+		Reset: fun(this: IAudioClient*) => i32;
+		SetEventHandle: fun(
+			this: IAudioClient*;  // SetEventHandle
+			handle: mm;
+		) => i32;
+		GetService: fun(
+			this: IAudioClient*;
+			uuid: GUID*;
+			ppv: ptr*;
+		) => i32;
+	);
 
-let audio_state = struct( 
-	audio_client: IAudioClient*;
-	audio_render_client: IAudioRenderClient*;
-	samples_per_second: i32;
-);
+	["PACKED"]
+	let IAudioRenderClient = struct(
+		vtable: AudioRenderClientFunctions*;
+	);
+	["PACKED"]
+	let AudioRenderClientFunctions = struct(
+		_unused00: ptr;  // QueryInterface
+		_unused01: ptr;  // AddRef
+		Release: fun(this: IAudioRenderClient*) => i32;
+		GetBuffer: fun(
+			this: IAudioRenderClient*;
+			num_frames_requested: i32;
+			buffer: ptr*;
+		) => i32;
+		ReleaseBuffer: fun(
+			this: IAudioRenderClient*;
+			num_frames_written: i32;
+			flags: i32;
+		) => i32;
+	);
 
-let audio_thread = fun (param: ptr) => i32 {
-	var audio_state = param@audio_state*;
-	var audio_client = audio_state.audio_client;
-	var audio_render_client = audio_state.audio_render_client;
-	var num_channels = 2;
-	var samples_per_second = audio_state.samples_per_second;
+	let check = fun(hresult: i32; filepos: string = __file_pos__()) => void {
+		assert(hresult >= 0, "", filepos);
+	}
 
-	Windows::SetThreadPriority(Windows::GetCurrentThread(), Windows::THREAD_PRIORITY_HIGHEST);
+	let audio_state = struct(
+		callback: audio_fill_callback;
+		samples_per_second: i32;
+		num_channels: i32;
 
-	var buffer_ready_event = Windows::CreateEvent(nullptr, 0, 0, nullptr);
-	var hresult: i32;
-	hresult = audio_client.vtable.SetEventHandle(audio_client, buffer_ready_event);
-	check(hresult);
-	var buffer_frame_count: i32;
-	hresult = audio_client.vtable.GetBufferSize(audio_client, &buffer_frame_count);
-	check(hresult);
-	hresult = audio_client.vtable.Start(audio_client);
-	check(hresult);
+		audio_client: IAudioClient*;
+		audio_render_client: IAudioRenderClient*;
+		user_data: ptr;
+	);
+
+	let audio_fill_request = struct(
+		samples_per_second: i32;
+		num_channels: i32;
+		start_buffer: i16*;
+		end_buffer: i16*;
+		user_data: ptr;
+	);
+	let audio_fill_callback = fun(request: audio_fill_request*) => void;
+
+	let audio_thread = fun (param: ptr) => i32 {
+		var audio_state = param@audio_state*;
+		var audio_client = audio_state.audio_client;
+		var audio_render_client = audio_state.audio_render_client;
+		var num_channels = audio_state.num_channels;
+		var samples_per_second = audio_state.samples_per_second;
+
+		Windows::SetThreadPriority(Windows::GetCurrentThread(), Windows::THREAD_PRIORITY_HIGHEST);
+
+		var buffer_ready_event = Windows::CreateEvent(nullptr, 0, 0, nullptr);
+		var hresult: i32;
+		hresult = audio_client.vtable.SetEventHandle(audio_client, buffer_ready_event);
+		check(hresult);
+		var buffer_frame_count: i32;
+		hresult = audio_client.vtable.GetBufferSize(audio_client, &buffer_frame_count);
+		check(hresult);
+		hresult = audio_client.vtable.Start(audio_client);
+		check(hresult);
+
+		var sample_index = 0;
+		var period = Math::pi_32 * 2.0;
+		var amplitude = 0.1;
+
+		while (true) {
+			var wait_result = Windows::WaitForSingleObject(buffer_ready_event, Windows::INFINITE);
+			assert(wait_result == Windows::WAIT_OBJECT_0);
+
+			var padding_frame_count: i32;
+			hresult = audio_client.vtable.GetCurrentPadding(audio_client, &padding_frame_count);
+			check(hresult);
+
+			var buffer: ptr;
+			var fill_frame_count = buffer_frame_count - padding_frame_count;
+			hresult = audio_render_client.vtable.GetBuffer(audio_render_client, fill_frame_count, &buffer);
+			check(hresult);
+
+
+			
+			var fill_bytes_count = fill_frame_count * (size_of(i16)@i32) * num_channels;
+
+			var request: audio_fill_request;
+			request.samples_per_second = samples_per_second;
+			request.num_channels = num_channels;
+			request.start_buffer = buffer@i16*;
+			request.end_buffer = (buffer + fill_bytes_count)@i16*;
+			request.user_data = audio_state.user_data;
+			audio_state.callback(&request);
+			hresult = audio_render_client.vtable.ReleaseBuffer(audio_render_client, fill_frame_count, 0);
+			check(hresult);
+		}
+		return 0;
+	}
+
+
+	let audio_init = fun(audio_state: audio_state*) => void {
+		assert(audio_state.callback@ptr != nullptr);
+		var hresult: i32;
+		hresult = CoInitialize(nullptr);
+		check(hresult);
+
+		var uuid_mm_device_enumerator = GUID {
+			0x467CE52FBCDE0395,
+			0x2E69919257C43D8E
+		};
+		var uuid_imm_device_enumerator = GUID {
+			0x4F359614A95664D2,
+			0xE61736B68DDE46A7
+		};
+		var device_enumerator: IMMDeviceEnumerator*;
+		hresult = CoCreateInstance(&uuid_mm_device_enumerator, nullptr, CLSCTX_INPROC, &uuid_imm_device_enumerator, &device_enumerator@ptr*);
+		check(hresult);
+
+		var audio_device: IMMDevice*;
+		hresult = device_enumerator.vtable.GetDefaultAudioEndpoint(device_enumerator, eRender, eConsole, &audio_device);
+		check(hresult);
+		
+		var uuid_iaudio_client = GUID {
+			0x4C32DBFA1CB9AD4C,
+			0xB203A768F5C278B1
+		};
+		var audio_client: IAudioClient*;
+		hresult = audio_device.vtable.Activate(audio_device, &uuid_iaudio_client, CLSCTX_INPROC, nullptr, &audio_client@ptr);
+		check(hresult);
+
+		var requested_format = Windows::WAVEFORMATEX { };
+		requested_format.formatTag = Windows::WAVE_FORMAT_PCM;
+		requested_format.channels = 2;
+		requested_format.samplesPerSec = 44100;
+		requested_format.bitsPerSample = 16;
+		requested_format.blockAlign = (requested_format.channels * requested_format.bitsPerSample) / 8;
+		requested_format.avgBytesPerSec = requested_format.samplesPerSec * requested_format.blockAlign@i32;
+
+		var audio_client_flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM;
+		hresult = audio_client.vtable.Initialize(audio_client, AUDCLNT_SHAREMODE_SHARED, audio_client_flags, 0, 0, &requested_format, 0@GUID*);
+		check(hresult);
+
+		var uuid_iaudio_render_client = GUID {
+			0x44833146F294ACFC,
+			0xE260C2A7DCADBFA7
+		};
+		var audio_render_client: IAudioRenderClient*;
+		hresult = audio_client.vtable.GetService(audio_client, &uuid_iaudio_render_client, &audio_render_client@ptr*);
+		check(hresult);
+
+		audio_state.audio_client = audio_client;
+		audio_state.audio_render_client = audio_render_client;
+		audio_state.samples_per_second = requested_format.samplesPerSec;
+		audio_state.num_channels = requested_format.channels@i32;
+
+		// https://youtu.be/pAIdfsT7-EU?t=1h35m25s
+		Windows::CreateThread(nullptr, 0, audio_thread@Windows::ThreadProc, audio_state@ptr, 0, 0@mm*);
+	}
+
+
 
 	var sample_index = 0;
-	var period = Math::pi_32 * 2.0;
-	var amplitude = 0.1;
+	let period = 2 * Math::pi_32;
+	let test_fill_audio_callback = fun(request: audio_fill_request*) => void {
+		var sample = request.start_buffer;
+		var end_sample = request.end_buffer;
+		var samples_per_second = request.samples_per_second;
+		var amplitude = 0.05;
 
-	while (true) {
-		var wait_result = Windows::WaitForSingleObject(buffer_ready_event, Windows::INFINITE);
-		assert(wait_result == Windows::WAIT_OBJECT_0);
-
-		var padding_frame_count: i32;
-		hresult = audio_client.vtable.GetCurrentPadding(audio_client, &padding_frame_count);
-		check(hresult);
-
-		var buffer: ptr;
-		var fill_frame_count = buffer_frame_count - padding_frame_count;
-		hresult = audio_render_client.vtable.GetBuffer(audio_render_client, fill_frame_count, &buffer);
-		check(hresult);
-
-		var fill_bytes_count = fill_frame_count * (size_of(i16)@i32) * num_channels;
-		
-		// fill buffer...
-		var sample = buffer@i16*;
-		var end_sample = (buffer + fill_bytes_count)@i16*;
-		
+		assert(request.num_channels == 2);
 		while (sample <\ end_sample) {
 			var seconds = sample_index@f32 / samples_per_second@f32;
 			seconds = Math::remainder(seconds, period);
 
 			var s = amplitude * Math::sin(250 * seconds * period) * 0x8000@f32;
 			*sample++ = s@i16;
-			
 			s = amplitude * Math::sin(1000 * seconds * period) * 0x8000@f32;
 			*sample++ = s@i16;
 
 			sample_index++;
 		}
-		// debug_print("sec: ", seconds);
-
-		hresult = audio_render_client.vtable.ReleaseBuffer(audio_render_client, fill_frame_count, 0);
-		check(hresult);
 	}
-	return 0;
-}
 
-[
-	"compile.output": "wasapi_test.exe",
-	"compile.debuginfo": "true",
-	"compile.entry" : "true",
-	"compile.ll"    : "false",
-	"compile.asm"   : "false",
- 	"compile.opt"   : "0",
- 	"compile.run"   : "true",
- 	"compile.libs"  : "kernel32.lib, user32.lib, ole32.lib, libopenlibm.a",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
-]
-let main = fun () => void {
-	// https://www.youtube.com/watch?v=pAIdfsT7-EU
-	// https://docs.microsoft.com/en-us/windows-hardware/drivers/audio/low-latency-audio#windows_audio_session_api_wasapi
-	var hresult: i32;
-	hresult = CoInitialize(nullptr);
-	check(hresult);
-
-	var uuid_mm_device_enumerator = GUID {
-		0x467CE52FBCDE0395,
-		0x2E69919257C43D8E
-	};
-	var uuid_imm_device_enumerator = GUID {
-		0x4F359614A95664D2,
-		0xE61736B68DDE46A7
-	};
-	var device_enumerator: IMMDeviceEnumerator*;
-	hresult = CoCreateInstance(&uuid_mm_device_enumerator, nullptr, CLSCTX_INPROC, &uuid_imm_device_enumerator, &device_enumerator@ptr*);
-	check(hresult);
-
-	var audio_device: IMMDevice*;
-	hresult = device_enumerator.vtable.GetDefaultAudioEndpoint(device_enumerator, eRender, eConsole, &audio_device);
-	check(hresult);
-	
-	var uuid_iaudio_client = GUID {
-		0x4C32DBFA1CB9AD4C,
-		0xB203A768F5C278B1
-	};
-	var audio_client: IAudioClient*;
-	hresult = audio_device.vtable.Activate(audio_device, &uuid_iaudio_client, CLSCTX_INPROC, nullptr, &audio_client@ptr);
-	check(hresult);
-
-	
-	var requested_format = Windows::WAVEFORMATEX { };
-	requested_format.formatTag = Windows::WAVE_FORMAT_PCM;
-	requested_format.channels = 2;
-	requested_format.samplesPerSec = 44100;
-	requested_format.bitsPerSample = 16;
-	requested_format.blockAlign = (requested_format.channels * requested_format.bitsPerSample) / 8;
-	requested_format.avgBytesPerSec = requested_format.samplesPerSec * requested_format.blockAlign@i32;
 
 #if FALSE
-	var device_period_default: i64;
-	var device_period_min: i64;
-	hresult = audio_client.vtable.GetDevicePeriod(audio_client, &device_period_default, &device_period_min);
-	debug_print("device_period_default", device_period_default);
-	debug_print("device_period_min", device_period_min);
+	[
+		"compile.output": "wasapi_test.exe",
+		"compile.debuginfo": "true",
+		"compile.entry" : "true",
+		"compile.ll"    : "false",
+		"compile.asm"   : "false",
+		"compile.opt"   : "0",
+		"compile.run"   : "true",
+		"compile.libs"  : "kernel32.lib, user32.lib, ole32.lib, libopenlibm.a",
+		"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+	]
+	let main = fun () => void {
+		// https://www.youtube.com/watch?v=pAIdfsT7-EU
+		// https://docs.microsoft.com/en-us/windows-hardware/drivers/audio/low-latency-audio#windows_audio_session_api_wasapi
+		var audio_state = audio_state{ };
+		audio_state.callback = test_fill_audio_callback@audio_fill_callback;
+		audio_init(&audio_state);
+		Windows::Sleep(3000);
 
-	var closest_format: Windows::WAVEFORMATEX*;
-	var mix_format: Windows::WAVEFORMATEX*;
-	hresult = audio_client.vtable.IsFormatSupported(audio_client, AUDCLNT_SHAREMODE_SHARED, &requested_format, &closest_format);
-	check(hresult);
-	
-	hresult = audio_client.vtable.GetMixFormat(audio_client, &mix_format);
-	check(hresult);
-#endif
-
-	var audio_client_flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM;
-	print(audio_client_flags, false);
-	print("\n");
-	hresult = audio_client.vtable.Initialize(audio_client, AUDCLNT_SHAREMODE_SHARED, audio_client_flags, 0, 0, &requested_format, 0@GUID*);
-	check(hresult);
-
-	var uuid_iaudio_render_client = GUID {
-		0x44833146F294ACFC,
-		0xE260C2A7DCADBFA7
-	};
-	var audio_render_client: IAudioRenderClient*;
-	hresult = audio_client.vtable.GetService(audio_client, &uuid_iaudio_render_client, &audio_render_client@ptr*);
-	check(hresult);
-
-	var audio_state: audio_state;
-	audio_state.audio_client = audio_client;
-	audio_state.audio_render_client = audio_render_client;
-	audio_state.samples_per_second = requested_format.samplesPerSec;
-
-
-	// https://youtu.be/pAIdfsT7-EU?t=1h35m25s
-
-	Windows::CreateThread(nullptr, 0, audio_thread@Windows::ThreadProc, &audio_state@ptr, 0, 0@mm*);
-	Windows::Sleep(3000);
-
-	print("fumm fumm\n");
-	Windows::ExitProcess(0);
+		print("fumm fumm\n");
+		Windows::ExitProcess(0);
+	}
+#endif 
 }
-
