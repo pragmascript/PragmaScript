@@ -35,6 +35,10 @@ namespace PragmaScript
         public static bool dll = false;
         public static string output = "output.exe";
 
+        public static bool useFastMath { 
+            get { return optimizationLevel > 3; }
+        }
+
         internal static FunctionDefinition entry;
     }
 

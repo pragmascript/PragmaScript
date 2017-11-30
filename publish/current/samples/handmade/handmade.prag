@@ -20,8 +20,6 @@ mod Handmade::Game
         sample_index: i32;
         amplitude: f32;
     );
-
-
     let world = struct 
     (
         offset: i32;

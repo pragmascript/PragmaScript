@@ -330,11 +330,16 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
             }
         }
 
-        void AppendBinOp(Value v, string name, bool isConst) {
+        void AppendBinOp(Value v, string name, bool isConst, string flags=null) {
             if (!isConst) {
                 AppendAssignSSA(v);
             }
-            AP($"{name} ");
+            if (flags != null) {
+                AP($"{name} {flags} ");
+            } else {
+                AP($"{name} ");
+            }
+            
             if (isConst) {
                 AP("(");
             }
@@ -510,10 +515,15 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                         } else {
                             Indent();
                         }
-                        AP("call ");
                         var fun = v.args[0];
                         var pt = (PointerType)fun.type;
                         var ft = (FunctionType)pt.elementType;
+                        var fast = "";
+                        if (CompilerOptions.useFastMath && (ft.returnType.kind == TypeKind.Float || ft.returnType.kind == TypeKind.Half || ft.returnType.kind == TypeKind.Double)) {
+                            fast = "fast ";
+                        }
+                        AP($"call {fast}");
+                        
                         AppendType(ft.returnType);
                         AP(" ");
                         AppendArgument(fun, false);
@@ -689,19 +699,19 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                     AppendBinOp(v, "lshr", isConst);
                     break;
                 case Op.FAdd:
-                    AppendBinOp(v, "fadd", isConst);
+                    AppendBinOp(v, "fadd", isConst, !isConst && CompilerOptions.useFastMath ? "fast" : null);
                     break;
                 case Op.FSub:
-                    AppendBinOp(v, "fsub", isConst);
+                    AppendBinOp(v, "fsub", isConst, !isConst && CompilerOptions.useFastMath ? "fast" : null);
                     break;
                 case Op.FMul:
-                    AppendBinOp(v, "fmul", isConst);
+                    AppendBinOp(v, "fmul", isConst, !isConst && CompilerOptions.useFastMath ? "fast" : null);
                     break;
                 case Op.FDiv:
-                    AppendBinOp(v, "fdiv", isConst);
+                    AppendBinOp(v, "fdiv", isConst, !isConst && CompilerOptions.useFastMath ? "fast" : null);
                     break;
                 case Op.FRem:
-                    AppendBinOp(v, "frem", isConst);
+                    AppendBinOp(v, "frem", isConst, !isConst && CompilerOptions.useFastMath ? "fast" : null);
                     break;
                 case Op.ICmp: {
                         var icmp = (ICmp)v;
@@ -709,13 +719,17 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                     }
                     break;
                 case Op.FCmp: {
+                        var fast = "";
+                        if (!isConst && CompilerOptions.useFastMath) {
+                            fast = "fast ";
+                        }
                         var fcmp = (FCmp)v;
                         if (fcmp.fcmpType == FcmpType.@true) {
-                            AppendBinOp(v, "fcmp true", isConst);
+                            AppendBinOp(v, $"fcmp {fast}true", isConst);
                         } else if (fcmp.fcmpType == FcmpType.@false) {
-                            AppendBinOp(v, "fcmp false", isConst);
+                            AppendBinOp(v, $"fcmp {fast}false", isConst);
                         } else {
-                            AppendBinOp(v, $"fcmp {fcmp.fcmpType}", isConst);
+                            AppendBinOp(v, $"fcmp {fast}{fcmp.fcmpType}", isConst);
                         }
                     }
                     break;

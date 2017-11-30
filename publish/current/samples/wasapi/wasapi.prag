@@ -287,7 +287,7 @@ mod Wasapi {
 
 
 	var sample_index = 0;
-	let period = 2 * Math::pi_32;
+	let period = Math::tau_32;
 	let test_fill_audio_callback = fun(request: audio_fill_request*) => void {
 		var sample = request.start_buffer;
 		var end_sample = request.end_buffer;

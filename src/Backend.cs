@@ -35,7 +35,7 @@ namespace PragmaScript {
 
 
             int optLevel = CompilerOptions.optimizationLevel;
-            Debug.Assert(optLevel >= 0 && optLevel <= 3);
+            Debug.Assert(optLevel >= 0 && optLevel <= 4);
             var arch = "x86-64";
 
             var outputDir = Path.GetDirectoryName(CompilerOptions.inputFilename);
@@ -66,19 +66,31 @@ namespace PragmaScript {
             var mcpu = CompilerOptions.cpu.ToLower();
             bool error = false;
 
+            bool use_fast_flags = false;
+            if (optLevel > 3) {
+                optLevel = 3;
+                use_fast_flags = true;
+            }
+
+
             if (optLevel > 0) {
-                Console.WriteLine($"optimizer... (O{optLevel})");
+                var opt_string = !use_fast_flags ? optLevel.ToString() : "fast";
+                Console.WriteLine($"optimizer... (O{opt_string})");
                 var optProcess = new Process();
                 optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
+                var fast_flags = "";
+                if (use_fast_flags) {
+                    fast_flags = "-enable-no-infs-fp-math -enable-no-nans-fp-math -enable-no-signed-zeros-fp-math -enable-unsafe-fp-math -enable-no-trapping-fp-math -fp-contract=fast ";
+                }
                 if (CompilerOptions.ll) {
-                    optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} -march={arch} -mcpu={mcpu} -S -o {oxt("_opt.ll")}";
+                    optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} {fast_flags}-march={arch} -mcpu={mcpu} -S -o {oxt("_opt.ll")}";
                     optProcess.StartInfo.RedirectStandardInput = false;
                     optProcess.StartInfo.RedirectStandardOutput = false;
                     optProcess.StartInfo.UseShellExecute = false;
                     optProcess.Start();
                     optProcess.WaitForExit();
                 } else {
-                    optProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu={mcpu} -f";
+                    optProcess.StartInfo.Arguments = $"-O{optLevel} {fast_flags}-march={arch} -mcpu={mcpu} -f";
                     optProcess.StartInfo.RedirectStandardInput = true;
                     optProcess.StartInfo.RedirectStandardOutput = true;
                     optProcess.StartInfo.UseShellExecute = false;
