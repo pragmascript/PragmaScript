@@ -197,6 +197,7 @@ namespace PragmaScript {
                 var lib_path = String.Join(" /libpath:", CompilerOptions.lib_path.Select(s => "\"" + s + "\""));
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
+
                 lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
                 var flags = "/entry:__init";
                 if (CompilerOptions.dll) {

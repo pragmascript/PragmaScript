@@ -92,9 +92,9 @@ let read_file = fun (name: string) => string
 } 
 
 let render_opengl = fun (@window_state: window_state*; time: f32) => void {
-    if (!gl_resources_initialized) {
-        init_gl_resources();
-    }
+    // if (!gl_resources_initialized) {
+    //     init_gl_resources();
+    // }
     glViewport(0, 0, client_width, client_height);
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -418,10 +418,10 @@ let init_opengl = fun (window: window_state*) => void {
     var t0 = get_perf_counter();
     var int_attrib_list = [
         WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
-        WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
         WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
         WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
-        WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, GL_TRUE,
+        WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
         0
     ];
 
@@ -588,12 +588,12 @@ let gl_error_callback = fun(
 [
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "3",
+ 	"compile.opt"   : "0",
     "compile.debuginfo": "true",
-    "compile.ll"    : "false",
+    "compile.ll"    : "true",
     "compile.asm"   : "false",
     "compile.cpu"   : "nehalem",
- 	"compile.run"   : "true",
+ 	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
@@ -631,7 +631,7 @@ let main = fun() => void {
     RegisterClassExA(&window_class);
     
     let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
-    let dw_ex_style = 0&WS_EX_TOPMOST;
+    let dw_ex_style = 0 & WS_EX_TOPMOST;
  
     window.handle = CreateWindowExA(
         dw_ex_style,
@@ -651,6 +651,7 @@ let main = fun() => void {
 
     var gl_t0 = get_perf_counter();
     init_opengl(&window);
+    init_gl_resources();
     var gl_t1 = get_perf_counter();
 
     // debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
