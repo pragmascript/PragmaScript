@@ -12,7 +12,7 @@
         {
             "isBuildCommand": true,
             "taskName": "build",
-            "args": ["\"..\\bin\\pragma.exe\"", "-D", "${file}"],
+            "args": ["..\\bin\\pragma.exe", "-D", "${file}"],
             // "args": ["\"..\\bin\\pragma.exe\"", "${file}"],
             "problemMatcher": [
             {
