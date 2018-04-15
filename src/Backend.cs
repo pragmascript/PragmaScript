@@ -27,6 +27,9 @@ namespace PragmaScript {
         }
 
         public void AOT() {
+
+            
+
 #if DISPLAY_TIMINGS
             var timer = new Stopwatch();
             timer.Start();
@@ -44,14 +47,14 @@ namespace PragmaScript {
             var outputBinDir = Path.Combine(outputDir, "bin");
             var outputBin = Path.Combine(outputBinDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
 
-            Func<string, string> oxt = (ext) => outputTemp + ext;
-            Func<string, string> ox = (ext) => outputBin + ext;
+            Func<string, string> oxt = (ext) => "\"" + outputTemp + ext + "\"";
+            Func<string, string> ox = (ext) => "\"" + outputBin + ext + "\"";
 
             Directory.CreateDirectory(outputTempDir);
             Directory.CreateDirectory(outputBinDir);
 
             if (CompilerOptions.ll) {
-                File.WriteAllText(oxt(".ll"), ll);
+                File.WriteAllText(outputTemp + ".ll", ll);
             }
             var bufferSize = 100 * 1024 * 1024;
             var buffer = new byte[bufferSize];
@@ -78,6 +81,7 @@ namespace PragmaScript {
                 Console.WriteLine($"optimizer... (O{opt_string})");
                 var optProcess = new Process();
                 optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
+
                 var fast_flags = "";
                 if (use_fast_flags) {
                     fast_flags = "-enable-no-infs-fp-math -enable-no-nans-fp-math -enable-no-signed-zeros-fp-math -enable-unsafe-fp-math -enable-no-trapping-fp-math -fp-contract=fast ";
@@ -87,6 +91,12 @@ namespace PragmaScript {
                     optProcess.StartInfo.RedirectStandardInput = false;
                     optProcess.StartInfo.RedirectStandardOutput = false;
                     optProcess.StartInfo.UseShellExecute = false;
+                    
+                    System.Console.WriteLine("***************************************");
+                    System.Console.WriteLine($"opt: {optProcess.StartInfo.FileName}");
+                    System.Console.WriteLine($"arg: {optProcess.StartInfo.Arguments}");
+                    System.Console.WriteLine("***************************************");
+                    
                     optProcess.Start();
                     optProcess.WaitForExit();
                 } else {
@@ -94,6 +104,13 @@ namespace PragmaScript {
                     optProcess.StartInfo.RedirectStandardInput = true;
                     optProcess.StartInfo.RedirectStandardOutput = true;
                     optProcess.StartInfo.UseShellExecute = false;
+
+                    System.Console.WriteLine("***************************************");
+                    System.Console.WriteLine($"opt: {optProcess.StartInfo.FileName}");
+                    System.Console.WriteLine($"arg: {optProcess.StartInfo.Arguments}");
+                    System.Console.WriteLine("***************************************");
+
+
                     optProcess.Start();
                     var writer = optProcess.StandardInput;
                     var reader = optProcess.StandardOutput;
@@ -138,6 +155,12 @@ namespace PragmaScript {
                     llcProcess.StartInfo.RedirectStandardInput = false;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
+
+                    System.Console.WriteLine("***************************************");
+                    System.Console.WriteLine($"llc: {llcProcess.StartInfo.FileName}");
+                    System.Console.WriteLine($"arg: {llcProcess.StartInfo.Arguments}");
+                    System.Console.WriteLine("***************************************");
+
                     llcProcess.Start();
                     llcProcess.WaitForExit();
                 } else {
@@ -145,6 +168,12 @@ namespace PragmaScript {
                     llcProcess.StartInfo.RedirectStandardInput = true;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
+                    
+                    System.Console.WriteLine("***************************************");
+                    System.Console.WriteLine($"llc: {llcProcess.StartInfo.FileName}");
+                    System.Console.WriteLine($"arg: {llcProcess.StartInfo.Arguments}");
+                    System.Console.WriteLine("***************************************");
+
                     llcProcess.Start();
                     var writer = llcProcess.StandardInput;
                     if (optLevel > 0) {
@@ -170,6 +199,13 @@ namespace PragmaScript {
                     llcProcess.StartInfo.RedirectStandardInput = false;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
+
+                    System.Console.WriteLine("***************************************");
+                    System.Console.WriteLine($"llc: {llcProcess.StartInfo.FileName}");
+                    System.Console.WriteLine($"arg: {llcProcess.StartInfo.Arguments}");
+                    System.Console.WriteLine("***************************************");
+
+
                     llcProcess.Start();
                     llcProcess.WaitForExit();
                 } else {
@@ -177,6 +213,12 @@ namespace PragmaScript {
                     llcProcess.StartInfo.RedirectStandardInput = true;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
+                    
+                    System.Console.WriteLine("***************************************");
+                    System.Console.WriteLine($"llc: {llcProcess.StartInfo.FileName}");
+                    System.Console.WriteLine($"arg: {llcProcess.StartInfo.Arguments}");
+                    System.Console.WriteLine("***************************************");
+
                     llcProcess.Start();
                     var writer = llcProcess.StandardInput;
                     if (optLevel > 0) {
@@ -209,10 +251,16 @@ namespace PragmaScript {
                     flags += " /DEBUG";
                 }
 
-                lldProcess.StartInfo.Arguments = $"{libs} \"{oxt(".o")}\" {flags} /libpath:{lib_path}";
+                lldProcess.StartInfo.Arguments = $"{libs} {oxt(".o")} {flags} /libpath:{lib_path}";
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;
+
+                System.Console.WriteLine("***************************************");
+                System.Console.WriteLine($"lld: {lldProcess.StartInfo.FileName}");
+                System.Console.WriteLine($"arg: {lldProcess.StartInfo.Arguments}");
+                System.Console.WriteLine("***************************************");
+
                 lldProcess.Start();
                 lldProcess.WaitForExit();
                 if (lldProcess.ExitCode != 0) {
