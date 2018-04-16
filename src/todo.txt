@@ -1,7 +1,7 @@
 
 variable definitions should allow shadowing: 
   restructure scope such that variable reference always get a full "copy" of the scope that is valid at that node,
-  or find some other way to allow for shadowing.
+  or find some other way to allow for shadowing. 
 
 
 single threaded memory fence

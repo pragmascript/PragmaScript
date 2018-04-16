@@ -292,7 +292,7 @@ namespace PragmaScript {
                 string checksum;
                 using (var md5 = System.Security.Cryptography.MD5.Create()) {
                     using (var stream = File.OpenRead(node.token.filename)) {
-                        checksum = BitConverter.ToString(md5.ComputeHash(stream)).Replace("-","‌​").ToLower();
+                        checksum = Backend.EscapeString(BitConverter.ToString(md5.ComputeHash(stream)).Replace("-","‌​").ToLower());
                     }
                 }
                 var nodeString = $"!DIFile(filename: \"{fn}\", directory: \"{dir}\", checksumkind: CSK_MD5, checksum: \"{checksum}\")";
