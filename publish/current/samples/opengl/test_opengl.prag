@@ -599,7 +599,8 @@ let gl_error_callback = fun(
 ]
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
-#if TRUE
+
+#if FALSE
     SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
 #endif
 

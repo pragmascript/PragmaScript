@@ -6,6 +6,7 @@ import "..\math.prag"
 with Windows;
 
 // https://www.shadertoy.com/view/Xdf3zB
+// https://www.shadertoy.com/view/4scfz4
 
 let Vec = struct 
 (
@@ -17,7 +18,7 @@ let v3 = fun (x: f32; y: f32; z: f32) => Vec {
     var result = Vec { x, y, z};
     return result;
 }
-var vz = Vec {0.0, 0.0, 0.0};
+let vz = Vec {0.0, 0.0, 0.0};
 let add = fun (a: Vec*; b: Vec*) => Vec {
     var result = Vec { a.x + b.x, a.y + b.y, a.z + b.z};
     return result;
@@ -301,18 +302,18 @@ let radiance = fun(ray: Ray*; depth: i32; random_state: Random::State*) => Vec {
 let sphere_count = 9;
 var spheres: Sphere*;
 
-
+// crashes the compiler
+// let debug_spheres = fun() => void{
+//     var s2 = Sphere { 10000.0, Vec { 10001.0, 40.8, 81.6 }, vz, Vec {0.75, 0.25, 0.25} };
+// }
 
 let create_spheres = fun() => void {
     
     spheres = @Sphere* VirtualAlloc(nullptr,(size_of(Sphere)@mm) * sphere_count@mm,
                MEM_COMMIT, PAGE_READWRITE);
     var s = spheres;
-    
-    // crashes the compiler
-    // var s = Sphere { big, Vec { big + 1  , 40.8, 81.6 }, vz            , Vec {0.75, 0.25, 0.25} };
-
     let big = 10000.0;
+    
     // 0
     s.radius   = big;
     s.pos      = v3(big + 1, 40.8, 81.6);
@@ -443,7 +444,6 @@ let render_tile_position = fun (sx: i32; sy: i32) => void {
 let render_tile = fun (@tile: Tile*; random_state: Random::State*) => void {
     var buf = window.backbuffer;
     render_tile_position(sx, sy);
-
     var p = start;    
     for (var y = 0; y < tile_size; ++y) {
         var pixels = p;
@@ -681,11 +681,11 @@ let thread_count = 8;
 	"compile.output": "smallpt_win.exe",
 	"compile.entry" : "true",
     "compile.cpu"   : "native",
-    "compile.debuginfo": "true",
- 	"compile.opt"   : "0",
+    "compile.debuginfo": "false",
+ 	"compile.opt"   : "3",
     "compile.asm"   : "false",
     "compile.ll"    : "false",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
@@ -693,7 +693,9 @@ let main = fun() => void {
     var perf_count_freq: i64;
     QueryPerformanceFrequency(&perf_count_freq);
 
+#if FALSE
     SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+#endif
 
     var t0 = get_perf_counter();
     
@@ -760,8 +762,6 @@ let main = fun() => void {
     var t1 = get_perf_counter();
     var t = (t1-t0)@f64 / @f64 perf_count_freq;
     debug_print("seconds elapsed: ", t);
-
-
 
     ExitProcess(0);
 }

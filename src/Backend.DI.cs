@@ -30,6 +30,9 @@ namespace PragmaScript {
             }
             var locIdx = GetDILocation(v);
             if (locIdx >= 0) {
+                if (locIdx == 1335) {
+                    int breakHere = 42;
+                }
                 AP($", !dbg !{locIdx}");
             }
         }

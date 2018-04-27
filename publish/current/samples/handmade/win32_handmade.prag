@@ -1,6 +1,4 @@
-﻿#define WIN_10
-
-import "../preamble.prag"
+﻿import "../preamble.prag"
 import "handmade_interface.prag"
 import "../wasapi/wasapi.prag"
 
@@ -374,8 +372,8 @@ mod Handmade::Platform
 			win_state.recording_started = true;
 			win_state.recording_file_handle = 
 				CreateFileA(cstr("input_recording.dat\0"), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
-				var bytes_written = 0;
 
+			var bytes_written = 0;
 			var total_size = game_memory.permanent_size + game_memory.transient_size;
 			assert(total_size < gigabytes(4));
 			WriteFile(win_state.recording_file_handle, game_memory.permanent_data, total_size@i32, &bytes_written, nullptr);
@@ -474,7 +472,7 @@ mod Handmade::Platform
 	let main = fun () => void 
 	{
 		QueryPerformanceFrequency(&perf_count_freq);
-	#if WIN_10
+	#if FALSE
 		SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
 	#endif
 
