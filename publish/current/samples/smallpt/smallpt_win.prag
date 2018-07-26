@@ -142,7 +142,7 @@ let to_int = fun (x: f32) => i32 {
 }
 
 let intersect = fun(ray: Ray*; t: f32*; obj: Sphere**) => bool {
-    let max = 10000000000.0;
+    let max = 100000000.0;
     *t = max;
     *obj = nullptr@Sphere*;
     
@@ -155,22 +155,24 @@ let intersect = fun(ray: Ray*; t: f32*; obj: Sphere**) => bool {
         }
         s++;
     }
+
     return *t != max;
 }
 
 let radiance = fun(ray: Ray*; depth: i32; random_state: Random::State*) => Vec {
-    var t: f32;
+    var t = -1.0;
     var id = 0;
     var obj: Sphere*;
     if (!intersect(ray, &t, &obj)) {
         return vz;
     }
+    assert(t >= 0);
     
     var color = obj.color;
     
     if (depth > 5) {
         var nax_refl = Math::max(color.x, Math::max(color.y, color.z));
-        if (Random::rand_f32() > nax_refl) {
+        if (Random::rand_f32(0.0, 1.0, random_state) > nax_refl) {
             return obj.emission;
         } else {
             color = scaled(&color, 1.0 / nax_refl);
@@ -523,22 +525,22 @@ let RenderJob = struct
 );
 
 let do_render_job = fun (@job: RenderJob*) => i32 {
-    Random::init_seed(thread_idx, &random_state);
+    Random::init_seed((thread_idx+1)*1233435, &random_state);
     var idx = thread_idx;
     while (idx < tiles_count) {
-        // print_string("thread ");
-        // print_i32(thread_idx);
-        // print_string(" start rendering tile #");
-        // print_i32(idx);
-        // print_string("\n");
+        // print("thread ");
+        // print(thread_idx);
+        // print(" start rendering tile #");
+        // print(idx);
+        // print("\n");
 
         render_tile(tiles + idx, &random_state);
 
-        // print_string("thread ");
-        // print_i32(thread_idx);
-        // print_string(" finished rendering tile #");
-        // print_i32(idx);
-        // print_string("\n");
+        // print("thread ");
+        // print(thread_idx);
+        // print(" finished rendering tile #");
+        // print(idx);
+        // print("\n");
         idx += thread_count;
     }
     // print_string("thread #");
@@ -673,7 +675,7 @@ let get_perf_counter = fun() => i64 {
 
 let x_tiles = 2*8;
 let y_tiles = 2*6;
-let samples = 128;
+let samples = 512;
 let tile_size = 64;
 let thread_count = 8;
 
@@ -730,7 +732,8 @@ let main = fun() => void {
     RegisterClassExA(&window_class);
     
     let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
-    let dw_ex_style = WS_EX_TOPMOST;
+    // let dw_ex_style = WS_EX_TOPMOST;
+    let dw_ex_style = 0;
  
     window.handle = CreateWindowExA(
         dw_ex_style,
@@ -827,12 +830,14 @@ let start_render = fun () => void {
     // create jobs
     render_jobs = @RenderJob* VirtualAlloc(nullptr, size_of(RenderJob) * @mm thread_count, MEM_COMMIT, PAGE_READWRITE);
     render_job_count = thread_count;
+
+    var j = RenderJob {};
     for (var i = 0; i < render_job_count; ++i) {
-        var j: RenderJob;
         j.thread_idx = i;
         j.thread_count = thread_count;
         j.tiles = tiles;
         j.tiles_count = tile_count;
+        j.completed = false;
         *(render_jobs + i) = j;
     }
 

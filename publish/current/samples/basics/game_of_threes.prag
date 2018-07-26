@@ -12,19 +12,19 @@ let main = fun () => void
 	var value = 100;
 	
 	while (value != 1) {
-		print_i32(value);
+		print(value);
 		var rem = value % 3;
 		if (rem == 0) {
-			print_string(" 0\n");
+			print(" 0\n");
 		} elif (rem == 1) {
 			value--;
-			print_string(" -1\n");
+			print(" -1\n");
 		} else {
 			value++;
-			print_string(" 1\n");
+			print(" 1\n");
 		}
 		value /= 3;
 	}
-	print_string("1\n");
+	print("1\n");
 	Windows::ExitProcess(0);
 }

@@ -456,7 +456,6 @@ namespace PragmaScript {
 
         static Node parseForLoop(ref ParseState ps, Scope scope)
         {
-
             // for
             var current = ps.ExpectCurrentToken(Token.TokenType.For);
 
@@ -1039,7 +1038,6 @@ namespace PragmaScript {
             var current = ps.ExpectCurrentToken(Token.TokenType.Identifier);
             bool exit = false;
             Node result = null;
-
 
             // try to parse a struct constructor
             {

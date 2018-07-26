@@ -352,7 +352,7 @@ mod Random
    		return (z1 ^ z2 ^ z3 ^ z4);
 	}
 	let rand_f32 = fun (min: f32 = 0.0; max: f32 = 1.0; state: State* = &state;) => f32 {
-		var x = rand_i32();
+		var x = rand_i32(state);
 		var result = @\f32 x / 4294967295.0;
 		result = min + result * (max - min);
 		return result;

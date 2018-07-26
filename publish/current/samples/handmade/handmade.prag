@@ -165,7 +165,7 @@ mod Handmade::Game
                 if (tile_id == 0) {
                     color = background_color;
                 } elif (tile_id == 1) {
-                    color = red;
+                    color = blue;
                 }
                 var pos_x = world.offset + x * world.tile_size;
                 var pos_y = world.offset + y * world.tile_size;

@@ -21,7 +21,7 @@ cwd = os.getcwd()
 def nj(*paths):
     return os.path.normpath(os.path.join(*paths)) 
 
-binPath = nj(cwd, prefixPath, "netcoreapp2.0/win7-x64")
+binPath = nj(cwd, prefixPath, "netcoreapp2.1/win7-x64")
 publishPath = nj(cwd, "../publish/current/bin")
 
 for _, _, files in os.walk(binPath):

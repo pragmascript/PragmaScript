@@ -30,9 +30,6 @@ namespace PragmaScript {
             }
             var locIdx = GetDILocation(v);
             if (locIdx >= 0) {
-                if (locIdx == 1335) {
-                    int breakHere = 42;
-                }
                 AP($", !dbg !{locIdx}");
             }
         }
@@ -52,7 +49,7 @@ namespace PragmaScript {
             }
         }
         void AppendFunctionArgumentsDebugInfo(Value value) {
-            return;
+#if false        
             if (!CompilerOptions.debugInfo) {
                 return;
             }
@@ -78,6 +75,7 @@ namespace PragmaScript {
                     AL();
                 }
             }
+#endif
         }
 
         void AppendDebugDeclareLocalVariable(Value value) {
@@ -248,8 +246,8 @@ namespace PragmaScript {
                 var debugGlobalVariableArrayIdx = AddDebugInfoNode(placeholder);
                 debugGlobalVariableArrayPlaceholder = placeholder;
 
-                string producer = "\"pragma version 0.1 (build 8)\"";
-                string nodeString = $"distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !{GetDIFile(root)}, producer: {producer}, isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, retainedTypes: !{emptyArrayIdx}, enums: !{emptyArrayIdx}, globals: !{debugGlobalVariableArrayIdx})";
+                string producer = "\"pragma version 0.2 (build 8)\"";
+                string nodeString = $"distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !{GetDIFile(root)}, producer: {producer}, isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, retainedTypes: !{emptyArrayIdx}, enums: !{emptyArrayIdx}, globals: !{debugGlobalVariableArrayIdx}, imports: !{emptyArrayIdx})";
                 compileUnitIdx = AddDebugInfoNode(nodeString);
                 debugInfoScopeLookup.Add(root, compileUnitIdx);
                 debugInfoCompileUnitIdx = compileUnitIdx;
@@ -288,6 +286,15 @@ namespace PragmaScript {
             debugInfoNodeLookup.Add(nodeString, palceholderIdx);
         }
 
+        public string ByteArrayToString(byte[] bytes)
+        {
+            StringBuilder result = new StringBuilder(bytes.Length * 2);
+            foreach (byte b in bytes) {
+                result.AppendFormat("{0:x2}", b);
+            }
+            return result.ToString();
+        }
+
         int GetDIFile(AST.Node node) {
             if (!debugInfoFileLookup.TryGetValue(node.token.filename, out int fileIdx)) {
                 var fn = Backend.EscapeString(System.IO.Path.GetFileName(node.token.filename));
@@ -295,7 +302,7 @@ namespace PragmaScript {
                 string checksum;
                 using (var md5 = System.Security.Cryptography.MD5.Create()) {
                     using (var stream = File.OpenRead(node.token.filename)) {
-                        checksum = Backend.EscapeString(BitConverter.ToString(md5.ComputeHash(stream)).Replace("-","‌​").ToLower());
+                        checksum = ByteArrayToString(md5.ComputeHash(stream));
                     }
                 }
                 var nodeString = $"!DIFile(filename: \"{fn}\", directory: \"{dir}\", checksumkind: CSK_MD5, checksum: \"{checksum}\")";

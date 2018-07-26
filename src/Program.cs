@@ -45,6 +45,7 @@ namespace PragmaScript
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
     class Program
     {
+        
         static Dictionary<string, bool> files = new Dictionary<string, bool>();
         static void Main(string[] args)
         {

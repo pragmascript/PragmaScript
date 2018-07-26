@@ -317,7 +317,6 @@ namespace PragmaScript
                     current = line[pos];
                 }
 
-
                 while (char.IsDigit(current) || current == '.'
                     || (isHexadecimal && (current >= 'A' && current <= 'F'))) {
                     // only one decimal seperator is allowed
