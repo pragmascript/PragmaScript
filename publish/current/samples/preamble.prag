@@ -164,7 +164,16 @@ let memset = fun
 	return dest;
 }
 
-let memcpy =  extern("CopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
+
+let CopyMemory = extern("RtlCopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
+
+// TODO(pragma): CopyMemory is not actually generated as a symbol because extern("bla") just creates "bla" as a symbol. So we
+// have to do this ugly workaround atm. Find a way to not have to do that, so let X = extern("Y") actually generate the 
+// symbol X?
+let memcpy = fun(dest: ptr; src: ptr; length: mm) => void
+{
+	CopyMemory(dest, src, length);
+}
 
 let print = fun (value: i32; signed: bool = true) => void
 {
@@ -174,6 +183,7 @@ let print = fun (value: i32; signed: bool = true) => void
 		print(@\i64 value, false);
 	}
 }
+
 
 let print = fun (value: i64; signed: bool = true) => void
 {
@@ -365,7 +375,7 @@ mod Random
 
 let __hack_reserve_intrinsics = fun () => bool
 {
-	if (@mm memset == 1234 || @mm __chkstk == 1234) {
+	if (@mm memcpy == 1234 || @mm memset == 1234 || @mm __chkstk == 1234) {
 		print("");
 		return true;
 	}

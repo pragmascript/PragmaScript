@@ -1,23 +1,16 @@
 import "../preamble.prag"
 
-
-let foo = fun(x: i32) => i32 {
-	return x * x + 2;
-}
-
 [
 	"compile.output": "hello_world.exe",
 	"compile.debuginfo": "true",
 	"compile.entry" : "true",
-	"compile.ll"    : "false",
-	"compile.asm"   : "false",
+	"compile.ll"    : "true",
+	"compile.asm"   : "true",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
-	var x = foo(12);
-	pri nt(x);
 	print("\nhello world!\n");
 }

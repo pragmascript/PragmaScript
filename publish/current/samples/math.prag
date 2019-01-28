@@ -93,4 +93,17 @@ mod Math
 		}
 		return result;
 	}
+
+	["READNONE"]
+	let clamp = fun (value: f32; min: f32; max: f32) => f32 
+	{
+		assert(min <= max);
+		var result = value;
+		if (result < min) {
+			result = min;
+		} elif (result > max) {
+			result = max;
+		}
+		return result;
+	}
 }

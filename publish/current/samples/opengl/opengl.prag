@@ -71,6 +71,8 @@ let GL_VERTEX_SHADER                = 0x8B31;
 let GL_COMPILE_STATUS               = 0x8B81;
 let GL_LINK_STATUS                  = 0x8B82;
 
+let GL_VIEWPORT                     = 0x0BA2;
+
 let GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB = 0x8242;
 
 let WGL_DRAW_TO_WINDOW_ARB           = 0x2001;
@@ -181,6 +183,7 @@ var glGetProgramInfoLog: fun(
 
 var glGenVertexArrays: fun(count: i32; arrays: i32*) => void;
 var glBindVertexArray: fun(array: i32) => void;
+
 var glDrawArrays: fun(
     mode: i32;
     first: i32;

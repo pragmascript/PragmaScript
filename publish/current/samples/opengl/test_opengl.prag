@@ -151,6 +151,13 @@ let create_circle = fun(center: v3; radius: f32; segments: i32 = 96) => mesh {
 
 var gl_resources_initialized = false;
 let init_gl_resources = fun() => void {
+
+    var viewport: i32[4];
+
+    glGetIntegerv(GL_VIEWPORT, &viewport[0]);
+
+
+
     // make a dummy VAO
     // https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
     var DummyVAO: i32;
@@ -225,13 +232,13 @@ let init_gl_resources = fun() => void {
     var VBO: i32;
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices_size, mesh.vertices.data@ptr, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices_size, mesh.vertices.data@ptr, GL_DYNAMIC_DRAW);
     // glBufferData(GL_ARRAY_BUFFER, vertices_size, &vertices@ptr, GL_STATIC_DRAW);
 
     var EBO: i32;
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, mesh.indices.data@ptr, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, mesh.indices.data@ptr, GL_DYNAMIC_DRAW);
     // glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, &indices@ptr, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
@@ -413,7 +420,9 @@ let get_opengl_info = fun() => opengl_info {
 let init_opengl = fun (window: window_state*) => void {
     load_wgl_extensions();
 
+
     var dc = window.dc;
+
 
     var t0 = get_perf_counter();
     var int_attrib_list = [
@@ -534,6 +543,9 @@ let init_opengl = fun (window: window_state*) => void {
     var info = get_opengl_info();
     var t3 = get_perf_counter();
 
+    print_opengl_info(&info);
+
+
     // debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
     // debug_print_f64("create context: ", get_ms_elapsed(t1, t2));
     // debug_print_f64("get info: ", get_ms_elapsed(t2, t3));
@@ -589,8 +601,8 @@ let gl_error_callback = fun(
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
  	"compile.opt"   : "0",
-    "compile.debuginfo": "true",
-    "compile.ll"    : "true",
+    "compile.debuginfo": "false",
+    "compile.ll"    : "false",
     "compile.asm"   : "false",
     "compile.cpu"   : "nehalem",
  	"compile.run"   : "true",
@@ -600,9 +612,7 @@ let gl_error_callback = fun(
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
 
-#if FALSE
     SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
-#endif
 
     var t0 = get_perf_counter();
     

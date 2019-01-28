@@ -16,7 +16,15 @@ let add = fun (a: v3*; b: v3*) => v3 {
     var result = v3 { a.x + b.x, a.y + b.y, a.z + b.z};
     return result;
 }
+let add = fun (a: v3; b: v3) => v3 {
+    var result = v3 { a.x + b.x, a.y + b.y, a.z + b.z};
+    return result;
+}
 let sub = fun (a: v3*; b: v3*) => v3 {
+    var result = v3 { a.x - b.x, a.y - b.y, a.z - b.z};
+    return result;
+}
+let sub = fun (a: v3; b: v3) => v3 {
     var result = v3 { a.x - b.x, a.y - b.y, a.z - b.z};
     return result;
 }
@@ -24,7 +32,15 @@ let scaled = fun (a: v3*; s: f32) => v3 {
     var result = v3 { a.x * s, a.y * s, a.z * s};
     return result;
 }
+let scaled = fun (a: v3; s: f32) => v3 {
+    var result = v3 { a.x * s, a.y * s, a.z * s};
+    return result;
+}
 let hadamard = fun (a: v3*; b: v3*) => v3 {
+    var result = v3 { a.x * b.x, a.y * b.y, a.z * b.z};
+    return result;
+}
+let hadamard = fun (a: v3; b: v3) => v3 {
     var result = v3 { a.x * b.x, a.y * b.y, a.z * b.z};
     return result;
 }
@@ -39,10 +55,22 @@ let normalized = fun (v: v3*) => v3 {
     normalize(&result);
     return result;
 }
+let normalized = fun (v: v3) => v3 {
+    var result = v;
+    normalize(&result);
+    return result;
+}
 let length = fun(@a: v3*) => f32 {
     return Math::sqrt(x*x + y*y + z*z);
 }
+let length = fun(@a: v3) => f32 {
+    return Math::sqrt(x*x + y*y + z*z);
+}
 let sqr_length = fun(@a: v3*) => f32 {
+    var result = x*x + y*y + z*z;
+    return result;
+}
+let sqr_length = fun(@a: v3) => f32 {
     var result = x*x + y*y + z*z;
     return result;
 }
@@ -50,7 +78,20 @@ let dot = fun (a: v3*; b: v3*) => f32 {
     var result = a.x*b.x + a.y*b.y + a.z*b.z;
     return result;
 }
+let dot = fun (a: v3; b: v3) => f32 {
+    var result = a.x*b.x + a.y*b.y + a.z*b.z;
+    return result;
+}
 let cross = fun (a: v3*; b: v3*) => v3 {
+    var result = v3 
+    { 
+        a.y * b.z - a.z * b.y, 
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+    return result;
+}
+let cross = fun (a: v3; b: v3) => v3 {
     var result = v3 
     { 
         a.y * b.z - a.z * b.y, 
@@ -68,9 +109,31 @@ let get_orthogonal = fun (v: v3*) => v3 {
     }
     return result;
 }
-
+let get_orthogonal = fun (v: v3) => v3 {
+    var c0 = v3 {1.0, 0.0, 0.0};
+    var c1 = v3 {0.0, 1.0, 0.0};
+    var result = cross(v, c0);
+    if (sqr_length(&result) < 0.0001) {
+        result = cross(v, c1);
+    }
+    return result;
+}
+let lerp = fun(a: v3*; b: v3*; t: f32) => v3 {
+    var delta = sub(b, a);
+    var scaled_delta = scaled(&delta, t);
+    var result = add(a, &scaled_delta);
+    return result;
+}
+let lerp = fun(a: v3; b: v3; t: f32) => v3 {
+    var result = add(a, scaled(sub(b, a), t));
+    return result;
+}
 let Ray = struct 
 (
     origin: v3;
     direction: v3;
 );
+let At = fun(@ray: Ray*; t: f32) => v3{
+    var delta = scaled(&direction, t);
+    return add(&origin, &delta);
+}

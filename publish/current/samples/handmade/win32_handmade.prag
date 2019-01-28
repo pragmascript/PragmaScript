@@ -65,7 +65,6 @@ mod Handmade::Platform
 	{
 		var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
 		if (handle == null) {
-			CloseHandle(handle);
 			return false;
 		}
 		var bytes_written: i32 = 0;

@@ -1109,7 +1109,7 @@ namespace PragmaScript {
                 if (node.returnPointer || returnPointer) {
                     valueStack.Push(struct_ptr);    
                 } else {
-                    var load = builder.BuildLoad(struct_ptr, node);
+                    var load = builder.BuildLoad(struct_ptr, node, "struct_constr_load");
                     valueStack.Push(load);
                 }
             } else {
@@ -1366,6 +1366,9 @@ namespace PragmaScript {
         }
 
         public void Visit(AST.Assignment node) {
+            if (node.token.Line == 42) {
+                int breakHere = 42;
+            }
             Visit(node.left);
             var target = valueStack.Pop();
             var targetType = target.type;
@@ -1375,11 +1378,11 @@ namespace PragmaScript {
             var result = valueStack.Pop();
             var resultType = result.type;
             // var resultTypeName = typeToString(resultType);
-
+            
             var et = (targetType as PointerType).elementType;
-            // if (!et.EqualType(resultType)) {
-            //     result = builder.BuildBitCast(result, et, node, "hmpf");
-            // }
+            if (!et.EqualType(resultType)) {
+                target = builder.BuildBitCast(target, new PointerType(resultType), node, "hmpf");
+            }
             builder.BuildStore(result, target, node);
             valueStack.Push(result);
         }
