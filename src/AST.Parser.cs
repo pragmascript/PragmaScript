@@ -411,7 +411,10 @@ namespace PragmaScript {
             ignoreSemicolon = false;
             if (next.type == Token.TokenType.Struct) {
                 result = parseStructDeclaration(ref ps, scope);
-            } else if (next.type == Token.TokenType.Fun) {
+            } else if (next.type == Token.TokenType.Enum) {
+                result = parseEnumDeclaration(ref ps, scope);
+            }
+            else if (next.type == Token.TokenType.Fun) {
                 result = parseFunctionDefinition(ref ps, scope);
                 if ((result as FunctionDefinition).body != null) {
                     ignoreSemicolon = true;
@@ -422,7 +425,7 @@ namespace PragmaScript {
                     throw new ParserError("Function definitions without \"fun\" keyword must supply a :TypeString prior to the assignment.", next);
                 }
                 ignoreSemicolon = true;
-            } else {
+            }  else {
                 result = parseVariableDefinition(ref ps, scope);
             }
             return result;
@@ -1336,11 +1339,45 @@ namespace PragmaScript {
 
             if (isLet) {
                 // add struct type to scope here to allow recursive structs
-                scope.AddType(result.name, result, current);
+                scope.AddType(result.name, result, id);
             } else {
                 throw new System.NotImplementedException();
             }
 
+            return result;
+        }
+
+        public static Node parseEnumDeclaration(ref ParseState ps, Scope scope) 
+        {
+            var current = ps.ExpectCurrentToken(Token.TokenType.Let);
+            var id = ps.ExpectNextToken(Token.TokenType.Identifier);
+            
+            var modulePath = new List<string>(1);
+            modulePath.Add(id.text);
+            if (scope.GetModule(modulePath) != null) {
+                throw new ParserError("A module with the same name has already been defined.", id);
+            }
+            var enumModule = scope.AddModule(modulePath);
+            var result = new EnumDeclaration(current, enumModule.scope);
+            result.name = id.text;
+            var entries = result.entries;
+
+            ps.ExpectNextToken(Token.TokenType.Assignment);
+            ps.ExpectNextToken(Token.TokenType.Enum);
+            ps.ExpectNextToken(Token.TokenType.OpenBracket);
+
+            var next = ps.PeekToken();
+            while (next.type != Token.TokenType.CloseBracket) {
+                var fieldName = ps.ExpectNextToken(Token.TokenType.Identifier);
+                result.entries.Add(new FrontendEnumType.Entry { name=fieldName.text, value = (ulong)entries.Count });
+                enumModule.scope.AddVar(fieldName.text, result, fieldName, isConst: true);
+                if (ps.PeekToken().type != Token.TokenType.CloseBracket) {
+                    ps.ExpectNextToken(Token.TokenType.Semicolon);
+                }
+                next = ps.PeekToken();
+            }
+            ps.NextToken();
+            scope.AddType(result.name, result, id);
             return result;
         }
 

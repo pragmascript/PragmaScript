@@ -1,24 +1,24 @@
-﻿ import "../preamble.prag"
- 
+﻿import "../preamble.prag"
+import "../vec.prag"
 
 [
 	"compile.output": "bugs.exe",
+    "compile.debuginfo" : "true",
 	"compile.entry" : "true",
     "compile.ll"    : "true",
 	"compile.asm"   : "false",
  	"compile.opt"   : "0",
- 	"compile.run"   : "true",
- 	"compile.libs"  : "kernel32.lib",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64"
+ 	"compile.run"   : "false",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void 
-{
+{   
+    enum_test();
+    //slice_test();
 }
-
-
 // FIXED
 #if TRUE
-
     let sphere = struct(
         pos_x: f32;
         pos_y: f32;
@@ -37,14 +37,136 @@ let main = fun () => void
 
     // FIXED
     #if TRUE
-    let bug_01 = fun() => void {
+    let bug_02 = fun() => void {
         var sphere_ptr: sphere*;
         // var temp_temp = sphere { };
         // *sphere_ptr = temp_temp;
         *sphere_ptr = sphere { };
     }
     #endif
+#endif
 
+// FIXED
+#if TRUE
+    let bar = struct (
+        value: i32;
+    );
+    let foo = fun(x: i32) => bar {
+        if (x == 12) {
+            return bar { 3 };
+        } else {
+            return bar { 9 };
+        }
+    }
+#endif
+
+// FIXED
+#if FALSE
+    let bar_ = struct (
+        value: i32;
+    );
+    let foo = fun() => void {
+        var x = bar_ { 3 };
+        var y = bar_ { 2 };
+        var z = x + y;
+    }
+    
+#endif
+
+#if TRUE
+
+let BarEnum = enum (
+    one; two; three
+);
+
+let Foo = struct (
+    x: i32;
+);
+
+let print = fun (b: BarEnum) => void {
+    var temp = b;
+    if (temp == BarEnum::one) {
+        print("one\n");
+    }
+    if (temp == BarEnum::two) {
+        print("two\n");
+    }
+    if (temp == BarEnum::three){
+        print("three\n");
+    }
+}
+
+let enum_test = fun() => void {
+    print("enum test...\n");
+    var x = BarEnum::one;
+    print(x);
+    debug_print("x_i32", x@i32);
+    print("enum test.");
+}
+
+#endif
+
+
+#if FALSE
+
+let slice_test = fun() => void {
+    print("\n****************************************\n");
+    print("* slice test");
+    print("\n****************************************\n");
+    var vecs = [ v3(1,0,0), v3(0,1,0), v3(0,0,1)];
+    var vecs_slice = vecs[:];
+    vecs_slice[1] = v3(0, 100, 0);
+    for (var idx = 0; idx < vecs_slice.length; ++idx) {
+        debug_print("v_arr: ", vecs[idx]);
+        debug_print("v_slice: ", vecs_slice[idx]);
+        assert(vecs[idx].x == vecs_slice[idx].x);
+        assert(vecs[idx].y == vecs_slice[idx].y);
+        assert(vecs[idx].z == vecs_slice[idx].z);
+    }
+
+    var arr = [1,2,3,4,5,6,7,8,9,10];
+
+    var s0 = arr[2:4];
+
+    debug_print("s0[0]", s0[0]);
+    assert(s0[0] == 3);
+    debug_print("s0[1]", s0[1]);
+    assert(s0[1] == 4);
+    debug_print("s0[-1]", s0[-1]);
+    // TODO(pragma): do we want to define negative indices to index from the end?
+    assert(s0[-1] == 2);
+    
+    debug_print("s0.length", s0.length);
+    
+    for (var idx = 0; idx < s0.length; ++idx) {
+        print("s0[");
+        print(idx);
+        print("]: ");
+        print(s0[idx]);
+        print("\n");
+    }
+
+    var arr_ptr = &arr[0];
+    var s1 = arr_ptr[2:4];
+
+    debug_print("s1[0]", s1[0]);
+    assert(s1[0] == 3);
+    debug_print("s1[1]", s1[1]);
+    assert(s1[1] == 4);
+    debug_print("s1[-1]", s1[-1]);
+    // TODO(pragma): do we want to define negative indices to index from the end?
+    assert(s0[-1] == 2);
+    
+    debug_print("s1.length", s1.length);
+    
+    for (var idx = 0; idx < s1.length; ++idx) {
+        print("s1[");
+        print(idx);
+        print("]: ");
+        print(s1[idx]);
+        print("\n");
+    }
+}
 #endif
 
 

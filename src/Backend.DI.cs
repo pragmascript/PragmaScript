@@ -396,6 +396,17 @@ namespace PragmaScript {
                     }
                     var elementsIdx = AddDebugInfoNode($"!{{{string.Join(", ", subranges)}}}");
                     nodeString = $"!DICompositeType(tag: DW_TAG_array_type, baseType: !{GetDIType(fat.elementType)}, size: {SizeOfArrayType(fat)}, elements: !{elementsIdx})";
+                } else if (ft is FrontendEnumType fet) {
+                    var node = (AST.EnumDeclaration)typeChecker.GetTypeRoot(fet);
+                    var elementIndices = new List<int>(node.entries.Count);
+                    for (int entryIdx = 0; entryIdx < node.entries.Count; ++entryIdx) {
+                        var entry = node.entries[entryIdx];
+                        var elementNodeString = $"!DIEnumerator(name: \"{entry.name}\", value: {entry.value})";
+                        var elementIdx = AddDebugInfoNode(elementNodeString);
+                        elementIndices.Add(elementIdx);
+                    }
+                    var elementsIdx = AddDebugInfoNode($"!{{{string.Join(", ", elementIndices.Select(ei => $"!{ei}"))}}}");
+                    nodeString = $"!DICompositeType(tag: DW_TAG_enumeration_type, name: \"{fet.name}\", file: !{GetDIFile(node)}, line: {node.token.Line}, baseType: !{GetDIType(fet.integerType)}, size: {8*GetSizeOfFrontendType(fet.integerType)}, elements: !{elementsIdx})";
                 }
 
                 Debug.Assert(nodeString != null);

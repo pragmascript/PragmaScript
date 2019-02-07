@@ -333,10 +333,10 @@ namespace PragmaScript {
 
         public void Visit(AST.FileRoot node, AST.FunctionDefinition main) {
             var constVariables = new List<AST.Node>();
+            var enumDeclarations = new List<AST.Node>();
             var functionDefinitions = new List<AST.Node>();
             var globalVariables = new List<AST.Node>();
             var modules = new List<AST.Module>();
-
             var other = new List<AST.Node>();
 
             // visit function definitions make prototypes
@@ -351,6 +351,8 @@ namespace PragmaScript {
                     if (!(decl as AST.FunctionDefinition).external) {
                         other.Add(decl);
                     }
+                } else if (decl is AST.EnumDeclaration) {
+                    enumDeclarations.Add(decl);
                 } else if (decl is AST.Module ns) {
                     modules.Add(ns);
                 } else {
@@ -390,6 +392,9 @@ namespace PragmaScript {
             foreach (var decl in constVariables) {
                 Visit(decl as AST.VariableDefinition);
             }
+            foreach (var decl in enumDeclarations) {
+                Visit(decl as AST.EnumDeclaration);
+            }
             foreach (var decl in globalVariables) {
                 Visit(decl as AST.VariableDefinition);
             }
@@ -415,10 +420,8 @@ namespace PragmaScript {
             } else {
                 builder.BuildRet(void_v, node);
             }
-
             builder.PositionAtEnd(vars);
             builder.BuildBr(entry, node);
-
             // builder.PositionAtEnd(blockTemp);
         }
 
@@ -427,6 +430,7 @@ namespace PragmaScript {
         public void Visit(AST.Module node, bool definitions = false) {
             var functionDefinitions = new List<AST.Node>();
             var constVariables = new List<AST.Node>();
+            var enumDeclarations = new List<AST.Node>();
             var variables = new List<AST.Node>();
             var modules = new List<AST.Module>();
             var other = new List<AST.Node>();
@@ -446,6 +450,8 @@ namespace PragmaScript {
                     }
                 } else if (decl is AST.Module ns) {
                     modules.Add(ns);
+                } else if (decl is AST.EnumDeclaration) {
+                    enumDeclarations.Add(decl);
                 } else {
                     other.Add(decl);
                 }
@@ -456,6 +462,9 @@ namespace PragmaScript {
                 }
                 foreach (var decl in constVariables) {
                     Visit(decl as AST.VariableDefinition);
+                }
+                foreach (var decl in enumDeclarations) {
+                    Visit(decl as AST.EnumDeclaration);
                 }
                 foreach (var decl in variables) {
                     Visit(decl as AST.VariableDefinition);
@@ -549,6 +558,11 @@ namespace PragmaScript {
             builder.PositionAtEnd(insert);
         }
 
+        void InvalidBinOp(AST.BinOp node) {
+            var text = $"Binary operator \"{node.token.text}\" not defined for types \"{this.typeChecker.GetNodeType(node.left)}\" and \"{this.typeChecker.GetNodeType(node.left)}\"!";
+            throw new ParserError(text, node.token);
+        }
+
         public void Visit(AST.BinOp node) {
             if (node.type == AST.BinOp.BinOpType.ConditionalOR) {
                 VisitConditionalOR(node);
@@ -571,7 +585,7 @@ namespace PragmaScript {
             var rightType = right.type;
 
 
-            Value result;
+            Value result = null;
             if (leftFrontendType.Equals(FrontendType.bool_)) {
                 switch (node.type) {
                     case AST.BinOp.BinOpType.LogicalAND:
@@ -590,7 +604,8 @@ namespace PragmaScript {
                         result = builder.BuildICmp(left, right, IcmpType.ne, node, "icmp_tmp");
                         break;
                     default:
-                        throw new InvalidCodePath();
+                        InvalidBinOp(node);
+                        break;
                 }
             } else {
                 switch (leftType.kind) {
@@ -663,7 +678,8 @@ namespace PragmaScript {
                                 result = builder.BuildXor(left, right, node, "xor_tmp");
                                 break;
                             default:
-                                throw new InvalidCodePath();
+                                InvalidBinOp(node);
+                                break;
                         }
                         break;
                     case TypeKind.Double:
@@ -704,7 +720,8 @@ namespace PragmaScript {
                                 result = builder.BuildFCmp(left, right, FcmpType.ole, node, "fcmp_tmp");
                                 break;
                             default:
-                                throw new InvalidCodePath();
+                                InvalidBinOp(node);
+                                break;
                         }
                         break;
                     case TypeKind.Pointer: {
@@ -720,7 +737,8 @@ namespace PragmaScript {
                                         }
                                         break;
                                     default:
-                                        throw new InvalidCodePath();
+                                        InvalidBinOp(node);
+                                        break;
                                 }
                                 break;
                             } else if (rightType.kind == TypeKind.Pointer) {
@@ -753,14 +771,16 @@ namespace PragmaScript {
                                         result = builder.BuildICmp(left, right, IcmpType.ne, node, "icmp_tmp");
                                         break;
                                     default:
-                                        throw new InvalidCodePath();
+                                        InvalidBinOp(node);
+                                        break;
                                 }
                             } else
-                                throw new InvalidCodePath();
+                                InvalidBinOp(node);
                         }
                         break;
                     default:
-                        throw new InvalidCodePath();
+                        InvalidBinOp(node);
+                        break;
                 }
             }
             valueStack.Push(result);
@@ -830,6 +850,12 @@ namespace PragmaScript {
             var phi = builder.BuildPhi(bool_t, op, "candphi", (false_v, block), (cand_rhs_tv, cand_rhs));
 
             valueStack.Push(phi);
+        }
+
+
+        void InvalidUnaryOp(AST.UnaryOp node) {
+            var text = $"Unary operator \"{node.token.text}\" not defined for type \"{this.typeChecker.GetNodeType(node.expression)}\"!";
+            throw new ParserError(text, node.token);
         }
 
         public void Visit(AST.UnaryOp node) {
@@ -1366,9 +1392,6 @@ namespace PragmaScript {
         }
 
         public void Visit(AST.Assignment node) {
-            if (node.token.Line == 42) {
-                int breakHere = 42;
-            }
             Visit(node.left);
             var target = valueStack.Pop();
             var targetType = target.type;
@@ -1727,8 +1750,9 @@ namespace PragmaScript {
                 if (returnType.kind == TypeKind.Void) {
                     builder.BuildRetVoid(node);
                 } else {
-                    var dummy = builder.BuildBitCast(zero_i32_v, returnType, node, "dummy");
-                    builder.BuildRet(dummy, node);
+                    // var dummy = builder.BuildBitCast(zero_i32_v, returnType, node, "dummy");
+                    var retNull = builder.ConstNull(returnType);
+                    builder.BuildRet(retNull, node);
                 }
             }
         }
@@ -1871,7 +1895,10 @@ namespace PragmaScript {
                 } else {
                     arr_elem_ptr = builder.BuildExtractValue(arr, node, "gep_arr_elem_ptr", one_i32_v);
                 }
+                var ptr_type = new PointerType(GetTypeRef(st.elementType));
+                arr_elem_ptr = builder.BuildBitCast(arr_elem_ptr, ptr_type, node, "arr_elem_ptr_cast");
                 var gep_arr_elem = builder.BuildGEP(arr_elem_ptr, node, "gep_arr_elem", false, idx);
+                
                 result = gep_arr_elem;
             } else {
                 Debug.Assert(false);
@@ -1954,6 +1981,16 @@ namespace PragmaScript {
         public void Visit(AST.StructDeclaration node) {
         }
 
+        public void Visit(AST.EnumDeclaration node) {
+            var enumFrontendType = typeChecker.GetNodeType(node) as FrontendEnumType;
+            var intType = GetTypeRef(enumFrontendType.integerType);
+            foreach (var e in node.entries)
+            {
+                var vd = node.scope.variables[e.name];
+                variables.Add(vd.First, new ConstInt(intType, e.value));
+            }
+        }
+
         // TODO(pragma): generate this code
         public void Visit(AST.Node node) {
             // TODO(pragma): make a seperate flag for this
@@ -1993,6 +2030,9 @@ namespace PragmaScript {
                     Visit(n);
                     break;
                 case AST.StructDeclaration n:
+                    Visit(n);
+                    break;
+                case AST.EnumDeclaration n:
                     Visit(n);
                     break;
                 case AST.FunctionCall n:

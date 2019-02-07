@@ -574,6 +574,30 @@ namespace PragmaScript {
             }
         }
 
+        public class EnumDeclaration : Node
+        {
+            public string name;
+            public List<FrontendEnumType.Entry> entries = new List<FrontendEnumType.Entry>();
+            public EnumDeclaration(Token t, Scope s)
+                : base(t, s)
+            {
+                
+            }
+            public override Node DeepCloneTree()
+            {
+                throw new NotImplementedException();
+            }
+            public override string ToString()
+            {
+                return name + " = enum { }";
+            }
+
+            public override void Replace(Node old, Node @new)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
         public class FunctionCall : Node
         {
             public Node left;
@@ -657,7 +681,7 @@ namespace PragmaScript {
             public override string ToString()
             {
                 string name = variableName;
-                if (modulePath.Count > 0) {
+                if (modulePath != null && modulePath.Count > 0) {
                     var mod = string.Join("::", modulePath);    
                     name = $"{mod}::{variableName}";
                 }

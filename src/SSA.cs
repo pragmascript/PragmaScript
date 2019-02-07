@@ -641,6 +641,8 @@ namespace PragmaScript {
                         return getTypeRef(tp, depth);
                     case FrontendFunctionType tf:
                         return getTypeRef(tf, depth);
+                    case FrontendEnumType te:
+                        return getTypeRef(te, depth);
                 }
                 throw new InvalidCodePath();
             }
@@ -683,6 +685,10 @@ namespace PragmaScript {
                 }
                 return new PointerType(ft);
             }
+            static SSAType getTypeRef(FrontendEnumType t, int depth) {
+                return GetTypeRef(t.integerType);
+            }
+
         }
     }
 }

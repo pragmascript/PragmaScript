@@ -118,6 +118,15 @@ let get_orthogonal = fun (v: v3) => v3 {
     }
     return result;
 }
+let reflect = fun (v: v3*; n: v3*) => v3 {
+    var len_b = 2*dot(v, n);
+    var b = scaled(n, len_b);
+    return sub(v, &b);
+}
+let reflect = fun (v: v3; n: v3) => v3 {
+    var len_b = 2*dot(v, n);
+    return sub(v, scaled(n, len_b));
+}
 let lerp = fun(a: v3*; b: v3*; t: f32) => v3 {
     var delta = sub(b, a);
     var scaled_delta = scaled(&delta, t);
@@ -136,4 +145,14 @@ let Ray = struct
 let At = fun(@ray: Ray*; t: f32) => v3{
     var delta = scaled(&direction, t);
     return add(&origin, &delta);
+}
+let debug_print = fun(name: string; value: v3) => void {
+    print(name);
+    print(": (");
+    print(value.x);
+    print(", ");
+    print(value.y);
+    print(", ");
+    print(value.z);
+    print(")\n");
 }

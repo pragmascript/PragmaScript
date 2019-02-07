@@ -263,6 +263,28 @@ namespace PragmaScript {
         }
     }
 
+    public class FrontendEnumType: FrontendType
+    {
+        public string enumName;
+        public FrontendType integerType;
+        public class Entry {
+            public string name;
+            public ulong value;
+        }
+        List<Entry> entries;
+        public FrontendEnumType(string name) 
+        {
+            this.enumName = name;
+            this.name = name;
+            entries = new List<Entry>();
+        }
+        public void AddEntry(string name) 
+        {
+            entries.Add(new Entry { name=name, value=(ulong)entries.Count });
+        }
+    }
+
+
     public class FrontendSliceType : FrontendStructType
     {
         public FrontendType elementType;

@@ -127,7 +127,10 @@ namespace PragmaScript {
             Debug.Assert(type != null);
 
             type.preResolved = false;
-            knownTypes.Add(node, type);
+            // Debug.Assert(!knownTypes.ContainsKey(node));
+            if (!knownTypes.ContainsKey(node)) {
+                knownTypes.Add(node, type);
+            }
             UnresolvedType u;
             if (unresolved.TryGetValue(node, out u)) {
                 unresolved.Remove(node);
@@ -485,6 +488,17 @@ namespace PragmaScript {
             }
         }
 
+        void checkType(AST.EnumDeclaration node)
+        {
+            FrontendEnumType result = new FrontendEnumType(node.name);
+            // TODO(pragma): other integer types
+            result.integerType = FrontendType.i32;
+            if (!typeRoots.ContainsKey(result)) {
+                typeRoots.Add(result, node);
+            }
+            resolve(node, result);
+        }
+
         void checkType(AST.FunctionCall node)
         {
             FrontendFunctionType f_type = null;
@@ -495,6 +509,9 @@ namespace PragmaScript {
                 addUnresolved(node, node.left);
             } else {
                 f_type = lt as FrontendFunctionType;
+                if (f_type == null && !(lt is FrontendSumType)) {
+                    throw new ParserError($"Variable is not a function.", node.token);
+                }
             }
 
             List<FrontendType> argumentTypes = new List<FrontendType>();
@@ -1335,6 +1352,9 @@ namespace PragmaScript {
                     checkType(n);
                     break;
                 case AST.StructDeclaration n:
+                    checkType(n);
+                    break;
+                case AST.EnumDeclaration n:
                     checkType(n);
                     break;
                 case AST.FunctionCall n:

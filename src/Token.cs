@@ -82,6 +82,7 @@ namespace PragmaScript
             SliceBrackets,
             Dot,
             Struct,
+            Enum,
             // ArrayTypeBrackets,
             SizeOf,
             Extern,
@@ -122,6 +123,7 @@ namespace PragmaScript
             keywords.Add("let", TokenType.Let);
             keywords.Add("var", TokenType.Var);
             keywords.Add("struct", TokenType.Struct);
+            keywords.Add("enum", TokenType.Enum);
             keywords.Add("fun", TokenType.Fun);
             // keywords.Add("alias", TokenType.Alias);
             keywords.Add("return", TokenType.Return);
