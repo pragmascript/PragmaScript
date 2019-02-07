@@ -447,6 +447,8 @@ namespace PragmaScript {
                     return GetSizeOfStructType(fst);
                 case FrontendArrayType fat:
                     return SizeOfArrayType(fat);
+                case FrontendEnumType fet:
+                    return GetSizeOfFrontendType(fet.integerType);
 
             }
             Debug.Assert(false);
@@ -479,6 +481,8 @@ namespace PragmaScript {
                     return GetAlignmentOfStruct(fst);
                 case FrontendArrayType fat:
                     return SizeOfArrayType(fat);
+                case FrontendEnumType fet:
+                    return GetAlignmentOfFrontendType(fet.integerType);
 
             }
             Debug.Assert(false);

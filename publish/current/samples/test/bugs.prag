@@ -84,14 +84,13 @@ let Foo = struct (
 );
 
 let print = fun (b: BarEnum) => void {
-    var temp = b;
-    if (temp == BarEnum::one) {
+    if (b == BarEnum::one) {
         print("one\n");
     }
-    if (temp == BarEnum::two) {
+    elif (b == BarEnum::two) {
         print("two\n");
     }
-    if (temp == BarEnum::three){
+    elif (b == BarEnum::three){
         print("three\n");
     }
 }
@@ -100,7 +99,7 @@ let enum_test = fun() => void {
     print("enum test...\n");
     var x = BarEnum::one;
     print(x);
-    debug_print("x_i32", x@i32);
+    debug_print("x@i32", x@i32);
     print("enum test.");
 }
 
