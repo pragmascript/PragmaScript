@@ -1,0 +1,689 @@
+import "../preamble.prag"
+import "../windows.prag"
+import "../math.prag"
+import "../vec.prag"
+
+
+with Math;
+
+let memory_arena = struct(
+	size: mm;
+	base: ptr;
+	used: mm;
+);
+
+let push = fun(@arena: memory_arena*; push_size: mm) => ptr {
+	if (used + push_size > size) {
+		assert(false);
+		return 0@ptr;
+	}
+	var result = base + used;
+	used += push_size;
+	return result;
+}
+
+let Allocate = fun(size: mm) => memory_arena {
+	var data = Windows::VirtualAlloc(0@ptr, size, Windows::MEM_COMMIT | Windows::MEM_RESERVE, Windows::PAGE_READWRITE);
+	var result: memory_arena;
+	if (data != nullptr) {
+		result.size = size;
+		result.base = data;
+		result.used = 0;
+	} else {
+		result.size = 0;
+		result.base = nullptr;
+		result.used = 0;
+	}
+	return result;
+}
+
+var temp_arena: memory_arena;
+
+
+["PACKED"]
+let bmp_file_header = struct(
+	magic: i16;
+	size: i32;
+	reserverd: i32;
+	offset: i32;
+);
+
+let WriteBitmap = fun(file_name: string; pixels: i8*; width: i32; height: i32) => void {
+	let pixel_bit_width = 24;
+	var pixel_data_size = pixel_bit_width/8 * width * height;
+	
+	var bmp_header = bmp_file_header {};
+	bmp_header.magic = 0x4D42;
+	bmp_header.size = size_of(bmp_file_header)@i32 + size_of(Windows::BITMAPINFOHEADER)@i32 + pixel_data_size;
+	bmp_header.offset = size_of(bmp_file_header)@i32 + size_of(Windows::BITMAPINFOHEADER)@i32;
+
+	var dib_header = Windows::BITMAPINFOHEADER {};
+	dib_header.biSize = size_of(Windows::BITMAPINFOHEADER) @i32;
+	dib_header.biWidth = width;
+	dib_header.biHeight = height;
+	dib_header.biPlanes = 1;
+	dib_header.biBitCount = pixel_bit_width@i16;
+	dib_header.biCompression = 0;
+	dib_header.biSizeImage = 0;
+
+	var file_handle = Windows::CreateFileA(cstr(file_name), Windows::GENERIC_WRITE, 0, nullptr, Windows::CREATE_ALWAYS, 0, 0);
+	var bytes_written: i32;
+	Windows::WriteFile(file_handle, (&bmp_header)@ptr, size_of(bmp_file_header)@i32, &bytes_written, nullptr);
+	assert(bytes_written == size_of(bmp_file_header)@i32);
+	Windows::WriteFile(file_handle, (&dib_header)@ptr, size_of(Windows::BITMAPINFOHEADER)@i32, &bytes_written, nullptr);
+	assert(bytes_written == size_of(Windows::BITMAPINFOHEADER)@i32);
+	Windows::WriteFile(file_handle, pixels, pixel_data_size, &bytes_written, nullptr);
+	assert(bytes_written == pixel_data_size);
+	Windows::CloseHandle(file_handle);
+}
+
+let hit_result = struct(
+	is_hit: bool;
+	t: f32;
+	pos: v3;
+	normal: v3;
+	material: material*;
+);
+
+let sphere = struct(
+	pos: v3;
+	radius: f32;
+	velocity: v3;
+	material: material;
+);
+
+let world = struct(
+	camera: camera;
+	spheres: sphere*;
+	sphere_count: i32;
+	bvh: bvh_node*;
+);
+
+let material_type = enum (
+	lambert; metal; dielectric
+);
+
+let material = struct(
+	material_type: material_type;
+	albedo: v3;
+	roughness: f32;
+	ior: f32;
+);
+
+let refract = fun(v: v3; n: v3; ni_over_nt: f32; refracted: v3*) => bool {
+	var uv = normalized(v);
+	var dt = dot(uv, n);
+	var discriminant = 1.0 - ni_over_nt * ni_over_nt * (1 - dt * dt);
+	if (discriminant > 0) {
+		var r0 = scaled(sub(uv, scaled(n, dt)), ni_over_nt);
+		*refracted = sub(r0, scaled(n, sqrt(discriminant)));
+		return true;
+	}
+	return false;
+}
+
+let schlick = fun(cosine: f32; ior: f32) => f32 {
+	var r0 = (1.0 - ior) / (1.0 + ior);
+	r0 = r0*r0;
+	return r0 + (1-r0) * pow((1 - cosine), 5);
+}
+
+let scatter = fun(ray: ray*; hit: hit_result*; attenuation: v3*; scattered: ray*) => bool {
+	var mat = hit.material;
+	if (mat.material_type == material_type::lambert) {
+		var target = add(hit.pos, add(hit.normal, random_in_unit_sphere()));
+		*scattered = ray {hit.pos, sub(target, hit.pos)};
+		*attenuation = mat.albedo;
+	}
+	elif (mat.material_type == material_type::metal) {
+		var reflected = reflect(normalized(ray.direction), hit.normal);
+		reflected = add(reflected, scaled(random_in_unit_sphere(), mat.roughness));
+		*scattered = ray {hit.pos, reflected};
+		*attenuation = mat.albedo;
+		return (dot(scattered.direction, hit.normal) > 0);
+	}
+	elif (mat.material_type == material_type::dielectric) {
+		var reflected = reflect(ray.direction, hit.normal);
+		var outward_normal: v3;
+		var ni_over_nt: f32;
+		var cosine: f32;
+		if (dot(ray.direction, hit.normal) > 0) {
+			outward_normal = scaled(hit.normal, -1);
+			ni_over_nt = mat.ior;
+			// cosine = mat.ior * dot(ray.direction, hit.normal) / length(ray.direction);
+			cosine = dot(ray.direction, hit.normal) / length(ray.direction);
+			cosine = sqrt(1 - mat.ior*mat.ior*(1-cosine*cosine));
+		} else {
+			outward_normal = hit.normal;
+			ni_over_nt = 1.0 / mat.ior;
+			cosine = -dot(ray.direction, hit.normal) / length(ray.direction);
+		}
+		var refracted: v3;
+		var reflect_prob: f32;
+		if (refract(ray.direction, outward_normal, ni_over_nt, &refracted)) {
+			reflect_prob = schlick(cosine, mat.ior);
+		} else {
+			reflect_prob = 1.0;
+		}
+		if (Random::rand_f32() < reflect_prob) {
+			*scattered = ray {hit.pos, reflected};
+		} else {
+			*scattered = ray {hit.pos, refracted};
+		}
+		*attenuation = mat.albedo;
+	}
+	return true;
+}
+
+let get_sphere_pos = fun(@sphere: sphere*; time: f32) => v3 {
+	return add(pos, scaled(velocity, time));
+}
+
+let hit_sphere = fun(@sphere: sphere*; ray: ray*; t_min: f32; t_max: f32; time: f32) => hit_result {
+	var p = get_sphere_pos(sphere, time);
+	var oc = sub(&ray.origin, &p);
+	var a = dot(&ray.direction, &ray.direction);
+	var b = dot(&oc, &ray.direction);
+	var c = dot(&oc, &oc) - radius * radius;
+	var discriminant = b*b - a*c;
+	var result = hit_result {};
+	if (discriminant > 0.0) {
+		var disc = sqrt(discriminant);
+		var t0 = (-b - disc) / a;
+		if (t0 > t_min && t0 < t_max) {
+			result.is_hit = true;
+			result.t = t0;
+			result.pos = at(ray, t0);
+			result.normal = scaled(sub(&result.pos, &p), 1.0 / radius);
+			result.material = &material;
+		} else {
+			var t1 = (-b + disc) / a;
+			if (t1 > t_min && t1 < t_max) {
+				result.is_hit = true;
+				result.t = t1;
+				result.pos = at(ray, t1);
+				result.normal = scaled(sub(&result.pos, &p), 1.0 / radius);
+				result.material = &material;
+			}
+		}
+	}
+	return result;
+}
+
+let random_in_unit_sphere = fun() => v3 {
+	var result: v3;
+	while (true) {
+		result = v3(
+			Random::rand_f32(-1.0, 1.0),
+			Random::rand_f32(-1.0, 1.0),
+			Random::rand_f32(-1.0, 1.0)
+		);
+		if (sqr_length(result) < 1.0) {
+			break;
+		}
+	}
+	return result;
+}
+
+let cast_ray = fun(@wolrd: world*; ray: ray*; time: f32) => hit_result {
+	var result = hit_result { };
+	var closest_hit = 100000.0;
+	for (var sphere_idx = 0; sphere_idx < sphere_count; ++sphere_idx) {
+		var hit = hit_sphere(spheres + sphere_idx, ray, 0.001, closest_hit, time);
+		if (hit.is_hit) {
+			closest_hit = hit.t;
+			result = hit;
+		}
+	}
+	return result;
+}
+
+let color = fun(ray : ray*; world: world*; time: f32; depth: i32 = 0) => v3 {
+	// var hit = cast_ray(world, ray, time);
+	var hit = hit_bvh(world.bvh, ray, time);
+	if (hit.is_hit) {
+		var attenuation: v3;
+		var scattered: ray;
+		if (depth < 50 && scatter(ray, &hit, &attenuation, &scattered)) {
+			return hadamard(color(&scattered, world, time, depth + 1), attenuation);
+		} else {
+			return v3(0, 0, 0);
+		}
+	}
+	var unit_dir = normalized(&ray.direction);
+	var t = 0.5 * unit_dir.y + 1.0;
+	var result = lerp(v3(1.0, 1.0, 1.0), v3(0.5, 0.7, 1.0), t);
+	return result;
+}
+
+let create_lambert = fun(albedo: v3) => material {
+	return material {material_type::lambert, albedo};
+}
+let create_metal = fun(albedo: v3; roughness: f32) => material {
+	return material {material_type::metal, albedo, roughness};
+}
+let create_dielectric = fun(ior: f32) => material {
+	return material {material_type::dielectric, v3(1,1,1), 0.0, ior};
+}
+
+let camera = struct(
+	origin: v3;
+	lower_left_corner: v3;
+	horizontal: v3;
+	vertical: v3;
+	u: v3;
+	v: v3;
+	w: v3;
+	lens_radius: f32;
+);
+
+let create_camera = fun(pos: v3; target: v3; up: v3; fov: f32; aspect: f32; aperture: f32; focus_dist: f32) => camera {
+	var theta = fov * (pi_32 / 180.0);
+	var half_height = tan(theta / 2);
+	var half_width = aspect * half_height;
+	var result = camera { };
+	result.origin = pos;
+	result.w = normalized(sub(pos, target));
+	result.u = normalized(cross(up, result.w));
+	result.v = cross(result.w, result.u);
+	var us = scaled(result.u, half_width*focus_dist);
+	var vs = scaled(result.v, half_height*focus_dist);
+	var ws = scaled(result.w, focus_dist);
+	result.lower_left_corner = sub(pos, us);
+	result.lower_left_corner = sub(result.lower_left_corner, vs);
+	result.lower_left_corner = sub(result.lower_left_corner, ws);
+	result.horizontal = scaled(result.u, 2*half_width*focus_dist);
+	result.vertical = scaled(result.v, 2*half_height*focus_dist);
+	result.lens_radius = aperture / 2;
+	return result;
+}
+
+let random_in_unit_disk = fun() => v3 {
+	var result: v3;
+	while(true) {
+		result = v3(
+			Random::rand_f32(-1.0, 1.0),
+			Random::rand_f32(-1.0, 1.0),
+			0
+		);
+		if (dot(result, result) < 1.0) {
+			break;
+		}
+	}
+	return result;
+}
+
+let get_camera_ray = fun(@camera: camera*; uu: f32; vv: f32) => ray {
+	var rand_disk = scaled(random_in_unit_disk(), camera.lens_radius);
+	var offset = add(scaled(u, rand_disk.x), scaled(v, rand_disk.y));
+	var result: ray;
+	result.origin = add(camera.origin, offset);
+	var sh = scaled(horizontal, uu);
+	var sv = scaled(vertical, vv);
+	var dir = add(lower_left_corner, sh);
+	dir = add(dir, sv);
+	dir = sub(dir, result.origin);
+	result.direction = dir;
+	return result;
+}
+
+let aabb = struct (
+	min: v3;
+	max: v3;
+);
+let calculate_aabb = fun(@sphere: sphere*) => aabb {
+	return aabb {
+		sub(pos, v3(radius, radius, radius)),
+		add(pos, v3(radius, radius, radius))
+	};
+}
+let grow = fun(a: aabb*; b: aabb*) => aabb {
+	return aabb {
+		v3(
+			min(a.min.x, b.min.x),
+			min(a.min.y, b.min.y),
+			min(a.min.z, b.min.z)
+		),
+		v3(
+			max(a.max.x, b.max.x),
+			max(a.max.y, b.max.y),
+			max(a.max.z, b.max.z)
+		)
+	};
+}
+
+let swapf = fun (a: f32*; b: f32*) => void {
+	var temp = *a;
+	*a = *b;
+	*b = temp;
+}
+
+let hit_aabb = fun(aabb: aabb*; ray: ray*; t_min: f32; t_max: f32) => bool {
+	var inv_ray_dir = v3(1.0 / ray.direction.x, 1.0 / ray.direction.y, 1.0 / ray.direction.z);
+	var f_min = hadamard(sub(aabb.min, ray.origin), inv_ray_dir);
+	var f_max = hadamard(sub(aabb.max, ray.origin), inv_ray_dir);
+	
+	var tmin = t_min;
+	var tmax = t_max;
+
+	if (inv_ray_dir.x < 0.0) {
+		// TODO(pragma);
+		// swap(&f_min.x, &f_max.x); errors but should work. importing modules does not overload functions?
+		// Math::swap() just does not work at al!!!! need to debug.
+		swapf(&f_min.x, &f_max.x);
+	}
+	if (f_min.x > tmin) {
+		tmin = f_min.x;
+	}
+	if (f_max.x < tmax){
+		tmax = f_max.x;
+	}
+	if (tmax <= tmin) {
+		return false;
+	}
+	
+	if (inv_ray_dir.y < 0.0) {
+		swapf(&f_min.y, &f_max.y);
+	}
+	if (f_min.y > tmin) {
+		tmin = f_min.y;
+	}
+	if (f_max.y < tmax){
+		tmax = f_max.y;
+	}
+	if (tmax <= tmin) {
+		return false;
+	}
+
+	if (inv_ray_dir.z < 0.0) {
+		swapf(&f_min.z, &f_max.z);
+	}
+	if (f_min.z > tmin) {
+		tmin = f_min.z;
+	}
+	if (f_max.z < tmax){
+		tmax = f_max.z;
+	}
+	if (tmax <= tmin) {
+		return false;
+	}
+
+	return true;
+}
+
+let init_world = fun(@world: world*; temp_arena: memory_arena*; aspect: f32) => void {
+	sphere_count = 0;
+	
+	var sphere = push(temp_arena, size_of(sphere))@sphere*;
+	sphere_count++;
+	spheres = sphere;
+
+	*sphere = sphere {
+		v3(0, -1000, 0), 1000, 
+		v3(0, 0, 0),
+		create_lambert(v3(0.5, 0.5, 0.5))
+	};
+	for (var a = -11; a < 11; ++a) {
+		for (var b = -11; b < 11; ++b) {
+			var choose_mat = Random::rand_f32();
+			var center = v3(
+				a@f32+0.9*Random::rand_f32(), 
+				0.2 + Random::rand_f32(-0.001, 0.001), 
+				b@f32+0.9*Random::rand_f32()
+			);
+			if (length(sub(center, v3(4, 0.2, 0))) > 0.9) {
+				if (choose_mat < 0.8) {
+					sphere = push(temp_arena, size_of(sphere))@sphere*;
+					sphere_count++;
+					*sphere = sphere {
+						center, 0.2,
+						v3(0, 0, 0),
+						create_lambert(v3(Random::rand_f32()*Random::rand_f32(), Random::rand_f32()*Random::rand_f32(), Random::rand_f32()*Random::rand_f32()))
+					};
+				}
+				elif (choose_mat < 0.95) {
+					sphere = push(temp_arena, size_of(sphere))@sphere*;
+					sphere_count++;
+					*sphere = sphere {
+						center, 0.2,
+						v3(0, 0, 0),
+						create_metal(v3(Random::rand_f32(0.5, 1.0), Random::rand_f32(0.5, 1.0), Random::rand_f32(0.5, 1.0)), Random::rand_f32(0.0, 0.50))
+					};
+				}
+				else {
+					sphere = push(temp_arena, size_of(sphere))@sphere*;
+					sphere_count++;
+					*sphere = sphere {
+						center, 0.2,
+						v3(0, 0, 0),
+						create_dielectric(1.5)
+					};
+				}
+			}
+		}
+		sphere = push(temp_arena, size_of(sphere))@sphere*;
+		sphere_count++;
+		*sphere = sphere {
+			v3(0, 1, 0), 1.0, 
+			v3(0, 0, 0),
+			create_dielectric(1.5)
+		};
+		sphere = push(temp_arena, size_of(sphere))@sphere*;
+		sphere_count++;
+		*sphere = sphere {
+			v3(-4, 1, 0), 1.0, 
+			v3(0, 0, 0),
+			create_lambert(v3(0.5, 0.2, 0.1))
+		};
+		sphere = push(temp_arena, size_of(sphere))@sphere*;
+		sphere_count++;
+		*sphere = sphere {
+			v3(4, 1, 0), 1.0, 
+			v3(-5, 0, 0),
+			create_metal(v3(0.7, 0.6, 0.5), 0.1)
+		};
+	}
+	
+	
+	let cam_pos = v3(13, 2, 3);
+	let cam_target = v3(0,0,0);
+	let cam_focus = 10.0;
+	let aperture = 0.1;
+	world.camera = create_camera(cam_pos, cam_target, v3(0,1,0), 20, aspect, aperture, cam_focus);
+
+	var sphere_ptrs = push(temp_arena, @mm sphere_count * size_of(sphere*))@sphere**;
+	var temp = sphere_ptrs;
+	for (var idx = 0; idx < sphere_count; ++idx) {
+		*temp++ = spheres + idx;
+	}
+	print("\ngenerating bvh...\n");
+	world.bvh = create_bvh(temp_arena, sphere_ptrs, sphere_count, 0);
+	print("done.\n");
+}
+
+let bvh_node = struct (
+	left: bvh_node*;
+	right: bvh_node*;
+	aabb: aabb;
+	spheres: sphere**;
+	sphere_count: i32;
+);
+
+let hit_bvh = fun(@bvh: bvh_node*; ray: ray*; time: f32) => hit_result {
+	var result = hit_result { };
+	if (hit_aabb(&aabb, ray, 0.01, 100000.0)) {
+		// print("h");
+		if (bvh.sphere_count > 0) {
+			var closest_hit = 100000.0;
+			for (var sphere_idx = 0; sphere_idx < sphere_count; ++sphere_idx) {
+				var sphere = *(spheres + sphere_idx);
+				var hit = hit_sphere(sphere, ray, 0.001, closest_hit, time);
+				if (hit.is_hit) {
+					closest_hit = hit.t;
+					result = hit;
+				}
+			}
+			return result;
+		} else {
+			var left_hit = hit_result { };
+			var right_hit = hit_result { };
+			if (left@ptr != nullptr) {
+				left_hit = hit_bvh(left, ray, time);
+			}
+			if (right@ptr != nullptr) {
+				right_hit = hit_bvh(right, ray, time);
+			}
+			if (left_hit.is_hit && right_hit.is_hit) {
+				if (left_hit.t < right_hit.t) {
+					result = left_hit;
+				} else {
+					result = right_hit;
+				}
+			} elif (left_hit.is_hit) {
+				result = left_hit;
+			} elif (right_hit.is_hit) {
+				result = right_hit;
+			}
+		}
+	}  else {
+		// print("x");
+	}
+	return result;
+}
+
+let create_bvh = fun(memory: memory_arena*; spheres: sphere**; sphere_count: i32; depth: i32 = 0) => bvh_node* {
+	// print("**********************\n");
+	// debug_print("depth", depth);
+	// debug_print("sphere_count", sphere_count);
+
+	var result = push(memory, size_of(bvh_node))@bvh_node*;
+	var axis = Random::rand_i32() % 3;
+	// debug_print("axis", axis);
+	var split_center = 0.0;
+
+	var s = 100000.0;
+	result.aabb = aabb { v3(s, s, s), v3(-s, -s, -s) };
+	
+	for (var sphere_idx = 0; sphere_idx < sphere_count; ++sphere_idx) {
+		var sphere = *(spheres + sphere_idx);
+		if (axis == 0) {
+			split_center += sphere.pos.x;
+		} elif (axis == 1) {
+			split_center += sphere.pos.y;
+		} elif (axis == 2) {
+			split_center += sphere.pos.z;
+		}
+		var sphere_aabb = calculate_aabb(sphere);
+		result.aabb = grow(&result.aabb, &sphere_aabb);
+		// debug_print("sphere_idx", sphere_idx);
+		// debug_print("sphere.min", sphere_aabb.min);
+		// debug_print("sphere.max", sphere_aabb.max);
+	}
+	// debug_print("aabb.min", result.aabb.min);
+	// debug_print("aabb.max", result.aabb.max);
+
+	// TODO(pragma): use median instead of mean
+	split_center *= 1.0 / sphere_count@f32;
+
+	// TODO(pragma): this is not memory efficient
+	var left_spheres = push(memory, @mm sphere_count * size_of(sphere*))@sphere**;
+	var right_spheres = push(memory, @mm sphere_count * size_of(sphere*))@sphere**;
+	var left_count = 0;
+	var right_count = 0;
+	
+	for (var sphere_idx = 0; sphere_idx < sphere_count; ++sphere_idx) {
+		var sphere = *(spheres + sphere_idx);
+		var is_left: bool;
+		if (axis == 0) {
+			is_left = sphere.pos.x <= split_center;
+		} elif (axis == 1) {
+			is_left = sphere.pos.y <= split_center;
+		} elif (axis == 2) {
+			is_left = sphere.pos.z <= split_center;
+		}
+		if (is_left) {
+			*(left_spheres + left_count++) = sphere;
+		} else {
+			*(right_spheres + right_count++) = sphere;
+		}
+	}
+
+	if (sphere_count > 5 && depth <= 10) {
+		if (left_count > 0) {
+			// print("left\n");
+			result.left = create_bvh(memory, left_spheres, left_count, depth + 1);
+		}
+
+		if (right_count > 0) {
+			// print("right\n");
+			result.right = create_bvh(memory, right_spheres, right_count, depth + 1);
+		}
+		result.spheres = 0@sphere**;
+		result.sphere_count = 0;
+	} else {
+		result.left = 0@bvh_node*;
+		result.right = 0@bvh_node*;
+		result.spheres = spheres;
+		result.sphere_count = sphere_count;
+		// print("leaf\n");
+	}
+	// print("**********************\n");
+	return result;
+}
+
+
+[
+	"compile.output": "raytracer.exe",
+	"compile.debuginfo": "false",
+	"compile.entry" : "true",
+	"compile.ll"    : "false",
+	"compile.asm"   : "false",
+ 	"compile.opt"   : "3",
+	"compile.cpu"	: "native",
+ 	"compile.run"   : "false",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void {
+	temp_arena = Allocate(megabytes(32));
+	let nx = 180*8;	
+	let ny = 90*8;
+	
+	var world = world { };
+	init_world(&world, &temp_arena, nx@f32/ny@f32);
+
+	var pixels: i8* = push(&temp_arena, (3 * nx * ny)@mm);
+	var temp_pixels = pixels;
+	let sub_sample_count = 1024;
+
+	var time_open_shutter = 0.0;
+	var time_close_shutter = 0.1;
+
+	for (var j = 0; j < ny; ++j) {
+		print(".");
+		for (var i = 0; i < nx; ++i) {
+			var col = v3(0.0, 0.0, 0.0);
+			for (var ss = 0; ss < sub_sample_count; ++ss) {
+				var u = (i@f32 + Random::rand_f32(-0.5, 0.5)) / nx@f32;
+				var v = (j@f32 + Random::rand_f32(-0.5, 0.5)) / ny@f32;
+				
+				var ray = get_camera_ray(&world.camera, u, v);
+				var time = Random::rand_f32(time_open_shutter, time_close_shutter);
+				var sample = color(&ray, &world, time, 0);
+				col = add(&col, &sample);
+			}
+			col = scaled(&col, 1.0/sub_sample_count@f32);
+			col.x = sqrt(col.x);
+			col.y = sqrt(col.y);
+			col.z = sqrt(col.z);
+			
+			var r_i8 = @i8 clamp(255.0 * col.x, 0, 255);
+			var g_i8 = @i8 clamp(255.0 * col.y, 0, 255);
+			var b_i8 = @i8 clamp(255.0 * col.z, 0, 255);
+			*temp_pixels++ = b_i8;
+			*temp_pixels++ = g_i8;
+			*temp_pixels++ = r_i8;
+		}
+	}
+	WriteBitmap("output.bmp\0", pixels, nx, ny);
+}
