@@ -137,12 +137,17 @@ let lerp = fun(a: v3; b: v3; t: f32) => v3 {
     var result = add(a, scaled(sub(b, a), t));
     return result;
 }
-let Ray = struct 
+let swap = fun (a: v3*; b: v3*) => void {
+    var temp = *a;
+    *a = *b;
+    *b = temp;
+}
+let ray = struct 
 (
     origin: v3;
     direction: v3;
 );
-let At = fun(@ray: Ray*; t: f32) => v3{
+let at = fun(@ray: ray*; t: f32) => v3{
     var delta = scaled(&direction, t);
     return add(&origin, &delta);
 }

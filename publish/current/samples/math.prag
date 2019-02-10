@@ -48,10 +48,36 @@ mod Math
 	let log2    = extern("llvm.log2.f32")   fun (x: f32) => f32;
 	["READNONE"]
 	let log10   = extern("llvm.log10.f32")  fun (x: f32) => f32;
+
+	// ["READNONE"]
+	// let min     = extern("llvm.minnum.f32") fun (a: f32; b: f32) => f32;
+	// ["READNONE"]
+	// let max     = extern("llvm.maxnum.f32") fun (a: f32; b: f32) => f32;
+
 	["READNONE"]
-	let min     = extern("llvm.minnum.f32") fun (a: f32; b: f32) => f32;
+	let min = fun(a: f32; b: f32) => f32 {
+		if (a < b) {
+			return a;
+		} else {
+			return b;
+		}
+	}
+
 	["READNONE"]
-	let max     = extern("llvm.maxnum.f32") fun (a: f32; b: f32) => f32;
+	let max = fun(a: f32; b: f32) => f32 {
+		if (a > b) {
+			return a; 
+		} else {
+			return b;
+		}
+	}
+
+	["READNONE"]
+	let swap = fun (a: f32*; b: f32*) => void {
+		var temp = *a;
+		*a = *b;
+		*b = temp;
+	}
 
 	["READNONE"]
 	let round_to_i32 = fun (x: f32) => i32 {
