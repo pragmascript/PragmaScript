@@ -59,7 +59,11 @@ namespace PragmaScript {
         }
 
         public class OverloadedVariableDefinition {
+            public bool allowOverloading;
             public List<VariableDefinition> variables;
+            public OverloadedVariableDefinition() {
+                variables = new List<VariableDefinition>();
+            }
             public OverloadedVariableDefinition(VariableDefinition vd) {
                 variables = new List<VariableDefinition>(1);
                 variables.Add(vd);
@@ -119,25 +123,30 @@ namespace PragmaScript {
 
         public OverloadedVariableDefinition GetVar(string name, Token from, bool recurse = true)
         {
-            OverloadedVariableDefinition result;
+            OverloadedVariableDefinition result = new OverloadedVariableDefinition();
 
-            if (variables.TryGetValue(name, out result)) {
-                return result;
+            if (variables.TryGetValue(name, out var ovd)) {
+                result.variables.AddRange(ovd.variables);
+                result.allowOverloading = ovd.allowOverloading;
             }
-            Module result_mod = null;
+
             foreach (var mod in importedModules) {
-                if (mod.scope.variables.TryGetValue(name, out var vd)) {
-                    if (result != null) {
-                        var p0 = $"\"{result_mod.GetPath()}::{name}\"";
+                if (mod.scope.variables.TryGetValue(name, out var mvd)) {
+                    if (result.variables.Count > 0 && !result.allowOverloading) {
+                        Debug.Assert(result.variables.Count == 1);
+                        var p0 = $"\"{result.First.node.scope.module.GetPath()}::{name}\"";
                         var p1 = $"\"{mod.GetPath()}::{name}\"";
                         throw new ParserError($"Access to variable is ambigious between {p0} and {p1}.", from);
                     } else {
-                        result = vd;
-                        result_mod = mod;
+                        if (result.variables.Count > 0) {
+                            Debug.Assert(result.allowOverloading);
+                            Debug.Assert(mvd.allowOverloading);
+                        }
+                        result.variables.AddRange(mvd.variables);
                     }
                 }
             }
-            if (result != null) {
+            if (result.variables.Count > 0) {
                 return result;
             }
 
@@ -165,10 +174,12 @@ namespace PragmaScript {
             OverloadedVariableDefinition ov;
             if (variablePresent) {
                 ov = variables[name];
+                Debug.Assert(ov.allowOverloading);
                 ov.variables.Add(v);
             } else {
                 ov = new OverloadedVariableDefinition(v);
                 variables.Add(name, ov);
+                ov.allowOverloading = allowOverloading;
             }
             return v;
         }
@@ -192,10 +203,12 @@ namespace PragmaScript {
             OverloadedVariableDefinition ov;
             if (variablePresent) {
                 ov = variables[name];
+                Debug.Assert(ov.allowOverloading);
                 ov.variables.Add(v);
             } else {
                 ov = new OverloadedVariableDefinition(v);
                 variables.Add(name, ov);
+                ov.allowOverloading = allowOverloading;
             }
             return v;
         }

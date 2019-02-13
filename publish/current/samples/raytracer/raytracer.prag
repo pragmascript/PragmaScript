@@ -276,7 +276,6 @@ let camera = struct(
 	w: v3;
 	lens_radius: f32;
 );
-
 let create_camera = fun(pos: v3; target: v3; up: v3; fov: f32; aspect: f32; aperture: f32; focus_dist: f32) => camera {
 	var theta = fov * (pi_32 / 180.0);
 	var half_height = tan(theta / 2);
@@ -352,11 +351,7 @@ let grow = fun(a: aabb*; b: aabb*) => aabb {
 	};
 }
 
-let swapf = fun (a: f32*; b: f32*) => void {
-	var temp = *a;
-	*a = *b;
-	*b = temp;
-}
+
 
 let hit_aabb = fun(aabb: aabb*; ray: ray*; t_min: f32; t_max: f32) => bool {
 	var inv_ray_dir = v3(1.0 / ray.direction.x, 1.0 / ray.direction.y, 1.0 / ray.direction.z);
@@ -367,10 +362,7 @@ let hit_aabb = fun(aabb: aabb*; ray: ray*; t_min: f32; t_max: f32) => bool {
 	var tmax = t_max;
 
 	if (inv_ray_dir.x < 0.0) {
-		// TODO(pragma);
-		// swap(&f_min.x, &f_max.x); errors but should work. importing modules does not overload functions?
-		// Math::swap() just does not work at al!!!! need to debug.
-		swapf(&f_min.x, &f_max.x);
+		swap(&f_min.x, &f_max.x);
 	}
 	if (f_min.x > tmin) {
 		tmin = f_min.x;
@@ -383,7 +375,7 @@ let hit_aabb = fun(aabb: aabb*; ray: ray*; t_min: f32; t_max: f32) => bool {
 	}
 	
 	if (inv_ray_dir.y < 0.0) {
-		swapf(&f_min.y, &f_max.y);
+		swap(&f_min.y, &f_max.y);
 	}
 	if (f_min.y > tmin) {
 		tmin = f_min.y;
@@ -396,7 +388,7 @@ let hit_aabb = fun(aabb: aabb*; ray: ray*; t_min: f32; t_max: f32) => bool {
 	}
 
 	if (inv_ray_dir.z < 0.0) {
-		swapf(&f_min.z, &f_max.z);
+		swap(&f_min.z, &f_max.z);
 	}
 	if (f_min.z > tmin) {
 		tmin = f_min.z;
@@ -634,20 +626,20 @@ let create_bvh = fun(memory: memory_arena*; spheres: sphere**; sphere_count: i32
 
 [
 	"compile.output": "raytracer.exe",
-	"compile.debuginfo": "false",
+	"compile.debuginfo": "true",
 	"compile.entry" : "true",
 	"compile.ll"    : "false",
 	"compile.asm"   : "false",
  	"compile.opt"   : "3",
 	"compile.cpu"	: "native",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
 	temp_arena = Allocate(megabytes(32));
-	let nx = 180*8;	
-	let ny = 90*8;
+	let nx = 180*1;	
+	let ny = 90*1;
 	
 	var world = world { };
 	init_world(&world, &temp_arena, nx@f32/ny@f32);

@@ -1,5 +1,7 @@
 ﻿import "../preamble.prag"
-import "../vec.prag"
+// import "../vec.prag"
+import "../math.prag"
+
 
 [
 	"compile.output": "bugs.exe",
@@ -8,17 +10,18 @@ import "../vec.prag"
     "compile.ll"    : "true",
 	"compile.asm"   : "false",
  	"compile.opt"   : "0",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void 
 {   
-    enum_test();
+    foo();
+    // enum_test();
     //slice_test();
 }
 // FIXED
-#if TRUE
+#if FALSE
     let sphere = struct(
         pos_x: f32;
         pos_y: f32;
@@ -27,7 +30,7 @@ let main = fun () => void
     );
 
     // FIXED
-    #if TRUE
+    #if FALSE
     let bug_01 = fun() => void {
         var spheres: sphere[];
         var s0 = sphere{ };
@@ -36,7 +39,7 @@ let main = fun () => void
     #endif
 
     // FIXED
-    #if TRUE
+    #if FALSE
     let bug_02 = fun() => void {
         var sphere_ptr: sphere*;
         // var temp_temp = sphere { };
@@ -47,7 +50,7 @@ let main = fun () => void
 #endif
 
 // FIXED
-#if TRUE
+#if FALSE
     let bar = struct (
         value: i32;
     );
@@ -73,7 +76,7 @@ let main = fun () => void
     
 #endif
 
-#if TRUE
+#if FALSE
 
 let BarEnum = enum (
     one; two; three
@@ -168,6 +171,38 @@ let slice_test = fun() => void {
 }
 #endif
 
+mod Fumm
+{
+    let v3 = struct (
+        x: f32;
+        y: f32;
+        z: f32;
+    );
+    let swap = fun (a: v3*; b: v3*) => void {
+        var temp = *a;
+        *a = *b;
+        *b = temp;
+    }
+}
 
 
+#if TRUE
+
+with Math;
+with Fumm;
+
+let foo = fun() => void {
+    // var a = v3(0,0,0);
+    // var b = v3(1,1,1);
+    // swap(&a, &b);
+    // debug_print("a", a);
+    // debug_print("b", b);
+
+    var c = 0.0;
+    var d = 1.0;
+    swap(&c, &d);
+    debug_print("c", c);
+    debug_print("d", d);
+
+}
 
