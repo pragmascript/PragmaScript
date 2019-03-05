@@ -328,51 +328,6 @@ let debug_print = fun (name: string; value: bool) => void
 	print("\n");
 }
 
-
-mod Random 
-{
-	let seed = 12345;
-	let State = struct 
-	(
-		z1: i32;
-		z2: i32;
-		z3: i32;
-		z4: i32; 	
-	);
-	var state: State = State{seed, seed, seed, seed};
-
-	let init_seed = fun (seed: i32; state: State* = &state) => void {
-		state.z1 = seed;
-		state.z2 = seed;
-		state.z3 = seed;
-		state.z4 = seed;
-	}
-
-	// http://www.iro.umontreal.ca/~simardr/rng/lfsr113.c
-	let rand_i32 = fun (@state: State* = &state) => i32 {
-		var b: i32;
-		b  = ((z1 << 6) ^ z1) >>\ 13;
-		z1 = ((z1 & 4294967294) << 18) ^ b;
-		b  = ((z2 << 2) ^ z2) >>\ 27;
-		z2 = ((z2 & 4294967288) << 2) ^ b;
-		b  = ((z3 << 13) ^ z3) >>\ 21;
-		z3 = ((z3 & 4294967280) << 7) ^ b;
-		b  = ((z4 << 3) ^ z4) >>\ 12;
-		z4 = ((z4 & 4294967168) << 13) ^ b;
-   		return (z1 ^ z2 ^ z3 ^ z4);
-	}
-	let rand_f32 = fun (min: f32 = 0.0; max: f32 = 1.0; state: State* = &state;) => f32 {
-		var x = rand_i32(state);
-		var result = @\f32 x / 4294967295.0;
-		result = min + result * (max - min);
-		return result;
-	}
-	let rand_xkcd = fun () => i32 {
-		return 4;  // chosen by fair dice roll.
-		           // guaranteed to be random.
-	}
-}
-
 let __hack_reserve_intrinsics = fun () => bool
 {
 	if (@mm memcpy == 1234 || @mm memset == 1234 || @mm __chkstk == 1234) {

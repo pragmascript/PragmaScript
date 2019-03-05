@@ -125,11 +125,13 @@ namespace PragmaScript {
         {
             Debug.Assert(node != null);
             Debug.Assert(type != null);
-
             type.preResolved = false;
-            // Debug.Assert(!knownTypes.ContainsKey(node));
+            // TODO(pragma): Sometimes a type will get resolved more than once. When does this happen?
+            // can this be avoided?
             if (!knownTypes.ContainsKey(node)) {
                 knownTypes.Add(node, type);
+            } else {
+                Debug.Assert(knownTypes[node].Equals(type));
             }
             UnresolvedType u;
             if (unresolved.TryGetValue(node, out u)) {
@@ -153,6 +155,22 @@ namespace PragmaScript {
             Debug.Assert(node != null);
             Debug.Assert(type != null);
             pre_resolved.Add(node, type);
+            if (unresolved.TryGetValue(node, out var u)) {
+                if (u.blocking.Count > 0) {
+                    var temp = new List<AST.Node>();
+                    foreach (var b in u.blocking) {
+                        // NOTE(pragma): if the function is not satisfied with the pre-resolved type
+                        // it will add it to the waitingFor list again so we can safely remove it here.
+                        b.waitingFor.Remove(u);
+                        if (b.waitingFor.Count == 0) {
+                            temp.Add(b.node);
+                        }
+                    }
+                    foreach (var n in temp) {
+                        checkTypeDynamic(n);
+                    }
+                }
+            }
         }
 
         void getRootBlocker(UnresolvedType t, HashSet<AST.Node> blocker)
@@ -314,6 +332,10 @@ namespace PragmaScript {
 
         void checkType(AST.FunctionDefinition node)
         {
+            if (node.token.Line == 3) {
+                int breakHere = 42;
+            }
+
             FrontendType tt = null;
             if (node.typeString != null) {
                 // node.typeString.fullyQualifiedName.name = node.funName;
@@ -1262,14 +1284,23 @@ namespace PragmaScript {
                             if (pt != null) {
                                 parameterTypes.Add(pt);
                             } else {
-                                addUnresolved(node, p.typeString);
+                                if (p.typeString.isPointerType) {
+                                    var base_t_def = node.scope.GetType(p.typeString.fullyQualifiedName, p.typeString.token);
+                                    if (pre_resolved.ContainsKey(base_t_def.node)) {
+                                        parameterTypes.Add(pre_resolved[base_t_def.node]);
+                                    } else {
+                                        addUnresolved(node, p.typeString);
+                                    }
+                                } else {
+                                    addUnresolved(node, p.typeString);
+                                }
                             }
                             if (p.defaultValueExpression != null) {
                                 optionalCount++;
                                 checkTypeDynamic(p.defaultValueExpression);
                                 var et = getType(p.defaultValueExpression);
-                                if (et != null) {
                                     optionalExpressionTypes.Add(et);
+                                if (et != null) {
                                 } else {
                                     addUnresolved(node, p.defaultValueExpression);
                                 }
@@ -1313,13 +1344,9 @@ namespace PragmaScript {
         }
 
         void checkTypeDynamic(AST.Node node) {
-            // Console.WriteLine(node.token);
             if (knownTypes.ContainsKey(node)) {
                 return;
             }
-            //dynamic dn = node;
-            //checkType(dn);
-
             switch (node) {
                 case AST.FileRoot n:
                     checkType(n);
@@ -1415,7 +1442,6 @@ namespace PragmaScript {
                     throw new NotImplementedException();
             }
         }
-
     }
 }
 

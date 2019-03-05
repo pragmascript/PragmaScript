@@ -1,41 +1,13 @@
 import "../preamble.prag"
+import "../random.prag"
 import "../windows.prag"
 import "../math.prag"
 import "../vec.prag"
+import "../collections.prag"
+import "../work_queue.prag"
 
 
 with Math;
-
-let memory_arena = struct(
-	size: mm;
-	base: ptr;
-	used: mm;
-);
-
-let push = fun(@arena: memory_arena*; push_size: mm) => ptr {
-	if (used + push_size > size) {
-		assert(false);
-		return 0@ptr;
-	}
-	var result = base + used;
-	used += push_size;
-	return result;
-}
-
-let Allocate = fun(size: mm) => memory_arena {
-	var data = Windows::VirtualAlloc(0@ptr, size, Windows::MEM_COMMIT | Windows::MEM_RESERVE, Windows::PAGE_READWRITE);
-	var result: memory_arena;
-	if (data != nullptr) {
-		result.size = size;
-		result.base = data;
-		result.used = 0;
-	} else {
-		result.size = 0;
-		result.base = nullptr;
-		result.used = 0;
-	}
-	return result;
-}
 
 var temp_arena: memory_arena;
 
@@ -631,14 +603,14 @@ let create_bvh = fun(memory: memory_arena*; spheres: sphere**; sphere_count: i32
 	"compile.entry" : "true",
 	"compile.ll"    : "false",
 	"compile.asm"   : "false",
- 	"compile.opt"   : "0",
+ 	"compile.opt"   : "3",
 	"compile.cpu"	: "native",
  	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
-	temp_arena = Allocate(megabytes(32));
+	temp_arena = create_arena(megabytes(32));
 	let nx = 180*1;	
 	let ny = 90*1;
 	
