@@ -49,6 +49,8 @@ namespace PragmaScript {
             ConstAggregateZero,
             FunctionArgument,
             ExtractValue,
+            
+            CUSTOM_emit, 
         }
 
         public enum TypeKind {
@@ -293,6 +295,12 @@ namespace PragmaScript {
             @false, oeq, ogt, oge, olt, ole, one, ord, ueq, ugt, uge, ult, ule, une, uno, @true
         }
 
+        [Flags]
+        public enum SSAFlags {
+            none      = 1 << 0,
+            @volatile = 1 << 1,
+        }
+
         public class Value {
             public AST.Node debugContextNode;
             public Op op;
@@ -300,6 +308,7 @@ namespace PragmaScript {
             public List<Value> args;
             public string name;
             public bool isConst = false;
+            public SSAFlags flags = SSAFlags.none;
             public Value(Op op, SSAType t, params Value[] args) {
                 this.op = op;
                 type = t;
@@ -565,6 +574,15 @@ namespace PragmaScript {
 
                 this.type = new PointerType(resultType);
                 this.inBounds = inBounds;
+            }
+        }
+        
+        public class Emit : Value {
+            public string instr;
+            public Emit(string instr)
+                : base(Op.CUSTOM_emit, new VoidType())
+            {
+                this.instr = instr;
             }
         }
 

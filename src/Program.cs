@@ -50,7 +50,7 @@ namespace PragmaScript
         static void Main(string[] args)
         {
             parseARGS(args);
-            
+
 #if false
             CompilerOptions.debug = true;
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\publish\current\samples"));

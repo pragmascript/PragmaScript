@@ -256,10 +256,13 @@ namespace PragmaScript {
                 var result = BuildCall(intrinsic_memcpy, contextNode, "memcpy", destPtr, srcPtr, count, zero_i32_v, isVolatile_v);
                 return result;
             }
-            public Value BuildLoad(Value ptr, AST.Node contextNode, string name = null) {
+            public Value BuildLoad(Value ptr, AST.Node contextNode, string name = null, bool isVolatile = false) {
                 Debug.Assert(ptr.type.kind == TypeKind.Pointer);
                 var pt = (PointerType)ptr.type;
                 var result = new Value(Op.Load, pt.elementType, ptr);
+                if (isVolatile) {
+                    result.flags |= SSAFlags.@volatile;
+                }
                 AddOp(result, name, contextNode: contextNode);
                 return result;
             }
@@ -508,6 +511,11 @@ namespace PragmaScript {
             public Value BuildFPCast(Value v, SSAType targetType, AST.Node contextNode, string name = null) {
                 var result = new Value(Op.FPCast, targetType, v);
                 result.isConst = v.isConst;
+                AddOp(result, name, contextNode: contextNode);
+                return result;
+            }
+            public Value BuildEmit(string instr, AST.Node contextNode, string name = null) {
+                var result = new Emit(instr);
                 AddOp(result, name, contextNode: contextNode);
                 return result;
             }

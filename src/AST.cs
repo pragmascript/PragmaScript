@@ -59,7 +59,12 @@ namespace PragmaScript {
             len.specialFun = true;
             len.AddParam("x", new FrontendArrayType(null, new List<int>()));
             scope.AddVar("len", len, Token.Undefined, isConst: true);
-
+            
+            var emit = new FrontendFunctionType("__emit__");
+            emit.returnType = FrontendType.void_;
+            emit.specialFun = true;
+            emit.AddParam("instr", FrontendType.string_);
+            scope.AddVar("__emit__", emit, Token.Undefined, isConst: true);
         }
 
         public static Scope MakeRootScope()

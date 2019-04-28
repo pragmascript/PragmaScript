@@ -1,61 +1,47 @@
 {
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
-    "version": "0.1.0",
-    "command": "cmd.exe",
-    "isShellCommand": true,
-    "suppressTaskName": true,
-    "showOutput": "always",
-    "args": ["/C"],
-    "tasks": 
-    [
+    "version": "2.0.0",
+    "tasks": [
         {
-            "isBuildCommand": true,
-            "taskName": "build",
-            "args": ["..\\bin\\pragma.exe", "-D", "${file}"],
-            //"args": ["..\\bin\\pragma.exe", "${file}"],
-            
+            "label": "build",
+            "type": "shell",
+            "command": "cmd.exe",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "args": [
+                "/C",
+                "..\\bin\\pragma.exe",
+                "-D",
+                "${file}"
+            ],
             "problemMatcher": [
-            {
-                // "owner": "ps",
-                "fileLocation":  "absolute",
-                "pattern":{
-                    "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
-                    "message": 1,
-                    "file": 2,
-                    "line": 3,
-                    "column": 4
-                }                
-             },
-             {
-                // "owner": "ps",
-                "fileLocation":  "absolute",
-                "pattern":{
-                    "regexp": "(Assertion) failed at: \\(file \"(.*?)\".*?line (.*?),.*?pos (.*?)\\)",
-                    "message": 1,
-                    "file": 2,
-                    "line": 3,
-                    "column": 4
+                {
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
+                        "message": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    "applyTo": "allDocuments",
+                    "severity": "error"
+                },
+                {
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "(Assertion) failed at: \\(file \"(.*?)\".*?line (.*?),.*?pos (.*?)\\)",
+                        "message": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    "applyTo": "allDocuments"
                 }
-             }
             ]
-        },
-        {
-            "isTestCommand": true,
-            "taskName": "handmade",
-            "args": ["\"..\\bin\\pragma.exe\"", "handmade\\handmade.prag", "-D", "-DLL", "&",
-                     "\"..\\bin\\pragma.exe\"", "handmade\\win32_handmade.prag", "-D"],
-            "problemMatcher": {
-                // "owner": "ps",
-                "fileLocation":  "absolute",
-                "pattern":{
-                    "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
-                    "message": 1,
-                    "file": 2,
-                    "line": 3,
-                    "column": 4
-                }
-            }
         }
-    ]
+    ],
 }

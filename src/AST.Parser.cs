@@ -191,13 +191,53 @@ namespace PragmaScript {
             return result;
         }
 
+        public static void parseAttributes(ref ParseState ps, Scope scope) {
+            var current = ps.CurrentToken();
+            while (current.type == Token.TokenType.OpenSquareBracket) {
+                ps.NextToken();
+                while (true) {
+                    var key = parsePrimary(ref ps, scope) as AST.ConstString;
+                    if (key == null) {
+                        throw new ParserError("Expected string constant in attribute", key.token);
+                    }
+                    string a_value = null;
+                    if (ps.PeekToken().type == Token.TokenType.Colon) {
+                        ps.ExpectNextToken(Token.TokenType.Colon);
+                        ps.NextToken();
+                        var value = parsePrimary(ref ps, scope) as AST.ConstString;
+                        if (value == null) {
+                            throw new ParserError("Expected string constant in attribute", key.token);
+                        }
+                        a_value = value.Verbatim();
+                    }
+
+                    var a_key = key.Verbatim().ToUpper();
+                    if (ps.attribs == null) {
+                        ps.attribs = new List<(string key, string value)>();
+                    }
+                    // TODO(pragma): remove this from the parse state and just return it
+                    ps.attribs.Add((a_key, a_value));
+                    ps.ExpectNextToken(Token.TokenType.CloseSquareBracket, Token.TokenType.Comma);
+                    if (ps.CurrentToken().type == Token.TokenType.CloseSquareBracket) {
+                        break;
+                    }
+                    ps.NextToken();
+                }
+                current = ps.NextToken();
+                ps.foundAttrib = true;
+            }
+        }
+
         public static Node parseDeclaration(ref ParseState ps, Scope scope)
         {
             var current = ps.CurrentToken();
             Node result = null;
             bool ignoreSemicolon = false;
             bool foundWith = false;
+
             do {
+                parseAttributes(ref ps, scope);
+                current = ps.CurrentToken();
                 foundWith = false;
                 switch (current.type) {
                     case Token.TokenType.Var:
@@ -227,7 +267,6 @@ namespace PragmaScript {
                                     }
                                 }
                             }
-
                         }
                         break;
                     case Token.TokenType.Module: {
@@ -256,44 +295,8 @@ namespace PragmaScript {
                             current = ps.NextToken();
                         }
                         break;
-                    case Token.TokenType.OpenSquareBracket: {
-                            ps.NextToken();
-
-                            while (true) {
-                                var key = parsePrimary(ref ps, scope) as AST.ConstString;
-                                if (key == null) {
-                                    throw new ParserError("Expected string constant in attribute", key.token);
-                                }
-
-                                string a_value = null;
-                                if (ps.PeekToken().type == Token.TokenType.Colon) {
-                                    ps.ExpectNextToken(Token.TokenType.Colon);
-                                    ps.NextToken();
-                                    var value = parsePrimary(ref ps, scope) as AST.ConstString;
-                                    if (value == null) {
-                                        throw new ParserError("Expected string constant in attribute", key.token);
-                                    }
-                                    a_value = value.Vebatim();
-                                }
-
-                                var a_key = key.Vebatim().ToUpper();
-                                if (ps.attribs == null) {
-                                    ps.attribs = new List<(string key, string value)>();
-                                }
-                                ps.attribs.Add((a_key, a_value));
-
-                                ps.ExpectNextToken(Token.TokenType.CloseSquareBracket, Token.TokenType.Comma);
-                                if (ps.CurrentToken().type == Token.TokenType.CloseSquareBracket) {
-                                    break;
-                                }
-                                ps.NextToken();
-                            }
-                            current = ps.NextToken();
-                            ps.foundAttrib = true;
-                        }
-                        break;
                 }
-            } while (ps.foundAttrib || foundWith);
+            } while (foundWith);
             if (result == null) {
                 throw new ParserError(string.Format("Unexpected token type: \"{0}\"", current.type), current);
             }
@@ -1320,6 +1323,7 @@ namespace PragmaScript {
         {
             // let
             var current = ps.ExpectCurrentToken(Token.TokenType.Let, Token.TokenType.Var);
+            
             bool isVar = current.type == Token.TokenType.Var;
             bool isLet = !isVar;
 
@@ -1462,20 +1466,34 @@ namespace PragmaScript {
             var result = new List<NamedParameter>();
             // let foo = stuct ( 
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
+            ps.NextToken();
 
-            var next = ps.PeekToken();
             bool firstOptionalParameter = false;
-            while (next.type != Token.TokenType.CloseBracket) {
-                var p = new AST.NamedParameter();
-                // let foo = struct ( x 
-                var at = ps.ExpectNextToken(Token.TokenType.Identifier, Token.TokenType.At);
+            while (ps.CurrentToken().type != Token.TokenType.CloseBracket) {
+                var current = ps.CurrentToken();
 
-                if (next.type == Token.TokenType.At) {
+                if (current.type == Token.TokenType.OpenSquareBracket) {
+                    parseAttributes(ref ps, scope);
+                }
+
+                var p = new AST.NamedParameter();
+                if (ps.attribs?.Count > 0) {
+                    if (ps.attribs.Any((kv) => kv.key == "VOLATILE")) {
+                        p.isVolatile = true;
+                    }
+                    // TODO(pragma): add the attributes somewhere?
+                    ps.attribs.Clear();
+                    ps.foundAttrib = false;
+                }
+                
+                // let foo = struct ( x 
+                current = ps.ExpectCurrentToken(Token.TokenType.Identifier, Token.TokenType.At);
+
+                if (current.type == Token.TokenType.At) {
                     p.embed = true;
                     ps.ExpectNextToken(Token.TokenType.Identifier);
                 }
                 var ident = ps.CurrentToken();
-
 
                 // let foo = struct ( x: 
                 ps.ExpectNextToken(Token.TokenType.Colon);
@@ -1483,7 +1501,6 @@ namespace PragmaScript {
                 // let foo = struct ( x: int32
                 ps.NextToken();
                 var ts = parseTypeString(ref ps, scope);
-
 
                 p.name = ident.text;
                 p.typeString = ts;
@@ -1500,17 +1517,16 @@ namespace PragmaScript {
                         throw new ParserError("Required parameter after optional parameters is not allowed.", ident);
                     }
                 }
-
-                // let foo = struct ( x: int32; ... 
-                if (ps.PeekToken().type == Token.TokenType.CloseBracket) {
-                    next = ps.PeekToken();
-                } else {
-                    next = ps.ExpectNextToken(Token.TokenType.Semicolon);
-                    next = ps.PeekToken();
+                current = ps.ExpectNextToken(Token.TokenType.Semicolon, Token.TokenType.CloseBracket);
+                if (current.type == Token.TokenType.Semicolon && ps.PeekToken().type == Token.TokenType.CloseBracket) {
+                    ps.NextToken();
+                    break;
+                };
+                if (current.type == Token.TokenType.CloseBracket) {
+                    break;
                 }
+                ps.NextToken();
             }
-            ps.NextToken();
-
             return result;
         }
 

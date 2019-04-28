@@ -473,6 +473,8 @@ let bvh_node = struct (
 	sphere_count: i32;
 );
 
+
+// http://psgraphics.blogspot.com/2019/03/making-your-bvh-faster.html
 let hit_bvh = fun(@bvh: bvh_node*; ray: ray*; time: f32) => hit_result {
 	var result = hit_result { };
 	if (hit_aabb(&aabb, ray, 0.01, 100000.0)) {
@@ -601,9 +603,9 @@ let create_bvh = fun(memory: memory_arena*; spheres: sphere**; sphere_count: i32
 	"compile.output": "raytracer.exe",
 	"compile.debuginfo": "true",
 	"compile.entry" : "true",
-	"compile.ll"    : "false",
+	"compile.ll"    : "true",
 	"compile.asm"   : "false",
- 	"compile.opt"   : "3",
+ 	"compile.opt"   : "0",
 	"compile.cpu"	: "native",
  	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",

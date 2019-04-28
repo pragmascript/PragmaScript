@@ -418,6 +418,14 @@
     let WAIT_FAILED: i32 = 0xFFFFFFFF;
     let WaitForSingleObject = extern fun (handle: mm; milliseconds: i32) => i32;
 
+    let ReleaseSemaphore = extern fun (handle: mm; lReleaseCount: i32; lpPreviousCount: i32*) => i32;
+    let CreateSemaphoreA = extern fun(
+      lpSemaphoreAttribures: ptr;
+      lInitialCount: i32;
+      lMaximumCount: i32;
+      lpName: i8*;
+    ) => mm;
+  
 
 
     let SwapBuffers = extern fun(hdc: mm) => i32;

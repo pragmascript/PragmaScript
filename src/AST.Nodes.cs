@@ -20,6 +20,7 @@ namespace PragmaScript {
             {
                 return defaultValueExpression != null;
             }
+            public bool isVolatile = false;
         }
 
         public abstract class Node
@@ -548,7 +549,6 @@ namespace PragmaScript {
             public StructDeclaration(Token t, Scope s)
                 : base(t, s)
             {
-                
             }
             public override Node DeepCloneTree()
             {
@@ -571,6 +571,9 @@ namespace PragmaScript {
             public override void Replace(Node old, Node @new)
             {
                 throw new NotImplementedException();
+            }
+            public NamedParameter GetField(string name) {
+                return fields.Where(f => f.name == name).FirstOrDefault();
             }
         }
 
@@ -837,9 +840,11 @@ namespace PragmaScript {
             {
                 return s;
             }
-            public string Vebatim()
+            public string Verbatim()
             {
-                return s.Substring(1, s.Length - 2);
+                var result = s.Substring(1, s.Length - 2);
+                result = result.Replace("\\\"", "\"");
+                return result;
             }
             public string ConvertString()
             {
@@ -964,6 +969,7 @@ namespace PragmaScript {
             public Node left;
             public string fieldName;
             public bool IsArrow = false;
+            public bool IsVolatile = false;
 
             public bool returnPointer { get; set; }
             public bool CanReturnPointer()
@@ -982,6 +988,7 @@ namespace PragmaScript {
                 result.left = left.DeepCloneTree();
                 result.fieldName = fieldName;
                 result.IsArrow = IsArrow;
+                result.IsVolatile = IsVolatile;
                 result.returnPointer = returnPointer;
                 return result;
             }

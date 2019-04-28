@@ -167,6 +167,21 @@ let memset = fun
 
 let CopyMemory = extern("RtlCopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
 
+let _WriteBarrier = fun() => void 
+{
+	__emit__("fence syncscope(\"singlethread\") seq_cst");
+}
+
+let _ReadBarrier = fun() => void 
+{
+	__emit__("fence syncscope(\"singlethread\") seq_cst");
+}
+
+let _ReadWriteBarrier = fun() => void 
+{
+	__emit__("fence syncscope(\"singlethread\") seq_cst");
+}
+
 // TODO(pragma): CopyMemory is not actually generated as a symbol because extern("bla") just creates "bla" as a symbol. So we
 // have to do this ugly workaround atm. Find a way to not have to do that, so let X = extern("Y") actually generate the 
 // symbol X?

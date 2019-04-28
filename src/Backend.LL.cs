@@ -586,6 +586,9 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                     Debug.Assert(!isConst);
                     AppendAssignSSA(v);
                     AP("load ");
+                    if (v.flags.HasFlag(SSAFlags.@volatile)) {
+                        AP("volatile ");
+                    }
                     AppendType(v.type);
                     AP(", ");
                     AppendArgument(v.args[0]);
@@ -773,6 +776,12 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                         } else {
                             throw new InvalidCodePath();
                         }
+                    }
+                    break;
+                case Op.CUSTOM_emit: {
+                        Indent();
+                        var emit = (Emit)v;
+                        AL(emit.instr);
                     }
                     break;
                 default:

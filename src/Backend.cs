@@ -1476,38 +1476,47 @@ namespace PragmaScript {
                     }
                     break;
                 case "len": {
-                    var at = (FrontendArrayType)typeChecker.GetNodeType(node.argumentList[0]);
-                    int length= -1;
-                    Debug.Assert(at.dims.Count > 0);
-                    Value result;
-                    if (at.dims.Count == 1) {
-                        length = at.dims.First();                  
-                        result = new ConstInt(mm_t, (ulong)length);
-                    } else {
-                        if (node.argumentList.Count > 1) {
-                            var data = new List<Value>();
-                            foreach (var d in at.dims) {
-                                data.Add(new ConstInt(mm_t, (ulong)d));
-                            }
-                            var arr = new ConstArray(new ArrayType(mm_t, (uint)data.Count), data);
-                            Visit(node.argumentList[1]);
-                            var idx = valueStack.Pop();
-                            if (!idx.isConst) {
-                                throw new ParserError("Argument 2 of \"len\" must be a compile-time constant.", node.argumentList[1].token);
-                            }
-                            result = builder.BuildExtractValue(arr, node, "len_extract", idx);
+                        var at = (FrontendArrayType)typeChecker.GetNodeType(node.argumentList[0]);
+                        int length= -1;
+                        Debug.Assert(at.dims.Count > 0);
+                        Value result;
+                        if (at.dims.Count == 1) {
+                            length = at.dims.First();                  
+                            result = new ConstInt(mm_t, (ulong)length);
                         } else {
-                            ulong mul = 1;
-                            foreach (var d in at.dims) {
-                                mul *= (ulong)d;
+                            if (node.argumentList.Count > 1) {
+                                var data = new List<Value>();
+                                foreach (var d in at.dims) {
+                                    data.Add(new ConstInt(mm_t, (ulong)d));
+                                }
+                                var arr = new ConstArray(new ArrayType(mm_t, (uint)data.Count), data);
+                                Visit(node.argumentList[1]);
+                                var idx = valueStack.Pop();
+                                if (!idx.isConst) {
+                                    throw new ParserError("Argument 2 of \"len\" must be a compile-time constant.", node.argumentList[1].token);
+                                }
+                                result = builder.BuildExtractValue(arr, node, "len_extract", idx);
+                            } else {
+                                ulong mul = 1;
+                                foreach (var d in at.dims) {
+                                    mul *= (ulong)d;
+                                }
+                                result = new ConstInt(mm_t, (ulong)mul);
                             }
-                            result = new ConstInt(mm_t, (ulong)mul);
                         }
-                        
+                        valueStack.Push(result);
                     }
-                    valueStack.Push(result);
-                }
-                break;
+                    break;
+                case "__emit__": {
+                        Debug.Assert(node.argumentList.Count == 1);
+                        var str = node.argumentList[0] as AST.ConstString;
+                        
+                        if (str == null) {
+                            throw new ParserError("Argument 1 of \"__emit__\" must be a compile-time constant string.", node.argumentList[0].token);
+                        }
+                        builder.BuildEmit(str.Verbatim(), node);
+                    }
+                    break;
 
                 default:
                     Debug.Assert(false);
@@ -1936,7 +1945,7 @@ namespace PragmaScript {
                     v = builder.BuildBitCast(v, sp, node, "hack_bitcast");
                 }
                 if (node.IsArrow) {
-                    v = builder.BuildLoad(v, node, "struct_arrow_load");
+                    v = builder.BuildLoad(v, node, name: "struct_arrow_load");
                 }
 
                 Value result;
@@ -1949,7 +1958,7 @@ namespace PragmaScript {
                     result = builder.BuildBitCast(result, be_nt, node, "hack_cast");
                 }
                 if (!node.returnPointer) {
-                    result = builder.BuildLoad(result, node, "struct_field");
+                    result = builder.BuildLoad(result, node, name: "struct_field", isVolatile: node.IsVolatile);
                 }
                 valueStack.Push(result);
 
@@ -1966,7 +1975,7 @@ namespace PragmaScript {
                         result = builder.BuildBitCast(result, be_nt, node, "hack_cast");
                     }
                     if (!node.returnPointer) {
-                        result = builder.BuildLoad(result, node, "struct_arrow");
+                        result = builder.BuildLoad(result, node, name: "struct_arrow", isVolatile: node.IsVolatile);
                     }
                 } else {
                     uint[] uindices = { (uint)idx };

@@ -332,10 +332,6 @@ namespace PragmaScript {
 
         void checkType(AST.FunctionDefinition node)
         {
-            if (node.token.Line == 3) {
-                int breakHere = 42;
-            }
-
             FrontendType tt = null;
             if (node.typeString != null) {
                 // node.typeString.fullyQualifiedName.name = node.funName;
@@ -853,6 +849,13 @@ namespace PragmaScript {
                 if (st.preResolved) {
                     addUnresolved(node, typeRoots[st]);
                 } else {
+                    if (typeRoots.TryGetValue(st, out var tr)) {
+                        // TODO(pragma): speed up linear search of field names
+                        var np = ((AST.StructDeclaration)tr).GetField(node.fieldName);
+                        
+                        node.IsVolatile = np.isVolatile;
+                    }
+                    // TODO(pragma): speed up linear search of field names
                     var field = st.GetField(node.fieldName);
                     if (field == null) {
                         throw new ParserError($"struct does not contain field \"{node.fieldName}\"", node.token);
