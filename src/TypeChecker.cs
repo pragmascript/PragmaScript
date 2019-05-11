@@ -851,8 +851,10 @@ namespace PragmaScript {
                     if (typeRoots.TryGetValue(st, out var tr)) {
                         // TODO(pragma): speed up linear search of field names
                         var np = ((AST.StructDeclaration)tr).GetField(node.fieldName);
-                        
-                        node.IsVolatile = np.isVolatile;
+                        if (np != null) 
+                        {
+                            node.IsVolatile = np.isVolatile;    
+                        }
                     }
                     // TODO(pragma): speed up linear search of field names
                     var field = st.GetField(node.fieldName);

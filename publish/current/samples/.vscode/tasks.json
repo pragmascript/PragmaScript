@@ -43,5 +43,42 @@
                 }
             ]
         }
+        ,
+        {
+            "label": "build release",
+            "type": "shell",
+            "command": "cmd.exe",
+            "group": "build",
+            "args": [
+                "/C",
+                "..\\bin\\pragma.exe",
+                "${file}"
+            ],
+            "problemMatcher": [
+                {
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
+                        "message": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    "applyTo": "allDocuments",
+                    "severity": "error"
+                },
+                {
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "(Assertion) failed at: \\(file \"(.*?)\".*?line (.*?),.*?pos (.*?)\\)",
+                        "message": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    "applyTo": "allDocuments"
+                }
+            ]
+        }
     ],
 }

@@ -237,14 +237,18 @@ namespace PragmaScript {
 
             do {
                 parseAttributes(ref ps, scope);
+                // TODO: IMPORTANT: CHANGE HOW ATTRIBS WORK WE NEED A STACK????
+                // attribs in recursive functions clear this so we clone it here
+                // HACK:
+                var attribs = ps.attribs?.ToList();
                 current = ps.CurrentToken();
                 foundWith = false;
                 switch (current.type) {
                     case Token.TokenType.Var:
                     case Token.TokenType.Let: {
                             result = parseLetVar(ref ps, scope, ref ignoreSemicolon);
-                            if (ps.attribs?.Count > 0) {
-                                foreach (var a in ps.attribs) {
+                            if (attribs?.Count > 0) {
+                                foreach (var a in attribs) {
                                     if (a.value != null) {
                                         result.AddAttribute(a.key, a.value);
                                     } else {
@@ -1332,7 +1336,7 @@ namespace PragmaScript {
 
             var result = new StructDeclaration(current, scope);
             result.name = id.text;
-
+            
             // let foo = 
             ps.ExpectNextToken(Token.TokenType.Assignment);
 

@@ -71,6 +71,26 @@ mod Math
 			return b;
 		}
 	}
+	
+	["READNONE"]
+	let max = fun(a: i32; b: i32) => i32 {
+		if (a > b) {
+			return a; 
+		} else {
+			return b;
+		}
+	}
+
+	["READNONE"]
+	let min = fun(a: i32; b: i32) => i32 {
+		if (a < b) {
+			return a;
+		} else {
+			return b;
+		}
+	}
+
+
 
 	let swap = fun (a: f32*; b: f32*) => void {
 		var temp = *a;

@@ -14,10 +14,10 @@ var temp_arena: memory_arena;
 
 ["PACKED"]
 let bmp_file_header = struct(
-	magic: i16;
-	size: i32;
-	reserverd: i32;
-	offset: i32;
+	magic: i16; // 2
+	size: i32;  // 4
+	reserverd: i32; // 4
+	offset: i32; // 4
 );
 
 let WriteBitmap = fun(file_name: string; pixels: i8*; width: i32; height: i32) => void {
@@ -100,16 +100,16 @@ let schlick = fun(cosine: f32; ior: f32) => f32 {
 	return r0 + (1-r0) * pow((1 - cosine), 5);
 }
 
-let scatter = fun(ray: ray*; hit: hit_result*; attenuation: v3*; scattered: ray*) => bool {
+let scatter = fun(ray: ray*; hit: hit_result*; attenuation: v3*; scattered: ray*; random_state: Random::State*) => bool {
 	var mat = hit.material;
 	if (mat.material_type == material_type::lambert) {
-		var target = add(hit.pos, add(hit.normal, random_in_unit_sphere()));
+		var target = add(hit.pos, add(hit.normal, random_in_unit_sphere(random_state)));
 		*scattered = ray {hit.pos, sub(target, hit.pos)};
 		*attenuation = mat.albedo;
 	}
 	elif (mat.material_type == material_type::metal) {
 		var reflected = reflect(normalized(ray.direction), hit.normal);
-		reflected = add(reflected, scaled(random_in_unit_sphere(), mat.roughness));
+		reflected = add(reflected, scaled(random_in_unit_sphere(random_state), mat.roughness));
 		*scattered = ray {hit.pos, reflected};
 		*attenuation = mat.albedo;
 		return (dot(scattered.direction, hit.normal) > 0);
@@ -137,7 +137,7 @@ let scatter = fun(ray: ray*; hit: hit_result*; attenuation: v3*; scattered: ray*
 		} else {
 			reflect_prob = 1.0;
 		}
-		if (Random::rand_f32() < reflect_prob) {
+		if (Random::rand_f32(0.0, 1.0, random_state) < reflect_prob) {
 			*scattered = ray {hit.pos, reflected};
 		} else {
 			*scattered = ray {hit.pos, refracted};
@@ -182,13 +182,13 @@ let hit_sphere = fun(@sphere: sphere*; ray: ray*; t_min: f32; t_max: f32; time: 
 	return result;
 }
 
-let random_in_unit_sphere = fun() => v3 {
+let random_in_unit_sphere = fun(random_state: Random::State*) => v3 {
 	var result: v3;
 	while (true) {
 		result = v3(
-			Random::rand_f32(-1.0, 1.0),
-			Random::rand_f32(-1.0, 1.0),
-			Random::rand_f32(-1.0, 1.0)
+			Random::rand_f32(-1.0, 1.0, random_state),
+			Random::rand_f32(-1.0, 1.0, random_state),
+			Random::rand_f32(-1.0, 1.0, random_state)
 		);
 		if (sqr_length(result) < 1.0) {
 			break;
@@ -210,14 +210,14 @@ let cast_ray = fun(@wolrd: world*; ray: ray*; time: f32) => hit_result {
 	return result;
 }
 
-let color = fun(ray : ray*; world: world*; time: f32; depth: i32 = 0) => v3 {
+let color = fun(ray : ray*; world: world*; time: f32; depth: i32; random_state: Random::State*) => v3 {
 	// var hit = cast_ray(world, ray, time);
 	var hit = hit_bvh(world.bvh, ray, time);
 	if (hit.is_hit) {
 		var attenuation: v3;
 		var scattered: ray;
-		if (depth < 50 && scatter(ray, &hit, &attenuation, &scattered)) {
-			return hadamard(color(&scattered, world, time, depth + 1), attenuation);
+		if (depth < 50 && scatter(ray, &hit, &attenuation, &scattered, random_state)) {
+			return hadamard(color(&scattered, world, time, depth + 1, random_state), attenuation);
 		} else {
 			return v3(0, 0, 0);
 		}
@@ -269,12 +269,12 @@ let create_camera = fun(pos: v3; target: v3; up: v3; fov: f32; aspect: f32; aper
 	return result;
 }
 
-let random_in_unit_disk = fun() => v3 {
+let random_in_unit_disk = fun(random_state: Random::State*) => v3 {
 	var result: v3;
 	while(true) {
 		result = v3(
-			Random::rand_f32(-1.0, 1.0),
-			Random::rand_f32(-1.0, 1.0),
+			Random::rand_f32(-1.0, 1.0, random_state),
+			Random::rand_f32(-1.0, 1.0, random_state),
 			0
 		);
 		if (dot(result, result) < 1.0) {
@@ -284,8 +284,8 @@ let random_in_unit_disk = fun() => v3 {
 	return result;
 }
 
-let get_camera_ray = fun(@camera: camera*; uu: f32; vv: f32) => ray {
-	var rand_disk = scaled(random_in_unit_disk(), camera.lens_radius);
+let get_camera_ray = fun(@camera: camera*; uu: f32; vv: f32; random_state: Random::State*) => ray {
+	var rand_disk = scaled(random_in_unit_disk(random_state), camera.lens_radius);
 	var offset = add(scaled(u, rand_disk.x), scaled(v, rand_disk.y));
 	var result: ray;
 	result.origin = add(camera.origin, offset);
@@ -599,47 +599,46 @@ let create_bvh = fun(memory: memory_arena*; spheres: sphere**; sphere_count: i32
 }
 
 
-[
-	"compile.output": "raytracer.exe",
-	"compile.debuginfo": "true",
-	"compile.entry" : "true",
-	"compile.ll"    : "true",
-	"compile.asm"   : "false",
- 	"compile.opt"   : "0",
-	"compile.cpu"	: "native",
- 	"compile.run"   : "false",
- 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
-]
-let main = fun () => void {
-	temp_arena = create_arena(megabytes(32));
-	let nx = 180*1;	
-	let ny = 90*1;
+let render_work = struct(
+	world: world*;
+	width: i32;
+	height: i32;
+	sample_count: i32;
+	line: ptr;
+	line_idx_first: i32;
+	line_idx_last: i32;
+	time_open_shutter: f32;
+	time_close_shutter: f32;
+);
+
+
+let render_line = fun(queue: work_queue*; data: ptr) => void {
+	var work = data@render_work*;
+	var sample_count = work.sample_count;
+	var temp_pixels = work.line;
+	var random_state = Random::State {};
+	var width = work.width;
+	var height = work.height;
+	var line_idx_first = work.line_idx_first;
+	var line_idx_last = work.line_idx_last;
+	var world = work.world;
+	var time_open_shutter = work.time_open_shutter;
+	var time_close_shutter = work.time_close_shutter;
+	Random::init_seed(work.line@i32, &random_state);
 	
-	var world = world { };
-	init_world(&world, &temp_arena, nx@f32/ny@f32);
-
-	var pixels: i8* = push(&temp_arena, (3 * nx * ny)@mm);
-	var temp_pixels = pixels;
-	let sub_sample_count = 1024;
-
-	var time_open_shutter = 0.0;
-	var time_close_shutter = 0.1;
-
-	for (var j = 0; j < ny; ++j) {
-		print(".");
-		for (var i = 0; i < nx; ++i) {
+	for (var line_idx = line_idx_first; line_idx <= line_idx_last; ++line_idx) {
+		for (var i = 0; i < width; ++i) {
 			var col = v3(0.0, 0.0, 0.0);
-			for (var ss = 0; ss < sub_sample_count; ++ss) {
-				var u = (i@f32 + Random::rand_f32(-0.5, 0.5)) / nx@f32;
-				var v = (j@f32 + Random::rand_f32(-0.5, 0.5)) / ny@f32;
+			for (var ss = 0; ss < sample_count; ++ss) {
+				var u = (i@f32 + Random::rand_f32(-0.5, 0.5, &random_state)) / width@f32;
+				var v = (line_idx@f32 + Random::rand_f32( -0.5, 0.5, &random_state)) / height@f32;
 				
-				var ray = get_camera_ray(&world.camera, u, v);
-				var time = Random::rand_f32(time_open_shutter, time_close_shutter);
-				var sample = color(&ray, &world, time, 0);
+				var ray = get_camera_ray(&world.camera, u, v, &random_state);
+				var time = Random::rand_f32(time_open_shutter, time_close_shutter, &random_state);
+				var sample = color(&ray, world, time, 0, &random_state);
 				col = add(&col, &sample);
 			}
-			col = scaled(&col, 1.0/sub_sample_count@f32);
+			col = scaled(&col, 1.0/sample_count@f32);
 			col.x = sqrt(col.x);
 			col.y = sqrt(col.y);
 			col.z = sqrt(col.z);
@@ -652,5 +651,89 @@ let main = fun () => void {
 			*temp_pixels++ = r_i8;
 		}
 	}
+}
+
+[
+	"compile.output": "raytracer.exe",
+	"compile.debuginfo": "false",
+	"compile.entry" : "true",
+	"compile.ll"    : "false",
+	"compile.asm"   : "false",
+ 	"compile.opt"   : "4",
+	"compile.cpu"	: "native",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void {
+	temp_arena = create_arena(megabytes(32));
+	// let nx = 180*6;	
+	// let ny = 90*6;
+	let nx = 3840;
+	let ny = 2160;
+	
+	var world = world { };
+	init_world(&world, &temp_arena, nx@f32/ny@f32);
+
+	var pixels: i8* = push(&temp_arena, (3 * nx * ny)@mm);
+	var temp_pixels = pixels;
+	let sub_sample_count = 256;
+
+	var time_open_shutter = 0.0;
+	var time_close_shutter = 0.1;
+	
+	var line_count_per_work_item = 16;
+	var work_item_count = round_to_i32(ceil(ny@f32 / line_count_per_work_item@f32));
+	var render_work: render_work* =  push(&temp_arena, @mm work_item_count * size_of(render_work))@render_work*;
+	var queue = work_queue { };
+	init_work_queue(&queue, 8);
+	
+	
+	for (var work_item_idx = 0; work_item_idx < work_item_count; ++work_item_idx) {
+		var line_idx = work_item_idx * line_count_per_work_item;
+		var line_count = min(line_count_per_work_item, ny - line_idx);
+		var rw = render_work {};
+		rw.world = &world;
+		rw.width = nx;
+		rw.height = ny;
+		rw.sample_count = sub_sample_count;
+		rw.line = pixels + 3 * nx * line_idx;
+		rw.line_idx_first = line_idx;
+		rw.line_idx_last = line_idx + line_count - 1;
+		rw.time_open_shutter = 0.0;
+		rw.time_close_shutter = 0.1;
+		*(render_work + work_item_idx) = rw;
+		add_entry(&queue, (render_work + work_item_idx)@ptr, render_line@work_queue_callback);
+	}
+	
+	wait_for_completion(&queue);
+
+	// for (var j = 0; j < ny; ++j) {
+	// 	print(".");
+	// 	for (var i = 0; i < nx; ++i) {
+	// 		var col = v3(0.0, 0.0, 0.0);
+	// 		for (var ss = 0; ss < sub_sample_count; ++ss) {
+	// 			var u = (i@f32 + Random::rand_f32(-0.5, 0.5)) / nx@f32;
+	// 			var v = (j@f32 + Random::rand_f32(-0.5, 0.5)) / ny@f32;
+				
+	// 			var ray = get_camera_ray(&world.camera, u, v);
+	// 			var time = Random::rand_f32(time_open_shutter, time_close_shutter);
+	// 			var sample = color(&ray, &world, time, 0);
+	// 			col = add(&col, &sample);
+	// 		}
+	// 		col = scaled(&col, 1.0/sub_sample_count@f32);
+	// 		col.x = sqrt(col.x);
+	// 		col.y = sqrt(col.y);
+	// 		col.z = sqrt(col.z);
+			
+	// 		var r_i8 = @i8 clamp(255.0 * col.x, 0, 255);
+	// 		var g_i8 = @i8 clamp(255.0 * col.y, 0, 255);
+	// 		var b_i8 = @i8 clamp(255.0 * col.z, 0, 255);
+	// 		*temp_pixels++ = b_i8;
+	// 		*temp_pixels++ = g_i8;
+	// 		*temp_pixels++ = r_i8;
+	// 	}
+	// }
 	WriteBitmap("output.bmp\0", pixels, nx, ny);
+	Windows::ExitProcess(0);
 }
