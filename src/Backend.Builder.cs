@@ -266,9 +266,12 @@ namespace PragmaScript {
                 AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            public Value BuildStore(Value v, Value ptr, AST.Node contextNode) {
+            public Value BuildStore(Value v, Value ptr, AST.Node contextNode, bool isVolatile = false) {
                 Debug.Assert(ptr.type.kind == TypeKind.Pointer);
                 var result = new Value(Op.Store, null, v, ptr);
+                if (isVolatile) {
+                    result.flags |= SSAFlags.@volatile;
+                }
                 AddOp(result, contextNode: contextNode);
                 return result;
             }
@@ -516,6 +519,25 @@ namespace PragmaScript {
             }
             public Value BuildEmit(string instr, AST.Node contextNode, string name = null) {
                 var result = new Emit(instr);
+                AddOp(result, name, contextNode: contextNode);
+                return result;
+            }
+            public Value BuildCmpxchg(Value dest, Value comperand, Value target, AST.Node contextNode, string name = null) {
+                    Debug.Assert(dest.type.kind == TypeKind.Pointer &&
+                        ((PointerType)dest.type).elementType.EqualType(target.type) &&
+                        ((PointerType)dest.type).elementType.EqualType(comperand.type));
+                    
+                    var resultType = new StructType(false);
+                    resultType.elementTypes.Add(target.type);
+                    resultType.elementTypes.Add(new IntegerType(1));
+                    var result = new Value(Op.Cmpxchg, resultType, dest, comperand, target);
+                    AddOp(result, name, contextNode: contextNode);
+                    return result;
+            }
+            public Value BuildAtomicRMW(Value ptr, Value value, AtomicRMWType rmwType, AST.Node contextNode, string name = null) {
+                Debug.Assert(ptr.type.kind == TypeKind.Pointer &&
+                    ((PointerType)ptr.type).elementType.EqualType(value.type));
+                var result = new AtomicRMW(ptr, value, rmwType);
                 AddOp(result, name, contextNode: contextNode);
                 return result;
             }

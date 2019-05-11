@@ -52,6 +52,7 @@ namespace PragmaScript {
                 f.parent = e.parent;
                 f.IsArrow = pt is FrontendPointerType;
                 f.returnPointer = e.returnPointer;
+                
 
                 FrontendStructType st;
                 if (pt is FrontendPointerType fpt) {
@@ -59,6 +60,9 @@ namespace PragmaScript {
                 } else {
                     st = pt as FrontendStructType;
                 }
+                var typeRoot = (AST.StructDeclaration)tc.GetTypeRoot(st);
+                f.IsVolatile = typeRoot.GetField(f.fieldName).isVolatile;
+                
                 Debug.Assert(st != null);
                 tc.ResolveNode(f, st.fields[vd.embeddingIdx].type);
                 vr.parent = f;

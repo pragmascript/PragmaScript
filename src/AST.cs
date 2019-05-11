@@ -65,6 +65,63 @@ namespace PragmaScript {
             emit.specialFun = true;
             emit.AddParam("instr", FrontendType.string_);
             scope.AddVar("__emit__", emit, Token.Undefined, isConst: true);
+            
+            {
+                var name = "atomic_compare_and_swap";
+                var sf = new FrontendFunctionType(name);
+                sf.returnType = FrontendType.i32;
+                sf.specialFun = true;
+                sf.AddParam("dest", new FrontendPointerType(sf.returnType));
+                sf.AddParam("target", sf.returnType);
+                sf.AddParam("comperand", sf.returnType);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "atomic_compare_and_swap";
+                var sf = new FrontendFunctionType(name);
+                sf.returnType = FrontendType.i64;
+                sf.specialFun = true;
+                sf.AddParam("dest", new FrontendPointerType(sf.returnType));
+                sf.AddParam("target", sf.returnType);
+                sf.AddParam("comperand", sf.returnType);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "atomic_add";
+                var sf = new FrontendFunctionType(name);
+                sf.returnType = FrontendType.i32;
+                sf.specialFun = true;
+                sf.AddParam("dest", new FrontendPointerType(sf.returnType));
+                sf.AddParam("value", sf.returnType);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "atomic_add";
+                var sf = new FrontendFunctionType(name);
+                sf.returnType = FrontendType.i64;
+                sf.specialFun = true;
+                sf.AddParam("dest", new FrontendPointerType(sf.returnType));
+                sf.AddParam("value", sf.returnType);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "atomic_sub";
+                var sf = new FrontendFunctionType(name);
+                sf.returnType = FrontendType.i32;
+                sf.specialFun = true;
+                sf.AddParam("dest", new FrontendPointerType(sf.returnType));
+                sf.AddParam("value", sf.returnType);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "atomic_sub";
+                var sf = new FrontendFunctionType(name);
+                sf.returnType = FrontendType.i64;
+                sf.specialFun = true;
+                sf.AddParam("dest", new FrontendPointerType(sf.returnType));
+                sf.AddParam("value", sf.returnType);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
         }
 
         public static Scope MakeRootScope()

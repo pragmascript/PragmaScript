@@ -552,7 +552,6 @@ namespace PragmaScript {
                 for (int i = 0; i < st.types.Count; ++i) {
                     f_type = st.types[i] as FrontendFunctionType;
                     if (f_type != null) {
-                        Debug.Assert(!f_type.specialFun);
                         if (node.argumentList.Count > f_type.parameters.Count) {
                             continue;
                         }

@@ -425,9 +425,8 @@
       lMaximumCount: i32;
       lpName: i8*;
     ) => mm;
+    
   
-
-
     let SwapBuffers = extern fun(hdc: mm) => i32;
     ["PACKED"]
     let PIXELFORMATDESCRIPTOR = struct(

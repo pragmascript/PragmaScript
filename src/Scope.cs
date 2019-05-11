@@ -189,7 +189,7 @@ namespace PragmaScript {
             Debug.Assert(@type != null);
 
             bool variablePresent = variables.ContainsKey(name);
-            if (variables.ContainsKey(name)) {
+            if (!allowOverloading && variables.ContainsKey(name)) {
                 throw new RedefinedVariable(name, t);
             }
 

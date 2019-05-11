@@ -571,10 +571,13 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                     break;
                 case Op.Store: {
                         Debug.Assert(!isConst);
-                        Indent();
-                        AP("store ");
                         var val = v.args[0];
                         var ptr = v.args[1];
+                        Indent();
+                        AP("store ");
+                        if (v.flags.HasFlag(SSAFlags.@volatile)) {
+                            AP("volatile ");
+                        }
                         AppendArgument(val);
                         AP(", ");
                         AppendArgument(ptr);
@@ -782,6 +785,36 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                         Indent();
                         var emit = (Emit)v;
                         AL(emit.instr);
+                    }
+                    break;
+                case Op.Cmpxchg: {
+                        Debug.Assert(!isConst);
+                        AppendAssignSSA(v);
+                        AP("cmpxchg volatile ");
+                        AppendArgument(v.args[0]);
+                        AP(", ");
+                        AppendArgument(v.args[1]);
+                        AP(", ");
+                        AppendArgument(v.args[2]);
+                        AP(" ");
+                        AP("seq_cst seq_cst");
+                        AppendDebugInfo(v);
+                        AL();
+                    }
+                    break;
+                case Op.AtomicRMW: {
+                        var armw = (AtomicRMW)v;
+                        Debug.Assert(!isConst);
+                        AppendAssignSSA(v);
+                        AP("atomicrmw volatile ");
+                        AP($"{armw.rmwType} ");
+                        AppendArgument(v.args[0]);
+                        AP(", ");
+                        AppendArgument(v.args[1]);
+                        AP(" ");
+                        AP("seq_cst");
+                        AppendDebugInfo(v);
+                        AL();
                     }
                     break;
                 default:

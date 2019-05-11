@@ -1395,6 +1395,7 @@ namespace PragmaScript {
             Visit(node.left);
             var target = valueStack.Pop();
             var targetType = target.type;
+            bool isVolatile = target.flags.HasFlag(SSAFlags.@volatile);
             // var targetTypeName = typeToString(targetType);
 
             Visit(node.right);
@@ -1406,7 +1407,7 @@ namespace PragmaScript {
             if (!et.EqualType(resultType)) {
                 target = builder.BuildBitCast(target, new PointerType(resultType), node, "hmpf");
             }
-            builder.BuildStore(result, target, node);
+            builder.BuildStore(result, target, node, isVolatile);
             valueStack.Push(result);
         }
 
@@ -1432,7 +1433,6 @@ namespace PragmaScript {
             if (!ov.IsOverloaded) {
                 vd = ov.First;
             } else {
-                // TODO(pragma):
                 vd = ov.variables[node.overloadedIdx];
             }
             // if variable is function paramter just return it immediately
@@ -1470,7 +1470,6 @@ namespace PragmaScript {
                         if (callsite != null) {
                             fp = callsite.token.FilePosBackendString();
                         }
-
                         s.s = fp;
                         Visit(s, false);
                     }
@@ -1517,7 +1516,42 @@ namespace PragmaScript {
                         builder.BuildEmit(str.Verbatim(), node);
                     }
                     break;
-
+                case "atomic_compare_and_swap":
+                    {
+                        Debug.Assert(node.argumentList.Count == 3);
+                        Visit(node.argumentList[0]);
+                        var dest = valueStack.Pop();
+                        Visit(node.argumentList[1]);
+                        var target = valueStack.Pop();
+                        Visit(node.argumentList[2]);
+                        var comperand = valueStack.Pop();
+                        var cmpxchg = builder.BuildCmpxchg(dest, comperand, target, node, "cmpxchg_tuple");
+                        var result = builder.BuildExtractValue(cmpxchg, node, "cmpxchg_prev_val", zero_i32_v);
+                        valueStack.Push(result);
+                    }
+                    break;
+                case "atomic_add":
+                    {
+                        Debug.Assert(node.argumentList.Count == 2);
+                        Visit(node.argumentList[0]);
+                        var ptr = valueStack.Pop();
+                        Visit(node.argumentList[1]);
+                        var value = valueStack.Pop();
+                        var result = builder.BuildAtomicRMW(ptr, value, AtomicRMWType.add, node, "atomic_add");
+                        valueStack.Push(result);
+                    }
+                    break;
+                case "atomic_sub":
+                    {
+                        Debug.Assert(node.argumentList.Count == 2);
+                        Visit(node.argumentList[0]);
+                        var ptr = valueStack.Pop();
+                        Visit(node.argumentList[1]);
+                        var value = valueStack.Pop();
+                        var result = builder.BuildAtomicRMW(ptr, value, AtomicRMWType.sub, node, "atomic_sub");
+                        valueStack.Push(result);
+                    }
+                    break;
                 default:
                     Debug.Assert(false);
                     break;
@@ -1539,6 +1573,13 @@ namespace PragmaScript {
                 var st = (FrontendSumType)typeChecker.GetNodeType(node.left);
                 var vr = (AST.VariableReference)node.left;
                 feft = (FrontendFunctionType)st.types[vr.overloadedIdx];
+                if (feft.specialFun) {
+                    VisitSpecialFunction(node, feft);
+                    return;
+                }
+                if (feft.inactiveConditional) {
+                    return;
+                }
             }
 
             Visit(node.left);
@@ -1959,6 +2000,10 @@ namespace PragmaScript {
                 }
                 if (!node.returnPointer) {
                     result = builder.BuildLoad(result, node, name: "struct_field", isVolatile: node.IsVolatile);
+                } else {
+                    if (node.IsVolatile) {
+                        result.flags |= SSAFlags.@volatile;
+                    }
                 }
                 valueStack.Push(result);
 
@@ -1976,6 +2021,10 @@ namespace PragmaScript {
                     }
                     if (!node.returnPointer) {
                         result = builder.BuildLoad(result, node, name: "struct_arrow", isVolatile: node.IsVolatile);
+                    } else {
+                        if (node.IsVolatile) {
+                            result.flags |= SSAFlags.@volatile;
+                        }
                     }
                 } else {
                     uint[] uindices = { (uint)idx };

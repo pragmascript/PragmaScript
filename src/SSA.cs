@@ -50,6 +50,10 @@ namespace PragmaScript {
             FunctionArgument,
             ExtractValue,
             
+            Cmpxchg,
+            AtomicRMW,
+            
+            
             CUSTOM_emit, 
         }
 
@@ -72,8 +76,16 @@ namespace PragmaScript {
             X86_MMX,
             Token
         }
-
-
+        
+        public enum AtomicRMWType {
+            xchg, add, sub, and, nand, or, xor, max, min, umax, umin, fadd, fsub
+        }
+        public enum IcmpType {
+            eq, ne, ugt, uge, ult, ule, sgt, sge, slt, sle
+        }
+        public enum FcmpType {
+            @false, oeq, ogt, oge, olt, ole, one, ord, ueq, ugt, uge, ult, ule, une, uno, @true
+        }
 
         public class Module {
             public Block globals;
@@ -288,13 +300,6 @@ namespace PragmaScript {
             }
         }
 
-        public enum IcmpType {
-            eq, ne, ugt, uge, ult, ule, sgt, sge, slt, sle
-        }
-        public enum FcmpType {
-            @false, oeq, ogt, oge, olt, ole, one, ord, ueq, ugt, uge, ult, ule, une, uno, @true
-        }
-
         [Flags]
         public enum SSAFlags {
             none      = 1 << 0,
@@ -303,8 +308,8 @@ namespace PragmaScript {
 
         public class Value {
             public AST.Node debugContextNode;
-            public Op op;
             public SSAType type;
+            public Op op;
             public List<Value> args;
             public string name;
             public bool isConst = false;
@@ -585,7 +590,18 @@ namespace PragmaScript {
                 this.instr = instr;
             }
         }
-
+        
+        public class AtomicRMW: Value {
+            public AtomicRMWType rmwType;
+            public AtomicRMW(Value ptr, Value value, AtomicRMWType type):
+                base(Op.AtomicRMW, value.type, ptr, value)
+            {
+                rmwType = type;
+                Debug.Assert(ptr.type.kind == TypeKind.Pointer);
+                Debug.Assert(((PointerType)ptr.type).elementType.EqualType(value.type));
+            }
+        }
+        
 
         public class Const {
             const int NATIVE_POINTER_WIDTH = 64;
@@ -686,6 +702,7 @@ namespace PragmaScript {
                 var result = new StructType(false);
                 result.elementTypes.Add(Const.i32_t);
                 result.elementTypes.Add(new PointerType(getTypeRef(t.elementType, depth)));
+                
                 return result;
             }
             static SSAType getTypeRef(FrontendPointerType t, int depth) {
