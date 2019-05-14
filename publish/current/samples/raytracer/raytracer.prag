@@ -657,11 +657,11 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	"compile.output": "raytracer.exe",
 	"compile.debuginfo": "false",
 	"compile.entry" : "true",
-	"compile.ll"    : "false",
+	"compile.ll"    : "true",
 	"compile.asm"   : "false",
  	"compile.opt"   : "4",
 	"compile.cpu"	: "native",
- 	"compile.run"   : "true",
+ 	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
@@ -669,15 +669,17 @@ let main = fun () => void {
 	temp_arena = create_arena(megabytes(32));
 	// let nx = 180*6;	
 	// let ny = 90*6;
-	let nx = 3840;
-	let ny = 2160;
+	// let nx = 1280;
+	// let ny = 720;
+	let nx = 1920;
+	let ny = 1080;
 	
 	var world = world { };
 	init_world(&world, &temp_arena, nx@f32/ny@f32);
 
 	var pixels: i8* = push(&temp_arena, (3 * nx * ny)@mm);
 	var temp_pixels = pixels;
-	let sub_sample_count = 256;
+	let sub_sample_count = 64;
 
 	var time_open_shutter = 0.0;
 	var time_close_shutter = 0.1;
@@ -687,8 +689,7 @@ let main = fun () => void {
 	var render_work: render_work* =  push(&temp_arena, @mm work_item_count * size_of(render_work))@render_work*;
 	var queue = work_queue { };
 	init_work_queue(&queue, 8);
-	
-	
+
 	for (var work_item_idx = 0; work_item_idx < work_item_count; ++work_item_idx) {
 		var line_idx = work_item_idx * line_count_per_work_item;
 		var line_count = min(line_count_per_work_item, ny - line_idx);

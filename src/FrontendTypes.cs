@@ -11,7 +11,6 @@ namespace PragmaScript {
         public static readonly FrontendType i16 = new FrontendType("i16");
         public static readonly FrontendType i32 = new FrontendType("i32");
         public static readonly FrontendType i64 = new FrontendType("i64");
-
         public static readonly FrontendType f32 = new FrontendType("f32");
         public static readonly FrontendType f64 = new FrontendType("f64");
         public static readonly FrontendType bool_ = new FrontendType("bool");

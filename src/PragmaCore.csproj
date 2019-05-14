@@ -2,11 +2,16 @@
   <PropertyGroup>
     <AssemblyName>pragma</AssemblyName>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
     <RuntimeIdentifier>win7-x64</RuntimeIdentifier>
     <DefineConstants>DISPLAY_TIMINGS</DefineConstants>
     <StartupObject></StartupObject>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(CompileConfig)' == 'Release'" >
+    <Optimization>true</Optimization>
+    <DebugSymbols>false</DebugSymbols>
+  <DebugType>portable</DebugType>
+</PropertyGroup>
   <Target Name="MyPostCompileTarget1" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Exec Command="python postbuild.py -release" />
   </Target>

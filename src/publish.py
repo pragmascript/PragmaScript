@@ -11,8 +11,8 @@ cwd = os.getcwd()
 def nj(*paths):
     return os.path.normpath(os.path.join(*paths)) 
 call("dotnet clean -c release")
-call("dotnet publish -c release -r win7-x64")
-binPath = nj(cwd, "bin/Release/netcoreapp2.0/win7-x64/publish")
+call("dotnet publish -c release -r win7-x64 /p:PublishSingleFile=true")
+binPath = nj(cwd, "bin/Release/netcoreapp3.0/win7-x64/publish")
 publishPath = nj(cwd, "../publish/pragma")
 
 copytree(binPath, nj(publishPath, "bin"))
