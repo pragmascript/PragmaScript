@@ -43,6 +43,10 @@ namespace PragmaScript {
             scope.AddType(FrontendType.bool_, token);
             scope.AddTypeAlias(FrontendType.string_, token, "string");
             scope.AddTypeAlias(FrontendType.ptr, token, "ptr");
+            scope.AddTypeAlias(FrontendType.v4, token, "v4");
+            scope.AddTypeAlias(FrontendType.v8, token, "v8");
+            scope.AddTypeAlias(FrontendType.v4i, token, "v4i");
+            scope.AddTypeAlias(FrontendType.v8i, token, "v8i");
             scope.AddType(FrontendType.void_, token);
         }
 

@@ -1,6 +1,5 @@
 {
     "version": "0.1.0",
-    
     "tasks": [
         {
             "command": "dotnet",
@@ -9,7 +8,8 @@
             "isShellCommand": true,
             "args": [
                 "build",
-                "-c", "release"
+                "-c",
+                "debug"
             ],
             "isBuildCommand": true,
             "problemMatcher": "$msCompile"

@@ -100,7 +100,7 @@ let schlick = fun(cosine: f32; ior: f32) => f32 {
 	return r0 + (1-r0) * pow((1 - cosine), 5);
 }
 
-let scatter = fun(ray: ray*; hit: hit_result*; attenuation: v3*; scattered: ray*; random_state: Random::State*) => bool {
+let scatter = fun(ray: ray*; hit: hit_result*; attenuation: v3*; scattered: ray*; random_state: Random::state*) => bool {
 	var mat = hit.material;
 	if (mat.material_type == material_type::lambert) {
 		var target = add(hit.pos, add(hit.normal, random_in_unit_sphere(random_state)));
@@ -182,7 +182,7 @@ let hit_sphere = fun(@sphere: sphere*; ray: ray*; t_min: f32; t_max: f32; time: 
 	return result;
 }
 
-let random_in_unit_sphere = fun(random_state: Random::State*) => v3 {
+let random_in_unit_sphere = fun(random_state: Random::state*) => v3 {
 	var result: v3;
 	while (true) {
 		result = v3(
@@ -210,7 +210,7 @@ let cast_ray = fun(@wolrd: world*; ray: ray*; time: f32) => hit_result {
 	return result;
 }
 
-let color = fun(ray : ray*; world: world*; time: f32; depth: i32; random_state: Random::State*) => v3 {
+let color = fun(ray : ray*; world: world*; time: f32; depth: i32; random_state: Random::state*) => v3 {
 	// var hit = cast_ray(world, ray, time);
 	var hit = hit_bvh(world.bvh, ray, time);
 	if (hit.is_hit) {
@@ -269,7 +269,7 @@ let create_camera = fun(pos: v3; target: v3; up: v3; fov: f32; aspect: f32; aper
 	return result;
 }
 
-let random_in_unit_disk = fun(random_state: Random::State*) => v3 {
+let random_in_unit_disk = fun(random_state: Random::state*) => v3 {
 	var result: v3;
 	while(true) {
 		result = v3(
@@ -284,7 +284,7 @@ let random_in_unit_disk = fun(random_state: Random::State*) => v3 {
 	return result;
 }
 
-let get_camera_ray = fun(@camera: camera*; uu: f32; vv: f32; random_state: Random::State*) => ray {
+let get_camera_ray = fun(@camera: camera*; uu: f32; vv: f32; random_state: Random::state*) => ray {
 	var rand_disk = scaled(random_in_unit_disk(random_state), camera.lens_radius);
 	var offset = add(scaled(u, rand_disk.x), scaled(v, rand_disk.y));
 	var result: ray;
@@ -616,7 +616,7 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	var work = data@render_work*;
 	var sample_count = work.sample_count;
 	var temp_pixels = work.line;
-	var random_state = Random::State {};
+	var random_state = Random::state {};
 	var width = work.width;
 	var height = work.height;
 	var line_idx_first = work.line_idx_first;
@@ -661,30 +661,33 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	"compile.asm"   : "false",
  	"compile.opt"   : "4",
 	"compile.cpu"	: "native",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
+	print("foo");
 	temp_arena = create_arena(megabytes(32));
 	// let nx = 180*6;	
 	// let ny = 90*6;
-	// let nx = 1280;
-	// let ny = 720;
-	let nx = 1920;
-	let ny = 1080;
+	let nx = 1280;
+	let ny = 720;
+	// let nx = 1920;
+	// let ny = 1080;
+	// let nx = 1920;
+	// let ny = 1080;
 	
 	var world = world { };
 	init_world(&world, &temp_arena, nx@f32/ny@f32);
 
 	var pixels: i8* = push(&temp_arena, (3 * nx * ny)@mm);
 	var temp_pixels = pixels;
-	let sub_sample_count = 64;
+	let sub_sample_count = 4;
 
 	var time_open_shutter = 0.0;
 	var time_close_shutter = 0.1;
 	
-	var line_count_per_work_item = 16;
+	var line_count_per_work_item = 4;
 	var work_item_count = round_to_i32(ceil(ny@f32 / line_count_per_work_item@f32));
 	var render_work: render_work* =  push(&temp_arena, @mm work_item_count * size_of(render_work))@render_work*;
 	var queue = work_queue { };

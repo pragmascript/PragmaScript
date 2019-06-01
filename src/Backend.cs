@@ -7,8 +7,10 @@ using System.Linq;
 using static PragmaScript.SSA;
 using static PragmaScript.SSA.Const;
 
-namespace PragmaScript {
-    partial class Backend {
+namespace PragmaScript
+{
+    partial class Backend
+    {
         TypeChecker typeChecker;
         Dictionary<Scope.VariableDefinition, Value> variables = new Dictionary<Scope.VariableDefinition, Value>();
         Stack<Value> valueStack = new Stack<Value>();
@@ -17,7 +19,8 @@ namespace PragmaScript {
         Dictionary<FunctionAttribs, int> functionAttribs;
         string exeDir;
 
-        public Backend(TypeChecker typeChecker) {
+        public Backend(TypeChecker typeChecker)
+        {
             functionAttribs = new Dictionary<FunctionAttribs, int>();
             this.typeChecker = typeChecker;
             mod = new Module();
@@ -26,9 +29,10 @@ namespace PragmaScript {
             functionAttribs.Add(FunctionAttribs.nounwind, 0);
         }
 
-        public void AOT() {
+        public void AOT()
+        {
 
-            
+
 
 #if DISPLAY_TIMINGS
             var timer = new Stopwatch();
@@ -53,7 +57,8 @@ namespace PragmaScript {
             Directory.CreateDirectory(outputTempDir);
             Directory.CreateDirectory(outputBinDir);
 
-            if (CompilerOptions.ll) {
+            if (CompilerOptions.ll)
+            {
                 File.WriteAllText(outputTemp + ".ll", ll);
             }
             var bufferSize = 100 * 1024 * 1024;
@@ -70,28 +75,32 @@ namespace PragmaScript {
             bool error = false;
 
             bool use_fast_flags = false;
-            if (optLevel > 3) {
+            if (optLevel > 3)
+            {
                 optLevel = 3;
                 use_fast_flags = true;
             }
 
 
-            if (optLevel > 0) {
+            if (optLevel > 0)
+            {
                 var opt_string = !use_fast_flags ? optLevel.ToString() : "fast";
                 Console.WriteLine($"optimizer... (O{opt_string})");
                 var optProcess = new Process();
                 optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
 
                 var fast_flags = "";
-                if (use_fast_flags) {
+                if (use_fast_flags)
+                {
                     fast_flags = "-enable-no-infs-fp-math -enable-no-nans-fp-math -enable-no-signed-zeros-fp-math -enable-unsafe-fp-math -enable-no-trapping-fp-math -fp-contract=fast ";
                 }
-                if (CompilerOptions.ll) {
+                if (CompilerOptions.ll)
+                {
                     optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} {fast_flags}-march={arch} -mcpu={mcpu} -S -o {oxt("_opt.ll")}";
                     optProcess.StartInfo.RedirectStandardInput = false;
                     optProcess.StartInfo.RedirectStandardOutput = false;
                     optProcess.StartInfo.UseShellExecute = false;
-                    
+
 #if false
                     System.Console.WriteLine("***************************************");
                     System.Console.WriteLine($"opt: {optProcess.StartInfo.FileName}");
@@ -101,7 +110,9 @@ namespace PragmaScript {
 
                     optProcess.Start();
                     optProcess.WaitForExit();
-                } else {
+                }
+                else
+                {
                     optProcess.StartInfo.Arguments = $"-O{optLevel} {fast_flags}-march={arch} -mcpu={mcpu} -f";
                     optProcess.StartInfo.RedirectStandardInput = true;
                     optProcess.StartInfo.RedirectStandardOutput = true;
@@ -123,36 +134,43 @@ namespace PragmaScript {
 
                     var pos = 0;
                     var count = 0;
-                    while (true) {
+                    while (true)
+                    {
                         var bytes_read = reader.BaseStream.Read(buffer, pos, buffer.Length - count);
                         pos += bytes_read;
                         count += bytes_read;
-                        if (bytes_read == 0) {
+                        if (bytes_read == 0)
+                        {
                             break;
                         }
                     }
                     Debug.Assert(count < buffer.Length);
                     reader.Close();
                     bufferSize = count;
-                    if (CompilerOptions.bc) {
+                    if (CompilerOptions.bc)
+                    {
                         File.WriteAllBytes(oxt("_opt.bc"), buffer.Take(bufferSize).ToArray());
                     }
                     optProcess.WaitForExit();
                 }
-                if (optProcess.ExitCode != 0) {
+                if (optProcess.ExitCode != 0)
+                {
                     error = true;
                 }
                 optProcess.Close();
             }
             var inp = oxt("_opt.ll");
-            if (optLevel == 0) {
+            if (optLevel == 0)
+            {
                 inp = oxt(".ll");
             }
-            if (!error && CompilerOptions.asm) {
+            if (!error && CompilerOptions.asm)
+            {
                 Console.WriteLine("assembler...(debug)");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                if (CompilerOptions.ll) {
+                if (CompilerOptions.ll)
+                {
                     llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=asm -o {oxt(".asm")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
@@ -166,7 +184,9 @@ namespace PragmaScript {
 
                     llcProcess.Start();
                     llcProcess.WaitForExit();
-                } else {
+                }
+                else
+                {
                     llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu={mcpu} -filetype=asm -o {oxt(".asm")}";
                     llcProcess.StartInfo.RedirectStandardInput = true;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
@@ -179,25 +199,31 @@ namespace PragmaScript {
 #endif
                     llcProcess.Start();
                     var writer = llcProcess.StandardInput;
-                    if (optLevel > 0) {
+                    if (optLevel > 0)
+                    {
                         writer.BaseStream.Write(buffer, 0, bufferSize);
-                    } else {
+                    }
+                    else
+                    {
                         writer.Write(ll);
                     }
                     writer.Close();
                     llcProcess.WaitForExit();
                 }
 
-                if (llcProcess.ExitCode != 0) {
+                if (llcProcess.ExitCode != 0)
+                {
                     error = true;
                 }
                 llcProcess.Close();
             }
-            if (!error) {
+            if (!error)
+            {
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                if (CompilerOptions.ll) {
+                if (CompilerOptions.ll)
+                {
                     llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=obj -o {oxt(".o")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
@@ -211,7 +237,9 @@ namespace PragmaScript {
 
                     llcProcess.Start();
                     llcProcess.WaitForExit();
-                } else {
+                }
+                else
+                {
                     llcProcess.StartInfo.Arguments = $"-O{optLevel} -march={arch} -mcpu={mcpu} -filetype=obj -o {oxt(".o")}";
                     llcProcess.StartInfo.RedirectStandardInput = true;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
@@ -224,20 +252,25 @@ namespace PragmaScript {
 #endif
                     llcProcess.Start();
                     var writer = llcProcess.StandardInput;
-                    if (optLevel > 0) {
+                    if (optLevel > 0)
+                    {
                         writer.BaseStream.Write(buffer, 0, bufferSize);
-                    } else {
+                    }
+                    else
+                    {
                         writer.Write(ll);
                     }
                     writer.Close();
                     llcProcess.WaitForExit();
                 }
-                if (llcProcess.ExitCode != 0) {
+                if (llcProcess.ExitCode != 0)
+                {
                     error = true;
                 }
                 llcProcess.Close();
             }
-            if (!error) {
+            if (!error)
+            {
                 var libs = String.Join(" ", CompilerOptions.libs);
                 var lib_path = String.Join(" /libpath:", CompilerOptions.lib_path.Select(s => "\"" + s + "\""));
                 Console.WriteLine("linker...");
@@ -245,12 +278,16 @@ namespace PragmaScript {
 
                 lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
                 var flags = "/entry:__init";
-                if (CompilerOptions.dll) {
+                if (CompilerOptions.dll)
+                {
                     flags += $" /NODEFAULTLIB /dll /out:{ox(".dll")}";
-                } else {
+                }
+                else
+                {
                     flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
                 }
-                if (CompilerOptions.debug) {
+                if (CompilerOptions.debug)
+                {
                     flags += " /DEBUG";
                 }
 
@@ -266,7 +303,8 @@ namespace PragmaScript {
 #endif
                 lldProcess.Start();
                 lldProcess.WaitForExit();
-                if (lldProcess.ExitCode != 0) {
+                if (lldProcess.ExitCode != 0)
+                {
                     error = true;
                 }
                 lldProcess.Close();
@@ -277,7 +315,8 @@ namespace PragmaScript {
             Console.WriteLine($"backend llvm time: {timer.ElapsedMilliseconds}ms");
 #endif
 
-            if (!error && CompilerOptions.runAfterCompile) {
+            if (!error && CompilerOptions.runAfterCompile)
+            {
                 Console.WriteLine("running...");
                 var outputProcess = new Process();
                 outputProcess.StartInfo.WorkingDirectory = outputBinDir;
@@ -288,7 +327,8 @@ namespace PragmaScript {
                 outputProcess.StartInfo.UseShellExecute = false;
                 outputProcess.Start();
                 outputProcess.WaitForExit();
-                if (outputProcess.ExitCode != 0) {
+                if (outputProcess.ExitCode != 0)
+                {
                     error = true;
                 }
                 outputProcess.Close();
@@ -298,31 +338,39 @@ namespace PragmaScript {
 
         }
 
-        public string RelDir(string dir) {
+        public string RelDir(string dir)
+        {
             string result = Path.Combine(exeDir, dir);
             return result;
         }
 
-        static bool isConstVariableDefinition(AST.Node node) {
-            if (node is AST.VariableDefinition vd) {
+        static bool isConstVariableDefinition(AST.Node node)
+        {
+            if (node is AST.VariableDefinition vd)
+            {
                 return vd.variable.isConstant;
             }
             return false;
         }
 
-        static bool isGlobalVariableDefinition(AST.Node node) {
-            if (node is AST.VariableDefinition vd) {
+        static bool isGlobalVariableDefinition(AST.Node node)
+        {
+            if (node is AST.VariableDefinition vd)
+            {
                 return vd.variable.isGlobal;
             }
             return false;
         }
 
-        public void Visit(AST.ProgramRoot node, AST.FunctionDefinition main) {
+        public void Visit(AST.ProgramRoot node, AST.FunctionDefinition main)
+        {
             // HACK:
             AST.FileRoot merge = new AST.FileRoot(Token.Undefined, node.scope);
             merge.parent = node;
-            foreach (var fr in node.files) {
-                foreach (var decl in fr.declarations) {
+            foreach (var fr in node.files)
+            {
+                foreach (var decl in fr.declarations)
+                {
                     merge.declarations.Add(decl);
                 }
             }
@@ -331,7 +379,8 @@ namespace PragmaScript {
 
 
 
-        public void Visit(AST.FileRoot node, AST.FunctionDefinition main) {
+        public void Visit(AST.FileRoot node, AST.FunctionDefinition main)
+        {
             var constVariables = new List<AST.Node>();
             var enumDeclarations = new List<AST.Node>();
             var functionDefinitions = new List<AST.Node>();
@@ -340,30 +389,46 @@ namespace PragmaScript {
             var other = new List<AST.Node>();
 
             // visit function definitions make prototypes
-            foreach (var decl in node.declarations) {
+            foreach (var decl in node.declarations)
+            {
 
-                if (isConstVariableDefinition(decl)) {
+                if (isConstVariableDefinition(decl))
+                {
                     constVariables.Add(decl);
-                } else if (isGlobalVariableDefinition(decl)) {
+                }
+                else if (isGlobalVariableDefinition(decl))
+                {
                     globalVariables.Add(decl);
-                } else if (decl is AST.FunctionDefinition) {
+                }
+                else if (decl is AST.FunctionDefinition)
+                {
                     functionDefinitions.Add(decl);
-                    if (!(decl as AST.FunctionDefinition).external) {
+                    if (!(decl as AST.FunctionDefinition).external)
+                    {
                         other.Add(decl);
                     }
-                } else if (decl is AST.EnumDeclaration) {
+                }
+                else if (decl is AST.EnumDeclaration)
+                {
                     enumDeclarations.Add(decl);
-                } else if (decl is AST.Module ns) {
+                }
+                else if (decl is AST.Module ns)
+                {
                     modules.Add(ns);
-                } else {
+                }
+                else
+                {
                     other.Add(decl);
                 }
             }
 
             FunctionType ft;
-            if (CompilerOptions.dll) {
+            if (CompilerOptions.dll)
+            {
                 ft = new FunctionType(i32_t, mm_t, i32_t, ptr_t);
-            } else {
+            }
+            else
+            {
                 ft = new FunctionType(void_t);
             }
 
@@ -385,39 +450,50 @@ namespace PragmaScript {
             // var blockTemp = builder.GetInsertBlock();
             builder.PositionAtEnd(entry);
 
-            
-            foreach (var decl in functionDefinitions) {
+
+            foreach (var decl in functionDefinitions)
+            {
                 Visit(decl as AST.FunctionDefinition, proto: true);
             }
-            foreach (var decl in constVariables) {
+            foreach (var decl in constVariables)
+            {
                 Visit(decl as AST.VariableDefinition);
             }
-            foreach (var decl in enumDeclarations) {
+            foreach (var decl in enumDeclarations)
+            {
                 Visit(decl as AST.EnumDeclaration);
             }
-            foreach (var decl in globalVariables) {
+            foreach (var decl in globalVariables)
+            {
                 Visit(decl as AST.VariableDefinition);
             }
-            foreach (var ns in modules) {
+            foreach (var ns in modules)
+            {
                 Visit(ns, definitions: true);
             }
-            foreach (var decl in other) {
+            foreach (var decl in other)
+            {
                 Visit(decl);
             }
-            foreach (var ns in modules) {
+            foreach (var ns in modules)
+            {
                 Visit(ns, definitions: false);
-            } 
+            }
 
             builder.PositionAtEnd(entry);
 
-            if (main != null) {
+            if (main != null)
+            {
                 var mf = variables[main.scope.GetVar(main.funName, main.token).First];
                 builder.BuildCall(mf, node);
             }
 
-            if (CompilerOptions.dll) {
+            if (CompilerOptions.dll)
+            {
                 builder.BuildRet(one_i32_v, node);
-            } else {
+            }
+            else
+            {
                 builder.BuildRet(void_v, node);
             }
             builder.PositionAtEnd(vars);
@@ -427,7 +503,8 @@ namespace PragmaScript {
 
 
         // TODO(pragma): avoid calling this twice?
-        public void Visit(AST.Module node, bool definitions = false) {
+        public void Visit(AST.Module node, bool definitions = false)
+        {
             var functionDefinitions = new List<AST.Node>();
             var constVariables = new List<AST.Node>();
             var enumDeclarations = new List<AST.Node>();
@@ -436,85 +513,118 @@ namespace PragmaScript {
             var other = new List<AST.Node>();
 
             // visit function definitions make prototypes
-            foreach (var decl in node.declarations) {
-                if (decl is AST.VariableDefinition vd) {
-                    if (vd.variable.isConstant) {
+            foreach (var decl in node.declarations)
+            {
+                if (decl is AST.VariableDefinition vd)
+                {
+                    if (vd.variable.isConstant)
+                    {
                         constVariables.Add(decl);
-                    } else {
+                    }
+                    else
+                    {
                         variables.Add(decl);
                     }
-                } else if (decl is AST.FunctionDefinition) {
+                }
+                else if (decl is AST.FunctionDefinition)
+                {
                     functionDefinitions.Add(decl);
-                    if (!(decl as AST.FunctionDefinition).external) {
+                    if (!(decl as AST.FunctionDefinition).external)
+                    {
                         other.Add(decl);
                     }
-                } else if (decl is AST.Module ns) {
+                }
+                else if (decl is AST.Module ns)
+                {
                     modules.Add(ns);
-                } else if (decl is AST.EnumDeclaration) {
+                }
+                else if (decl is AST.EnumDeclaration)
+                {
                     enumDeclarations.Add(decl);
-                } else {
+                }
+                else
+                {
                     other.Add(decl);
                 }
             }
-            if (definitions) {
-                foreach (var decl in functionDefinitions) {
+            if (definitions)
+            {
+                foreach (var decl in functionDefinitions)
+                {
                     Visit(decl as AST.FunctionDefinition, proto: true);
                 }
-                foreach (var decl in constVariables) {
+                foreach (var decl in constVariables)
+                {
                     Visit(decl as AST.VariableDefinition);
                 }
-                foreach (var decl in enumDeclarations) {
+                foreach (var decl in enumDeclarations)
+                {
                     Visit(decl as AST.EnumDeclaration);
                 }
-                foreach (var decl in variables) {
+                foreach (var decl in variables)
+                {
                     Visit(decl as AST.VariableDefinition);
                 }
-                foreach (var ms in modules) {
+                foreach (var ms in modules)
+                {
                     Visit(ms, definitions: true);
                 }
-            } else {
-                foreach (var decl in other) {
+            }
+            else
+            {
+                foreach (var decl in other)
+                {
                     Visit(decl);
                 }
-                foreach (var ms in modules) {
+                foreach (var ms in modules)
+                {
                     Visit(ms, definitions: false);
                 }
             }
         }
 
-        public void Visit(AST.ConstInt node) {
+        public void Visit(AST.ConstInt node)
+        {
             var nt = typeChecker.GetNodeType(node);
             var ct = GetTypeRef(nt);
             Value result;
-            if (ct.kind == TypeKind.Half || ct.kind == TypeKind.Float || ct.kind == TypeKind.Double) {
+            if (ct.kind == TypeKind.Half || ct.kind == TypeKind.Float || ct.kind == TypeKind.Double)
+            {
                 result = new ConstReal(ct, node.number);
-            } else {
+            }
+            else
+            {
                 Debug.Assert(ct.kind == TypeKind.Integer);
                 result = new ConstInt(ct, (ulong)node.number);
             }
             valueStack.Push(result);
         }
 
-        public void Visit(AST.ConstFloat node) {
+        public void Visit(AST.ConstFloat node)
+        {
             var ct = GetTypeRef(typeChecker.GetNodeType(node));
             var result = new ConstReal(ct, node.number);
             valueStack.Push(result);
         }
 
-        public void Visit(AST.ConstBool node) {
+        public void Visit(AST.ConstBool node)
+        {
             var result = node.value ? true_v : false_v;
             valueStack.Push(result);
         }
 
-        public void Visit(AST.ConstString node, bool needsConversion = true) {
+        public void Visit(AST.ConstString node, bool needsConversion = true)
+        {
             var str = node.s;
-            if (needsConversion) {
+            if (needsConversion)
+            {
                 str = node.ConvertString();
             }
 
             Value str_ptr;
 
-            if (!stringTable.TryGetValue(str, out str_ptr)) {
+            if (!stringTable.TryGetValue(str, out str_ptr))
+            {
                 str_ptr = builder.BuildGlobalStringPtr(str, node, "str");
                 stringTable.Add(str, str_ptr);
             }
@@ -533,9 +643,12 @@ namespace PragmaScript {
 
             Value arr_elem_ptr;
 
-            if (node.scope.function != null) {
+            if (node.scope.function != null)
+            {
                 arr_elem_ptr = builder.BuildArrayAlloca(elem_type, size, node, "arr_elem_alloca");
-            } else {
+            }
+            else
+            {
                 var at = new ArrayType(elem_type, str_length);
                 arr_elem_ptr = builder.AddGlobal(at, node, "str_arr", true);
                 // if we are in a "global" scope dont allocate on the stack
@@ -558,17 +671,21 @@ namespace PragmaScript {
             builder.PositionAtEnd(insert);
         }
 
-        void InvalidBinOp(AST.BinOp node) {
+        void InvalidBinOp(AST.BinOp node)
+        {
             var text = $"Binary operator \"{node.token.text}\" not defined for types \"{this.typeChecker.GetNodeType(node.left)}\" and \"{this.typeChecker.GetNodeType(node.left)}\"!";
             throw new ParserError(text, node.token);
         }
 
-        public void Visit(AST.BinOp node) {
-            if (node.type == AST.BinOp.BinOpType.ConditionalOR) {
+        public void Visit(AST.BinOp node)
+        {
+            if (node.type == AST.BinOp.BinOpType.ConditionalOR)
+            {
                 VisitConditionalOR(node);
                 return;
             }
-            if (node.type == AST.BinOp.BinOpType.ConditionaAND) {
+            if (node.type == AST.BinOp.BinOpType.ConditionaAND)
+            {
                 visitConditionalAND(node);
                 return;
             }
@@ -586,8 +703,10 @@ namespace PragmaScript {
 
 
             Value result = null;
-            if (leftFrontendType.Equals(FrontendType.bool_)) {
-                switch (node.type) {
+            if (leftFrontendType.Equals(FrontendType.bool_))
+            {
+                switch (node.type)
+                {
                     case AST.BinOp.BinOpType.LogicalAND:
                         result = builder.BuildAnd(left, right, node, "and_tmp");
                         break;
@@ -607,10 +726,15 @@ namespace PragmaScript {
                         InvalidBinOp(node);
                         break;
                 }
-            } else {
-                switch (leftType.kind) {
+            }
+            else
+            {
+                switch (leftType.kind)
+                {
+                    case TypeKind.Vector when ((VectorType)leftType).elementType.kind == TypeKind.Integer:
                     case TypeKind.Integer:
-                        switch (node.type) {
+                        switch (node.type)
+                        {
                             case AST.BinOp.BinOpType.Add:
                                 result = builder.BuildAdd(left, right, node, "add_tmp");
                                 break;
@@ -682,10 +806,14 @@ namespace PragmaScript {
                                 break;
                         }
                         break;
+                    case TypeKind.Vector when ((VectorType)leftType).elementType.kind == TypeKind.Double:
+                    case TypeKind.Vector when ((VectorType)leftType).elementType.kind == TypeKind.Float:
+                    case TypeKind.Vector when ((VectorType)leftType).elementType.kind == TypeKind.Half:
                     case TypeKind.Double:
                     case TypeKind.Float:
                     case TypeKind.Half:
-                        switch (node.type) {
+                        switch (node.type)
+                        {
                             case AST.BinOp.BinOpType.Add:
                                 result = builder.BuildFAdd(left, right, node, "fadd_tmp");
                                 break;
@@ -724,14 +852,19 @@ namespace PragmaScript {
                                 break;
                         }
                         break;
-                    case TypeKind.Pointer: {
-                            if (rightType.kind == TypeKind.Integer) {
-                                switch (node.type) {
-                                    case AST.BinOp.BinOpType.Add: {
+                    case TypeKind.Pointer:
+                        {
+                            if (rightType.kind == TypeKind.Integer)
+                            {
+                                switch (node.type)
+                                {
+                                    case AST.BinOp.BinOpType.Add:
+                                        {
                                             result = builder.BuildGEP(left, node, "ptr_add", false, right);
                                         }
                                         break;
-                                    case AST.BinOp.BinOpType.Subract: {
+                                    case AST.BinOp.BinOpType.Subract:
+                                        {
                                             var n_right = builder.BuildNeg(right, node, "ptr_add_neg");
                                             result = builder.BuildGEP(left, node, "ptr_add", false, n_right);
                                         }
@@ -741,9 +874,13 @@ namespace PragmaScript {
                                         break;
                                 }
                                 break;
-                            } else if (rightType.kind == TypeKind.Pointer) {
-                                switch (node.type) {
-                                    case AST.BinOp.BinOpType.Subract: {
+                            }
+                            else if (rightType.kind == TypeKind.Pointer)
+                            {
+                                switch (node.type)
+                                {
+                                    case AST.BinOp.BinOpType.Subract:
+                                        {
                                             var li = builder.BuildPtrToInt(left, mm_t, node, "ptr_to_int");
                                             var ri = builder.BuildPtrToInt(right, mm_t, node, "ptr_to_int");
                                             var sub = builder.BuildSub(li, ri, node, "sub");
@@ -774,7 +911,8 @@ namespace PragmaScript {
                                         InvalidBinOp(node);
                                         break;
                                 }
-                            } else
+                            }
+                            else
                                 InvalidBinOp(node);
                         }
                         break;
@@ -786,7 +924,8 @@ namespace PragmaScript {
             valueStack.Push(result);
         }
 
-        void VisitConditionalOR(AST.BinOp op) {
+        void VisitConditionalOR(AST.BinOp op)
+        {
             Visit(op.left);
             var cmp = valueStack.Pop();
             Debug.Assert(SSAType.IsBoolType(cmp.type));
@@ -822,7 +961,8 @@ namespace PragmaScript {
             valueStack.Push(phi);
         }
 
-        void visitConditionalAND(AST.BinOp op) {
+        void visitConditionalAND(AST.BinOp op)
+        {
             Visit(op.left);
             var cmp = valueStack.Pop();
             Debug.Assert(SSAType.IsBoolType(cmp.type));
@@ -853,13 +993,16 @@ namespace PragmaScript {
         }
 
 
-        void InvalidUnaryOp(AST.UnaryOp node) {
+        void InvalidUnaryOp(AST.UnaryOp node)
+        {
             var text = $"Unary operator \"{node.token.text}\" not defined for type \"{this.typeChecker.GetNodeType(node.expression)}\"!";
             throw new ParserError(text, node.token);
         }
 
-        public void Visit(AST.UnaryOp node) {
-            if (node.type == AST.UnaryOp.UnaryOpType.SizeOf) {
+        public void Visit(AST.UnaryOp node)
+        {
+            if (node.type == AST.UnaryOp.UnaryOpType.SizeOf)
+            {
                 var fet = typeChecker.GetNodeType(node.expression);
                 var et = GetTypeRef(fet);
 
@@ -873,12 +1016,14 @@ namespace PragmaScript {
             var vtype = v.type;
             Value result;
 
-            switch (node.type) {
+            switch (node.type)
+            {
                 case AST.UnaryOp.UnaryOpType.Add:
                     result = v;
                     break;
                 case AST.UnaryOp.UnaryOpType.Subract:
-                    switch (vtype.kind) {
+                    switch (vtype.kind)
+                    {
                         case TypeKind.Half:
                         case TypeKind.Float:
                         case TypeKind.Double:
@@ -901,25 +1046,30 @@ namespace PragmaScript {
                 case AST.UnaryOp.UnaryOpType.AddressOf:
                     // HACK: for NOW this happens via returnPointer nonsense
                     result = v;
-                    if (v.type is PointerType pt) {
-                        if (pt.elementType is ArrayType at) {
+                    if (v.type is PointerType pt)
+                    {
+                        if (pt.elementType is ArrayType at)
+                        {
                             result = builder.BuildBitCast(v, new PointerType(at.elementType), node, "address_of_array");
                         }
                     }
                     break;
                 case AST.UnaryOp.UnaryOpType.Dereference:
                     result = v;
-                    if (!node.returnPointer) {
+                    if (!node.returnPointer)
+                    {
                         result = builder.BuildLoad(result, node, "deref");
                     }
 
                     break;
-                case AST.UnaryOp.UnaryOpType.PreInc: {
+                case AST.UnaryOp.UnaryOpType.PreInc:
+                    {
                         result = builder.BuildLoad(v, node, "preinc_load");
                         Debug.Assert(vtype is PointerType);
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
-                        switch (vet_kind) {
+                        switch (vet_kind)
+                        {
                             case TypeKind.Integer:
                                 result = builder.BuildAdd(result, new ConstInt(vet, 1), node, "preinc");
                                 break;
@@ -937,12 +1087,14 @@ namespace PragmaScript {
                         builder.BuildStore(result, v, node);
                     }
                     break;
-                case AST.UnaryOp.UnaryOpType.PreDec: {
+                case AST.UnaryOp.UnaryOpType.PreDec:
+                    {
                         result = builder.BuildLoad(v, node, "predec_load");
                         Debug.Assert(vtype is PointerType);
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
-                        switch (vet_kind) {
+                        switch (vet_kind)
+                        {
                             case TypeKind.Integer:
                                 result = builder.BuildSub(result, new ConstInt(vet, 1), node, "predec");
                                 break;
@@ -960,25 +1112,30 @@ namespace PragmaScript {
                         builder.BuildStore(result, v, node);
                     }
                     break;
-                case AST.UnaryOp.UnaryOpType.PostInc: {
+                case AST.UnaryOp.UnaryOpType.PostInc:
+                    {
                         result = builder.BuildLoad(v, node, "postinc_load");
                         Debug.Assert(vtype is PointerType);
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
-                        switch (vet_kind) {
-                            case TypeKind.Integer: {
+                        switch (vet_kind)
+                        {
+                            case TypeKind.Integer:
+                                {
                                     var inc = builder.BuildAdd(result, new ConstInt(vet, 1), node, "postinc");
                                     builder.BuildStore(inc, v, node);
                                 }
                                 break;
                             case TypeKind.Half:
                             case TypeKind.Float:
-                            case TypeKind.Double: {
+                            case TypeKind.Double:
+                                {
                                     var inc = builder.BuildFAdd(result, new ConstReal(vet, 1.0), node, "postinc");
                                     builder.BuildStore(inc, v, node);
                                 }
                                 break;
-                            case TypeKind.Pointer: {
+                            case TypeKind.Pointer:
+                                {
                                     var inc = builder.BuildGEP(result, node, "ptr_post_inc", false, one_i32_v);
                                     builder.BuildStore(inc, v, node);
                                 }
@@ -988,25 +1145,30 @@ namespace PragmaScript {
                         }
                     }
                     break;
-                case AST.UnaryOp.UnaryOpType.PostDec: {
+                case AST.UnaryOp.UnaryOpType.PostDec:
+                    {
                         result = builder.BuildLoad(v, node, "postdec_load");
                         Debug.Assert(vtype is PointerType);
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
-                        switch (vet_kind) {
-                            case TypeKind.Integer: {
+                        switch (vet_kind)
+                        {
+                            case TypeKind.Integer:
+                                {
                                     var inc = builder.BuildSub(result, new ConstInt(vet, 1), node, "postdec");
                                     builder.BuildStore(inc, v, node);
                                 }
                                 break;
                             case TypeKind.Half:
                             case TypeKind.Float:
-                            case TypeKind.Double: {
+                            case TypeKind.Double:
+                                {
                                     var inc = builder.BuildFSub(result, new ConstReal(vet, 1.0), node, "postdec");
                                     builder.BuildStore(inc, v, node);
                                 }
                                 break;
-                            case TypeKind.Pointer: {
+                            case TypeKind.Pointer:
+                                {
                                     var inc = builder.BuildGEP(result, node, "ptr_post_dec", false, neg_1_i32_v);
                                     builder.BuildStore(inc, v, node);
                                 }
@@ -1022,7 +1184,8 @@ namespace PragmaScript {
             valueStack.Push(result);
         }
 
-        public void Visit(AST.TypeCastOp node) {
+        public void Visit(AST.TypeCastOp node)
+        {
             Visit(node.expression);
 
             var v = valueStack.Pop();
@@ -1033,7 +1196,8 @@ namespace PragmaScript {
             Value result = null;
             var targetType = GetTypeRef(typeChecker.GetNodeType(node));
 
-            if (targetType.EqualType(vtype)) {
+            if (targetType.EqualType(vtype))
+            {
                 result = v;
                 valueStack.Push(result);
                 return;
@@ -1041,26 +1205,39 @@ namespace PragmaScript {
 
             //var ttk = targetType.kind;
             //var vtk = vtype.kind;
-            switch (targetType) {
+            switch (targetType)
+            {
                 case IntegerType t_it:
-                    switch (vtype) {
+                    switch (vtype)
+                    {
                         case IntegerType v_it:
-                            if (t_it.bitWidth > v_it.bitWidth) {
-                                if (!node.unsigned) {
+                            if (t_it.bitWidth > v_it.bitWidth)
+                            {
+                                if (!node.unsigned)
+                                {
                                     result = builder.BuildSExt(v, targetType, node, "int_cast");
-                                } else {
+                                }
+                                else
+                                {
                                     result = builder.BuildZExt(v, targetType, node, "int_cast");
                                 }
-                            } else if (t_it.bitWidth < v_it.bitWidth) {
+                            }
+                            else if (t_it.bitWidth < v_it.bitWidth)
+                            {
                                 result = builder.BuildTrunc(v, targetType, node, "int_trunc");
-                            } else if (t_it.bitWidth == v_it.bitWidth) {
+                            }
+                            else if (t_it.bitWidth == v_it.bitWidth)
+                            {
                                 result = builder.BuildBitCast(v, targetType, node, "int_bitcast");
                             }
                             break;
                         case FloatType v_ft:
-                            if (!node.unsigned) {
+                            if (!node.unsigned)
+                            {
                                 result = builder.BuildFPToSI(v, targetType, node, "int_cast");
-                            } else {
+                            }
+                            else
+                            {
                                 result = builder.BuildFPToUI(v, targetType, node, "int_cast");
                             }
                             break;
@@ -1072,11 +1249,15 @@ namespace PragmaScript {
                     }
                     break;
                 case FloatType t_ft:
-                    switch (vtype) {
+                    switch (vtype)
+                    {
                         case IntegerType v_it:
-                            if (!node.unsigned) {
+                            if (!node.unsigned)
+                            {
                                 result = builder.BuildSIToFP(v, targetType, node, "int_to_float_cast");
-                            } else {
+                            }
+                            else
+                            {
                                 result = builder.BuildUIToFP(v, targetType, node, "int_to_float_cast");
                             }
                             break;
@@ -1088,7 +1269,8 @@ namespace PragmaScript {
                     }
                     break;
                 case PointerType t_pt:
-                    switch (vtype) {
+                    switch (vtype)
+                    {
                         case IntegerType v_it:
                             result = builder.BuildIntToPtr(v, targetType, node, "int_to_ptr");
                             break;
@@ -1097,6 +1279,99 @@ namespace PragmaScript {
                             break;
                         default:
                             throw new InvalidCodePath();
+                    }
+                    break;
+                case VectorType t_vec:
+                    if (vtype is VectorType v_vec)
+                    {
+                        if (t_vec.elementCount != v_vec.elementCount)
+                        {
+                            throw new InvalidCodePath();
+                        }
+
+                        switch (t_vec.elementType)
+                        {
+                            case IntegerType t_elem_it:
+                                switch (v_vec.elementType)
+                                {
+                                    case IntegerType v_elem_it:
+                                        if (t_elem_it.bitWidth > v_elem_it.bitWidth)
+                                        {
+                                            if (!node.unsigned)
+                                            {
+                                                result = builder.BuildSExt(v, targetType, node, "vec_int_cast");
+                                            }
+                                            else
+                                            {
+                                                result = builder.BuildZExt(v, targetType, node, "vec_int_cast");
+                                            }
+                                        }
+                                        else if (t_elem_it.bitWidth < v_elem_it.bitWidth)
+                                        {
+                                            result = builder.BuildTrunc(v, targetType, node, "vec_int_trunc");
+                                        }
+                                        else if (t_elem_it.bitWidth == v_elem_it.bitWidth)
+                                        {
+                                            result = builder.BuildBitCast(v, targetType, node, "vec_int_bitcast");
+                                        }
+                                        break;
+                                    case FloatType v_elem_ft:
+                                        if (!node.unsigned)
+                                        {
+                                            result = builder.BuildFPToSI(v, targetType, node, "vec_int_cast");
+                                        }
+                                        else
+                                        {
+                                            result = builder.BuildFPToUI(v, targetType, node, "vec_int_cast");
+                                        }
+                                        break;
+                                    case PointerType v_elem_pt:
+                                        result = builder.BuildPtrToInt(v, targetType, node, "vec_int_cast");
+                                        break;
+                                    default:
+                                        throw new InvalidCodePath();
+                                }
+                                break;
+                            case FloatType t_elem_ft:
+                                switch (v_vec.elementType)
+                                {
+                                    case IntegerType v_it:
+                                        if (!node.unsigned)
+                                        {
+                                            result = builder.BuildSIToFP(v, targetType, node, "vec_int_to_float_cast");
+                                        }
+                                        else
+                                        {
+                                            result = builder.BuildUIToFP(v, targetType, node, "vec_int_to_float_cast");
+                                        }
+                                        break;
+                                    default:
+                                        throw new InvalidCodePath();
+                                }
+                                break;
+                            case PointerType t_elem_pt:
+                                switch (v_vec.elementType)
+                                {
+                                    case IntegerType v_it:
+                                        result = builder.BuildIntToPtr(v, targetType, node, "vec_int_to_ptr");
+                                        break;
+                                    case PointerType v_pt:
+                                        result = builder.BuildBitCast(v, targetType, node, "vec_pointer_bit_cast");
+                                        break;
+                                    default:
+                                        throw new InvalidCodePath();
+                                }
+                                break;
+                            default:
+                                throw new InvalidCodePath();
+                        }
+                    }
+                    else
+                    {
+                        // TODO it should be possible to bitcast a vector to a type of the same length
+                        // e.g. v2 to i64
+                        // or i64 to v2
+                        throw new InvalidCodePath();
                     }
                     break;
                 default:
@@ -1108,47 +1383,63 @@ namespace PragmaScript {
             valueStack.Push(result);
         }
 
-
-        public void Visit(AST.StructConstructor node, bool isConst = false, bool returnPointer = false) {
+        void VisitCompoundLiteralStruct(AST.CompoundLiteral node, FrontendStructType fst, bool isConst = false, bool returnPointer = false)
+        {
             var sc = node;
-            var sft = typeChecker.GetNodeType(node) as FrontendStructType;
-            var structType = (StructType)GetTypeRef(sft);
-
-            if (!isConst) {
+            var structType = (StructType)GetTypeRef(fst);
+            if (!isConst)
+            {
                 var insert = builder.GetInsertBlock();
                 builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-                var struct_ptr = builder.BuildAlloca(structType, node, "struct_alloca");
+                var align = GetAlignmentOfStruct(fst);
+                //var align = 0;
+                var struct_ptr = builder.BuildAlloca(structType, node, "struct_alloca", align);
                 builder.PositionAtEnd(insert);
-                for (int i = 0; i < sft.fields.Count; ++i) {
-                    if (i < node.argumentList.Count) {
+                for (int i = 0; i < fst.fields.Count; ++i)
+                {
+                    if (i < node.argumentList.Count)
+                    {
                         Visit(sc.argumentList[i]);
                         var arg = valueStack.Pop();
                         var arg_ptr = builder.BuildStructGEP(struct_ptr, i, node, "struct_arg_" + i);
                         builder.BuildStore(arg, arg_ptr, node);
-                    } else {
+                    }
+                    else
+                    {
                         var arg_ptr = builder.BuildStructGEP(struct_ptr, i, node, "struct_arg_" + i);
                         var et = (arg_ptr.type as PointerType).elementType;
                         builder.BuildStore(builder.ConstNull(et), arg_ptr, node);
                     }
                 }
 
-                if (node.returnPointer || returnPointer) {
-                    valueStack.Push(struct_ptr);    
-                } else {
+                if (node.returnPointer || returnPointer)
+                {
+                    valueStack.Push(struct_ptr);
+                }
+                else
+                {
                     var load = builder.BuildLoad(struct_ptr, node, "struct_constr_load");
                     valueStack.Push(load);
                 }
-            } else {
+            }
+            else
+            {
+                Debug.Assert(!returnPointer && !node.returnPointer);
                 var elements = new List<Value>();
-                for (int i = 0; i < sft.fields.Count; ++i) {
-                    if (i < node.argumentList.Count) {
+                for (int i = 0; i < fst.fields.Count; ++i)
+                {
+                    if (i < node.argumentList.Count)
+                    {
                         Visit(sc.argumentList[i]);
                         var el = valueStack.Pop();
-                        if (!el.isConst) {
-                            throw new ParserError($"Element {i+1} of struct constructor must be a compile-time constant.", node.argumentList[1].token);
+                        if (!el.isConst)
+                        {
+                            throw new ParserError($"Element {i + 1} of compound literal must be a compile-time constant.", node.argumentList[1].token);
                         }
                         elements.Add(el);
-                    } else {
+                    }
+                    else
+                    {
                         var et = structType.elementTypes[i];
                         elements.Add(builder.ConstNull(et));
                     }
@@ -1158,9 +1449,93 @@ namespace PragmaScript {
             }
         }
 
-        public void Visit(AST.SliceOp node, bool returnPointer = false) {
+        void VisitCompoundLiteralVector(AST.CompoundLiteral node, FrontendVectorType fvt, bool isConst = false, bool returnPointer = false)
+        {
+            var sc = node;
+            var vecType = (VectorType)GetTypeRef(fvt);
+            if (!isConst)
+            {
+                var insert = builder.GetInsertBlock();
+
+                Debug.Assert(node.argumentList.Count == fvt.length);
+
+
+                List<Value> constValues = new List<Value>(fvt.length);
+                List<Value> nonConstValues = new List<Value>(fvt.length);
+                for (int i = 0; i < fvt.length; ++i)
+                {
+                    Visit(sc.argumentList[i]);
+                    var arg = valueStack.Pop();
+                    if (arg.isConst)
+                    {
+                        constValues.Add(arg);
+                        nonConstValues.Add(null);
+                    }
+                    else
+                    {
+                        constValues.Add(Value.Undefined(vecType.elementType));
+                        nonConstValues.Add(arg);
+                    }
+                }
+                Value vec = new ConstVec(vecType, constValues);
+                for (int i = 0; i < nonConstValues.Count; ++i)
+                {
+                    var arg_v = nonConstValues[i];
+                    if (arg_v != null)
+                    {
+                        vec = builder.BuildInsertElement(vec, arg_v, new ConstInt(Const.i32_t, (ulong)i), node, "compound_literal_insert");
+                    }
+                }
+
+                if (node.returnPointer || returnPointer)
+                {
+                    builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
+                    var align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
+                    var vec_ptr = builder.BuildAlloca(vecType, node, "vec_alloca", GetAlignmentOfFrontendType(FrontendVectorType.v8));
+                    builder.PositionAtEnd(insert);
+                    builder.BuildStore(vec, vec_ptr, node, align: align);
+                    valueStack.Push(vec_ptr);
+                }
+                else
+                {
+                    valueStack.Push(vec);
+                }
+            }
+            else
+            {
+                Debug.Assert(node.argumentList.Count == fvt.length);
+                List<Value> constValues = new List<Value>(fvt.length);
+                for (int i = 0; i < fvt.length; ++i)
+                {
+                    Visit(sc.argumentList[i]);
+                    var arg = valueStack.Pop();
+                    Debug.Assert(arg.isConst);
+                    constValues.Add(arg);
+                }
+                Value vec = new ConstVec(vecType, constValues);
+                valueStack.Push(vec);
+            }
+        }
+
+
+        public void Visit(AST.CompoundLiteral node, bool isConst = false, bool returnPointer = false)
+        {
+            var sc = node;
+            var nt = typeChecker.GetNodeType(node);
+            if (nt is FrontendStructType fst)
+            {
+                VisitCompoundLiteralStruct(node, fst, isConst, returnPointer);
+            }
+            else if (nt is FrontendVectorType fvt)
+            {
+                VisitCompoundLiteralVector(node, fvt, isConst, returnPointer);
+            }
+        }
+
+        public void Visit(AST.SliceOp node, bool returnPointer = false)
+        {
             Visit(node.left);
-            var ptr =  valueStack.Pop();
+            var ptr = valueStack.Pop();
 
             var s_ft = typeChecker.GetNodeType(node) as FrontendSliceType;
             var structType = (StructType)GetTypeRef(s_ft);
@@ -1192,7 +1567,7 @@ namespace PragmaScript {
             builder.PositionAtEnd(slice_from_neg);
             Value from_neg = builder.BuildAdd(capacity, from, node, "from_neg");
             builder.BuildBr(slice_from_neg_end, node);
-            
+
             // slice_from_neg_end:
             builder.PositionAtEnd(slice_from_neg_end);
             var from_phi = builder.BuildPhi(Const.i32_t, node, "from_phi", (from, insert), (from_neg, slice_from_neg));
@@ -1213,7 +1588,7 @@ namespace PragmaScript {
             // slice_to_neg_end:
             builder.PositionAtEnd(slice_to_neg_end);
             var to_phi = builder.BuildPhi(Const.i32_t, node, "to_phi", (to, slice_from_neg_end), (to_neg, slice_to_neg));
-            
+
             Value length = builder.BuildSub(to_phi, from_phi, node, "slice_length");
             Value data = builder.BuildGEP(ptr, node, "slice_ptr_offset", false, from_phi);
 
@@ -1221,54 +1596,67 @@ namespace PragmaScript {
             builder.BuildStore(length, length_ptr, node);
 
             var data_ptr = (Value)builder.BuildStructGEP(struct_ptr, 1, node, "slice_arg_data");
-            
+
             builder.BuildStore(data, data_ptr, node);
 
-             if (node.returnPointer || returnPointer) {
-                    valueStack.Push(struct_ptr);    
-            } else {
+            if (node.returnPointer || returnPointer)
+            {
+                valueStack.Push(struct_ptr);
+            }
+            else
+            {
                 var load = builder.BuildLoad(struct_ptr, node, "slice_load");
                 valueStack.Push(load);
             }
         }
 
-        public void Visit(AST.ArrayConstructor node, bool isConst = false, bool returnPointer = false) {
+        public void Visit(AST.ArrayConstructor node, bool isConst = false, bool returnPointer = false)
+        {
             var ac = node;
             var ac_type = typeChecker.GetNodeType(node) as FrontendArrayType;
             var arr_type = (ArrayType)GetTypeRef(ac_type);
 
-            if (!isConst) {
+            if (!isConst)
+            {
                 var insert = builder.GetInsertBlock();
                 builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
                 var arr_ptr = builder.BuildAlloca(arr_type, node, "arr_alloca");
 
-                builder.PositionAtEnd(insert);            
+                builder.PositionAtEnd(insert);
                 Debug.Assert(arr_type.elementCount == node.elements.Count);
                 // TODO(pragma): possible optimization for all constant elements
-                for (int i = 0; i < node.elements.Count; ++i) {
+                for (int i = 0; i < node.elements.Count; ++i)
+                {
                     Visit(node.elements[i]);
                     var elem = valueStack.Pop();
                     var dest = builder.BuildGEP(arr_ptr, node, "arr_elem_store", true, zero_i32_v, new ConstInt(i32_t, (ulong)i));
                     builder.BuildStore(elem, dest, node);
-                }           
+                }
 
-                
-                if (node.returnPointer || returnPointer) {
+
+                if (node.returnPointer || returnPointer)
+                {
                     valueStack.Push(arr_ptr);
-                } else {
+                }
+                else
+                {
                     var load = builder.BuildLoad(arr_ptr, node, "arr_cstr_load");
                     valueStack.Push(load);
                 }
 
-                
-            } else {
+
+            }
+            else
+            {
                 var elements = new List<Value>();
                 Debug.Assert(arr_type.elementCount == node.elements.Count);
-                for (int i = 0; i < node.elements.Count; ++i) {
+                for (int i = 0; i < node.elements.Count; ++i)
+                {
                     Visit(node.elements[i]);
                     var el = valueStack.Pop();
-                    if (!el.isConst) {
-                        throw new ParserError($"Element {i+1} of array constructor must be a compile-time constant.", node.elements[1].token);
+                    if (!el.isConst)
+                    {
+                        throw new ParserError($"Element {i + 1} of array constructor must be a compile-time constant.", node.elements[1].token);
                     }
                     elements.Add(el);
                 }
@@ -1277,12 +1665,15 @@ namespace PragmaScript {
             }
         }
 
-        public void Visit(AST.VariableDefinition node) {
-            if (node.variable.isConstant) {
-                switch (node.expression) {
-                    case AST.StructConstructor sc:
-                        Visit(sc, isConst: true);
-                    break;
+        public void Visit(AST.VariableDefinition node)
+        {
+            if (node.variable.isConstant)
+            {
+                switch (node.expression)
+                {
+                    case AST.CompoundLiteral cl:
+                        Visit(cl, isConst: true);
+                        break;
                     case AST.ArrayConstructor ac:
                         Visit(ac, isConst: true);
                         break;
@@ -1295,15 +1686,18 @@ namespace PragmaScript {
                 return;
             }
 
-            if (!builder.context.isGlobal) {
+            if (!builder.context.isGlobal)
+            {
                 Debug.Assert(node.expression != null || node.typeString != null);
 
                 SSAType vType;
                 Value v;
-                if (node.expression != null) {
-                    switch (node.expression) {
-                        case AST.StructConstructor sc:
-                            Visit(sc, returnPointer: true);
+                if (node.expression != null)
+                {
+                    switch (node.expression)
+                    {
+                        case AST.CompoundLiteral cl:
+                            Visit(cl, returnPointer: true);
                             break;
                         case AST.ArrayConstructor ac:
                             Visit(ac, returnPointer: true);
@@ -1314,27 +1708,51 @@ namespace PragmaScript {
                     }
                     v = valueStack.Pop();
                     vType = v.type;
-                } else {
+
+                }
+                else
+                {
                     v = null;
                     vType = GetTypeRef(typeChecker.GetNodeType(node.typeString));
                 }
 
                 Value result;
-                if (node.expression != null && node.expression is AST.StructConstructor) {
+                if (node.expression != null && node.expression is AST.CompoundLiteral)
+                {
                     result = v;
-                } else if (node.expression != null && node.expression is AST.ArrayConstructor) {
+                }
+                else if (node.expression != null && node.expression is AST.ArrayConstructor)
+                {
                     result = v;
-                } else {
+                }
+                else
+                {
                     var insert = builder.GetInsertBlock();
                     builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-                    result = builder.BuildAlloca(vType, node, node.variable.name);
+                    int align = 0;
+                    if (vType.kind == TypeKind.Vector)
+                    {
+                        align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
+                    }
+                    else if (vType.kind == TypeKind.Struct)
+                    {
+                        var structType = typeChecker.GetNodeType(node);
+                        align = GetAlignmentOfFrontendType(structType);
+                        if (align == 1)
+                        {
+                            align = 0;
+                        }
+                    }
+                    result = builder.BuildAlloca(vType, node, node.variable.name, align);
                     variables[node.variable] = result;
                     builder.PositionAtEnd(insert);
-                    if (v != null) {
+                    if (v != null)
+                    {
                         builder.BuildStore(v, result, node);
                     }
                 }
-                if (node.typeString != null && node.typeString.allocationCount > 0) {
+                if (node.typeString != null && node.typeString.allocationCount > 0)
+                {
                     var insert = builder.GetInsertBlock();
                     builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
                     Debug.Assert(node.expression == null);
@@ -1347,9 +1765,12 @@ namespace PragmaScript {
                     builder.PositionAtEnd(insert);
                 }
                 variables[node.variable] = result;
-            } else { // is global
-                if (node.expression != null && node.expression is AST.StructConstructor) {
-                    var sc = node.expression as AST.StructConstructor;
+            }
+            else
+            { // is global
+                if (node.expression != null && node.expression is AST.CompoundLiteral)
+                {
+                    var sc = node.expression as AST.CompoundLiteral;
                     var structType = GetTypeRef(typeChecker.GetNodeType(sc));
 
                     var v = builder.AddGlobal(structType, node, node.variable.name, false);
@@ -1357,30 +1778,40 @@ namespace PragmaScript {
                     variables[node.variable] = v;
                     v.SetInitializer(builder.ConstNull(structType));
 
-                    for (int i = 0; i < sc.argumentList.Count; ++i) {
+                    for (int i = 0; i < sc.argumentList.Count; ++i)
+                    {
                         Visit(sc.argumentList[i]);
                         var arg = valueStack.Pop();
                         var arg_ptr = builder.BuildStructGEP(v, i, node, "struct_arg_" + i);
                         builder.BuildStore(arg, arg_ptr, node);
                     }
-                } else if (node.expression is AST.ArrayConstructor) {
+                }
+                else if (node.expression is AST.ArrayConstructor)
+                {
                     throw new System.NotImplementedException();
-                } else {
-                    if (node.expression != null) {
+                }
+                else
+                {
+                    if (node.expression != null)
+                    {
                         Visit(node.expression);
                         var result = valueStack.Pop();
                         var resultType = result.type;
                         var v = builder.AddGlobal(resultType, node, node.variable.name, false);
                         variables[node.variable] = v;
                         // LVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
-                        if (result.isConst) {
+                        if (result.isConst)
+                        {
                             v.SetInitializer(result);
-                        } else {
-
+                        }
+                        else
+                        {
                             v.SetInitializer(builder.ConstNull(resultType));
                             builder.BuildStore(result, v, node);
                         }
-                    } else {
+                    }
+                    else
+                    {
                         var vType = GetTypeRef(typeChecker.GetNodeType(node.typeString));
                         var v = builder.AddGlobal(vType, node, node.variable.name, false);
                         variables[node.variable] = v;
@@ -1391,52 +1822,92 @@ namespace PragmaScript {
             }
         }
 
-        public void Visit(AST.Assignment node) {
-            Visit(node.left);
-            var target = valueStack.Pop();
-            var targetType = target.type;
-            bool isVolatile = target.flags.HasFlag(SSAFlags.@volatile);
-            // var targetTypeName = typeToString(targetType);
+        public void Visit(AST.Assignment node)
+        {
+            if (node.type == AST.Assignment.AssignmentType.Regular)
+            {
+                Visit(node.left);
+                var target = valueStack.Pop();
+                var targetType = target.type;
+                bool isVolatile = target.flags.HasFlag(SSAFlags.@volatile);
+                // var targetTypeName = typeToString(targetType);
 
-            Visit(node.right);
-            var result = valueStack.Pop();
-            var resultType = result.type;
-            // var resultTypeName = typeToString(resultType);
-            
-            var et = (targetType as PointerType).elementType;
-            if (!et.EqualType(resultType)) {
-                target = builder.BuildBitCast(target, new PointerType(resultType), node, "hmpf");
+                Visit(node.right);
+                var result = valueStack.Pop();
+                var resultType = result.type;
+                // var resultTypeName = typeToString(resultType);
+
+                var et = (targetType as PointerType).elementType;
+                if (!et.EqualType(resultType))
+                {
+                    target = builder.BuildBitCast(target, new PointerType(resultType), node, "hmpf");
+                }
+                var align = 0;
+                if (resultType.kind == TypeKind.Vector)
+                {
+                    // TODO(pragma): HACK! FIXME
+                    align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
+                }
+                builder.BuildStore(result, target, node, isVolatile, align);
+                valueStack.Push(result);
             }
-            builder.BuildStore(result, target, node, isVolatile);
-            valueStack.Push(result);
+            else if (node.type == AST.Assignment.AssignmentType.Vector)
+            {
+                var iea = (AST.IndexedElementAccess)node.left;
+                Visit(iea.left);
+                var vecPtr = valueStack.Pop();
+                bool isVolatile = vecPtr.flags.HasFlag(SSAFlags.@volatile);
+                // TODO(pragma): HACK! FIXME
+                var align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
+                var vec = builder.BuildLoad(vecPtr, node, "vec_load", isVolatile, align);
+
+                Debug.Assert(iea.indices.Count == 1);
+                Visit(iea.indices[0]);
+                var idx = valueStack.Pop();
+                Visit(node.right);
+                var result = valueStack.Pop();
+                var insert = builder.BuildInsertElement(vec, result, idx, node, "vec_insert");
+                builder.BuildStore(insert, vecPtr, node, isVolatile);
+                valueStack.Push(result);
+            }
         }
 
-        public void Visit(AST.Block node) {
+        public void Visit(AST.Block node)
+        {
             // HACK: DO a prepass with sorting
-            foreach (var s in node.statements) {
-                if (isConstVariableDefinition(s)) {
+            foreach (var s in node.statements)
+            {
+                if (isConstVariableDefinition(s))
+                {
                     Visit(s);
                     valueStack.Clear();
                 }
             }
-            foreach (var s in node.statements) {
-                if (!isConstVariableDefinition(s)) {
+            foreach (var s in node.statements)
+            {
+                if (!isConstVariableDefinition(s))
+                {
                     Visit(s);
                     valueStack.Clear();
                 }
             }
         }
 
-        public void Visit(AST.VariableReference node) {
+        public void Visit(AST.VariableReference node)
+        {
             var ov = node.scope.GetVar(node.variableName, node.token);
             Scope.VariableDefinition vd;
-            if (!ov.IsOverloaded) {
+            if (!ov.IsOverloaded)
+            {
                 vd = ov.First;
-            } else {
+            }
+            else
+            {
                 vd = ov.variables[node.overloadedIdx];
             }
             // if variable is function paramter just return it immediately
-            if (vd.isFunctionParameter) {
+            if (vd.isFunctionParameter)
+            {
 
                 var f = builder.context.currentFunction;
                 var pr = builder.GetParam(f, vd.parameterIdx);
@@ -1445,59 +1916,83 @@ namespace PragmaScript {
             }
             var nt = typeChecker.GetNodeType(node);
 
-            if (!variables.TryGetValue(vd, out var v)) {
+            if (!variables.TryGetValue(vd, out var v))
+            {
                 throw new ParserError("Ordering violation or can't use non constant Value in constant declaration!", node.token);
             }
             Value result;
-            if (vd.isConstant) {
+            if (vd.isConstant)
+            {
                 result = v;
                 // Debug.Assert(LLVM.IsConstant(v));
-            } else {
+            }
+            else
+            {
                 result = v;
-                if (!node.returnPointer) {
-                    result = builder.BuildLoad(v, node, vd.name);
+                if (!node.returnPointer)
+                {
+                    int align = 0;
+                    if (v.type.kind == TypeKind.Vector)
+                    {
+                        align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
+                    }
+                    result = builder.BuildLoad(v, node, vd.name, align: align);
                 }
             }
             valueStack.Push(result);
         }
 
-        public void VisitSpecialFunction(AST.FunctionCall node, FrontendFunctionType feft) {
-            switch (feft.funName) {
-                case "__file_pos__": {
+        public void VisitSpecialFunction(AST.FunctionCall node, FrontendFunctionType feft)
+        {
+            switch (feft.funName)
+            {
+                case "__file_pos__":
+                    {
                         var callsite = builder.context.callsite;
                         var s = new AST.ConstString(node.left.token, callsite.scope);
                         var fp = node.left.token.FilePosBackendString();
-                        if (callsite != null) {
+                        if (callsite != null)
+                        {
                             fp = callsite.token.FilePosBackendString();
                         }
                         s.s = fp;
                         Visit(s, false);
                     }
                     break;
-                case "len": {
+                case "len":
+                    {
                         var at = (FrontendArrayType)typeChecker.GetNodeType(node.argumentList[0]);
-                        int length= -1;
+                        int length = -1;
                         Debug.Assert(at.dims.Count > 0);
                         Value result;
-                        if (at.dims.Count == 1) {
-                            length = at.dims.First();                  
+                        if (at.dims.Count == 1)
+                        {
+                            length = at.dims.First();
                             result = new ConstInt(mm_t, (ulong)length);
-                        } else {
-                            if (node.argumentList.Count > 1) {
+                        }
+                        else
+                        {
+                            if (node.argumentList.Count > 1)
+                            {
                                 var data = new List<Value>();
-                                foreach (var d in at.dims) {
+                                foreach (var d in at.dims)
+                                {
                                     data.Add(new ConstInt(mm_t, (ulong)d));
                                 }
                                 var arr = new ConstArray(new ArrayType(mm_t, (uint)data.Count), data);
                                 Visit(node.argumentList[1]);
                                 var idx = valueStack.Pop();
-                                if (!idx.isConst) {
+                                if (!idx.isConst)
+                                {
                                     throw new ParserError("Argument 2 of \"len\" must be a compile-time constant.", node.argumentList[1].token);
                                 }
                                 result = builder.BuildExtractValue(arr, node, "len_extract", idx);
-                            } else {
+                            }
+                            else
+                            {
                                 ulong mul = 1;
-                                foreach (var d in at.dims) {
+                                foreach (var d in at.dims)
+                                {
                                     mul *= (ulong)d;
                                 }
                                 result = new ConstInt(mm_t, (ulong)mul);
@@ -1506,11 +2001,13 @@ namespace PragmaScript {
                         valueStack.Push(result);
                     }
                     break;
-                case "__emit__": {
+                case "__emit__":
+                    {
                         Debug.Assert(node.argumentList.Count == 1);
                         var str = node.argumentList[0] as AST.ConstString;
-                        
-                        if (str == null) {
+
+                        if (str == null)
+                        {
                             throw new ParserError("Argument 1 of \"__emit__\" must be a compile-time constant string.", node.argumentList[0].token);
                         }
                         builder.BuildEmit(str.Verbatim(), node);
@@ -1558,26 +2055,34 @@ namespace PragmaScript {
             }
         }
 
-        public void Visit(AST.FunctionCall node) {
+        public void Visit(AST.FunctionCall node)
+        {
             var feft = typeChecker.GetNodeType(node.left) as FrontendFunctionType;
 
-            if (feft != null) {
-                if (feft.specialFun) {
+            if (feft != null)
+            {
+                if (feft.specialFun)
+                {
                     VisitSpecialFunction(node, feft);
                     return;
                 }
-                if (feft.inactiveConditional) {
+                if (feft.inactiveConditional)
+                {
                     return;
                 }
-            } else {
+            }
+            else
+            {
                 var st = (FrontendSumType)typeChecker.GetNodeType(node.left);
                 var vr = (AST.VariableReference)node.left;
                 feft = (FrontendFunctionType)st.types[vr.overloadedIdx];
-                if (feft.specialFun) {
+                if (feft.specialFun)
+                {
                     VisitSpecialFunction(node, feft);
                     return;
                 }
-                if (feft.inactiveConditional) {
+                if (feft.inactiveConditional)
+                {
                     return;
                 }
             }
@@ -1585,7 +2090,8 @@ namespace PragmaScript {
             Visit(node.left);
             var f = valueStack.Pop();
 
-            if (!(f is Function)) {
+            if (!(f is Function))
+            {
                 f = builder.BuildLoad(f, node, "fun_ptr_load");
             }
 
@@ -1595,20 +2101,24 @@ namespace PragmaScript {
             var ft = (f.type as PointerType).elementType as FunctionType;
             var rt = ft.returnType;
             var ps = ft.argumentTypes;
-            for (int i = 0; i < node.argumentList.Count; ++i) {
+            for (int i = 0; i < node.argumentList.Count; ++i)
+            {
                 Visit(node.argumentList[i]);
                 parameters[i] = valueStack.Pop();
 
                 // HACK: RETHINK THIS NONSENSE SOON
-                if (!parameters[i].type.EqualType(ps[i])) {
+                if (!parameters[i].type.EqualType(ps[i]))
+                {
                     parameters[i] = builder.BuildBitCast(parameters[i], ps[i], node, "fun_param_hack");
                 }
             }
 
-            if (node.argumentList.Count < feft.parameters.Count) {
+            if (node.argumentList.Count < feft.parameters.Count)
+            {
                 var fd = typeChecker.GetFunctionDefinition(feft);
                 var fts = fd.typeString.functionTypeString;
-                for (int idx = node.argumentList.Count; idx < feft.parameters.Count; ++idx) {
+                for (int idx = node.argumentList.Count; idx < feft.parameters.Count; ++idx)
+                {
                     builder.context.SetCallsite(node);
                     Visit(fts.parameters[idx].defaultValueExpression);
                     builder.context.SetCallsite(null);
@@ -1617,25 +2127,33 @@ namespace PragmaScript {
             }
 
             // http://lists.cs.uiuc.edu/pipermail/llvmdev/2008-May/014844.html
-            if (rt.kind == TypeKind.Void) {
+            if (rt.kind == TypeKind.Void)
+            {
                 builder.BuildCall(f, node, null, parameters);
-            } else {
+            }
+            else
+            {
                 var v = builder.BuildCall(f, node, "fun_call", parameters);
                 valueStack.Push(v);
             }
         }
 
-        public void Visit(AST.ReturnFunction node) {
-            if (node.expression != null) {
+        public void Visit(AST.ReturnFunction node)
+        {
+            if (node.expression != null)
+            {
                 Visit(node.expression);
                 var v = valueStack.Pop();
                 builder.BuildRet(v, node);
-            } else {
+            }
+            else
+            {
                 builder.BuildRetVoid(node);
             }
         }
 
-        public void Visit(AST.IfCondition node) {
+        public void Visit(AST.IfCondition node)
+        {
             Visit(node.condition);
             var condition = valueStack.Pop();
             Debug.Assert(SSAType.IsBoolType(condition.type));
@@ -1648,7 +2166,8 @@ namespace PragmaScript {
             var lastBlock = thenBlock;
             var elifBlocks = new List<Block>();
             var idx = 0;
-            foreach (var elif in node.elifs) {
+            foreach (var elif in node.elifs)
+            {
                 var elifBlock = builder.AppendBasicBlock("elif_" + (idx++));
                 builder.MoveBasicBlockAfter(elifBlock, lastBlock);
                 lastBlock = elifBlock;
@@ -1657,7 +2176,8 @@ namespace PragmaScript {
 
             Block elseBlock = null;
             Block endIfBlock = null;
-            if (node.elseBlock != null) {
+            if (node.elseBlock != null)
+            {
                 elseBlock = builder.AppendBasicBlock("else");
                 builder.MoveBasicBlockAfter(elseBlock, lastBlock);
                 lastBlock = elseBlock;
@@ -1668,9 +2188,12 @@ namespace PragmaScript {
             lastBlock = endIfBlock;
 
             var nextFail = endIfBlock;
-            if (elifBlocks.Count > 0) {
+            if (elifBlocks.Count > 0)
+            {
                 nextFail = elifBlocks.First();
-            } else if (node.elseBlock != null) {
+            }
+            else if (node.elseBlock != null)
+            {
                 nextFail = elseBlock;
             }
 
@@ -1679,11 +2202,13 @@ namespace PragmaScript {
             builder.PositionAtEnd(thenBlock);
             Visit(node.thenBlock);
 
-            if (!builder.GetInsertBlock().HasTerminator()) {
+            if (!builder.GetInsertBlock().HasTerminator())
+            {
                 builder.BuildBr(endIfBlock, node);
             }
 
-            for (int i = 0; i < elifBlocks.Count; ++i) {
+            for (int i = 0; i < elifBlocks.Count; ++i)
+            {
                 var elif = elifBlocks[i];
 
                 var elifThen = builder.AppendBasicBlock("elif_" + i + "_then");
@@ -1696,10 +2221,12 @@ namespace PragmaScript {
 
 
                 var nextBlock = endIfBlock;
-                if (node.elseBlock != null) {
+                if (node.elseBlock != null)
+                {
                     nextBlock = elseBlock;
                 }
-                if (i < elifBlocks.Count - 1) {
+                if (i < elifBlocks.Count - 1)
+                {
                     nextBlock = elifBlocks[i + 1];
                 }
                 builder.BuildCondBr(elifCond, elifThen, nextBlock, node);
@@ -1708,15 +2235,18 @@ namespace PragmaScript {
                 Visit(elifNode.thenBlock);
 
 
-                if (!builder.GetInsertBlock().HasTerminator()) {
+                if (!builder.GetInsertBlock().HasTerminator())
+                {
                     builder.BuildBr(endIfBlock, node);
                 }
             }
 
-            if (node.elseBlock != null) {
+            if (node.elseBlock != null)
+            {
                 builder.PositionAtEnd(elseBlock);
                 Visit(node.elseBlock);
-                if (!builder.GetInsertBlock().HasTerminator()) {
+                if (!builder.GetInsertBlock().HasTerminator())
+                {
                     builder.BuildBr(endIfBlock, node);
                 }
             }
@@ -1724,7 +2254,8 @@ namespace PragmaScript {
             builder.PositionAtEnd(endIfBlock);
         }
 
-        public void Visit(AST.ForLoop node) {
+        public void Visit(AST.ForLoop node)
+        {
             var insert = builder.GetInsertBlock();
 
             var loopPre = builder.AppendBasicBlock("for_cond");
@@ -1736,7 +2267,8 @@ namespace PragmaScript {
             var endFor = builder.AppendBasicBlock("end_for");
             builder.MoveBasicBlockAfter(endFor, loopIter);
 
-            foreach (var n in node.initializer) {
+            foreach (var n in node.initializer)
+            {
                 Visit(n);
             }
             builder.BuildBr(loopPre, node);
@@ -1751,13 +2283,15 @@ namespace PragmaScript {
 
             builder.context.PushLoop(loopIter, endFor);
             Visit(node.loopBody);
-            if (!builder.GetInsertBlock().HasTerminator()) {
+            if (!builder.GetInsertBlock().HasTerminator())
+            {
                 builder.BuildBr(loopIter, node);
             }
             builder.context.PopLoop();
 
             builder.PositionAtEnd(loopIter);
-            foreach (var n in node.iterator) {
+            foreach (var n in node.iterator)
+            {
                 Visit(n);
             }
 
@@ -1765,7 +2299,8 @@ namespace PragmaScript {
             builder.PositionAtEnd(endFor);
         }
 
-        public void Visit(AST.WhileLoop node) {
+        public void Visit(AST.WhileLoop node)
+        {
             var insert = builder.GetInsertBlock();
 
             var loopPre = builder.AppendBasicBlock("while_cond");
@@ -1789,17 +2324,23 @@ namespace PragmaScript {
             Visit(node.loopBody);
             builder.context.PopLoop();
 
-            if (!builder.GetInsertBlock().HasTerminator()) {
+            if (!builder.GetInsertBlock().HasTerminator())
+            {
                 builder.BuildBr(loopPre, node);
             }
             builder.PositionAtEnd(loopEnd);
         }
 
-        void insertMissingReturn(SSAType returnType, AST.Node node) {
-            if (!builder.GetInsertBlock().HasTerminator()) {
-                if (returnType.kind == TypeKind.Void) {
+        void insertMissingReturn(SSAType returnType, AST.Node node)
+        {
+            if (!builder.GetInsertBlock().HasTerminator())
+            {
+                if (returnType.kind == TypeKind.Void)
+                {
                     builder.BuildRetVoid(node);
-                } else {
+                }
+                else
+                {
                     // var dummy = builder.BuildBitCast(zero_i32_v, returnType, node, "dummy");
                     var retNull = builder.ConstNull(returnType);
                     builder.BuildRet(retNull, node);
@@ -1807,13 +2348,17 @@ namespace PragmaScript {
             }
         }
 
-        public void Visit(AST.FunctionDefinition node, bool proto = false) {
+        public void Visit(AST.FunctionDefinition node, bool proto = false)
+        {
             var fun = typeChecker.GetNodeType(node) as FrontendFunctionType;
-            if (fun.inactiveConditional) {
+            if (fun.inactiveConditional)
+            {
                 return;
             }
-            if (proto) {
-                if (node.isFunctionTypeDeclaration()) {
+            if (proto)
+            {
+                if (node.isFunctionTypeDeclaration())
+                {
                     return;
                 }
                 var funPointer = GetTypeRef(fun) as PointerType;
@@ -1825,21 +2370,27 @@ namespace PragmaScript {
                 var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
                 var function = builder.AddFunction(funType, node, functionName, fun.parameters.Select(p => p.name).ToArray());
                 function.isStub = node.HasAttribute("STUB");
-                if (node.HasAttribute("READNONE")) {
+                if (node.HasAttribute("READNONE"))
+                {
                     function.attribs |= FunctionAttribs.readnone;
                 }
-                if (node.HasAttribute("ARGMEMONLY")) {
+                if (node.HasAttribute("ARGMEMONLY"))
+                {
                     function.attribs |= FunctionAttribs.argmemonly;
                 }
-                if (function.isStub) {
+                if (function.isStub)
+                {
                     Debug.Assert(function.name == $"@{functionName}");
                 }
                 variables.Add(node.variableDefinition, function);
-            } else {
-                if (node.external || node.body == null) {
+            }
+            else
+            {
+                if (node.external || node.body == null)
+                {
                     return;
                 }
-                
+
                 //var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
                 //var function = mod.functions[functionName];
                 var function = variables[node.variableDefinition] as Function;
@@ -1847,17 +2398,19 @@ namespace PragmaScript {
                 // TODO(pragma): ugly hack?
                 function.debugContextNode = node;
 
-                if (node.HasAttribute("DLL.EXPORT")) {
+                if (node.HasAttribute("DLL.EXPORT"))
+                {
                     function.exportDLL = true;
                 }
                 var vars = builder.AppendBasicBlock(function, "vars");
                 var entry = builder.AppendBasicBlock(function, "entry");
                 builder.context.SetFunctionBlocks(function, vars, entry);
-                
+
                 var blockTemp = builder.GetInsertBlock();
                 builder.PositionAtEnd(entry);
 
-                if (node.body != null) {
+                if (node.body != null)
+                {
                     Visit(node.body);
                 }
 
@@ -1872,23 +2425,27 @@ namespace PragmaScript {
         }
 
 
-        public void Visit(AST.BreakLoop node) {
+        public void Visit(AST.BreakLoop node)
+        {
             Debug.Assert(builder.context.IsLoop());
             builder.BuildBr(builder.context.PeekLoop().end, node);
         }
 
-        public void Visit(AST.ContinueLoop node) {
+        public void Visit(AST.ContinueLoop node)
+        {
             Debug.Assert(builder.context.IsLoop());
             builder.BuildBr(builder.context.PeekLoop().next, node);
         }
 
 
-        public void Visit(AST.IndexedElementAccess node) {
+        public void Visit(AST.IndexedElementAccess node)
+        {
             Visit(node.left);
             var arr = valueStack.Pop();
 
             var indices = new List<Value>();
-            foreach (var idx in node.indices) {
+            foreach (var idx in node.indices)
+            {
                 Visit(idx);
                 var v = valueStack.Pop();
                 indices.Add(v);
@@ -1900,60 +2457,96 @@ namespace PragmaScript {
             bool isValue = false;
 
             var lt = typeChecker.GetNodeType(node.left);
-            if (lt is FrontendArrayType at){
+            if (lt is FrontendArrayType at)
+            {
                 Value idx = null;
-                if (indices.Count == 1) {
+                if (indices.Count == 1)
+                {
                     idx = indices[0];
-                } else {
+                }
+                else
+                {
                     var multiply = new int[at.dims.Count];
-                    for (int i = 0; i < at.dims.Count; ++i) {
+                    for (int i = 0; i < at.dims.Count; ++i)
+                    {
                         multiply[i] = 1;
-                        for (int j = i + 1; j < at.dims.Count; ++j) {
+                        for (int j = i + 1; j < at.dims.Count; ++j)
+                        {
                             multiply[i] *= at.dims[j];
                         }
                     }
-                    for (int i = 0; i < indices.Count; ++i) {
+                    for (int i = 0; i < indices.Count; ++i)
+                    {
                         var mp = multiply[i];
                         Value temp;
-                        if (mp != 1) {
-                            temp = builder.BuildMul(indices[i], new ConstInt(i32_t, (ulong)multiply[i]), node, name:"arr_dim_mul");
-                        } else  {
+                        if (mp != 1)
+                        {
+                            temp = builder.BuildMul(indices[i], new ConstInt(i32_t, (ulong)multiply[i]), node, name: "arr_dim_mul");
+                        }
+                        else
+                        {
                             temp = indices[i];
                         }
-                        if (idx != null) {
-                            idx = builder.BuildAdd(idx, temp, node, name:"arr_dim_add");
-                        } else {
+                        if (idx != null)
+                        {
+                            idx = builder.BuildAdd(idx, temp, node, name: "arr_dim_add");
+                        }
+                        else
+                        {
                             idx = temp;
                         }
                     }
                 }
-                if (arr.op != Op.FunctionArgument && !arr.isConst) {
+                if (arr.op != Op.FunctionArgument && !arr.isConst)
+                {
                     result = builder.BuildGEP(arr_elem_ptr, node, "gep_arr_elem", false, zero_i32_v, idx);
-                } else {
+                }
+                else
+                {
                     result = builder.BuildExtractValue(arr, node, "gep_arr_elem_ptr", idx);
                     isValue = true;
                     Debug.Assert(!node.returnPointer);
                 }
-            } else 
-            if (lt is FrontendSliceType st){
+            }
+            else if (lt is FrontendSliceType st)
+            {
                 Debug.Assert(indices.Count == 1);
                 var idx = indices[0];
                 // is not function argument?
-                if (arr.op != Op.FunctionArgument) {
+                if (arr.op != Op.FunctionArgument)
+                {
                     var gep_arr_elem_ptr = builder.BuildGEP(arr, node, "gep_arr_elem_ptr", false, zero_i32_v, one_i32_v);
                     arr_elem_ptr = builder.BuildLoad(gep_arr_elem_ptr, node, "arr_elem_ptr");
-                } else {
+                }
+                else
+                {
                     arr_elem_ptr = builder.BuildExtractValue(arr, node, "gep_arr_elem_ptr", one_i32_v);
                 }
                 var ptr_type = new PointerType(GetTypeRef(st.elementType));
                 arr_elem_ptr = builder.BuildBitCast(arr_elem_ptr, ptr_type, node, "arr_elem_ptr_cast");
                 var gep_arr_elem = builder.BuildGEP(arr_elem_ptr, node, "gep_arr_elem", false, idx);
-                
+
                 result = gep_arr_elem;
-            } else {
+            }
+            else if (lt is FrontendVectorType vt)
+            {
+                Debug.Assert(indices.Count == 1);
+                var vec = arr;
+                if (arr.op != Op.FunctionArgument)
+                {
+                    int align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
+                    vec = builder.BuildLoad(vec, node, "vec_load", align: align);
+                }
+                var idx = indices[0];
+                result = builder.BuildExtractElement(vec, idx, node, "vec_extract");
+                isValue = true;
+            }
+            else
+            {
                 Debug.Assert(false);
             }
-            if (!isValue && !node.returnPointer) {
+            if (!isValue && !node.returnPointer)
+            {
                 result = builder.BuildLoad(result, node, "arr_elem");
             }
             valueStack.Push(result);
@@ -1961,31 +2554,39 @@ namespace PragmaScript {
 
 
 
-        public void Visit(AST.FieldAccess node) {
+        public void Visit(AST.FieldAccess node)
+        {
             Visit(node.left);
             var v = valueStack.Pop();
             FrontendStructType s;
-            if (node.IsArrow) {
+            if (node.IsArrow)
+            {
                 s = (typeChecker.GetNodeType(node.left) as FrontendPointerType).elementType as FrontendStructType;
-            } else {
+            }
+            else
+            {
                 s = typeChecker.GetNodeType(node.left) as FrontendStructType;
             }
             var idx = s.GetFieldIndex(node.fieldName);
 
             // is not function argument?
             // assume that when its _NOT_ a pointer then it will be a function argument
-            if (v.op != Op.FunctionArgument && v.type.kind == TypeKind.Pointer) {
-                
+            if (v.op != Op.FunctionArgument && v.type.kind == TypeKind.Pointer)
+            {
+
                 var v_et = ((PointerType)v.type).elementType;
                 // HACK: we hit limit of recursive type so just perform bitcast
-                if (v_et.kind != TypeKind.Pointer || v_et is PointerType vpt && vpt.elementType.kind != TypeKind.Struct) { 
+                if (v_et.kind != TypeKind.Pointer || v_et is PointerType vpt && vpt.elementType.kind != TypeKind.Struct)
+                {
                     var sp = new PointerType(GetTypeRef(s));
-                    if (node.IsArrow) {
+                    if (node.IsArrow)
+                    {
                         sp = new PointerType(sp);
                     }
                     v = builder.BuildBitCast(v, sp, node, "hack_bitcast");
                 }
-                if (node.IsArrow) {
+                if (node.IsArrow)
+                {
                     v = builder.BuildLoad(v, node, name: "struct_arrow_load");
                 }
 
@@ -1995,38 +2596,53 @@ namespace PragmaScript {
                 var fe_nt = typeChecker.GetNodeType(node);
                 var be_nt = new PointerType(GetTypeRef(fe_nt));
 
-                if (!be_nt.EqualType(result.type)) {
+                if (!be_nt.EqualType(result.type))
+                {
                     result = builder.BuildBitCast(result, be_nt, node, "hack_cast");
                 }
-                if (!node.returnPointer) {
+                if (!node.returnPointer)
+                {
                     result = builder.BuildLoad(result, node, name: "struct_field", isVolatile: node.IsVolatile);
-                } else {
-                    if (node.IsVolatile) {
+                }
+                else
+                {
+                    if (node.IsVolatile)
+                    {
                         result.flags |= SSAFlags.@volatile;
                     }
                 }
                 valueStack.Push(result);
 
                 return;
-            } else {
+            }
+            else
+            {
                 Value result;
-                if (node.IsArrow) {
+                if (node.IsArrow)
+                {
                     result = builder.BuildGEP(v, node, "struct_field_ptr", true, zero_i32_v, new ConstInt(i32_t, (ulong)idx));
 
                     var fe_nt = typeChecker.GetNodeType(node);
                     var be_nt = new PointerType(GetTypeRef(fe_nt));
 
-                    if (!be_nt.EqualType(result.type)) {
+                    if (!be_nt.EqualType(result.type))
+                    {
                         result = builder.BuildBitCast(result, be_nt, node, "hack_cast");
                     }
-                    if (!node.returnPointer) {
+                    if (!node.returnPointer)
+                    {
                         result = builder.BuildLoad(result, node, name: "struct_arrow", isVolatile: node.IsVolatile);
-                    } else {
-                        if (node.IsVolatile) {
+                    }
+                    else
+                    {
+                        if (node.IsVolatile)
+                        {
                             result.flags |= SSAFlags.@volatile;
                         }
                     }
-                } else {
+                }
+                else
+                {
                     uint[] uindices = { (uint)idx };
                     result = builder.BuildExtractValue(v, node, "struct_field_extract", new ConstInt(i32_t, (ulong)idx));
                 }
@@ -2036,10 +2652,12 @@ namespace PragmaScript {
             }
         }
 
-        public void Visit(AST.StructDeclaration node) {
+        public void Visit(AST.StructDeclaration node)
+        {
         }
 
-        public void Visit(AST.EnumDeclaration node) {
+        public void Visit(AST.EnumDeclaration node)
+        {
             var enumFrontendType = typeChecker.GetNodeType(node) as FrontendEnumType;
             var intType = GetTypeRef(enumFrontendType.integerType);
             foreach (var e in node.entries)
@@ -2050,10 +2668,12 @@ namespace PragmaScript {
         }
 
         // TODO(pragma): generate this code
-        public void Visit(AST.Node node) {
+        public void Visit(AST.Node node)
+        {
             // TODO(pragma): make a seperate flag for this
-            
-            switch (node) {
+
+            switch (node)
+            {
                 case AST.ProgramRoot n:
                     Visit(n);
                     break;
@@ -2084,7 +2704,7 @@ namespace PragmaScript {
                 case AST.FunctionDefinition n:
                     Visit(n);
                     break;
-                case AST.StructConstructor n:
+                case AST.CompoundLiteral n:
                     Visit(n);
                     break;
                 case AST.StructDeclaration n:

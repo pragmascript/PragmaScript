@@ -18,6 +18,11 @@ namespace PragmaScript {
 
         public static readonly FrontendSliceType string_ = new FrontendSliceType(i8, "string");
         public static readonly FrontendPointerType ptr = new FrontendPointerType(i8);
+        
+        public static readonly FrontendType v4 = new FrontendVectorType(f32, 4);
+        public static readonly FrontendType v8 = new FrontendVectorType(f32, 8);
+        public static readonly FrontendType v4i = new FrontendVectorType(i32, 4);
+        public static readonly FrontendType v8i = new FrontendVectorType(i32, 8);
 
 
         public string name;
@@ -319,6 +324,18 @@ namespace PragmaScript {
             this.dims = new List<int>();
             this.dims.AddRange(dim);
             name = $"[({string.Join(", ", dim)}) x {elementType}]";
+        }
+    }
+
+    public class FrontendVectorType: FrontendType
+    {
+        public FrontendType elementType;
+        public int length;
+        public FrontendVectorType(FrontendType elementType, int length)
+        {
+            this.elementType = elementType;
+            this.length = length;
+            name = $"<{length} x {elementType}>";
         }
     }
 

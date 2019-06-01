@@ -1,4 +1,49 @@
 import "../preamble.prag"
+import "../random.prag"
+
+
+let print_vec = fun(v: v4) => void 	{
+	print("v: ");
+	print(v[0]);
+	print(", ");
+	print(v[1]);
+	print(", ");
+	print(v[2]);
+	print(", ");
+	print(v[3]);
+	print("\n");
+}
+
+let print_vec = fun(v: v4i) => void 	{
+	print("v: ");
+	print(v[0]);
+	print(", ");
+	print(v[1]);
+	print(", ");
+	print(v[2]);
+	print(", ");
+	print(v[3]);
+	print("\n");
+}
+
+#if FALSE
+let print_vec = fun(v: v8) => void 	{
+	print("v: ");
+	for (var i = 0; i < 8; ++i) {
+		print(v[0]);
+		if (i != 7) {
+			print(", ");		
+		}
+	}
+	print("\n");
+}
+#endif
+
+
+let foo = struct (
+	a: i32;
+	b: i32;	
+);
 
 [
 	"compile.output": "hello_world.exe",
@@ -7,10 +52,26 @@ import "../preamble.prag"
 	"compile.ll"    : "true",
 	"compile.asm"   : "true",
  	"compile.opt"   : "0",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
-	print("\nhello world!\n");
+	var state_4: Random::state_4;
+	Random::init_seed(v4i { 1234, 2345, 3456, 4567 }, &state_4);
+	print_vec(state_4.z1);
+	
+	var rand_i = Random::rand_v4i(&state_4);
+	print_vec(rand_i);
+	
+	let min = v4 { 0.0, 0.0, 0.0, 0.0 };
+	let max = v4 { 1.0, 1.0, 1.0, 1.0 };
+	
+	
+	print_vec(Random::rand_v4(min, max, &state_4));
+	print_vec(Random::rand_v4(min, max, &state_4));
+	print_vec(Random::rand_v4(min, max, &state_4));
+	print_vec(Random::rand_v4(min, max, &state_4));
+	print_vec(Random::rand_v4(min, max, &state_4));
+	print_vec(Random::rand_v4(min, max, &state_4));
 }
