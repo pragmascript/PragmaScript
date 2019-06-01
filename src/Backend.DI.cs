@@ -551,6 +551,23 @@ namespace PragmaScript
             return -1;
         }
 
+        int GetMinimumAlignmentForBackend(SSAType t)
+        {
+            switch (t.kind)
+            {
+                case TypeKind.Vector:
+                    return 16;
+                case TypeKind.Struct:
+                    {
+                        var st = (StructType)t;
+                        return st.elementTypes.Select(et => GetMinimumAlignmentForBackend(et)).Max();
+                    }
+                default:
+                    return 0;
+
+            }
+        }
+
         int GetAlignmentOfFrontendType(FrontendType t)
         {
             switch (t)

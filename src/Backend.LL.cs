@@ -618,6 +618,10 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                             AP(" ");
                             AppendConstValue(gv.initializer);
                             AppendGlobalVariableDebugInfo(gv);
+                            if (v.alignment > 0)
+                            {
+                                AP($", align {v.alignment}");
+                            }
                             AL();
                         }
                         else

@@ -666,7 +666,6 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
-	print("foo");
 	temp_arena = create_arena(megabytes(32));
 	// let nx = 180*6;	
 	// let ny = 90*6;

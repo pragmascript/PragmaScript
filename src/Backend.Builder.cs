@@ -290,9 +290,15 @@ namespace PragmaScript
                 return result;
             }
 
-            public GlobalVariable AddGlobal(SSAType t, AST.Node contextNode, string name = null, bool isConst = false)
+            public GlobalVariable AddGlobal(SSAType t, AST.Node contextNode, string name = null, bool isConst = false, int align = 0)
             {
+                if (align > 16)
+                {
+                    align = 16;
+                }
                 var result = new GlobalVariable(t, isConst);
+                result.alignment = align;
+
                 AddOpGlobal(result, name, contextNode: contextNode);
                 return result;
             }

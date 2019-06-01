@@ -1391,8 +1391,8 @@ namespace PragmaScript
             {
                 var insert = builder.GetInsertBlock();
                 builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-                var align = GetAlignmentOfStruct(fst);
-                //var align = 0;
+
+                var align = GetMinimumAlignmentForBackend(structType);
                 var struct_ptr = builder.BuildAlloca(structType, node, "struct_alloca", align);
                 builder.PositionAtEnd(insert);
                 for (int i = 0; i < fst.fields.Count; ++i)
@@ -1490,8 +1490,8 @@ namespace PragmaScript
                 if (node.returnPointer || returnPointer)
                 {
                     builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-                    var align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
-                    var vec_ptr = builder.BuildAlloca(vecType, node, "vec_alloca", GetAlignmentOfFrontendType(FrontendVectorType.v8));
+                    var align = GetMinimumAlignmentForBackend(vecType);
+                    var vec_ptr = builder.BuildAlloca(vecType, node, "vec_alloca", align);
                     builder.PositionAtEnd(insert);
                     builder.BuildStore(vec, vec_ptr, node, align: align);
                     valueStack.Push(vec_ptr);
@@ -1665,6 +1665,8 @@ namespace PragmaScript
             }
         }
 
+
+
         public void Visit(AST.VariableDefinition node)
         {
             if (node.variable.isConstant)
@@ -1708,7 +1710,6 @@ namespace PragmaScript
                     }
                     v = valueStack.Pop();
                     vType = v.type;
-
                 }
                 else
                 {
@@ -1729,20 +1730,7 @@ namespace PragmaScript
                 {
                     var insert = builder.GetInsertBlock();
                     builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-                    int align = 0;
-                    if (vType.kind == TypeKind.Vector)
-                    {
-                        align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
-                    }
-                    else if (vType.kind == TypeKind.Struct)
-                    {
-                        var structType = typeChecker.GetNodeType(node);
-                        align = GetAlignmentOfFrontendType(structType);
-                        if (align == 1)
-                        {
-                            align = 0;
-                        }
-                    }
+                    int align = GetMinimumAlignmentForBackend(vType);
                     result = builder.BuildAlloca(vType, node, node.variable.name, align);
                     variables[node.variable] = result;
                     builder.PositionAtEnd(insert);
@@ -1768,15 +1756,20 @@ namespace PragmaScript
             }
             else
             { // is global
+                if (node.token.Line == 26)
+                {
+                    int breakHere = 42;
+                }
                 if (node.expression != null && node.expression is AST.CompoundLiteral)
                 {
                     var sc = node.expression as AST.CompoundLiteral;
-                    var structType = GetTypeRef(typeChecker.GetNodeType(sc));
+                    var compoundType = GetTypeRef(typeChecker.GetNodeType(sc));
 
-                    var v = builder.AddGlobal(structType, node, node.variable.name, false);
-                    // LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
+                    int align = GetMinimumAlignmentForBackend(compoundType);
+                    var v = builder.AddGlobal(compoundType, node, node.variable.name, false, align);
+
                     variables[node.variable] = v;
-                    v.SetInitializer(builder.ConstNull(structType));
+                    v.SetInitializer(builder.ConstNull(compoundType));
 
                     for (int i = 0; i < sc.argumentList.Count; ++i)
                     {
@@ -1792,12 +1785,14 @@ namespace PragmaScript
                 }
                 else
                 {
+
                     if (node.expression != null)
                     {
                         Visit(node.expression);
                         var result = valueStack.Pop();
                         var resultType = result.type;
-                        var v = builder.AddGlobal(resultType, node, node.variable.name, false);
+                        int align = GetMinimumAlignmentForBackend(resultType);
+                        var v = builder.AddGlobal(resultType, node, node.variable.name, false, align);
                         variables[node.variable] = v;
                         // LVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                         if (result.isConst)
@@ -1813,9 +1808,9 @@ namespace PragmaScript
                     else
                     {
                         var vType = GetTypeRef(typeChecker.GetNodeType(node.typeString));
-                        var v = builder.AddGlobal(vType, node, node.variable.name, false);
+                        int align = GetMinimumAlignmentForBackend(vType);
+                        var v = builder.AddGlobal(vType, node, node.variable.name, false, align);
                         variables[node.variable] = v;
-                        // LLVM.SetLinkage(v, LLVMLinkage.LLVMInternalLinkage);
                         v.SetInitializer(builder.ConstNull(vType));
                     }
                 }
@@ -1842,12 +1837,7 @@ namespace PragmaScript
                 {
                     target = builder.BuildBitCast(target, new PointerType(resultType), node, "hmpf");
                 }
-                var align = 0;
-                if (resultType.kind == TypeKind.Vector)
-                {
-                    // TODO(pragma): HACK! FIXME
-                    align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
-                }
+                var align = GetMinimumAlignmentForBackend(resultType);
                 builder.BuildStore(result, target, node, isVolatile, align);
                 valueStack.Push(result);
             }
@@ -1857,8 +1847,8 @@ namespace PragmaScript
                 Visit(iea.left);
                 var vecPtr = valueStack.Pop();
                 bool isVolatile = vecPtr.flags.HasFlag(SSAFlags.@volatile);
-                // TODO(pragma): HACK! FIXME
-                var align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
+                var vecType = ((PointerType)vecPtr.type).elementType;
+                var align = GetMinimumAlignmentForBackend(vecType);
                 var vec = builder.BuildLoad(vecPtr, node, "vec_load", isVolatile, align);
 
                 Debug.Assert(iea.indices.Count == 1);
@@ -1931,11 +1921,7 @@ namespace PragmaScript
                 result = v;
                 if (!node.returnPointer)
                 {
-                    int align = 0;
-                    if (v.type.kind == TypeKind.Vector)
-                    {
-                        align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
-                    }
+                    int align = GetMinimumAlignmentForBackend(v.type);
                     result = builder.BuildLoad(v, node, vd.name, align: align);
                 }
             }
@@ -2534,7 +2520,9 @@ namespace PragmaScript
                 var vec = arr;
                 if (arr.op != Op.FunctionArgument)
                 {
-                    int align = GetAlignmentOfFrontendType(FrontendVectorType.v8);
+                    var vecType = ((PointerType)vec.type).elementType;
+                    int align = GetMinimumAlignmentForBackend(vecType);
+                    Debug.Assert(vecType.kind == TypeKind.Vector);
                     vec = builder.BuildLoad(vec, node, "vec_load", align: align);
                 }
                 var idx = indices[0];

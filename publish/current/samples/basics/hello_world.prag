@@ -50,7 +50,7 @@ let foo = struct (
 	"compile.debuginfo": "true",
 	"compile.entry" : "true",
 	"compile.ll"    : "true",
-	"compile.asm"   : "true",
+	"compile.asm"   : "false",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib",
@@ -67,11 +67,10 @@ let main = fun () => void {
 	let min = v4 { 0.0, 0.0, 0.0, 0.0 };
 	let max = v4 { 1.0, 1.0, 1.0, 1.0 };
 	
-	
-	print_vec(Random::rand_v4(min, max, &state_4));
-	print_vec(Random::rand_v4(min, max, &state_4));
-	print_vec(Random::rand_v4(min, max, &state_4));
-	print_vec(Random::rand_v4(min, max, &state_4));
-	print_vec(Random::rand_v4(min, max, &state_4));
-	print_vec(Random::rand_v4(min, max, &state_4));
+	print_vec(Random::rand_v4());
+	print_vec(Random::rand_v4());
+	print_vec(Random::rand_v4());
+	print_vec(Random::rand_v4());
+	print_vec(Random::rand_v4());
+	print_vec(Random::rand_v4());
 }
