@@ -671,9 +671,10 @@ namespace PragmaScript
             builder.PositionAtEnd(insert);
         }
 
+
         void InvalidBinOp(AST.BinOp node)
         {
-            var text = $"Binary operator \"{node.token.text}\" not defined for types \"{this.typeChecker.GetNodeType(node.left)}\" and \"{this.typeChecker.GetNodeType(node.left)}\"!";
+            var text = $"Binary operator \"{node.token.text}\" not defined for types \"{this.typeChecker.GetNodeType(node.left)}\" and \"{this.typeChecker.GetNodeType(node.right)}\"!";
             throw new ParserError(text, node.token);
         }
 
@@ -999,6 +1000,8 @@ namespace PragmaScript
             throw new ParserError(text, node.token);
         }
 
+
+
         public void Visit(AST.UnaryOp node)
         {
             if (node.type == AST.UnaryOp.UnaryOpType.SizeOf)
@@ -1033,6 +1036,7 @@ namespace PragmaScript
                             result = builder.BuildNeg(v, node, "neg_tmp");
                             break;
                         default:
+                            InvalidUnaryOp(node);
                             throw new InvalidCodePath();
                     }
                     break;
@@ -1082,6 +1086,7 @@ namespace PragmaScript
                                 result = builder.BuildGEP(result, node, "ptr_pre_inc", false, one_i32_v);
                                 break;
                             default:
+                                InvalidUnaryOp(node);
                                 throw new InvalidCodePath();
                         }
                         builder.BuildStore(result, v, node);
@@ -1107,7 +1112,8 @@ namespace PragmaScript
                                 result = builder.BuildGEP(result, node, "ptr_pre_dec", false, neg_1_i32_v);
                                 break;
                             default:
-                                throw new InvalidCodePath();
+                                InvalidUnaryOp(node);
+                                break;
                         }
                         builder.BuildStore(result, v, node);
                     }
@@ -1141,7 +1147,8 @@ namespace PragmaScript
                                 }
                                 break;
                             default:
-                                throw new InvalidCodePath();
+                                InvalidUnaryOp(node);
+                                break;
                         }
                     }
                     break;
@@ -1174,15 +1181,26 @@ namespace PragmaScript
                                 }
                                 break;
                             default:
-                                throw new InvalidCodePath();
+                                InvalidUnaryOp(node);
+                                break;
                         }
                     }
                     break;
                 default:
+                    InvalidUnaryOp(node);
                     throw new InvalidCodePath();
             }
             valueStack.Push(result);
         }
+
+        void InvalidTypeCastOp(AST.TypeCastOp node)
+        {
+            var baseType = typeChecker.GetNodeType(node.expression);
+            var targetType = typeChecker.GetNodeType(node);
+            var text = $"Typecast operator \"{node.token.text}\" not defined for base type \"{baseType}\" and target type \"{targetType}\"!";
+            throw new ParserError(text, node.token);
+        }
+
 
         public void Visit(AST.TypeCastOp node)
         {
@@ -1245,7 +1263,8 @@ namespace PragmaScript
                             result = builder.BuildPtrToInt(v, targetType, node, "int_cast");
                             break;
                         default:
-                            throw new InvalidCodePath();
+                            InvalidTypeCastOp(node);
+                            break;
                     }
                     break;
                 case FloatType t_ft:
@@ -1265,7 +1284,8 @@ namespace PragmaScript
                             result = builder.BuildFPCast(v, targetType, node, "fp_to_fp_cast");
                             break;
                         default:
-                            throw new InvalidCodePath();
+                            InvalidTypeCastOp(node);
+                            break;
                     }
                     break;
                 case PointerType t_pt:
@@ -1278,7 +1298,8 @@ namespace PragmaScript
                             result = builder.BuildBitCast(v, targetType, node, "pointer_bit_cast");
                             break;
                         default:
-                            throw new InvalidCodePath();
+                            InvalidTypeCastOp(node);
+                            break;
                     }
                     break;
                 case VectorType t_vec:
@@ -1286,7 +1307,7 @@ namespace PragmaScript
                     {
                         if (t_vec.elementCount != v_vec.elementCount)
                         {
-                            throw new InvalidCodePath();
+                            InvalidTypeCastOp(node);
                         }
 
                         switch (t_vec.elementType)
@@ -1329,7 +1350,8 @@ namespace PragmaScript
                                         result = builder.BuildPtrToInt(v, targetType, node, "vec_int_cast");
                                         break;
                                     default:
-                                        throw new InvalidCodePath();
+                                        InvalidTypeCastOp(node);
+                                        break;
                                 }
                                 break;
                             case FloatType t_elem_ft:
@@ -1346,7 +1368,8 @@ namespace PragmaScript
                                         }
                                         break;
                                     default:
-                                        throw new InvalidCodePath();
+                                        InvalidTypeCastOp(node);
+                                        break;
                                 }
                                 break;
                             case PointerType t_elem_pt:
@@ -1359,11 +1382,13 @@ namespace PragmaScript
                                         result = builder.BuildBitCast(v, targetType, node, "vec_pointer_bit_cast");
                                         break;
                                     default:
-                                        throw new InvalidCodePath();
+                                        InvalidTypeCastOp(node);
+                                        break;
                                 }
                                 break;
                             default:
-                                throw new InvalidCodePath();
+                                InvalidTypeCastOp(node);
+                                break;
                         }
                     }
                     else
@@ -1371,12 +1396,12 @@ namespace PragmaScript
                         // TODO it should be possible to bitcast a vector to a type of the same length
                         // e.g. v2 to i64
                         // or i64 to v2
-                        throw new InvalidCodePath();
+                        InvalidTypeCastOp(node);
                     }
                     break;
                 default:
-                    throw new InvalidCodePath();
-
+                    InvalidTypeCastOp(node);
+                    break;
             }
 
             Debug.Assert(result != null);

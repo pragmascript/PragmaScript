@@ -67,6 +67,9 @@ let main = fun () => void {
 	let min = v4 { 0.0, 0.0, 0.0, 0.0 };
 	let max = v4 { 1.0, 1.0, 1.0, 1.0 };
 	
+	var xxx = @i32 min;
+	
+	
 	print_vec(Random::rand_v4());
 	print_vec(Random::rand_v4());
 	print_vec(Random::rand_v4());
