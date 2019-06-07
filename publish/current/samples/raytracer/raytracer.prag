@@ -671,6 +671,8 @@ let main = fun () => void {
 	// let ny = 90*6;
 	let nx = 1280;
 	let ny = 720;
+	// 5078 ms
+	
 	// let nx = 1920;
 	// let ny = 1080;
 	// let nx = 1920;
@@ -681,7 +683,7 @@ let main = fun () => void {
 
 	var pixels: i8* = push(&temp_arena, (3 * nx * ny)@mm);
 	var temp_pixels = pixels;
-	let sub_sample_count = 4;
+	let sub_sample_count = 16;
 
 	var time_open_shutter = 0.0;
 	var time_close_shutter = 0.1;
@@ -710,6 +712,8 @@ let main = fun () => void {
 	}
 	
 	wait_for_completion(&queue);
+	
+	
 
 	// for (var j = 0; j < ny; ++j) {
 	// 	print(".");

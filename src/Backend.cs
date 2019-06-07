@@ -313,7 +313,10 @@ namespace PragmaScript
 #if DISPLAY_TIMINGS
             timer.Stop();
             Console.WriteLine($"backend llvm time: {timer.ElapsedMilliseconds}ms");
+            timer.Reset();
+            timer.Start();
 #endif
+
 
             if (!error && CompilerOptions.runAfterCompile)
             {
@@ -334,6 +337,10 @@ namespace PragmaScript
                 outputProcess.Close();
             }
 
+#if DISPLAY_TIMINGS
+            timer.Stop();
+            System.Console.WriteLine($"Run time: {timer.ElapsedMilliseconds} ms");
+#endif
             Console.WriteLine("done.");
 
         }
@@ -1781,10 +1788,6 @@ namespace PragmaScript
             }
             else
             { // is global
-                if (node.token.Line == 26)
-                {
-                    int breakHere = 42;
-                }
                 if (node.expression != null && node.expression is AST.CompoundLiteral)
                 {
                     var sc = node.expression as AST.CompoundLiteral;
