@@ -684,6 +684,20 @@ namespace PragmaScript
                 AddOp(result, name, contextNode: contextNode);
                 return result;
             }
+            public Value BuildShuffleVector(Value vecA, Value vecB, Value mask, AST.Node contextNode, string name = null)
+            {
+                Debug.Assert(vecA.type.kind == TypeKind.Vector);
+                Debug.Assert(vecB.type.kind == TypeKind.Vector);
+                Debug.Assert(mask.type.kind == TypeKind.Vector);
+                Debug.Assert(mask.isConst);
+                Debug.Assert(vecA.type.EqualType(vecB.type));
+                Debug.Assert(((VectorType)mask.type).elementType.EqualType(Const.i32_t
+                ));
+                var vt = vecA.type;
+                var result = new Value(Op.ShuffleVector, vt, vecA, vecB, mask);
+                AddOp(result, name, contextNode: contextNode);
+                return result;
+            }
             public Value ConstNull(SSAType t)
             {
                 switch (t.kind)
@@ -696,6 +710,7 @@ namespace PragmaScript
                         return new ConstPtr(t, 0);
                     case TypeKind.Struct:
                     case TypeKind.Array:
+                    case TypeKind.Vector:
                         // store <{ float, float, float }> zeroinitializer, <{ float, float, float }> * % struct_arg_1
                         var result = new Value(Op.ConstAggregateZero, t);
                         result.isConst = true;

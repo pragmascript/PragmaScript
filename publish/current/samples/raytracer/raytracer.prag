@@ -624,7 +624,10 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	var world = work.world;
 	var time_open_shutter = work.time_open_shutter;
 	var time_close_shutter = work.time_close_shutter;
-	Random::init_seed(work.line@i32, &random_state);
+	
+	var seed0 = work.line@i32;
+	var seed = i32_4x { seed0, seed0^3141, seed0^293812, seed0^2222};
+	Random::init_seed(seed, &random_state);
 	
 	for (var line_idx = line_idx_first; line_idx <= line_idx_last; ++line_idx) {
 		for (var i = 0; i < width; ++i) {
@@ -657,11 +660,11 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	"compile.output": "raytracer.exe",
 	"compile.debuginfo": "false",
 	"compile.entry" : "true",
-	"compile.ll"    : "true",
+	"compile.ll"    : "false",
 	"compile.asm"   : "false",
- 	"compile.opt"   : "4",
+ 	"compile.opt"   : "0",
 	"compile.cpu"	: "native",
- 	"compile.run"   : "true",
+ 	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]

@@ -53,6 +53,7 @@ namespace PragmaScript
             ConstAggregateZero,
             FunctionArgument,
             ExtractValue,
+            ShuffleVector,
 
             Cmpxchg,
             AtomicRMW,
@@ -469,7 +470,7 @@ namespace PragmaScript
         [Flags]
         public enum FunctionAttribs
         {
-            nounwind = 1, readnone = 2, argmemonly = 4,
+            nounwind = 1, readnone = 2, argmemonly = 4, lvvm = 8
         }
         public class Function : Value
         {
@@ -834,10 +835,13 @@ namespace PragmaScript
             public static readonly FloatType f16_t = new FloatType(FloatType.FloatWidths.fp16);
             public static readonly FloatType f32_t = new FloatType(FloatType.FloatWidths.fp32);
             public static readonly FloatType f64_t = new FloatType(FloatType.FloatWidths.fp64);
-            public static readonly VectorType v4_t = new VectorType(4, f32_t);
-            public static readonly VectorType v8_t = new VectorType(8, f32_t);
-            public static readonly VectorType v4i_t = new VectorType(4, i32_t);
-            public static readonly VectorType v8i_t = new VectorType(8, i32_t);
+            public static readonly VectorType f32_4x_t = new VectorType(4, f32_t);
+            public static readonly VectorType f32_8x_t = new VectorType(8, f32_t);
+            public static readonly VectorType i32_4x_t = new VectorType(4, i32_t);
+            public static readonly VectorType i32_8x_t = new VectorType(8, i32_t);
+            public static readonly VectorType i8_16x_t = new VectorType(16, i8_t);
+            public static readonly VectorType i8_32x_t = new VectorType(32, i8_t);
+            public static readonly VectorType i32_16x_t = new VectorType(16, i32_t);
             public static readonly PointerType ptr_t = new PointerType(i8_t);
             public static readonly VoidType void_t = new VoidType();
 
@@ -885,21 +889,29 @@ namespace PragmaScript
                 {
                     return Const.f64_t;
                 }
-                if (t.Equals(FrontendType.v4))
+                if (t.Equals(FrontendType.f32_4x))
                 {
-                    return Const.v4_t;
+                    return Const.f32_4x_t;
                 }
-                if (t.Equals(FrontendType.v8))
+                if (t.Equals(FrontendType.f32_8x))
                 {
-                    return Const.v8_t;
+                    return Const.f32_8x_t;
                 }
-                if (t.Equals(FrontendType.v4i))
+                if (t.Equals(FrontendType.i32_4x))
                 {
-                    return Const.v4i_t;
+                    return Const.i32_4x_t;
                 }
-                if (t.Equals(FrontendType.v8i))
+                if (t.Equals(FrontendType.i32_8x))
                 {
-                    return Const.v8i_t;
+                    return Const.i32_8x_t;
+                }
+                if (t.Equals(FrontendType.i8_16x))
+                {
+                    return Const.i8_16x_t;
+                }
+                if (t.Equals(FrontendType.i8_32x))
+                {
+                    return Const.i8_32x_t;
                 }
                 if (t.Equals(FrontendType.bool_))
                 {

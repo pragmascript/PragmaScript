@@ -102,7 +102,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
             {
                 if (v is Function f)
                 {
-                    if (f.isStub)
+                    if (f.isStub || f.attribs.HasFlag(FunctionAttribs.lvvm))
                     {
                         continue;
                     }
@@ -692,30 +692,43 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                         {
                             Indent();
                         }
-                        var fun = v.args[0];
+                        var fun = (Function)v.args[0];
                         var pt = (PointerType)fun.type;
                         var ft = (FunctionType)pt.elementType;
-                        var fast = "";
-                        if (CompilerOptions.useFastMath && (ft.returnType.kind == TypeKind.Float || ft.returnType.kind == TypeKind.Half || ft.returnType.kind == TypeKind.Double))
+                        if (fun.attribs.HasFlag(FunctionAttribs.lvvm))
                         {
-                            fast = "fast ";
-                        }
-                        AP($"call {fast}");
-
-                        AppendType(ft.returnType);
-                        AP(" ");
-                        AppendArgument(fun, false);
-                        AP("(");
-                        for (int i = 1; i < v.args.Count; ++i)
-                        {
-                            AppendArgument(v.args[i]);
-                            if (i != v.args.Count - 1)
+                            AP($"{fun.name.Substring(1)} ");
+                            for (int i = 1; i < v.args.Count; ++i)
                             {
-                                AP(", ");
+                                AppendArgument(v.args[i]);
+                                if (i != v.args.Count - 1)
+                                {
+                                    AP(", ");
+                                }
                             }
                         }
-
-                        AP(")");
+                        else
+                        {
+                            var fast = "";
+                            if (CompilerOptions.useFastMath && (ft.returnType.kind == TypeKind.Float || ft.returnType.kind == TypeKind.Half || ft.returnType.kind == TypeKind.Double))
+                            {
+                                fast = "fast ";
+                            }
+                            AP($"call {fast}");
+                            AppendType(ft.returnType);
+                            AP(" ");
+                            AppendArgument(fun, false);
+                            AP("(");
+                            for (int i = 1; i < v.args.Count; ++i)
+                            {
+                                AppendArgument(v.args[i]);
+                                if (i != v.args.Count - 1)
+                                {
+                                    AP(", ");
+                                }
+                            }
+                            AP(")");
+                        }
                         AppendDebugInfo(v);
                         AL();
                     }
@@ -1073,6 +1086,19 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                         AppendArgument(v.args[0]);
                         AP(", ");
                         AppendArgument(v.args[1]);
+                        AppendDebugInfo(v);
+                        AL();
+                    }
+                    break;
+                case Op.ShuffleVector:
+                    {
+                        AppendAssignSSA(v);
+                        AP("shufflevector ");
+                        AppendArgument(v.args[0]);
+                        AP(", ");
+                        AppendArgument(v.args[1]);
+                        AP(", ");
+                        AppendArgument(v.args[2]);
                         AppendDebugInfo(v);
                         AL();
                     }

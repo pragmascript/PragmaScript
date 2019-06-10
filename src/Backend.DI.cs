@@ -562,6 +562,8 @@ namespace PragmaScript
                         var st = (StructType)t;
                         return st.elementTypes.Select(et => GetMinimumAlignmentForBackend(et)).Max();
                     }
+                case TypeKind.Array:
+                    return GetMinimumAlignmentForBackend(((ArrayType)t).elementType);
                 default:
                     return 0;
 

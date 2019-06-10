@@ -1,8 +1,9 @@
 import "../preamble.prag"
 import "../random.prag"
+import "../simd.prag"
 
 
-let print_vec = fun(v: v4) => void 	{
+let print_vec = fun(v: f32_4x) => void 	{
 	print("v: ");
 	print(v[0]);
 	print(", ");
@@ -14,7 +15,7 @@ let print_vec = fun(v: v4) => void 	{
 	print("\n");
 }
 
-let print_vec = fun(v: v4i) => void 	{
+let print_vec = fun(v: i32_4x) => void 	{
 	print("v: ");
 	print(v[0]);
 	print(", ");
@@ -27,7 +28,7 @@ let print_vec = fun(v: v4i) => void 	{
 }
 
 #if FALSE
-let print_vec = fun(v: v8) => void 	{
+let print_vec = fun(v: f32_8x) => void 	{
 	print("v: ");
 	for (var i = 0; i < 8; ++i) {
 		print(v[0]);
@@ -57,20 +58,29 @@ let foo = struct (
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
-	var state_4: Random::state_4;
-	Random::init_seed(v4i { 1234, 2345, 3456, 4567 }, &state_4);
-	print_vec(state_4.z1);
+	// print_vec(Random::rand_v4());
+	// print_vec(Random::rand_v4());
+	// print_vec(Random::rand_v4());
+	// print_vec(Random::rand_v4());
+	// print_vec(Random::rand_v4());
+	// print_vec(Random::rand_v4());
 	
-	var rand_i = Random::rand_v4i(&state_4);
-	print_vec(rand_i);
+	var arr = [SIMD::set1_ps(0.0), SIMD::set1_ps(1.0), SIMD::set1_ps(2.0)];
 	
-	let min = v4 { 0.0, 0.0, 0.0, 0.0 };
-	let max = v4 { 1.0, 1.0, 1.0, 1.0 };
+	var a = i32_4x { 1, 2, 3, 4};
+	var b = SIMD::srli_si128(a, 3);
+	debug_print("a", a);
+	debug_print("b", b);
 	
-	print_vec(Random::rand_v4());
-	print_vec(Random::rand_v4());
-	print_vec(Random::rand_v4());
-	print_vec(Random::rand_v4());
-	print_vec(Random::rand_v4());
-	print_vec(Random::rand_v4());
+	
+	
+	// debug_print("rnd", Random::rand_i32());
+	// debug_print("rnd", Random::rand_i32());
+	// debug_print("rnd", Random::rand_i32());
+	// debug_print("rnd", Random::rand_i32());
+	// debug_print("rnd", Random::rand_i32());
+	// debug_print("rnd", Random::rand_i32());
+	// debug_print("rnd", Random::rand_i32());
+	// debug_print("rnd", Random::rand_i32());
+	
 }

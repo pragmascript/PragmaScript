@@ -2,7 +2,8 @@
 using System.Linq;
 using System.Diagnostics;
 
-namespace PragmaScript {
+namespace PragmaScript
+{
     public class FrontendType
     {
         public static readonly FrontendType none = new FrontendType("$$__none__$$");
@@ -18,11 +19,13 @@ namespace PragmaScript {
 
         public static readonly FrontendSliceType string_ = new FrontendSliceType(i8, "string");
         public static readonly FrontendPointerType ptr = new FrontendPointerType(i8);
-        
-        public static readonly FrontendType v4 = new FrontendVectorType(f32, 4);
-        public static readonly FrontendType v8 = new FrontendVectorType(f32, 8);
-        public static readonly FrontendType v4i = new FrontendVectorType(i32, 4);
-        public static readonly FrontendType v8i = new FrontendVectorType(i32, 8);
+
+        public static readonly FrontendType f32_4x = new FrontendVectorType(f32, 4);
+        public static readonly FrontendType f32_8x = new FrontendVectorType(f32, 8);
+        public static readonly FrontendType i32_4x = new FrontendVectorType(i32, 4);
+        public static readonly FrontendType i32_8x = new FrontendVectorType(i32, 8);
+        public static readonly FrontendType i8_16x = new FrontendVectorType(i8, 16);
+        public static readonly FrontendType i8_32x = new FrontendVectorType(i8, 32);
 
 
         public string name;
@@ -79,22 +82,27 @@ namespace PragmaScript {
             return result;
         }
 
-        public static bool IsBoolType(FrontendType t) {
+        public static bool IsBoolType(FrontendType t)
+        {
             return t.Equals(bool_);
         }
 
-        public static bool IsVoidType(FrontendType t) {
+        public static bool IsVoidType(FrontendType t)
+        {
             return t.Equals(void_);
         }
 
         public static bool IsIntegerOrLateBind(FrontendType t)
         {
-            if (IsIntegerType(t)) {
+            if (IsIntegerType(t))
+            {
                 return true;
             }
-            if (t is FrontendNumberType) {
+            if (t is FrontendNumberType)
+            {
                 var tn = t as FrontendNumberType;
-                if (tn.floatType) {
+                if (tn.floatType)
+                {
                     return false;
                 }
                 tn.Bind(tn.Default());
@@ -120,36 +128,49 @@ namespace PragmaScript {
         {
             var a_is_number = a is FrontendNumberType;
             var b_is_number = b is FrontendNumberType;
-            if (a_is_number || b_is_number) {
-                if (a_is_number && b_is_number) {
+            if (a_is_number || b_is_number)
+            {
+                if (a_is_number && b_is_number)
+                {
                     var an = a as FrontendNumberType;
                     var bn = b as FrontendNumberType;
                     an.others.Add(bn);
                     bn.others.Add(an);
-                    if (an.floatType || bn.floatType) {
+                    if (an.floatType || bn.floatType)
+                    {
                         an.floatType = true;
                         bn.floatType = true;
                     }
                     return true;
                 }
 
-                if (a_is_number) {
-                    if (IsIntegerType(b)) {
+                if (a_is_number)
+                {
+                    if (IsIntegerType(b))
+                    {
                         var an = a as FrontendNumberType;
-                        if (!an.floatType) {
+                        if (!an.floatType)
+                        {
                             an.Bind(b);
                         }
-                    } else if (IsFloatType(b)) {
+                    }
+                    else if (IsFloatType(b))
+                    {
                         (a as FrontendNumberType).Bind(b);
                     }
                 }
-                if (b_is_number) {
-                    if (IsIntegerType(a)) {
+                if (b_is_number)
+                {
+                    if (IsIntegerType(a))
+                    {
                         var bn = b as FrontendNumberType;
-                        if (!bn.floatType) {
+                        if (!bn.floatType)
+                        {
                             bn.Bind(a);
                         }
-                    } else if (IsFloatType(a)) {
+                    }
+                    else if (IsFloatType(a))
+                    {
                         (b as FrontendNumberType).Bind(a);
                     }
                 }
@@ -161,13 +182,16 @@ namespace PragmaScript {
         {
             var a_is_number = a is FrontendNumberType;
             var b_is_number = b is FrontendNumberType;
-            if (a_is_number || b_is_number) {
-                if (a_is_number && b_is_number) {
+            if (a_is_number || b_is_number)
+            {
+                if (a_is_number && b_is_number)
+                {
                     var an = a as FrontendNumberType;
                     var bn = b as FrontendNumberType;
                     an.others.Add(bn);
                     bn.others.Add(an);
-                    if (an.floatType || bn.floatType) {
+                    if (an.floatType || bn.floatType)
+                    {
                         an.floatType = true;
                         bn.floatType = true;
                     }
@@ -175,42 +199,63 @@ namespace PragmaScript {
                     return true;
                 }
 
-                if (a_is_number) {
-                    if (IsIntegerType(b)) {
+                if (a_is_number)
+                {
+                    if (IsIntegerType(b))
+                    {
                         var an = a as FrontendNumberType;
-                        if (an.floatType) {
+                        if (an.floatType)
+                        {
                             return false;
-                        } else {
+                        }
+                        else
+                        {
                             an.Bind(b);
                             return true;
                         }
-                    } else if (IsFloatType(b)) {
+                    }
+                    else if (IsFloatType(b))
+                    {
                         (a as FrontendNumberType).Bind(b);
                         return true;
-                    } else {
+                    }
+                    else
+                    {
                         return false;
                     }
                 }
-                if (b_is_number) {
-                    if (IsIntegerType(a)) {
+                if (b_is_number)
+                {
+                    if (IsIntegerType(a))
+                    {
                         var bn = b as FrontendNumberType;
-                        if (bn.floatType) {
+                        if (bn.floatType)
+                        {
                             return false;
-                        } else {
+                        }
+                        else
+                        {
                             bn.Bind(a);
                             return true;
                         }
-                    } else if (IsFloatType(a)) {
+                    }
+                    else if (IsFloatType(a))
+                    {
                         (b as FrontendNumberType).Bind(a);
                         return true;
-                    } else {
+                    }
+                    else
+                    {
                         return false;
                     }
                 }
             }
-            if (a.Equals(b)) {
+            if (a.Equals(b))
+            {
                 return true;
-            } else {
+            }
+            else
+            {
                 return false;
             }
         }
@@ -239,52 +284,62 @@ namespace PragmaScript {
         {
             visited.Add(this);
             boundType = type;
-            foreach (var other in others) {
-                if (!visited.Contains(other)) {
+            foreach (var other in others)
+            {
+                if (!visited.Contains(other))
+                {
                     other.bind(type, visited);
                 }
             }
         }
         public FrontendType Default()
         {
-            if (floatType) {
+            if (floatType)
+            {
                 return FrontendType.f32;
-            } else {
+            }
+            else
+            {
                 return FrontendType.i32;
             }
         }
         public override string ToString()
         {
-            if (boundType != null) {
+            if (boundType != null)
+            {
                 return boundType.ToString();
             }
-            if (floatType) {
+            if (floatType)
+            {
                 return "float literal";
-            } else {
+            }
+            else
+            {
                 return "integer literal";
             }
 
         }
     }
 
-    public class FrontendEnumType: FrontendType
+    public class FrontendEnumType : FrontendType
     {
         public string enumName;
         public FrontendType integerType;
-        public class Entry {
+        public class Entry
+        {
             public string name;
             public ulong value;
         }
         List<Entry> entries;
-        public FrontendEnumType(string name) 
+        public FrontendEnumType(string name)
         {
             this.enumName = name;
             this.name = name;
             entries = new List<Entry>();
         }
-        public void AddEntry(string name) 
+        public void AddEntry(string name)
         {
-            entries.Add(new Entry { name=name, value=(ulong)entries.Count });
+            entries.Add(new Entry { name = name, value = (ulong)entries.Count });
         }
     }
 
@@ -298,7 +353,8 @@ namespace PragmaScript {
             this.elementType = elementType;
             AddField("length", FrontendType.i32);
             AddField("data", new FrontendPointerType(elementType));
-            if (string.IsNullOrEmpty(structName)) {
+            if (string.IsNullOrEmpty(structName))
+            {
                 name = "[" + elementType + "]";
             }
         }
@@ -308,12 +364,15 @@ namespace PragmaScript {
     {
         public FrontendType elementType;
         public List<int> dims;
-        public int Length {
-             get {
-                 int result = 1;
-                 foreach (var d in dims) {
-                     result *= d;
-                 }
+        public int Length
+        {
+            get
+            {
+                int result = 1;
+                foreach (var d in dims)
+                {
+                    result *= d;
+                }
                 return result;
             }
         }
@@ -327,7 +386,7 @@ namespace PragmaScript {
         }
     }
 
-    public class FrontendVectorType: FrontendType
+    public class FrontendVectorType : FrontendType
     {
         public FrontendType elementType;
         public int length;
@@ -376,8 +435,10 @@ namespace PragmaScript {
         public int GetFieldIndex(string name)
         {
             int idx = 0;
-            foreach (var f in fields) {
-                if (f.name == name) {
+            foreach (var f in fields)
+            {
+                if (f.name == name)
+                {
                     return idx;
                 }
                 idx++;
@@ -387,9 +448,12 @@ namespace PragmaScript {
 
         void calcTypeName()
         {
-            if (structName != null) {
+            if (structName != null)
+            {
                 name = structName;
-            } else {
+            }
+            else
+            {
                 name = "{" + string.Join(",", fields) + "}";
             }
         }
@@ -405,13 +469,16 @@ namespace PragmaScript {
         }
     }
 
-    public class FrontendSumType : FrontendType {
+    public class FrontendSumType : FrontendType
+    {
         public List<FrontendType> types;
-        public FrontendSumType(params FrontendType[] types) {
+        public FrontendSumType(params FrontendType[] types)
+        {
             this.types = types.ToList();
             name = $"{{{string.Join(" + ", this.types)}}}";
         }
-        public FrontendSumType(List<FrontendType> types) {
+        public FrontendSumType(List<FrontendType> types)
+        {
             this.types = types;
             name = $"{{{string.Join(" + ", this.types)}}}";
         }
@@ -438,9 +505,12 @@ namespace PragmaScript {
 
         public FrontendFunctionType(string funName)
         {
-            if (funName != null) {
+            if (funName != null)
+            {
                 this.funName = funName;
-            } else {
+            }
+            else
+            {
                 this.funName = "";
             }
             calcTypeName();
@@ -461,8 +531,10 @@ namespace PragmaScript {
         public int GetParamIndex(string name)
         {
             int idx = 0;
-            foreach (var f in parameters) {
-                if (f.name == name) {
+            foreach (var f in parameters)
+            {
+                if (f.name == name)
+                {
                     return idx;
                 }
                 idx++;

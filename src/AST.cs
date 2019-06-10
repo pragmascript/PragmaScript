@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-namespace PragmaScript {
+namespace PragmaScript
+{
     partial class AST
     {
 
@@ -14,13 +15,16 @@ namespace PragmaScript {
         static void expectTokenType(Token token, params Token.TokenType[] types)
         {
             var found = false;
-            foreach (var tt in types) {
-                if (token.type == tt) {
+            foreach (var tt in types)
+            {
+                if (token.type == tt)
+                {
                     found = true;
                     break;
                 }
             }
-            if (!found) {
+            if (!found)
+            {
                 string exp = "either ( " + string.Join(" | ", types.Select(tt => tt.ToString())) + " )";
                 throw new ParserErrorExpected(exp, token.ToString(), token);
             }
@@ -43,16 +47,65 @@ namespace PragmaScript {
             scope.AddType(FrontendType.bool_, token);
             scope.AddTypeAlias(FrontendType.string_, token, "string");
             scope.AddTypeAlias(FrontendType.ptr, token, "ptr");
-            scope.AddTypeAlias(FrontendType.v4, token, "v4");
-            scope.AddTypeAlias(FrontendType.v8, token, "v8");
-            scope.AddTypeAlias(FrontendType.v4i, token, "v4i");
-            scope.AddTypeAlias(FrontendType.v8i, token, "v8i");
+            scope.AddTypeAlias(FrontendType.f32_4x, token, "f32_4x");
+            scope.AddTypeAlias(FrontendType.f32_8x, token, "f32_8x");
+            scope.AddTypeAlias(FrontendType.i32_4x, token, "i32_4x");
+            scope.AddTypeAlias(FrontendType.i32_8x, token, "i32_8x");
+            scope.AddTypeAlias(FrontendType.i8_16x, token, "i8_16x");
+            scope.AddTypeAlias(FrontendType.i8_32x, token, "i8_32x");
+
             scope.AddType(FrontendType.void_, token);
         }
 
-        
+
+        static void addSIMDFunctions(Scope rootScope)
+        {
+            var path = new List<string>(1);
+            path.Add("SIMD");
+            var mod = rootScope.AddModule(path, true);
+            var scope = mod.scope;
+            {
+                var name = "slli_si128";
+                var sf = new FrontendFunctionType(name);
+                sf.specialFun = true;
+                sf.returnType = FrontendType.f32_4x;
+                sf.AddParam("v", FrontendType.f32_4x);
+                sf.AddParam("shift", FrontendType.i32);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "slli_si128";
+                var sf = new FrontendFunctionType(name);
+                sf.specialFun = true;
+                sf.returnType = FrontendType.i32_4x;
+                sf.AddParam("v", FrontendType.i32_4x);
+                sf.AddParam("shift", FrontendType.i32);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "srli_si128";
+                var sf = new FrontendFunctionType(name);
+                sf.specialFun = true;
+                sf.returnType = FrontendType.f32_4x;
+                sf.AddParam("v", FrontendType.f32_4x);
+                sf.AddParam("shift", FrontendType.i32);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "srli_si128";
+                var sf = new FrontendFunctionType(name);
+                sf.specialFun = true;
+                sf.returnType = FrontendType.i32_4x;
+                sf.AddParam("v", FrontendType.i32_4x);
+                sf.AddParam("shift", FrontendType.i32);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+        }
+
         static void addSpecialFunctions(Scope scope)
         {
+            addSIMDFunctions(scope);
+
             var file_pos = new FrontendFunctionType("__file_pos__");
             file_pos.returnType = FrontendType.string_;
             file_pos.specialFun = true;
@@ -63,13 +116,13 @@ namespace PragmaScript {
             len.specialFun = true;
             len.AddParam("x", new FrontendArrayType(null, new List<int>()));
             scope.AddVar("len", len, Token.Undefined, isConst: true);
-            
+
             var emit = new FrontendFunctionType("__emit__");
             emit.returnType = FrontendType.void_;
             emit.specialFun = true;
             emit.AddParam("instr", FrontendType.string_);
             scope.AddVar("__emit__", emit, Token.Undefined, isConst: true);
-            
+
             {
                 var name = "atomic_compare_and_swap";
                 var sf = new FrontendFunctionType(name);

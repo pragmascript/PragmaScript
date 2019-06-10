@@ -1212,6 +1212,7 @@ namespace PragmaScript
         public void Visit(AST.TypeCastOp node)
         {
             Visit(node.expression);
+            var frontendSourceType = typeChecker.GetNodeType(node.expression);
 
             var v = valueStack.Pop();
             var vtype = v.type;
@@ -1219,7 +1220,8 @@ namespace PragmaScript
             var typeName = node.typeString.ToString(); // node.type.ToString();
 
             Value result = null;
-            var targetType = GetTypeRef(typeChecker.GetNodeType(node));
+            var frontendTargetType = typeChecker.GetNodeType(node);
+            var targetType = GetTypeRef(frontendTargetType);
 
             if (targetType.EqualType(vtype))
             {
@@ -1314,7 +1316,15 @@ namespace PragmaScript
                     {
                         if (t_vec.elementCount != v_vec.elementCount)
                         {
-                            InvalidTypeCastOp(node);
+                            if (SizeOfVectorType((FrontendVectorType)frontendSourceType) != SizeOfVectorType((FrontendVectorType)frontendTargetType))
+                            {
+                                InvalidTypeCastOp(node);
+                            }
+                            else
+                            {
+                                result = builder.BuildBitCast(v, targetType, node, "vec_vec_bitcast");
+                            }
+                            break;
                         }
 
                         switch (t_vec.elementType)
@@ -1400,9 +1410,6 @@ namespace PragmaScript
                     }
                     else
                     {
-                        // TODO it should be possible to bitcast a vector to a type of the same length
-                        // e.g. v2 to i64
-                        // or i64 to v2
                         InvalidTypeCastOp(node);
                     }
                     break;
@@ -1489,33 +1496,40 @@ namespace PragmaScript
             {
                 var insert = builder.GetInsertBlock();
 
-                Debug.Assert(node.argumentList.Count == fvt.length);
+                Debug.Assert(node.argumentList.Count == 0 || node.argumentList.Count == fvt.length);
 
-
-                List<Value> constValues = new List<Value>(fvt.length);
-                List<Value> nonConstValues = new List<Value>(fvt.length);
-                for (int i = 0; i < fvt.length; ++i)
+                Value vec;
+                if (sc.argumentList.Count == 0)
                 {
-                    Visit(sc.argumentList[i]);
-                    var arg = valueStack.Pop();
-                    if (arg.isConst)
-                    {
-                        constValues.Add(arg);
-                        nonConstValues.Add(null);
-                    }
-                    else
-                    {
-                        constValues.Add(Value.Undefined(vecType.elementType));
-                        nonConstValues.Add(arg);
-                    }
+                    vec = builder.ConstNull(vecType);
                 }
-                Value vec = new ConstVec(vecType, constValues);
-                for (int i = 0; i < nonConstValues.Count; ++i)
+                else
                 {
-                    var arg_v = nonConstValues[i];
-                    if (arg_v != null)
+                    List<Value> constValues = new List<Value>(fvt.length);
+                    List<Value> nonConstValues = new List<Value>(fvt.length);
+                    for (int i = 0; i < fvt.length; ++i)
                     {
-                        vec = builder.BuildInsertElement(vec, arg_v, new ConstInt(Const.i32_t, (ulong)i), node, "compound_literal_insert");
+                        Visit(sc.argumentList[i]);
+                        var arg = valueStack.Pop();
+                        if (arg.isConst)
+                        {
+                            constValues.Add(arg);
+                            nonConstValues.Add(null);
+                        }
+                        else
+                        {
+                            constValues.Add(Value.Undefined(vecType.elementType));
+                            nonConstValues.Add(arg);
+                        }
+                    }
+                    vec = new ConstVec(vecType, constValues);
+                    for (int i = 0; i < nonConstValues.Count; ++i)
+                    {
+                        var arg_v = nonConstValues[i];
+                        if (arg_v != null)
+                        {
+                            vec = builder.BuildInsertElement(vec, arg_v, new ConstInt(Const.i32_t, (ulong)i), node, "compound_literal_insert");
+                        }
                     }
                 }
 
@@ -1535,16 +1549,24 @@ namespace PragmaScript
             }
             else
             {
-                Debug.Assert(node.argumentList.Count == fvt.length);
-                List<Value> constValues = new List<Value>(fvt.length);
-                for (int i = 0; i < fvt.length; ++i)
+                Value vec;
+                if (sc.argumentList.Count == 0)
                 {
-                    Visit(sc.argumentList[i]);
-                    var arg = valueStack.Pop();
-                    Debug.Assert(arg.isConst);
-                    constValues.Add(arg);
+                    vec = builder.ConstNull(vecType);
                 }
-                Value vec = new ConstVec(vecType, constValues);
+                else
+                {
+                    Debug.Assert(node.argumentList.Count == fvt.length);
+                    List<Value> constValues = new List<Value>(fvt.length);
+                    for (int i = 0; i < fvt.length; ++i)
+                    {
+                        Visit(sc.argumentList[i]);
+                        var arg = valueStack.Pop();
+                        Debug.Assert(arg.isConst);
+                        constValues.Add(arg);
+                    }
+                    vec = new ConstVec(vecType, constValues);
+                }
                 valueStack.Push(vec);
             }
         }
@@ -1573,7 +1595,8 @@ namespace PragmaScript
             var structType = (StructType)GetTypeRef(s_ft);
             var insert = builder.GetInsertBlock();
             builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-            var struct_ptr = builder.BuildAlloca(structType, node, "slice_alloca");
+            var align = GetMinimumAlignmentForBackend(structType);
+            var struct_ptr = builder.BuildAlloca(structType, node, "slice_alloca", align);
             builder.PositionAtEnd(insert);
 
             ptr = builder.BuildBitCast(ptr, structType.elementTypes[1], node, "slice_hack_cast");
@@ -1652,7 +1675,8 @@ namespace PragmaScript
             {
                 var insert = builder.GetInsertBlock();
                 builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
-                var arr_ptr = builder.BuildAlloca(arr_type, node, "arr_alloca");
+                int align = GetMinimumAlignmentForBackend(arr_type);
+                var arr_ptr = builder.BuildAlloca(arr_type, node, "arr_alloca", align);
 
                 builder.PositionAtEnd(insert);
                 Debug.Assert(arr_type.elementCount == node.elements.Count);
@@ -1956,8 +1980,72 @@ namespace PragmaScript
             valueStack.Push(result);
         }
 
+        public void VisitSIMDFunction(AST.FunctionCall node, FrontendFunctionType feft)
+        {
+            switch (feft.funName)
+            {
+                case "slli_si128":
+                    {
+                        Visit(node.argumentList[0]);
+                        var v = valueStack.Pop();
+                        Visit(node.argumentList[1]);
+                        var shift = valueStack.Pop();
+                        if (!shift.isConst)
+                        {
+                            throw new ParserError($"Argument 2 to \"{feft.funName}\" must be a compile-time constant.", node.argumentList[1].token);
+                        }
+                        var i8_16x_t = new VectorType(16, Const.i8_t);
+                        var zero = builder.ConstNull(i8_16x_t);
+                        var bc = builder.BuildBitCast(v, i8_16x_t, node, "vec_bc");
+                        var maskValues = new List<Value>();
+                        var shiftValue = (int)((ConstInt)shift).data;
+                        shiftValue = Math.Clamp(shiftValue, 0, 16);
+                        for (int i = 0; i < 16; ++i)
+                        {
+                            maskValues.Add(new ConstInt(Const.i32_t, (ulong)(16 + i - shiftValue)));
+                        }
+                        var mask = new ConstVec(new VectorType(16, Const.i32_t), maskValues);
+                        var shuffle = builder.BuildShuffleVector(zero, bc, mask, node, "slli_shuffle");
+                        var result = builder.BuildBitCast(shuffle, v.type, node, "vec_bc");
+                        valueStack.Push(result);
+                    }
+                    break;
+                case "srli_si128":
+                    {
+                        Visit(node.argumentList[0]);
+                        var v = valueStack.Pop();
+                        Visit(node.argumentList[1]);
+                        var shift = valueStack.Pop();
+                        if (!shift.isConst)
+                        {
+                            throw new ParserError($"Argument 2 to \"{feft.funName}\" must be a compile-time constant.", node.argumentList[1].token);
+                        }
+                        var i8_16x_t = new VectorType(16, Const.i8_t);
+                        var zero = builder.ConstNull(i8_16x_t);
+                        var bc = builder.BuildBitCast(v, i8_16x_t, node, "vec_bc");
+                        var maskValues = new List<Value>();
+                        var shiftValue = (int)((ConstInt)shift).data;
+                        shiftValue = Math.Clamp(shiftValue, 0, 16);
+                        for (int i = 0; i < 16; ++i)
+                        {
+                            maskValues.Add(new ConstInt(Const.i32_t, (ulong)(shiftValue + i)));
+                        }
+                        var mask = new ConstVec(new VectorType(16, Const.i32_t), maskValues);
+                        var shuffle = builder.BuildShuffleVector(bc, zero, mask, node, "slli_shuffle");
+                        var result = builder.BuildBitCast(shuffle, v.type, node, "vec_bc");
+                        valueStack.Push(result);
+                    }
+                    break;
+            }
+        }
+
         public void VisitSpecialFunction(AST.FunctionCall node, FrontendFunctionType feft)
         {
+            if (node.left.scope.module != null && node.left.scope.module.name == "SIMD")
+            {
+                VisitSIMDFunction(node, feft);
+                return;
+            }
             switch (feft.funName)
             {
                 case "__file_pos__":
@@ -2379,8 +2467,7 @@ namespace PragmaScript
                 var funType = funPointer.elementType as FunctionType;
                 Debug.Assert(funPointer != null);
                 Debug.Assert(funType != null);
-                // TODO(pragma): 
-                // if (node.HasAttribute("STUB")) {
+
                 var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
                 var function = builder.AddFunction(funType, node, functionName, fun.parameters.Select(p => p.name).ToArray());
                 function.isStub = node.HasAttribute("STUB");
@@ -2391,6 +2478,10 @@ namespace PragmaScript
                 if (node.HasAttribute("ARGMEMONLY"))
                 {
                     function.attribs |= FunctionAttribs.argmemonly;
+                }
+                if (node.HasAttribute("LLVM"))
+                {
+                    function.attribs |= FunctionAttribs.lvvm;
                 }
                 if (function.isStub)
                 {

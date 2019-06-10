@@ -571,11 +571,12 @@ namespace PragmaScript
             }
             if (vecType != null && argTypes.Count == node.argumentList.Count)
             {
-                if (node.argumentList.Count != vecType.length)
+                if (node.argumentList.Count != 0 && node.argumentList.Count != vecType.length)
                 {
                     var token = node.argumentList.Count < vecType.length ? node.argumentList.Last().token : node.argumentList[vecType.length].token;
                     throw new ParserError("The number of arguments in a compound literal must match the length of the vector type.", node.argumentList[structType.fields.Count].token);
                 }
+
                 for (int i = 0; i < argTypes.Count; ++i)
                 {
                     if (!FrontendType.CompatibleAndLateBind(argTypes[i], vecType.elementType))

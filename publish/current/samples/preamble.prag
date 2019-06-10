@@ -319,6 +319,19 @@ let print = fun (value: f64; precision: i32 = 4) => void
 	print(pd.buffer);
 }
 
+let print = fun (value: f32_4x; precision: i32 = 4) => void
+{
+	print("< ");
+	print(value[0], precision);
+	print(", ");
+	print(value[1], precision);
+	print(", ");
+	print(value[2], precision);
+	print(", ");
+	print(value[3], precision);
+	print(" >");
+}
+
 let debug_print = fun(name: string; value: string) => void {
 	print(name);
 	print(": ");
@@ -365,6 +378,33 @@ let debug_print = fun (name: string; value: bool) => void
 		print("false");
 	}
 	print("\n");
+}
+
+let debug_print = fun(name: string; value: f32_4x) => void
+{
+	print(name);
+	print(": < ");
+	print(value[0]);
+	print(", ");
+	print(value[1]);
+	print(", ");
+	print(value[2]);
+	print(", ");
+	print(value[3]);
+	print(" >\n");
+}
+let debug_print = fun(name: string; value: i32_4x) => void
+{
+	print(name);
+	print(": < ");
+	print(value[0]);
+	print(", ");
+	print(value[1]);
+	print(", ");
+	print(value[2]);
+	print(", ");
+	print(value[3]);
+	print(" >\n");
 }
 
 let __hack_reserve_intrinsics = fun () => bool
