@@ -656,15 +656,17 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	}
 }
 
+
+
 [
 	"compile.output": "raytracer.exe",
 	"compile.debuginfo": "false",
 	"compile.entry" : "true",
 	"compile.ll"    : "false",
 	"compile.asm"   : "false",
- 	"compile.opt"   : "0",
+ 	"compile.opt"   : "4",
 	"compile.cpu"	: "native",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
@@ -672,12 +674,16 @@ let main = fun () => void {
 	temp_arena = create_arena(megabytes(32));
 	// let nx = 180*6;	
 	// let ny = 90*6;
-	let nx = 1280;
-	let ny = 720;
-	// 5078 ms
+	// compare with https://nelari.us/post/raytracer_with_rust_and_zig/
 	
-	// let nx = 1920;
-	// let ny = 1080;
+	
+	let sub_sample_count = 100;
+	
+	// let nx = 3840;
+	// let ny = 2160;
+	
+	let nx = 1920;
+	let ny = 1080;
 	// let nx = 1920;
 	// let ny = 1080;
 	
@@ -686,7 +692,7 @@ let main = fun () => void {
 
 	var pixels: i8* = push(&temp_arena, (3 * nx * ny)@mm);
 	var temp_pixels = pixels;
-	let sub_sample_count = 16;
+	
 
 	var time_open_shutter = 0.0;
 	var time_close_shutter = 0.1;

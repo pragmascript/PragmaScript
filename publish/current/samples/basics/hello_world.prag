@@ -65,13 +65,19 @@ let main = fun () => void {
 	// print_vec(Random::rand_v4());
 	// print_vec(Random::rand_v4());
 	
-	var arr = [SIMD::set1_ps(0.0), SIMD::set1_ps(1.0), SIMD::set1_ps(2.0)];
+	// var arr = [SIMD::set1_ps(0.0), SIMD::set1_ps(1.0), SIMD::set1_ps(2.0)];
 	
-	var a = i32_4x { 1, 2, 3, 4};
-	var b = SIMD::srli_si128(a, 3);
-	debug_print("a", a);
-	debug_print("b", b);
+	// var a = i32_4x { 1, 2, 3, 4};
+	// var b = SIMD::srli_si128(a, 3);
+	// debug_print("a", a);
+	// debug_print("b", b);
 	
+	
+	var mask = SIMD::set1_epi32(0x00FF00FF);
+	var test = SIMD::cvtepi32_ps(mask);
+	
+	debug_print("mask", mask);
+	debug_print("test", test);
 	
 	
 	// debug_print("rnd", Random::rand_i32());

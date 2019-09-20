@@ -42,8 +42,7 @@
                     "applyTo": "allDocuments"
                 }
             ]
-        }
-        ,
+        },
         {
             "label": "build release",
             "type": "shell",

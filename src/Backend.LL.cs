@@ -692,12 +692,13 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                         {
                             Indent();
                         }
-                        var fun = (Function)v.args[0];
+                        var fun = v.args[0];
                         var pt = (PointerType)fun.type;
                         var ft = (FunctionType)pt.elementType;
-                        if (fun.attribs.HasFlag(FunctionAttribs.lvvm))
+
+                        if (fun is Function f && f.attribs.HasFlag(FunctionAttribs.lvvm))
                         {
-                            AP($"{fun.name.Substring(1)} ");
+                            AP($"{f.name.Substring(1)} ");
                             for (int i = 1; i < v.args.Count; ++i)
                             {
                                 AppendArgument(v.args[i]);
