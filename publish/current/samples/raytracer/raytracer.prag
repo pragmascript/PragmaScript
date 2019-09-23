@@ -656,11 +656,9 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	}
 }
 
-
-
 [
 	"compile.output": "raytracer.exe",
-	"compile.debuginfo": "false",
+	"compile.debuginfo": "true",
 	"compile.entry" : "true",
 	"compile.ll"    : "false",
 	"compile.asm"   : "false",

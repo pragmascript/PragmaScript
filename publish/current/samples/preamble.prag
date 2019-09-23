@@ -407,9 +407,11 @@ let debug_print = fun(name: string; value: i32_4x) => void
 	print(" >\n");
 }
 
+var _fltused = 0;
 let __hack_reserve_intrinsics = fun () => bool
 {
-	if (@mm memcpy == 1234 || @mm memset == 1234 || @mm __chkstk == 1234) {
+	if (@mm memcpy == 1234 || @mm memset == 1234 || @mm __chkstk == 1234 || @mm (&_fltused) == 1234) {
+		
 		print("");
 		return true;
 	}

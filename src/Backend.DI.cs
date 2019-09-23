@@ -276,7 +276,7 @@ namespace PragmaScript
                 AST.Block block = (AST.Block)fd.body;
                 var ft = typeChecker.GetNodeType(fd);
                 var variablesIdx = AddDebugInfoNode("!{}");
-                string nodeString = $"distinct !DISubprogram(name: \"{fd.funName}\", linkageName: \"{fd.funName}\", file: !{GetDIFile(block)}, line: {fd.token.Line}, type: !{GetDIType(ft, true)}, isLocal: true, isDefinition: true, scopeLine: {block.token.Line}, flags: DIFlagPrototyped, isOptimized: false, unit: !{debugInfoCompileUnitIdx}, variables: !{variablesIdx})";
+                string nodeString = $"distinct !DISubprogram(name: \"{fd.funName}\", linkageName: \"{fd.funName}\", file: !{GetDIFile(block)}, line: {fd.token.Line}, type: !{GetDIType(ft, true)}, isLocal: true, isDefinition: true, scopeLine: {block.token.Line}, flags: DIFlagPrototyped, isOptimized: false, unit: !{debugInfoCompileUnitIdx}, retainedNodes: !{variablesIdx})";
                 subprogramIdx = AddDebugInfoNode(nodeString);
                 debugInfoScopeLookup.Add(fd, subprogramIdx);
             }

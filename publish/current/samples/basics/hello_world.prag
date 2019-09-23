@@ -46,6 +46,7 @@ let foo = struct (
 	b: i32;	
 );
 
+
 [
 	"compile.output": "hello_world.exe",
 	"compile.debuginfo": "true",
