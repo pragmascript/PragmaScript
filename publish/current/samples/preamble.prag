@@ -1,5 +1,7 @@
 ﻿import "windows.prag"
+import "collections.prag"
 
+var temp_memory_arena: memory_arena = create_arena(megabytes(32));
 
 let kilobytes = fun (bytes: mm) => mm 
 {
@@ -37,6 +39,295 @@ let print_error = fun (s: string) => void
 {
 	assert(Windows::console_error_handle != Windows::INVALID_HANDLE_VALUE);
 	Windows::WriteFile(Windows::console_error_handle, s.data, s.length, @i32* nullptr, nullptr);
+}
+
+let make_string = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => string {
+	var result = string {};
+	result.data = push(arena, @mm length);
+	memset(result.data, 0, @mm result.length);
+	result.length = length;
+	return result;
+}
+
+let concat = fun(a: string; b: string; arena: memory_arena* = &temp_memory_arena) => string {
+	var result = make_string(a.length + b.length, arena);
+	memcpy(result.data, a.data, @mm a.length);
+	memcpy(result.data + a.length, b.data, @mm b.length);
+	return result;
+}
+
+let readln = fun(arena: memory_arena* = &temp_memory_arena) => string 
+{
+	var result = string {};
+	result.data = push(arena, 256);
+	result.length = 256;
+	Windows::SetConsoleMode(Windows::console_input_handle,  
+		Windows::ENABLE_LINE_INPUT | Windows::ENABLE_ECHO_INPUT |  Windows::ENABLE_PROCESSED_INPUT );
+	Windows::ReadFile(Windows::console_input_handle, result.data, result.length, &result.length, nullptr);
+	result.length -= 2;
+	if (result.length < 0) {
+		result.length = 0;
+	}
+	return result;
+}
+
+
+let from_str = fun(str: string; value: i32*) => bool {
+	var result = 0;
+	var sign = 1;
+	if (str.length < 1) {
+		return false;
+	}
+	var first_digit_idx = 0;
+	if (str[0] == ord("+")@i8 || str[0] == ord("-")@i8) {
+		first_digit_idx = 1;
+		if (str[0] == ord("-")@i8) {
+			sign = -1;
+		}
+	}
+	var decimal_factor = 1;
+	for (var str_idx = str.length - 1; str_idx >= first_digit_idx; --str_idx) {
+		var chr = str[str_idx]@i32;
+		var current_digit: i32;
+		if (chr == ord("0")) {
+			current_digit = 0;
+		}
+		elif (chr == ord("1")) {
+			current_digit = 1;
+		}
+		elif (chr == ord("2")) {
+			current_digit = 2;
+		}
+		elif (chr == ord("3")) {
+			current_digit = 3;
+		}
+		elif (chr == ord("4")) {
+			current_digit = 4;
+		}
+		elif (chr == ord("5")) {
+			current_digit = 5;
+		}
+		elif (chr == ord("6")) {
+			current_digit = 6;
+		}
+		elif (chr == ord("7")) {
+			current_digit = 7;
+		}
+		elif (chr == ord("8")) {
+			current_digit = 8;
+		}
+		elif (chr == ord("9")) {
+			current_digit = 9;
+		}		
+		else { 
+			return false;
+		}
+		result += current_digit * decimal_factor;
+		decimal_factor *= 10;
+	}
+	*value = sign * result;
+	return true;
+}
+
+let from_hex_str = fun(str: string; value: i32*) => bool {
+	var result = 0;
+	var sign = 1;
+	if (str.length < 1) {
+		return false;
+	}
+	var first_digit_idx = 0;
+	if (str[0] == ord("+")@i8 || str[0] == ord("-")@i8) {
+		first_digit_idx = 1;
+		if (str[0] == ord("-")@i8) {
+			sign = -1;
+		}
+	}
+	var hex_factor = 1;
+	for (var str_idx = str.length - 1; str_idx >= first_digit_idx; --str_idx) {
+		var chr = str[str_idx]@i32;
+		var current_digit: i32;
+		if (chr == ord("0")) {
+			current_digit = 0;
+		}
+		elif (chr == ord("1")) {
+			current_digit = 1;
+		}
+		elif (chr == ord("2")) {
+			current_digit = 2;
+		}
+		elif (chr == ord("3")) {
+			current_digit = 3;
+		}
+		elif (chr == ord("4")) {
+			current_digit = 4;
+		}
+		elif (chr == ord("5")) {
+			current_digit = 5;
+		}
+		elif (chr == ord("6")) {
+			current_digit = 6;
+		}
+		elif (chr == ord("7")) {
+			current_digit = 7;
+		}
+		elif (chr == ord("8")) {
+			current_digit = 8;
+		}
+		elif (chr == ord("9")) {
+			current_digit = 9;
+		}
+		elif (chr == ord("a") || chr == ord("A")) {
+			current_digit = 10;
+		}		
+		elif (chr == ord("b") || chr == ord("B")) {
+			current_digit = 11;
+		}		
+		elif (chr == ord("c") || chr == ord("C")) {
+			current_digit = 12;
+		}		
+		elif (chr == ord("d") || chr == ord("D")) {
+			current_digit = 13;
+		}		
+		elif (chr == ord("e") || chr == ord("E")) {
+			current_digit = 14;
+		}		
+		elif (chr == ord("f") || chr == ord("F")) {
+			current_digit = 15;
+		}		
+		else { 
+			return false;
+		}
+		result += current_digit * hex_factor;
+		hex_factor *= 16;
+	}
+	*value = sign * result;
+	return true;
+}
+
+let to_hex_str = fun(value: i32; arena: memory_arena* = &temp_memory_arena) => string {
+	var result = make_string(8, arena);
+	var temp = value;
+	
+	for (var str_idx = 7; str_idx >= 0; --str_idx) {
+		var digit = temp & 0xF;
+		var char: i32;
+		if (digit == 0) {
+			char = ord("0");
+		}
+		elif (digit == 1) {
+			char = ord("1");
+		}
+		elif (digit == 2) {
+			char = ord("2");
+		}
+		elif (digit == 3) {
+			char = ord("3");
+		}
+		elif (digit == 4) {
+			char = ord("4");
+		}
+		elif (digit == 5) {
+			char = ord("5");
+		}
+		elif (digit == 6) {
+			char = ord("6");
+		}
+		elif (digit == 7) {
+			char = ord("7");
+		}
+		elif (digit == 8) {
+			char = ord("8");
+		}
+		elif (digit == 9) {
+			char = ord("9");
+		}
+		elif (digit == 10) {
+			char = ord("A");
+		}
+		elif (digit == 11) {
+			char = ord("B");
+		}
+		elif (digit == 12) {
+			char = ord("C");
+		}
+		elif (digit == 13) {
+			char = ord("D");
+		}
+		elif (digit == 14) {
+			char = ord("E");
+		}
+		elif (digit == 15) {
+			char = ord("F");
+		}
+		result[str_idx] = @i8 char;
+		temp >>=\ 4;
+	}	
+	// var offset = str_idx + 1;
+	// result.data += offset;
+	// result.length -= offset;
+	return result;
+}
+let to_str = fun(value: i32; signed: bool = true; arena: memory_arena* = &temp_memory_arena) => string {
+	var result = make_string(11, arena);
+	var temp = value;
+	
+	var negative = false;
+	if (signed) {
+		if (temp < 0) {
+			temp = - temp;
+			negative = true;
+		}
+	}
+	var str_idx = 10;
+	
+	for (; str_idx >= 0; --str_idx) {
+		var digit = temp % 10;
+		var char: i32;
+		if (digit == 0) {
+			char = ord("0");
+		}
+		elif (digit == 1) {
+			char = ord("1");
+		}
+		elif (digit == 2) {
+			char = ord("2");
+		}
+		elif (digit == 3) {
+			char = ord("3");
+		}
+		elif (digit == 4) {
+			char = ord("4");
+		}
+		elif (digit == 5) {
+			char = ord("5");
+		}
+		elif (digit == 6) {
+			char = ord("6");
+		}
+		elif (digit == 7) {
+			char = ord("7");
+		}
+		elif (digit == 8) {
+			char = ord("8");
+		}
+		elif (digit == 9) {
+			char = ord("9");
+		}
+		result[str_idx] = @i8 char;
+		temp /= 10;
+		if (temp == 0) {
+			break;
+		}
+	}	
+	
+	if (signed && negative) {
+		result[--str_idx] = @i8 ord("-");
+	}
+	
+	var offset = str_idx;
+	result.data += offset;
+	result.length -= offset;
+	return result;
 }
 
 ["conditional":"debug"]

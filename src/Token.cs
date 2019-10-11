@@ -29,7 +29,7 @@ namespace PragmaScript
         * Assignment = 13
         */
 
-        public static Token UndefinedRoot(string fn) => new Token("undefined") { type = TokenType.Undefined, text = "undefined", filename=fn };
+        public static Token UndefinedRoot(string fn) => new Token("undefined") { type = TokenType.Undefined, text = "undefined", filename = fn };
         public static readonly Token Undefined = new Token("undefined") { type = TokenType.Undefined, text = "undefined" };
         public static Token NewLine(int pos, int line, string filename)
         {
@@ -198,13 +198,15 @@ namespace PragmaScript
             operators.Add(">>=", TokenType.RightShiftEquals);
             operators.Add(">>=\\", TokenType.RightShiftEqualsUnsigned);
             // operators.Add("[]", TokenType.ArrayTypeBrackets);
-            
+
             operators.Add("@", TokenType.At);
             operators.Add("@\\", TokenType.UnsignedCast);
-            
 
-            foreach (var op in operators.Keys) {
-                foreach (var oc in op) {
+
+            foreach (var op in operators.Keys)
+            {
+                foreach (var oc in op)
+                {
                     operatorChars.Add(oc);
                 }
             }
@@ -227,7 +229,8 @@ namespace PragmaScript
 
         public bool isAssignmentOperator()
         {
-            switch (type) {
+            switch (type)
+            {
                 case TokenType.Assignment:
                 case TokenType.PlusEquals:
                 case TokenType.LeftShiftEquals:
@@ -247,19 +250,22 @@ namespace PragmaScript
             }
         }
 
-        public static Token Parse(string line, int pos, int lineNumber, string filename)
+        public static Token NextToken(string[] lines, ref int pos, ref int lineIdx, string filename)
         {
             var t = new Token(filename);
             t.type = TokenType.Undefined;
             t.pos_idx = pos;
-            t.line_idx = lineNumber;
+            t.line_idx = lineIdx;
             t.length = 0;
 
+            var line = lines[lineIdx];
             char current = line[pos];
 
             // first test if char is whitespace
-            if (char.IsWhiteSpace(current)) {
-                while (char.IsWhiteSpace(current)) {
+            if (char.IsWhiteSpace(current))
+            {
+                while (char.IsWhiteSpace(current))
+                {
                     t.length++;
                     pos++;
                     if (pos >= line.Length)
@@ -272,24 +278,31 @@ namespace PragmaScript
                 return t;
             }
 
-            if (current == '/') {
-                if (pos + 1 < line.Length) {
-                    if (line[pos + 1] == '/') {
+            if (current == '/')
+            {
+                if (pos + 1 < line.Length)
+                {
+                    if (line[pos + 1] == '/')
+                    {
                         t.type = TokenType.Comment;
                         t.text = line.Substring(t.pos_idx, line.Length - t.pos_idx);
                         t.length = t.text.Length;
+                        pos += t.length;
                         return t;
                     }
                 }
             }
 
-            if (current == '"') {
+            if (current == '"')
+            {
                 t.type = TokenType.String;
                 char last = current;
-                do {
+                do
+                {
                     pos++;
                     t.length++;
-                    if (pos >= line.Length) {
+                    if (pos >= line.Length)
+                    {
                         t.text = line.Substring(t.pos_idx, t.length - 1);
                         throw new LexerError("String constant exceeds line!", t);
                     }
@@ -302,27 +315,96 @@ namespace PragmaScript
                 return t;
             }
 
+            // verbatim strings
+            if (current == '@')
+            {
+                if (pos + 1 < line.Length)
+                {
+                    if (line[pos + 1] == '"')
+                    {
+
+                        t.type = TokenType.String;
+                        var sb = new StringBuilder();
+                        pos++;
+                        sb.Append('"');
+                        while (true)
+                        {
+                            pos++;
+                            if (pos >= line.Length)
+                            {
+                                if (lineIdx >= lines.Length)
+                                {
+                                    t.text = sb.ToString();
+                                    throw new LexerError("Verbatim string constant exceeds file!", t);
+                                }
+                                lineIdx++;
+                                pos = 0;
+                                line = lines[lineIdx];
+                                sb.Append(Environment.NewLine);
+                            }
+                            current = line[pos];
+                            if (current == '"')
+                            {
+                                if (pos < line.Length - 1)
+                                {
+                                    if (line[pos + 1] == '"')
+                                    {
+                                        pos++;
+                                        sb.Append('"');
+                                    }
+                                    else
+                                    {
+                                        pos++;
+                                        sb.Append('"');
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                sb.Append(current);
+                            }
+                        }
+                        t.text = sb.ToString();
+                        t.length = t.text.Length;
+                        return t;
+                    }
+                }
+
+            }
             // test if first char is a radix 10 digit
-            if (char.IsDigit(current)) {
+            if (char.IsDigit(current))
+            {
                 bool containsDecimalSeperator = false;
                 bool isHexadecimal = false;
-                if (pos + 1 < line.Length) {
-                    if (line[pos + 1] == 'x') {
+                if (pos + 1 < line.Length)
+                {
+                    if (line[pos + 1] == 'x')
+                    {
                         isHexadecimal = true;
                         pos += 2;
                         t.length += 2;
                     }
                 }
-                if (pos >= line.Length) {
+                if (pos >= line.Length)
+                {
                     current = '\0';
-                } else {
+                }
+                else
+                {
                     current = line[pos];
                 }
 
                 while (char.IsDigit(current) || current == '.'
-                    || (isHexadecimal && (current >= 'A' && current <= 'F'))) {
+                    || (isHexadecimal && (current >= 'A' && current <= 'F')))
+                {
                     // only one decimal seperator is allowed
-                    if (current == '.' && containsDecimalSeperator) {
+                    if (current == '.' && containsDecimalSeperator)
+                    {
                         t.text = line.Substring(t.pos_idx, t.length);
                         throw new LexerError("Only one decimal seperator is allowed!", t);
                     }
@@ -340,8 +422,10 @@ namespace PragmaScript
             }
 
             // if a token starts with a leter its either a keyword or an identifier
-            if (char.IsLetter(current) || current == '_') {
-                while (isIdentifierChar(current)) {
+            if (char.IsLetter(current) || current == '_')
+            {
+                while (isIdentifierChar(current))
+                {
                     t.length++;
                     pos++;
                     if (pos >= line.Length)
@@ -353,10 +437,13 @@ namespace PragmaScript
                 t.text = identifier;
 
                 // check if current identifier is a reserved keyword
-                if (isKeyword(identifier)) {
+                if (isKeyword(identifier))
+                {
                     t.type = keywords[identifier];
                     return t;
-                } else {
+                }
+                else
+                {
                     t.type = TokenType.Identifier;
                     return t;
                 }
@@ -365,25 +452,33 @@ namespace PragmaScript
             var operatorSB = new StringBuilder();
             TokenType op = TokenType.Undefined;
             bool foundOperator = false;
-            
-            while (operatorChars.Contains(current)) {
+
+
+            int tempPos = pos;
+            while (operatorChars.Contains(current))
+            {
                 operatorSB.Append(current);
                 var ops = operatorSB.ToString();
                 // check if current char is operator
-                if (operators.TryGetValue(ops, out op)) {
+                if (operators.TryGetValue(ops, out op))
+                {
                     t.length = ops.Length;
                     t.type = op;
                     t.text = line.Substring(t.pos_idx, t.length);
                     foundOperator = true;
                 }
-                pos++;
-                if (pos >= line.Length)
+                tempPos++;
+                if (tempPos >= line.Length)
+                {
                     break;
-                current = line[pos];
+                }
+                current = line[tempPos];
             }
 
             // actually found an operator
-            if (foundOperator) {
+            if (foundOperator)
+            {
+                pos += t.length;
                 return t;
             }
 
@@ -394,9 +489,12 @@ namespace PragmaScript
 
         public override string ToString()
         {
-            if (type != TokenType.Error) {
+            if (type != TokenType.Error)
+            {
                 return string.Format("({0}, file \"{1}\", line {2}, pos {3}, \"{4}\")", type.ToString(), filename, Line, Pos, text);
-            } else {
+            }
+            else
+            {
                 return string.Format("({0}, file {1}, line {2}, pos {3}, \"{4}\")", "error: " + errorMessage, filename, Line, Pos, text);
             }
 
@@ -410,18 +508,21 @@ namespace PragmaScript
         public static void Tokenize(List<Token> result, string text, string filename)
         {
             var lines = text.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
-            for (int i = 0; i < lines.Length; ++i) {
-                var line = lines[i];
+            int lineIdx = 0;
+            while (lineIdx < lines.Length)
+            {
                 var pos = 0;
-                while (pos < line.Length) {
-                    var t = Token.Parse(line, pos, i, filename);
+                while (pos < lines[lineIdx].Length)
+                {
+                    var t = Token.NextToken(lines, ref pos, ref lineIdx, filename);
                     t.filename = filename;
                     result.Add(t);
-                    pos += t.length;
                 }
-                var tnl = Token.NewLine(pos, i, filename);
+
+                var tnl = Token.NewLine(pos, lineIdx, filename);
                 tnl.filename = filename;
                 result.Add(tnl);
+                lineIdx++;
             }
 
             var teof = new Token(filename);
@@ -433,7 +534,8 @@ namespace PragmaScript
         public static bool IsBefore(Token a, Token b)
         {
             Debug.Assert(a.filename == b.filename);
-            if (a.Line == b.Line) {
+            if (a.Line == b.Line)
+            {
                 Debug.Assert(a.Pos != b.Pos);
                 return a.Pos < b.Pos;
             }

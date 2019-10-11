@@ -166,16 +166,16 @@ namespace PragmaScript
         }
 
 
-        public static List<string> parseImports(ref ParseState ps, Scope scope)
+        public static List<(string, Token)> parseImports(ref ParseState ps, Scope scope)
         {
-            var result = new List<string>();
+            var result = new List<(string, Token)>();
             ps.SkipWhitespace();
             while (true)
             {
                 if (ps.CurrentToken().type == Token.TokenType.Import)
                 {
                     var s = ps.ExpectNextToken(Token.TokenType.String);
-                    result.Add(s.text.Substring(1, s.text.Length - 2));
+                    result.Add((s.text.Substring(1, s.text.Length - 2), s));
                     ps.NextToken();
                 }
                 else

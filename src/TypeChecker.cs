@@ -1203,6 +1203,7 @@ namespace PragmaScript
                 {
                     case FrontendArrayType at:
                         st = new FrontendSliceType(at.elementType);
+                      
                         // TODO(pragma): HACK remove
                         if (!AST.activateReturnPointer(node.left))
                         {

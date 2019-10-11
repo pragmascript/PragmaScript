@@ -64,11 +64,12 @@ namespace PragmaScript
             // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "test", "array.prag");
-            // CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            //CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "opengl", "test_opengl.prag");
             // CompilerOptions.inputFilename = Path.Combine("test", "bugs.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "wasapi", "wasapi.prag");
-            CompilerOptions.inputFilename = Path.Combine(programDir, "raytracer", "raytracer.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "raytracer", "raytracer.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir,  "work_queue.prag");
             // Console.WriteLine(CompilerOptions.inputFilename);
 #endif
@@ -77,19 +78,14 @@ namespace PragmaScript
                 Console.WriteLine("Input file name missing!");
                 return;
             }
-            try
-            {
-                compile(CompilerOptions.inputFilename);
-            }
-            catch (FileNotFoundException)
-            {
-                writeError("Could not open input file!");
-            }
+            
+            compile(CompilerOptions.inputFilename);
+            
         }
 
         static void writeError(string s)
         {
-            Console.WriteLine(s + "!");
+            Console.WriteLine($"error: {s}!");
         }
 
         static void printHelp()
@@ -457,26 +453,42 @@ namespace PragmaScript
             Console.Write("parsing...");
             timer.Start();
 
-            Queue<string> toImport = new Queue<string>();
+            Queue<(string, Token)> toImport = new Queue<(string, Token)>();
             HashSet<string> imported = new HashSet<string>();
 
             Stack<Token[]> toCompile = new Stack<Token[]>();
 
             var ffn = Path.GetFullPath(filename);
-            toImport.Enqueue(ffn);
+            toImport.Enqueue((ffn, Token.Undefined));
             imported.Add(ffn);
 
             var scope = AST.MakeRootScope();
             var rootToken = Token.UndefinedRoot(ffn);
-
             var root = new AST.ProgramRoot(rootToken, scope);
 
             bool parseError = false;
 
             while (toImport.Count > 0)
             {
-                var fn = toImport.Dequeue();
-                var text = File.ReadAllText(fn);
+                var (fn, import_token) = toImport.Dequeue();
+                string text;
+                try 
+                {
+                    text = File.ReadAllText(fn);
+                }
+                catch (Exception e)
+                {
+                    if (import_token.type != Token.TokenType.Undefined)
+                    {
+                        writeError($"Could not read file \"{fn}\" at {import_token}");    
+                    }
+                    else
+                    {
+                        writeError($"Could not read file \"{fn}\"");    
+                    }
+                    return;
+                }
+                
                 text = preprocess(text);
                 var tokens = tokenize(text, fn);
 
@@ -484,7 +496,7 @@ namespace PragmaScript
                 ps.pos = 0;
                 ps.tokens = tokens;
 
-                List<string> imports = null;
+                List<(string, Token)> imports = null;
 #if !DEBUG
                 try
 #endif
@@ -498,13 +510,13 @@ namespace PragmaScript
                 }
 #endif
                 toCompile.Push(tokens);
-                foreach (var import in imports)
+                foreach (var (import, token) in imports)
                 {
                     var dir = Path.GetDirectoryName(fn);
                     var imp_fn = Path.GetFullPath(Path.Combine(dir, import));
                     if (!imported.Contains(imp_fn))
                     {
-                        toImport.Enqueue(imp_fn);
+                        toImport.Enqueue((imp_fn, token));
                         imported.Add(imp_fn);
                     }
                 }
@@ -524,7 +536,7 @@ namespace PragmaScript
                 }
 #if !DEBUG
                 catch (ParserError error) {
-                    Console.Error.WriteLine(error.Message);
+                    Console.Error.WriteLine($"\n{error.Message}\n");
                     parseError = true;
                 }
 #endif

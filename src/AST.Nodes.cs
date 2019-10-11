@@ -696,7 +696,8 @@ namespace PragmaScript
             public List<string> modulePath;
             public string variableName;
             // HACK: returnPointer is a HACK remove this?????
-            public bool returnPointer { get; set; }
+            public bool returnPointer {get; set;}
+            
 
             // HACK: overloadedIdx is a HACK remove this?????
             public int overloadedIdx = -1;
@@ -1147,6 +1148,10 @@ namespace PragmaScript
             {
                 var result = new IndexedElementAccess(token, scope);
                 result.left = left.DeepCloneTree();
+                if (indices.Count > 0)
+                {
+                    result.indices = new List<Node>();
+                }
                 foreach (var i in indices)
                 {
                     result.indices.Add(i.DeepCloneTree());

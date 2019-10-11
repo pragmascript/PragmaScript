@@ -2,10 +2,13 @@
   <PropertyGroup>
     <AssemblyName>pragma</AssemblyName>
     <OutputType>Exe</OutputType>
+    <PublishReadyToRun>true</PublishReadyToRun>
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <RuntimeIdentifier>win7-x64</RuntimeIdentifier>
     <DefineConstants>DISPLAY_TIMINGS</DefineConstants>
     <StartupObject></StartupObject>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
   <PropertyGroup Condition="'$(CompileConfig)' == 'Release'" >
     <Optimization>true</Optimization>

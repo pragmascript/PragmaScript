@@ -452,7 +452,7 @@ namespace PragmaScript
             function.internalLinkage = false;
             var vars = builder.AppendBasicBlock(function, "vars");
             var entry = builder.AppendBasicBlock(function, "entry");
-            builder.context.SetFunctionBlocks(function, vars, entry);
+            builder.context.SetFunctionBlocks(function, vars, entry, null);
 
             // var blockTemp = builder.GetInsertBlock();
             builder.PositionAtEnd(entry);
@@ -1076,7 +1076,9 @@ namespace PragmaScript
                 case AST.UnaryOp.UnaryOpType.PreInc:
                     {
                         result = builder.BuildLoad(v, node, "preinc_load");
-                        Debug.Assert(vtype is PointerType);
+                        if (!(vtype is PointerType)) {
+                           throw new ParserError("Cannot take pointer of element.", node.token);
+                        }
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
                         switch (vet_kind)
@@ -1102,7 +1104,10 @@ namespace PragmaScript
                 case AST.UnaryOp.UnaryOpType.PreDec:
                     {
                         result = builder.BuildLoad(v, node, "predec_load");
-                        Debug.Assert(vtype is PointerType);
+                        if (!(vtype is PointerType)) {
+                           throw new ParserError("Cannot take pointer of element.", node.token);
+                        }
+
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
                         switch (vet_kind)
@@ -1128,7 +1133,9 @@ namespace PragmaScript
                 case AST.UnaryOp.UnaryOpType.PostInc:
                     {
                         result = builder.BuildLoad(v, node, "postinc_load");
-                        Debug.Assert(vtype is PointerType);
+                        if (!(vtype is PointerType)) {
+                           throw new ParserError("Cannot take pointer of element.", node.token);
+                        }
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
                         switch (vet_kind)
@@ -1162,7 +1169,9 @@ namespace PragmaScript
                 case AST.UnaryOp.UnaryOpType.PostDec:
                     {
                         result = builder.BuildLoad(v, node, "postdec_load");
-                        Debug.Assert(vtype is PointerType);
+                        if (!(vtype is PointerType)) {
+                           throw new ParserError("Cannot take pointer of element.", node.token);
+                        }
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
                         switch (vet_kind)
@@ -1802,6 +1811,9 @@ namespace PragmaScript
                     Debug.Assert(node.expression == null);
 
                     var ac = new ConstInt(i32_t, (ulong)node.typeString.allocationCount);
+                    if (!(vType is PointerType)) {
+                        throw new ParserError("Cannot take pointer of element.", node.expression.token);
+                    }
                     var et = (vType as PointerType).elementType;
 
                     var alloc = builder.BuildArrayAlloca(et, ac, node, "alloca");
@@ -1884,6 +1896,9 @@ namespace PragmaScript
                 var resultType = result.type;
                 // var resultTypeName = typeToString(resultType);
 
+                if (!(targetType is PointerType)) {
+                    throw new ParserError("Cannot take pointer of element.", node.left.token);
+                }
                 var et = (targetType as PointerType).elementType;
                 if (!et.EqualType(resultType))
                 {
@@ -1950,7 +1965,6 @@ namespace PragmaScript
             // if variable is function paramter just return it immediately
             if (vd.isFunctionParameter)
             {
-
                 var f = builder.context.currentFunction;
                 var pr = builder.GetParam(f, vd.parameterIdx);
                 valueStack.Push(pr);
@@ -1965,6 +1979,9 @@ namespace PragmaScript
             Value result;
             if (vd.isConstant)
             {
+                if (node.returnPointer && !(v is Function)) {
+                    throw new ParserError("Cannot take pointer of constant!", node.token);
+                }
                 result = v;
                 // Debug.Assert(LLVM.IsConstant(v));
             }
@@ -2433,8 +2450,9 @@ namespace PragmaScript
             builder.PositionAtEnd(loopEnd);
         }
 
-        void insertMissingReturn(SSAType returnType, AST.Node node)
+        void BuildReturnBlock(SSAType returnType, AST.Node node)
         {
+            
             if (!builder.GetInsertBlock().HasTerminator())
             {
                 if (returnType.kind == TypeKind.Void)
@@ -2443,9 +2461,11 @@ namespace PragmaScript
                 }
                 else
                 {
-                    // var dummy = builder.BuildBitCast(zero_i32_v, returnType, node, "dummy");
-                    var retNull = builder.ConstNull(returnType);
-                    builder.BuildRet(retNull, node);
+                    throw new ParserError("Missing return statement!", node.token);
+                    
+                    // // var dummy = builder.BuildBitCast(zero_i32_v, returnType, node, "dummy");
+                    // var retNull = builder.ConstNull(returnType);
+                    // builder.BuildRet(retNull, node);
                 }
             }
         }
@@ -2496,20 +2516,21 @@ namespace PragmaScript
                     return;
                 }
 
-                //var functionName = node.externalFunctionName != null ? node.externalFunctionName : node.funName;
-                //var function = mod.functions[functionName];
                 var function = variables[node.variableDefinition] as Function;
 
                 // TODO(pragma): ugly hack?
                 function.debugContextNode = node;
-
                 if (node.HasAttribute("DLL.EXPORT"))
                 {
                     function.exportDLL = true;
                 }
+                
                 var vars = builder.AppendBasicBlock(function, "vars");
                 var entry = builder.AppendBasicBlock(function, "entry");
-                builder.context.SetFunctionBlocks(function, vars, entry);
+                // var @return = builder.AppendBasicBlock(function, "return"); 
+                var @return = default(Block);
+                
+                builder.context.SetFunctionBlocks(function, vars, entry, @return);
 
                 var blockTemp = builder.GetInsertBlock();
                 builder.PositionAtEnd(entry);
@@ -2520,7 +2541,7 @@ namespace PragmaScript
                 }
 
                 var returnType = GetTypeRef(fun.returnType);
-                insertMissingReturn(returnType, node.body);
+                BuildReturnBlock(returnType, node.body);
 
                 builder.PositionAtEnd(vars);
                 builder.BuildBr(entry, node.body);

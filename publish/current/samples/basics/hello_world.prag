@@ -15,7 +15,7 @@ let print_vec = fun(v: f32_4x) => void 	{
 	print("\n");
 }
 
-let print_vec = fun(v: i32_4x) => void 	{
+let print_vec = fun(v: i32_4x) => void {
 	print("v: ");
 	print(v[0]);
 	print(", ");
@@ -76,10 +76,8 @@ let main = fun () => void {
 	
 	var mask = SIMD::set1_epi32(0x00FF00FF);
 	var test = SIMD::cvtepi32_ps(mask);
-	
 	debug_print("mask", mask);
 	debug_print("test", test);
-	
 	
 	// debug_print("rnd", Random::rand_i32());
 	// debug_print("rnd", Random::rand_i32());

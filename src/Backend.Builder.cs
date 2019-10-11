@@ -22,11 +22,13 @@ namespace PragmaScript
                 public HashSet<string> names = new HashSet<string>();
                 public Block vars;
                 public Block entry;
+                public Block @return;
             }
-
+            
             public Dictionary<Function, FunctionContext> fcs = new Dictionary<Function, FunctionContext>();
-            FunctionContext globalContext = new FunctionContext();
             public AST.Node callsite;
+            
+            FunctionContext globalContext = new FunctionContext();
             System.Collections.Generic.Stack<(Block next, Block end)> loopStack = new System.Collections.Generic.Stack<(Block next, Block end)>();
 
             public Block currentBlock;
@@ -65,12 +67,15 @@ namespace PragmaScript
                 currentBlock = block;
                 Debug.Assert(fcs.ContainsKey(currentBlock.function));
             }
-            public void SetFunctionBlocks(Function f, Block vars, Block entry)
+            
+            public void SetFunctionBlocks(Function f, Block vars, Block entry, Block @return)
             {
                 var ctx = fcs[f];
                 ctx.vars = vars;
                 ctx.entry = entry;
+                ctx.@return = @return;
             }
+            
             public void SetCallsite(AST.Node callsite)
             {
                 this.callsite = callsite;

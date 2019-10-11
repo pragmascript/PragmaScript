@@ -152,6 +152,8 @@
     let FILE_SHARE_READ = 1;
     let CREATE_ALWAYS   = 2;
     let OPEN_EXISTING   = 3;
+    
+    
 
     let CreateFileA = extern fun
     (
@@ -255,6 +257,24 @@
     let DefWindowProcA = extern fun (window: mm; message: i32; w_param: mm; l_param: mm) => mm;
     let ExitProcess = extern fun(signal: i32) => void;
     
+    
+    let ENABLE_ECHO_INPUT = 0x0004;
+    let ENABLE_EXTENDED_FLAGS = 0x0080;
+    let ENABLE_INSERT_MODE = 0x0020;
+    let ENABLE_LINE_INPUT = 0x0002;
+    let ENABLE_MOUSE_INPUT = 0x0010;
+    let ENABLE_PROCESSED_INPUT = 0x0001;
+    let ENABLE_WINDOW_INPUT = 0x0040;
+    let ENABLE_VIRTUAL_TERMINAL_INPUT = 0x0008;
+    let ENABLE_QUICK_EDIT_MODE = 0x0200;
+    let ENABLE_PROCESSED_OUTPUT = 0x0001;
+    let ENABLE_WRAP_AT_EOL_OUTPUT = 0x0002;
+    let ENABLE_VIRTUAL_TERMINAL_PROCESSING  = 0x0004;
+    let DISABLE_NEWLINE_AUTO_RETURN = 0x0008;
+    let ENABLE_LVB_GRID_WORLDWIDE = 0x0010;
+    let SetConsoleMode = extern fun(handle: mm; dwMode: i32) => i32;
+    
+    
     let CreateWindowExA = extern fun
     (
        dwExStyle: i32;     
@@ -295,8 +315,8 @@
     let DispatchMessageA = extern fun (message: MSG*) => mm;
     let BeginPaint = extern fun (hwnd: mm; lpPaint: PAINTSTRUCT*) => mm;
     let EndPaint = extern fun (hwnd: mm; lpPaint: PAINTSTRUCT*) => i32;
-    let PostQuitMessage = extern fun (nExitCode: i32) => void;
     let GetClientRect = extern fun (hWnd: mm; rect: RECT*) => i32;
+    let PostQuitMessage = extern fun (nExitCode: i32) => void;
     let CreateDIBSection = extern fun 
     (
       hdc: mm;
