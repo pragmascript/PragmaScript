@@ -90,8 +90,6 @@ mod Math
 		}
 	}
 
-
-
 	let swap = fun (a: f32*; b: f32*) => void {
 		var temp = *a;
 		*a = *b;

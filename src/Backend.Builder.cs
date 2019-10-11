@@ -23,6 +23,11 @@ namespace PragmaScript
                 public Block vars;
                 public Block entry;
                 public Block @return;
+                public List<(Value, Block)> returnEdges = new List<(Value, Block)>();
+                
+                public void RegisterReturnEdge(Value returnValue, Block from) {
+                    returnEdges.Add((returnValue, from));
+                }
             }
             
             public Dictionary<Function, FunctionContext> fcs = new Dictionary<Function, FunctionContext>();
@@ -179,6 +184,11 @@ namespace PragmaScript
                 name = context.RequestLocalName_(name, f);
                 var result = f.AppendBasicBlock(name);
                 return result;
+            }
+            public void RemoveBasicBlock(Block block) 
+            {
+                var f = context.currentFunction;
+                f.blocks.Remove(block);
             }
             public Block AppendBasicBlock(string name)
             {
@@ -589,6 +599,8 @@ namespace PragmaScript
                 AddOp(result, name, contextNode: contextNode);
                 return result;
             }
+            
+            
             public Value BuildSExt(Value v, SSAType targetType, AST.Node contextNode, string name = null)
             {
                 var result = new Value(Op.SExt, targetType, v);

@@ -1,5 +1,7 @@
-﻿import "windows.prag"
-import "collections.prag"
+﻿#if PLATFORM_WINDOWS
+	import "windows.prag"
+#endif
+import "memory.prag"
 
 var temp_memory_arena: memory_arena = create_arena(megabytes(32));
 
@@ -29,17 +31,38 @@ let _rdtsc = extern fun () => i64;
 ["stub"]
 let __chkstk = extern fun () => void;
 
-let print = fun (s: string) => void
-{
-	assert(Windows::console_output_handle != Windows::INVALID_HANDLE_VALUE);
-	Windows::WriteFile(Windows::console_output_handle, s.data, s.length, @i32* nullptr, nullptr);
-}
 
-let print_error = fun (s: string) => void
-{
-	assert(Windows::console_error_handle != Windows::INVALID_HANDLE_VALUE);
-	Windows::WriteFile(Windows::console_error_handle, s.data, s.length, @i32* nullptr, nullptr);
-}
+#if PLATFORM_WINDOWS
+	let print = fun (s: string) => void	{
+		assert(Windows::console_output_handle != Windows::INVALID_HANDLE_VALUE);
+		Windows::WriteFile(Windows::console_output_handle, s.data, s.length, @i32* nullptr, nullptr);
+	}
+	let print_error = fun (s: string) => void {
+		assert(Windows::console_error_handle != Windows::INVALID_HANDLE_VALUE);
+		Windows::WriteFile(Windows::console_error_handle, s.data, s.length, @i32* nullptr, nullptr);
+	}
+	let allocate = fun(size: mm) => ptr {
+		var result = Windows::VirtualAlloc(0@ptr, size, Windows::MEM_COMMIT | Windows::MEM_RESERVE, Windows::PAGE_READWRITE);
+		return result;
+	}
+	let free = fun(p: ptr) => void 	{
+		Windows::VirtualFree(p, null, Windows::MEM_RELEASE);
+	}
+	let readln = fun(arena: memory_arena* = &temp_memory_arena) => string {
+		var result = string {};
+		result.data = push(arena, 256);
+		result.length = 256;
+		Windows::SetConsoleMode(Windows::console_input_handle,  
+			Windows::ENABLE_LINE_INPUT | Windows::ENABLE_ECHO_INPUT |  Windows::ENABLE_PROCESSED_INPUT );
+		Windows::ReadFile(Windows::console_input_handle, result.data, result.length, &result.length, nullptr);
+		result.length -= 2;
+		if (result.length < 0) {
+			result.length = 0;
+		}
+		return result;
+	}
+	let CopyMemory = extern("RtlCopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
+#ENDIF
 
 let make_string = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => string {
 	var result = string {};
@@ -55,22 +78,6 @@ let concat = fun(a: string; b: string; arena: memory_arena* = &temp_memory_arena
 	memcpy(result.data + a.length, b.data, @mm b.length);
 	return result;
 }
-
-let readln = fun(arena: memory_arena* = &temp_memory_arena) => string 
-{
-	var result = string {};
-	result.data = push(arena, 256);
-	result.length = 256;
-	Windows::SetConsoleMode(Windows::console_input_handle,  
-		Windows::ENABLE_LINE_INPUT | Windows::ENABLE_ECHO_INPUT |  Windows::ENABLE_PROCESSED_INPUT );
-	Windows::ReadFile(Windows::console_input_handle, result.data, result.length, &result.length, nullptr);
-	result.length -= 2;
-	if (result.length < 0) {
-		result.length = 0;
-	}
-	return result;
-}
-
 
 let from_str = fun(str: string; value: i32*) => bool {
 	var result = 0;
@@ -456,7 +463,7 @@ let memset = fun
 }
 
 
-let CopyMemory = extern("RtlCopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
+
 
 	// TODO(pragma): READ/WRITE barrier?
     // https://godbolt.org/z/3a1fQJ
@@ -497,9 +504,8 @@ let atomic_dec = fun(ptr: i64*) => i64
 {
 	return atomic_sub(ptr, 1);
 }
-// TODO(pragma): CopyMemory is not actually generated as a symbol because extern("bla") just creates "bla" as a symbol. So we
-// have to do this ugly workaround atm. Find a way to not have to do that, so let X = extern("Y") actually generate the 
-// symbol X?
+
+
 let memcpy = fun(dest: ptr; src: ptr; length: mm) => void
 {
 	CopyMemory(dest, src, length);

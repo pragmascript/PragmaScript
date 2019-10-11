@@ -2259,16 +2259,20 @@ namespace PragmaScript
 
         public void Visit(AST.ReturnFunction node)
         {
+            var fc = builder.context.currentFunctionContext;
             if (node.expression != null)
             {
                 Visit(node.expression);
                 var v = valueStack.Pop();
-                builder.BuildRet(v, node);
+                fc.RegisterReturnEdge(v, builder.GetInsertBlock());
+                // builder.BuildRet(v, node);
             }
             else
             {
                 builder.BuildRetVoid(node);
             }
+            var rb = fc.@return;
+            builder.BuildBr(rb, node);
         }
 
         public void Visit(AST.IfCondition node)
@@ -2276,6 +2280,8 @@ namespace PragmaScript
             Visit(node.condition);
             var condition = valueStack.Pop();
             Debug.Assert(SSAType.IsBoolType(condition.type));
+
+            bool everythingHasTermination = true;
 
             var insert = builder.GetInsertBlock();
 
@@ -2301,6 +2307,10 @@ namespace PragmaScript
                 builder.MoveBasicBlockAfter(elseBlock, lastBlock);
                 lastBlock = elseBlock;
             }
+            else
+            {
+                everythingHasTermination = false;
+            }
 
             endIfBlock = builder.AppendBasicBlock("endif");
             builder.MoveBasicBlockAfter(endIfBlock, lastBlock);
@@ -2324,6 +2334,7 @@ namespace PragmaScript
             if (!builder.GetInsertBlock().HasTerminator())
             {
                 builder.BuildBr(endIfBlock, node);
+                everythingHasTermination = false;
             }
 
             for (int i = 0; i < elifBlocks.Count; ++i)
@@ -2352,11 +2363,10 @@ namespace PragmaScript
 
                 builder.PositionAtEnd(elifThen);
                 Visit(elifNode.thenBlock);
-
-
                 if (!builder.GetInsertBlock().HasTerminator())
                 {
                     builder.BuildBr(endIfBlock, node);
+                    everythingHasTermination = false;
                 }
             }
 
@@ -2367,9 +2377,9 @@ namespace PragmaScript
                 if (!builder.GetInsertBlock().HasTerminator())
                 {
                     builder.BuildBr(endIfBlock, node);
+                    everythingHasTermination = false;
                 }
             }
-
             builder.PositionAtEnd(endIfBlock);
         }
 
@@ -2450,24 +2460,77 @@ namespace PragmaScript
             builder.PositionAtEnd(loopEnd);
         }
 
-        void BuildReturnBlock(SSAType returnType, AST.Node node)
+        HashSet<Block> CalculateReachableBlocks()
         {
-            
-            if (!builder.GetInsertBlock().HasTerminator())
+            HashSet<Block> reachableBlocks = new HashSet<Block>();
+            void CalculateReachableBlocksRec(Block block) 
             {
-                if (returnType.kind == TypeKind.Void)
-                {
-                    builder.BuildRetVoid(node);
+                if (reachableBlocks.Contains(block)) {
+                    return;
                 }
-                else
-                {
-                    throw new ParserError("Missing return statement!", node.token);
-                    
-                    // // var dummy = builder.BuildBitCast(zero_i32_v, returnType, node, "dummy");
-                    // var retNull = builder.ConstNull(returnType);
-                    // builder.BuildRet(retNull, node);
+                reachableBlocks.Add(block);
+                if (block.args.Count > 0) {
+                    var last = block.args.Last();
+                    if (last.op == Op.Br) 
+                    {
+                        foreach (var v in last.args) {
+                            if (v is Block target) {
+                                CalculateReachableBlocksRec(target);    
+                            }
+                        }
+                    }    
                 }
             }
+            var entry = builder.context.currentFunctionContext.entry;
+            CalculateReachableBlocksRec(entry);
+            return reachableBlocks;
+        }
+
+        void BuildReturnBlock(SSAType returnType, AST.Node node)
+        {
+            var reachableBlocks = CalculateReachableBlocks();
+
+            var fc = builder.context.currentFunctionContext;
+            var edges = fc.returnEdges;
+            var insertBlock = builder.GetInsertBlock();
+            var rb = fc.@return;
+            if (returnType.kind != TypeKind.Void && !insertBlock.HasTerminator() && reachableBlocks.Contains(insertBlock))
+            {
+                throw new ParserError("Not all codepaths return a value!", node.token);
+                // if (returnType.kind != TypeKind.Void) {
+                //     var dummy = builder.BuildBitCast(zero_i32_v, returnType, node, "dummy");
+                //     fc.RegisterReturnEdge(dummy, insertBlock);    
+                // }
+                // builder.BuildBr(rb, node);
+            }
+            
+            var notReachableBlocks = new HashSet<Block>(builder.context.currentFunction.blocks);
+            notReachableBlocks.ExceptWith(reachableBlocks);
+            foreach (var b in notReachableBlocks) {
+                if (b != fc.vars && b != fc.@return)
+                {
+                    builder.RemoveBasicBlock(b);
+                }
+            }
+            edges.RemoveAll(e => notReachableBlocks.Contains(e.Item2));
+            
+            if (returnType.kind == TypeKind.Void)
+            {
+                if (!insertBlock.HasTerminator() && reachableBlocks.Contains(insertBlock))
+                {
+                    builder.BuildBr(rb, node);
+                }
+                builder.PositionAtEnd(rb);
+                builder.BuildRetVoid(node);
+            }
+            else
+            {
+                builder.PositionAtEnd(rb);
+
+                var phi = builder.BuildPhi(returnType, node, "return_phi", edges.ToArray());
+                builder.BuildRet(phi, node);
+            }
+            
         }
 
         public void Visit(AST.FunctionDefinition node, bool proto = false)
@@ -2527,8 +2590,7 @@ namespace PragmaScript
                 
                 var vars = builder.AppendBasicBlock(function, "vars");
                 var entry = builder.AppendBasicBlock(function, "entry");
-                // var @return = builder.AppendBasicBlock(function, "return"); 
-                var @return = default(Block);
+                var @return = builder.AppendBasicBlock(function, "return"); 
                 
                 builder.context.SetFunctionBlocks(function, vars, entry, @return);
 

@@ -472,6 +472,7 @@ namespace PragmaScript
         {
             nounwind = 1, readnone = 2, argmemonly = 4, lvvm = 8
         }
+        
         public class Function : Value
         {
             public List<Block> blocks;
@@ -732,7 +733,7 @@ namespace PragmaScript
 #if DEBUG
                 for (int idx = 0; idx < incoming.Length; ++idx)
                 {
-                    Debug.Assert(t == incoming[idx].Item1.type);
+                    Debug.Assert(t.EqualType(incoming[idx].Item1.type));
                 }
 #endif
                 this.incoming.AddRange(incoming);

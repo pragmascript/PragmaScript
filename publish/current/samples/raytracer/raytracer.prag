@@ -3,7 +3,7 @@ import "../random.prag"
 import "../windows.prag"
 import "../math.prag"
 import "../vec.prag"
-import "../collections.prag"
+import "../memory.prag"
 import "../work_queue.prag"
 
 

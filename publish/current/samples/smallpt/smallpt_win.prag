@@ -1,5 +1,6 @@
 import "..\preamble.prag"
 import "..\windows.prag"
+import "..\random.prag"
 import "..\math.prag"
 
 
@@ -159,7 +160,7 @@ let intersect = fun(ray: Ray*; t: f32*; obj: Sphere**) => bool {
     return *t != max;
 }
 
-let radiance = fun(ray: Ray*; depth: i32; random_state: Random::State*) => Vec {
+let radiance = fun(ray: Ray*; depth: i32; random_state: Random::state*) => Vec {
     var t = -1.0;
     var id = 0;
     var obj: Sphere*;
@@ -443,7 +444,7 @@ let render_tile_position = fun (sx: i32; sy: i32) => void {
     }
 }
 
-let render_tile = fun (@tile: Tile*; random_state: Random::State*) => void {
+let render_tile = fun (@tile: Tile*; random_state: Random::state*) => void {
     var buf = window.backbuffer;
     render_tile_position(sx, sy);
     var p = start;    
@@ -516,7 +517,7 @@ let render_tile = fun (@tile: Tile*; random_state: Random::State*) => void {
 
 let RenderJob = struct 
 (
-    random_state: Random::State;
+    random_state: Random::state;
     thread_idx: i32;
     thread_count: i32;
     tiles: Tile*;
@@ -525,7 +526,9 @@ let RenderJob = struct
 );
 
 let do_render_job = fun (@job: RenderJob*) => i32 {
-    Random::init_seed((thread_idx+1)*1233435, &random_state);
+    var seed = i32_4x { (thread_idx+1) * 123469, (thread_idx+1) * 1293888, (thread_idx+1) * 3928383, (thread_idx + 1) * (-324299) };
+    
+    Random::init_seed(seed, &random_state);
     var idx = thread_idx;
     while (idx < tiles_count) {
         // print("thread ");
@@ -547,6 +550,7 @@ let do_render_job = fun (@job: RenderJob*) => i32 {
     // print_i32(thread_idx);
     // print_string(" completed\n");
     completed = true;
+    return 0;
 }
 
 
@@ -684,10 +688,10 @@ let thread_count = 8;
 	"compile.entry" : "true",
     "compile.cpu"   : "native",
     "compile.debuginfo": "false",
- 	"compile.opt"   : "3",
+ 	"compile.opt"   : "0",
     "compile.asm"   : "false",
-    "compile.ll"    : "false",
- 	"compile.run"   : "true",
+    "compile.ll"    : "true",
+ 	"compile.run"   : "false",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]

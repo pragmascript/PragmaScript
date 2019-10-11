@@ -212,6 +212,16 @@ namespace PragmaScript
             {
                 defines.Add("RELEASE");
             }
+            
+            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) {
+                defines.Add("PLATFORM_WINDOWS");
+            }
+            else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux)) {
+                defines.Add("PLATFORM_LINUX");
+            }
+            else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) {
+                defines.Add("PLATFORM_MAC");
+            }
 
             StringBuilder result = new StringBuilder(text.Length);
             int idx = 0;
@@ -601,16 +611,15 @@ namespace PragmaScript
             Console.WriteLine();
 #endif
 
-            if (entry == null)
-            {
-                Console.WriteLine("warning: No program entry point defined.");
-            }
 
             Console.Write("backend...");
             timer.Reset();
             timer.Start();
 
             var backend = new Backend(tc);
+            if (entry == null) {
+                throw new ParserError("No entry point defined", root.token);
+            }
             backend.Visit(root, entry);
 
             timer.Stop();
