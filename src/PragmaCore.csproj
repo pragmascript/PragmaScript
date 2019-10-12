@@ -2,11 +2,11 @@
   <PropertyGroup>
     <AssemblyName>pragma</AssemblyName>
     <OutputType>Exe</OutputType>
-    <PublishReadyToRun>true</PublishReadyToRun>
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <RuntimeIdentifier>win7-x64</RuntimeIdentifier>
     <DefineConstants>DISPLAY_TIMINGS</DefineConstants>
     <StartupObject></StartupObject>
+    <!-- <PublishReadyToRun>true</PublishReadyToRun> -->
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
@@ -21,4 +21,8 @@
   <Target Name="MyPostCompileTarget2" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
     <Exec Command="python postbuild.py -debug" />
   </Target>
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" />
+  </ItemGroup>
 </Project>
+  

@@ -25,13 +25,12 @@ namespace PragmaScript
             this.typeChecker = typeChecker;
             mod = new Module();
             builder = new Builder(mod);
-            exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location);
+            exeDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
             functionAttribs.Add(FunctionAttribs.nounwind, 0);
         }
 
         public void AOT()
         {
-
 
 
 #if DISPLAY_TIMINGS
