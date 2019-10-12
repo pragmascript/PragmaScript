@@ -688,7 +688,7 @@ let thread_count = 8;
 	"compile.entry" : "true",
     "compile.cpu"   : "native",
     "compile.debuginfo": "false",
- 	"compile.opt"   : "0",
+ 	"compile.opt"   : "4",
     "compile.asm"   : "false",
     "compile.ll"    : "true",
  	"compile.run"   : "false",
