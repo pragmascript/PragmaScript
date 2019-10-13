@@ -1,0 +1,16 @@
+import "preamble.prag"
+mod SIMD
+{
+    // declare <4 x float> @llvm.x86.sse.max.ps(<4 x float>, <4 x float>)
+    let max_ps = extern("llvm.x86.sse.max.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
+    let min_ps = extern("llvm.x86.sse.min.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
+    let set1_ps = fun(v: f32) => f32_4x {
+        return f32_4x { v, v, v, v };
+    }
+    let set1_epi32 = fun(v: i32) => i32_4x {
+        return i32_4x {v, v, v, v};
+    }
+    let cvtepi32_ps = fun(v: i32_4x) => f32_4x {
+        return v@f32_4x;
+    }
+}

@@ -1,0 +1,33 @@
+import "preamble.prag"
+
+let memory_arena = struct(
+	size: mm;
+	base: ptr;
+	used: mm;
+);
+
+let push = fun(@arena: memory_arena*; push_size: mm) => ptr {
+	if (used + push_size > size) {
+		assert(false);
+		return nullptr;
+	}
+	var result = base + used;
+	used += push_size;
+	return result;
+}
+
+let create_arena = fun(size: mm) => memory_arena {
+	var data = allocate(size);
+	var result: memory_arena;
+	if (data != nullptr) {
+		result.size = size;
+		result.base = data;
+		result.used = 0;
+	} else {
+		result.size = 0;
+		result.base = nullptr;
+		result.used = 0;
+	}
+	return result;
+}
+

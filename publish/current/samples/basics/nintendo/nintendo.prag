@@ -1,0 +1,174 @@
+import "../../preamble.prag"
+import "../../memory.prag"
+
+
+let make_array_i32 = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => i32[] {
+	var result: i32[];
+	result.length = length;
+	result.data = push(arena, size_of(i32) * length@mm)@i32*;
+	return result;
+}
+
+let make_string_array = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => string[] {
+	var result: string[];
+	result.length = length;
+	result.data =  push(arena, size_of(string) * length@mm)@string*;
+	return result;
+}
+
+let print_hex = fun(value: i32) => void {
+	print("0x");
+	print(to_hex_str(value));	
+}
+
+[
+	"compile.output": "nintendo.exe",
+	"compile.debuginfo": "true",
+	"compile.entry" : "true",
+	"compile.ll"    : "true",
+	"compile.asm"   : "false",
+ 	"compile.opt"   : "0",
+ 	"compile.run"   : "true",	
+ 	"compile.libs"  : "kernel32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void {
+	var test_0 = ["32", "b0c152f9", "ebf2831f"];
+	var test_1 = ["32", "ebf2831f", "b0c152f9"];
+	
+	var test = test_1;
+	var test_idx = 0;
+	// let x = 3;
+	// x = 4;
+	
+	var b_0 = make_string_array(32);
+	
+	let max_str_length = 1024;
+	
+	for (var idx = 0; idx < b_0.length; ++idx) {
+		b_0[idx] = "0";
+	}
+	
+	var str = test[test_idx++];
+	var size: i32;
+	if (from_str(str, &size)) {
+		var a = make_array_i32(size / 16);
+		var b = make_array_i32(size / 16);
+		for (var idx = 0; idx < a.length; ++idx) {
+			var value: i32;
+			if (from_hex_str(test[test_idx++], &value)) {
+				print("\n");
+				a[idx] = value;	
+			} else {
+				assert(false);
+			}
+			b[idx] = 0;
+		}	
+		// for (var i = 0; i < size; ++i) {
+		// 	for (var j = 0; j < size; ++j) {
+		// 		var idx = (i + j) / 32;
+		// 		assert(idx < b.length);
+		// 		// print(idx);
+		// 		var value = 
+		// 			(
+		// 			(a[i / 32] >> (i % 32)) &
+		// 			(a[j / 32 + size / 32] >> (j % 32))
+		// 			& 1
+		// 			) << ((i + j) % 32);
+		// 		b[idx] ^= value;
+		// 		//print(j / 32);
+		// 		print(i / 32 + size / 32);
+		// 		print(" ");
+		// 	}
+		// 	print("\n");
+		// }
+		for (var i = 0; i < 32; ++i) {
+			for (var j = 0; j < 32; ++j) {
+				var idx = (i + j) / 32;
+				
+				if (idx == 0) {
+					var pv = (i + j) % 32;	
+					if (pv <= 9) {
+						print("0");
+					}
+					print(pv);
+				} else {
+					print("  ");
+				}
+				var value = ((a[0] >> (i % 32)) & (a[1] >> (j % 32)) & 1) << ((i + j) % 32);
+				b[idx] ^= value;
+				print(" ");
+			}
+			print("\n");
+		}
+		print("\n");
+		for (var i = 0; i < 32; ++i) {
+			for (var j = 0; j < 32; ++j) {
+				var idx = (i + j) / 32;
+				
+				var value = ((a[0] >> (i % 32)) & (a[1] >> (j % 32)) & 1) << ((i + j) % 32);
+				b[idx] ^= value;
+				if (idx == 0) {
+					var pv = i % 32;
+					if (pv <= 9) {
+						print("0");
+					}
+					print(pv);
+				} else {
+					print("  ");
+				}
+				print(" ");
+			}
+			print("\n");
+		}
+		
+		
+		print("\n");
+		for (var i = 0; i < 32; ++i) {
+			for (var j = 0; j < 32; ++j) {
+				var idx = (i + j) / 32;
+				var value = ((a[0] >> (i % 32)) & (a[1] >> (j % 32)) & 1) << ((i + j) % 32);
+				b[idx] ^= value;
+				if (idx == 0) {
+					var pv = j % 32;
+					if (pv <= 9) {
+						print("0");
+					}
+					print(pv);
+				} else {
+					print("  ");
+				}
+				print(" ");
+				var bit_idx = (i + j) % 32;
+				var str = b_0[bit_idx];
+				str = concat(str, " + ");	
+				str = concat(str, to_str(i % 32));
+				str = concat(str, "*");
+				str = concat(str, to_str(j % 32));
+				b_0[bit_idx] = str;
+			}
+			print("\n");
+			
+		}
+		
+		for (var idx = 0; idx < b_0.length; ++idx) {
+			print("bit: ");
+			print(idx);
+			print("\n");
+			print(b_0[idx]);
+			print("\n\n");
+		}
+		
+		for (var i = 0; i < b.length; ++i) {
+			if (i > 0) {
+				print(" ");
+			}
+			print_hex(b[i]);
+		}
+		print("\n");
+	
+	} else {
+		assert(false);
+	}
+	
+}

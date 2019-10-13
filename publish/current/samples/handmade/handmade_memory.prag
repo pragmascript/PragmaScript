@@ -1,0 +1,25 @@
+import "../preamble.prag"
+
+mod Handmade::Memory 
+{
+    let memory_arena = struct (
+        base: ptr;
+        size: mm;
+        used: i32;
+    );
+
+    let init = fun (arena: memory_arena*; base: ptr; size: mm) {
+        arena.base = ptr;
+        arena.size = size;
+        arena.used = 0;
+    }
+    
+    let push = fun (arena: memory_arena*; size: mm) => ptr {
+        assert(arena.used + size <= arena.size);
+        var result = arena.ptr + used;
+        used += size;
+        return result;
+    }
+
+
+}

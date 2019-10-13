@@ -1,0 +1,158 @@
+import "preamble.prag"
+import "windows.prag"
+import "random.prag"
+import "math.prag"
+
+let work_queue_callback = fun(queue: work_queue*; data: ptr) => void;
+
+let work_queue_entry = struct(
+    callback: work_queue_callback;
+    data: ptr;
+);
+
+let work_queue = struct(
+    ["VOLATILE"]
+    completion_goal: i32;
+    ["VOLATILE"]
+    completion_count: i32;
+    ["VOLATILE"]
+    next_entry_to_write: i32;
+    ["VOLATILE"]
+    next_entry_to_read: i32;
+    semaphore_handle: mm;
+    entries: work_queue_entry[1024];
+);
+
+
+let add_entry = fun(@queue: work_queue*; data: ptr; callback: work_queue_callback) => void {
+    var entry = create_work_entry(data, callback);
+    add_entry(queue, entry);
+}
+
+let add_entry = fun (@queue: work_queue*; entry: work_queue_entry) => void {
+    var temp_queue = queue;
+    var target_next_entry_to_write = next_entry_to_write + 1;
+    if (target_next_entry_to_write >= len(entries)@i32) {
+        assert(target_next_entry_to_write == len(entries)@i32);
+        target_next_entry_to_write = 0;
+    }
+    assert(target_next_entry_to_write != next_entry_to_read);
+    entries[next_entry_to_write] = entry;
+    queue.completion_goal += 1;
+
+    _WriteBarrier();
+    
+    queue.next_entry_to_write = target_next_entry_to_write;
+    Windows::ReleaseSemaphore(semaphore_handle, 1, 0@i32*);
+}
+
+let next_entry = fun(@queue: work_queue*) => bool 
+{
+    var temp_queue = queue;
+    var should_sleep = false;
+    var original_next_entry_to_read = queue.next_entry_to_read;
+    var target_next_entry_to_read = original_next_entry_to_read + 1;
+    if (target_next_entry_to_read >= len(entries)@i32) {
+        assert(target_next_entry_to_read == len(entries)@i32);
+        target_next_entry_to_read = 0;
+    }
+    if (original_next_entry_to_read != next_entry_to_write) {
+        var idx = atomic_compare_and_swap(
+            &next_entry_to_read,
+            target_next_entry_to_read,
+            original_next_entry_to_read
+        );
+        if (idx == original_next_entry_to_read) {
+            var entry = entries[idx];
+            entry.callback(queue, entry.data);
+            atomic_inc(&queue.completion_count);
+        } 
+    } else {
+        should_sleep = true;
+    }
+    return should_sleep;
+}
+
+let wait_for_completion = fun(queue: work_queue*) => void {
+    var temp_queue = queue;
+    while (queue.completion_goal != queue.completion_count) {
+        Windows::Sleep(10);
+        // if (!next_entry(queue)) {
+        //     debug_print("percent", Math::round_to_i32(100.0 * queue.completion_count@f32 / queue.completion_goal@f32));
+        // }
+    }
+    debug_print("percent", Math::round_to_i32(100.0 * queue.completion_count@f32 / queue.completion_goal@f32));
+}
+
+let work_queue_thread_proc = fun(data: ptr) => void {
+    var queue = data@work_queue*;
+    while (true) {
+        if (next_entry(queue)) {
+            Windows::WaitForSingleObject(queue.semaphore_handle, Windows::INFINITE);
+        }
+    }
+}
+
+let init_work_queue = fun(queue: work_queue*; worker_count: i32) => void {
+    var temp_queue = queue;
+    queue.completion_goal = 0;
+    queue.completion_count = 0;
+    queue.next_entry_to_write = 0;
+    queue.next_entry_to_read = 0;
+    var initial_count = 0;
+    queue.semaphore_handle = Windows::CreateSemaphoreA(nullptr, initial_count, worker_count + 1, nullptr);
+    for (var worker_idx = 0; worker_idx < worker_count; ++worker_idx) {
+        var handle = Windows::CreateThread(nullptr, 0, work_queue_thread_proc@Windows::ThreadProc, queue@ptr, 0, 0@mm*);  
+        Windows::CloseHandle(handle);  
+    }
+}
+
+let create_work_entry = fun(data: ptr; callback: work_queue_callback) => work_queue_entry
+{
+    var result = work_queue_entry {};
+    result.data = data;
+    result.callback = callback;
+    return result;
+}
+
+
+let test_sleep_rnd = fun(queue: work_queue*; data: ptr) => void {
+    var temp_queue = queue;
+    var state: Random::state;
+    var seed = data@i32;
+    debug_print("seed", seed);
+    
+    Random::init_seed(i32_4x{ seed, seed^3023141, seed^82318, seed^113 }, &state);
+    var ms = Random::rand_i32(&state) % 5000;
+    debug_print("sleeping for [ms]", ms);
+    Windows::Sleep(ms);
+}
+
+
+#if false
+[
+	"compile.output": "test_work_queue.exe",
+	"compile.debuginfo": "true",
+	"compile.entry" : "true",
+	"compile.ll"    : "true",
+	"compile.asm"   : "false",
+ 	"compile.opt"   : "0",
+ 	"compile.run"   : "false",
+ 	"compile.libs"  : "kernel32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void {
+    var queue = work_queue { };
+    init_work_queue(&queue, 8);
+    
+    for (var work_idx = 0; work_idx < 12; ++work_idx) {
+        add_entry(&queue, (work_idx + 1)@ptr, test_sleep_rnd@work_queue_callback);
+    }
+    
+    wait_for_completion(&queue);
+    print("exit this thingy.\n");
+    Windows::ExitProcess(0);
+}
+#endif
+
+

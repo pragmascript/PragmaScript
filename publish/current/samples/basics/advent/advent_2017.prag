@@ -1,0 +1,127 @@
+import "../../preamble.prag"
+import "../../windows.prag"
+
+with Windows;
+
+[
+	"compile.output": "adv.exe",
+	"compile.debuginfo": "true",
+	"compile.entry" : "true",
+	"compile.ll"    : "true",
+	"compile.asm"   : "false",
+ 	"compile.opt"   : "0",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void {
+	day_01();
+    day_02();
+}
+
+let read_file = fun (name: string) => i8[]
+{
+    var result: i8[];
+    result.data = nullptr;
+    result.length = 0;
+    var handle = CreateFileA(cstr(name), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, 0);
+    if (handle == null) {
+        return result;
+    }
+
+    var size: i64 = 0;
+    var fsr = GetFileSizeEx(handle, &size);
+    if (fsr == 0 || size == 0) {
+        CloseHandle(handle);
+        return result;
+    }
+
+    var buffer = VirtualAlloc(nullptr, size@mm, MEM_COMMIT, PAGE_READWRITE);
+    if (buffer@mm == null) {
+        CloseHandle(handle);
+        return result;
+    }
+    assert(size@mm <=\ gigabytes(4));
+    var size_32 = @i32 size;
+    var bytes_read: i32;
+    var rfr = ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
+    assert(bytes_read == size_32);
+    if (rfr == 0) {
+        VirtualFree(buffer, null, MEM_RELEASE);
+        CloseHandle(handle);
+        return result;		
+    }
+
+    result.data = buffer;
+    result.length = size_32;
+    CloseHandle(handle);
+    return result;
+} 
+
+
+let day_01 = fun() => void {
+    print("*****************************************\n");
+    print("                  day 01\n");
+    var input = "3294199471327195994824832197564859876682638188889768298894243832665654681412886862234525991553276578641265589959178414218389329361496673991614673626344552179413995562266818138372393213966143124914469397692587251112663217862879233226763533911128893354536353213847122251463857894159819828724827969576432191847787772732881266875469721189331882228146576832921314638221317393256471998598117289632684663355273845983933845721713497811766995367795857965222183668765517454263354111134841334631345111596131682726196574763165187889337599583345634413436165539744188866156771585647718555182529936669683581662398618765391487164715724849894563314426959348119286955144439452731762666568741612153254469131724137699832984728937865956711925592628456617133695259554548719328229938621332325125972547181236812263887375866231118312954369432937359357266467383318326239572877314765121844831126178173988799765218913178825966268816476559792947359956859989228917136267178571776316345292573489873792149646548747995389669692188457724414468727192819919448275922166321158141365237545222633688372891451842434458527698774342111482498999383831492577615154591278719656798277377363284379468757998373193231795767644654155432692988651312845433511879457921638934877557575241394363721667237778962455961493559848522582413748218971212486373232795878362964873855994697149692824917183375545192119453587398199912564474614219929345185468661129966379693813498542474732198176496694746111576925715493967296487258237854152382365579876894391815759815373319159213475555251488754279888245492373595471189191353244684697662848376529881512529221627313527441221459672786923145165989611223372241149929436247374818467481641931872972582295425936998535194423916544367799522276914445231582272368388831834437562752119325286474352863554693373718848649568451797751926315617575295381964426843625282819524747119726872193569785611959896776143539915299968276374712996485367853494734376257511273443736433464496287219615697341973131715166768916149828396454638596713572963686159214116763";
+
+    {
+        var input_test_0 = "1122";
+        var input_test_1 = "1111";
+        var input_test_2 = "1234";
+        var input_test_3 = "91212129";
+        var sum = 0;
+        var test = input;
+        for (var idx = 0; idx < test.length; ++idx) {
+            var idx_next = idx + 1;
+            if (idx_next >= test.length) {
+                assert(idx_next == test.length);
+                idx_next = 0;
+            }
+            if (test[idx] == test[idx_next]) {
+                var value = test[idx]@i32 - ord("0");
+                sum += value;
+            }
+        }
+        debug_print("sum_1", sum);
+    }
+
+    {
+        var input_test_0 = "1212";
+        var input_test_1 = "1221";
+        var input_test_2 = "123425";
+        var input_test_3 = "123123";
+        var input_test_4 = "12131415";
+        var sum = 0;
+        var test = input;
+        for (var idx = 0; idx < test.length; ++idx) {
+            var delta = test.length / 2;
+            var idx_next = idx + delta;
+            idx_next %= test.length;
+            if (test[idx] == test[idx_next]) {
+                var value = test[idx]@i32 - ord("0");
+                sum += value;
+            }
+        }
+        debug_print("sum_2", sum);
+    }
+    print("*****************************************\n");
+}
+
+let day_02 = fun() => void {
+    print("*****************************************\n");
+    print("day 02\n");
+
+    var input = read_file("input_day_02.txt\0");
+    
+    var line_idx = 0;
+    var pos = 0;
+    while (pos < input.length) {
+        var char = input[pos];
+        if (char@i32 == ord("\n")) {
+            line_idx++;
+            debug_print("line", line_idx);
+        }
+        pos++;
+    }
+    print("*****************************************\n");
+}

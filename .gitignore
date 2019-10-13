@@ -1,3 +1,5 @@
+publish/releases/*
+
 *.exe
 *.dll
 *.libcolo
@@ -10,6 +12,7 @@
 *.suo
 *.user
 *.sln.docstates
+
 
 # Build results
 [Dd]ebug/
@@ -195,6 +198,5 @@ ModelManifest.xml
 Browse.VC.db
 Browse.VC.opendb
 
-publish/
-!publish/current/bin/external
+
 

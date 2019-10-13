@@ -1,0 +1,119 @@
+import "../preamble.prag"
+
+// let print_array = fun (x: i32*; length: i32) => void {
+//     for (var idx = 0; idx < length; ++idx) {
+//         print_i32(*(x+idx));
+//     }
+// }
+
+// let matrix = struct(
+//     e: i32[4, 4];
+// );
+
+// let print_matrix = fun (m: matrix*) => void {
+//     for (var j = 0; j < (i32\)len(m.e, 0); ++j) {
+//         for (var i = 0; i < (i32\)len(m.e, 1); ++i) {
+//             print_i32(m.e[j, i]);
+//             if (i != 3) {
+//                 print_string(", ");
+//             }
+//         }
+//         print_string("\n");
+//     }
+// }
+
+
+// let print_int_slice = fun(x: i32[]) => void {
+//     for (var i = 0; i < x.length; ++i) {
+//         print_i32(x[i]);
+//         if (i != x.length - 1) {
+//             print_string(", ");
+//         }
+//     }
+// }
+
+let print_array_unsafe = fun(arr: i32*; count: i32) => void {
+    for (var idx = 0; idx < count; ++idx) {
+        print_i32(*(arr + idx));
+        print_string("\n");
+    }
+}
+
+
+[
+	"compile.output": "array.exe",
+	"compile.entry" : "true",
+ 	"compile.opt"   : "0",
+    "compile.ll"    : "true",
+    "compile.asm"   : "false",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64"
+]
+let main = fun () => void {
+    var arr = [1,2,3,4];
+
+    var elptr = &arr;
+    print_array_unsafe(elptr, (i32\)len(arr));
+
+    debug_print_i32("size_of(foo)", (i32\)(size_of(foo)));
+
+    // debug_print_i32("arr: ", (i32\)len(arr));
+
+    // for (var i = 0; i < (i32\)len(arr); ++i) {
+    //     print_i32(arr[i]);
+    //     if (i != (i32\)len(arr) - 1) {
+    //         print_string(", ");
+    //     }
+    // }
+    // print_string("\n");
+
+    // var arr2d = [[1, 2, 3], 
+    //              [4, 5, 6],
+    //              [7, 8, 9]];
+    // for (var j = 0; j < (i32\)len(arr2d, 0); ++j) {
+    //     for (var i = 0; i < (i32\)len(arr2d, 1); ++i) {
+    //         print_i32(arr2d[j, i]);
+    //         if (i != 3) {
+    //             print_string(", ");
+    //         }
+    //     }
+    //     print_string("\n");
+    // }
+
+    // var x: i32[5];
+    // for (var idx = 0; idx < (i32\)len(x); ++idx) {
+    //     x[idx] = idx + 1;
+    // }
+    // print_array(&x[0], (i32\)len(x));
+    // print_string("\n");
+
+    // var xs = i32[]{ (i32\)len(x), &x[0] };
+    // print_int_slice(xs);
+
+    // // TODO(pragma): fix this
+    // // print_int_slice(i32[]{ (i32\)len(x), &x[0] });
+    // print_string("\n");
+
+    // var y: i32[3, 7];
+    // debug_print_i32("ly0: ", (i32\)len(y, 0));
+    // debug_print_i32("ly0: ", (i32\)len(y, 1));
+    // for (var idx = 0; idx < (i32\)len(y); ++idx) {
+    //     y[idx] = idx;
+    // }
+
+    // debug_print_i32("len_y: ", (i32\)len(y));
+    // print_i32(y[2, 6]);
+    // print_string("\n");
+
+    // var m = matrix {};
+    // var mp = &m.e[0];
+    // var idx = 0;
+    // while (mp <\ &m.e[0] + (i32\)len(m.e)) {
+    //     *(mp++) = idx++;
+    // }
+
+    // print_matrix(&m);
+    // print_string("\nhello world\n");
+}
+
