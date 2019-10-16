@@ -65,12 +65,14 @@ namespace PragmaScript
             // CompilerOptions.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "test", "array.prag");
             //CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
-            CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
+            CompilerOptions.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "opengl", "test_opengl.prag");
             // CompilerOptions.inputFilename = Path.Combine("test", "bugs.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "wasapi", "wasapi.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir, "raytracer", "raytracer.prag");
             // CompilerOptions.inputFilename = Path.Combine(programDir,  "work_queue.prag");
+            // CompilerOptions.inputFilename = Path.Combine(programDir,  "neural", "neural.prag");
             // Console.WriteLine(CompilerOptions.inputFilename);
 #endif
             if (CompilerOptions.inputFilename == null)
@@ -215,6 +217,8 @@ namespace PragmaScript
             
             if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) {
                 defines.Add("PLATFORM_WINDOWS");
+                CompilerOptions.libs.Add("kernel32.lib");
+                CompilerOptions.lib_path.Add("lib");
             }
             else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux)) {
                 defines.Add("PLATFORM_LINUX");

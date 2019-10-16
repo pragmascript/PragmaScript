@@ -691,7 +691,7 @@ let thread_count = 8;
  	"compile.opt"   : "4",
     "compile.asm"   : "false",
     "compile.ll"    : "true",
- 	"compile.run"   : "false",
+ 	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]

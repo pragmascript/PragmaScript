@@ -504,8 +504,6 @@ let atomic_dec = fun(ptr: i64*) => i64
 {
 	return atomic_sub(ptr, 1);
 }
-
-
 let memcpy = fun(dest: ptr; src: ptr; length: mm) => void
 {
 	CopyMemory(dest, src, length);
@@ -702,6 +700,22 @@ let debug_print = fun(name: string; value: i32_4x) => void
 	print(", ");
 	print(value[3]);
 	print(" >\n");
+}
+
+let debug_print = fun(name: string; value: f32[]) => void {
+	if (name.length > 0) {
+		print(name);
+		print(": [ ");	
+	} else {
+		print("[ ");
+	}
+	for (var idx = 0; idx < value.length; ++idx) {
+		print(value[idx]);
+		if (idx != value.length - 1) {
+			print(", ");
+		}
+	}
+	print(" ]\n");
 }
 
 var _fltused = 0;

@@ -2700,13 +2700,14 @@ namespace PragmaScript
                 Debug.Assert(indices.Count == 1);
                 var idx = indices[0];
                 // is not function argument?
-                if (arr.op != Op.FunctionArgument)
+                if (arr.type.kind == TypeKind.Pointer)
                 {
                     var gep_arr_elem_ptr = builder.BuildGEP(arr, node, "gep_arr_elem_ptr", false, zero_i32_v, one_i32_v);
                     arr_elem_ptr = builder.BuildLoad(gep_arr_elem_ptr, node, "arr_elem_ptr");
                 }
                 else
                 {
+                    Debug.Assert(arr.type.kind == TypeKind.Struct);
                     arr_elem_ptr = builder.BuildExtractValue(arr, node, "gep_arr_elem_ptr", one_i32_v);
                 }
                 var ptr_type = new PointerType(GetTypeRef(st.elementType));
@@ -2832,8 +2833,14 @@ namespace PragmaScript
                 }
                 else
                 {
+                    var fe_nt = typeChecker.GetNodeType(node);
+                    var be_nt = GetTypeRef(fe_nt);
+                    
                     uint[] uindices = { (uint)idx };
                     result = builder.BuildExtractValue(v, node, "struct_field_extract", new ConstInt(i32_t, (ulong)idx));
+                    if (result.type.kind == TypeKind.Pointer && !result.type.EqualType(be_nt)) {
+                        result = builder.BuildBitCast(result, be_nt, node, "hack_bitcast");
+                    }
                 }
 
                 valueStack.Push(result);

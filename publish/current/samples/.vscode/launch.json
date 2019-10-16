@@ -6,7 +6,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceRoot}/basics/nintendo/bin/nintendo.exe",
+            "program": "${workspaceRoot}/neural/bin/output.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}/test/bin",

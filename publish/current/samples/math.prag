@@ -119,6 +119,18 @@ mod Math
 			return -value;
 		}
 	}
+	
+	["READNONE"]
+	let sign = fun (value: f32) => f32 {
+		if (value > 0) {
+			return 1.0;
+		} elif (value < 0) {
+			return -1.0;
+		} else {
+			return 0.0;
+		}
+	}
+	
 	["READNONE"]
 	let clamp = fun 
 	(

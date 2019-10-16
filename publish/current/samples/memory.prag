@@ -6,13 +6,26 @@ let memory_arena = struct(
 	used: mm;
 );
 
+let align_4 = fun(value: mm) => mm{
+	return (value + 3) & (~3);
+}
+let align_8 = fun(value: mm) => mm {
+	return (value + 7) & (~7);
+}
+let align_16 = fun(value: mm) => mm {
+	return (value + 15) & (~15);
+}
+
 let push = fun(@arena: memory_arena*; push_size: mm) => ptr {
-	if (used + push_size > size) {
+	var result = base + used;
+	result = align_16(result@mm)@ptr;
+
+	used = result@mm - base@mm  + push_size@mm;
+	
+	if (used > size) {
 		assert(false);
 		return nullptr;
 	}
-	var result = base + used;
-	used += push_size;
 	return result;
 }
 
@@ -30,4 +43,3 @@ let create_arena = fun(size: mm) => memory_arena {
 	}
 	return result;
 }
-
