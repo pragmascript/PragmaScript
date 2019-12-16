@@ -122,7 +122,6 @@ let scatter = fun(ray: ray*; hit: hit_result*; attenuation: v3*; scattered: ray*
 		if (dot(ray.direction, hit.normal) > 0) {
 			outward_normal = scaled(hit.normal, -1);
 			ni_over_nt = mat.ior;
-			// cosine = mat.ior * dot(ray.direction, hit.normal) / length(ray.direction);
 			cosine = dot(ray.direction, hit.normal) / length(ray.direction);
 			cosine = sqrt(1 - mat.ior*mat.ior*(1-cosine*cosine));
 		} else {
@@ -656,9 +655,25 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	}
 }
 
+
+let get_perf_counter = fun() => i64 {
+    var result: i64;
+    Windows::QueryPerformanceCounter(&result);
+    return result;
+}
+var perf_count_freq: i64;
+let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return (t1 - t0)@f64 / perf_count_freq@f64;
+}
+let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return get_seconds_elapsed(t0, t1) * 1000; 
+}
+
+
+
 [
 	"compile.output": "raytracer.exe",
-	"compile.debuginfo": "true",
+	"compile.debuginfo": "false",
 	"compile.entry" : "true",
 	"compile.ll"    : "false",
 	"compile.asm"   : "false",
@@ -669,21 +684,23 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
+	Windows::QueryPerformanceFrequency(&perf_count_freq);
+	
+	var t0 = get_perf_counter();	
 	temp_arena = create_arena(megabytes(32));
 	// let nx = 180*6;	
 	// let ny = 90*6;
 	// compare with https://nelari.us/post/raytracer_with_rust_and_zig/
 	
 	
-	let sub_sample_count = 100;
+	
 	
 	// let nx = 3840;
 	// let ny = 2160;
 	
-	let nx = 1920;
-	let ny = 1080;
-	// let nx = 1920;
-	// let ny = 1080;
+	let nx = 1280;
+	let ny = 720;
+	let sub_sample_count = 256;
 	
 	var world = world { };
 	init_world(&world, &temp_arena, nx@f32/ny@f32);
@@ -697,10 +714,15 @@ let main = fun () => void {
 	
 	var line_count_per_work_item = 4;
 	var work_item_count = round_to_i32(ceil(ny@f32 / line_count_per_work_item@f32));
-	var render_work: render_work* =  push(&temp_arena, @mm work_item_count * size_of(render_work))@render_work*;
+	var render_work: render_work* = push(&temp_arena, @mm work_item_count * size_of(render_work))@render_work*;
 	var queue = work_queue { };
-	init_work_queue(&queue, 8);
-
+	
+	var info: Windows::SYSTEM_INFO;
+	Windows::GetSystemInfo(&info);
+    var thread_count = info.NumberOfProcessors;
+	debug_print("rendering with threads", thread_count);
+	init_work_queue(&queue, thread_count);
+	
 	for (var work_item_idx = 0; work_item_idx < work_item_count; ++work_item_idx) {
 		var line_idx = work_item_idx * line_count_per_work_item;
 		var line_count = min(line_count_per_work_item, ny - line_idx);
@@ -719,8 +741,6 @@ let main = fun () => void {
 	}
 	
 	wait_for_completion(&queue);
-	
-	
 
 	// for (var j = 0; j < ny; ++j) {
 	// 	print(".");
@@ -748,6 +768,12 @@ let main = fun () => void {
 	// 		*temp_pixels++ = r_i8;
 	// 	}
 	// }
+	
+	var t1 = get_perf_counter();	
+	
+	var ms = get_ms_elapsed(t0, t1);
+	debug_print("ms elapsed", ms);
 	WriteBitmap("output.bmp\0", pixels, nx, ny);
+	
 	Windows::ExitProcess(0);
 }

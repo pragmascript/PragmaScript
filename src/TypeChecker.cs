@@ -21,7 +21,7 @@ namespace PragmaScript
         }
     }
 
-    class TypeChecker
+    public class TypeChecker
     {
         Dictionary<FrontendType, AST.Node> typeRoots;
         Dictionary<AST.Node, FrontendType> knownTypes;
@@ -54,7 +54,7 @@ namespace PragmaScript
             }
             if (unresolved.Count > 0)
             {
-                throw new ParserError($"Cannot resolve type: {unresolved.First().Key}", unresolved.First().Key.token);
+                throw new CompilerError($"Cannot resolve type: {unresolved.First().Key}", unresolved.First().Key.token);
             }
 
         }
@@ -339,6 +339,7 @@ namespace PragmaScript
 
         void checkType(AST.VariableDefinition node)
         {
+
             Debug.Assert(node.typeString != null || node.expression != null);
 
             FrontendType tt = null;
@@ -394,6 +395,7 @@ namespace PragmaScript
 
         void checkType(AST.FunctionDefinition node)
         {
+
             FrontendType tt = null;
             if (node.typeString != null)
             {
@@ -413,7 +415,7 @@ namespace PragmaScript
                 var cond = node.GetAttribute("CONDITIONAL");
                 if (cond != null)
                 {
-                    if (CompilerOptions.debug)
+                    if (CompilerOptions._i.debug)
                     {
                         if (cond != "DEBUG")
                         {
@@ -558,7 +560,7 @@ namespace PragmaScript
             {
                 if (node.argumentList.Count > structType.fields.Count)
                 {
-                    throw new ParserError("The number of arguments in a compound literal can not exceed the number of fields in the struct.", node.argumentList[structType.fields.Count].token);
+                    throw new CompilerError("The number of arguments in a compound literal can not exceed the number of fields in the struct.", node.argumentList[structType.fields.Count].token);
                 }
                 for (int i = 0; i < argTypes.Count; ++i)
                 {
@@ -574,7 +576,7 @@ namespace PragmaScript
                 if (node.argumentList.Count != 0 && node.argumentList.Count != vecType.length)
                 {
                     var token = node.argumentList.Count < vecType.length ? node.argumentList.Last().token : node.argumentList[vecType.length].token;
-                    throw new ParserError("The number of arguments in a compound literal must match the length of the vector type.", node.argumentList[structType.fields.Count].token);
+                    throw new CompilerError("The number of arguments in a compound literal must match the length of the vector type.", node.argumentList[structType.fields.Count].token);
                 }
 
                 for (int i = 0; i < argTypes.Count; ++i)
@@ -594,7 +596,8 @@ namespace PragmaScript
 
             if (!pre_resolved.ContainsKey(node))
             {
-                result = new FrontendStructType(node.name);
+                var fqn = node.scope.GetFullyQualifiedName(node.name);
+                result = new FrontendStructType(fqn);
                 result.packed = node.packed;
                 result.preResolved = true;
                 pre_resolve(node, result);
@@ -630,7 +633,7 @@ namespace PragmaScript
                 {
                     result.AddField(node.fields[idx].name, fieldTypes[idx]);
                 }
-                result.name = node.name;
+                result.name = node.scope.GetFullyQualifiedName(node.name);
                 resolve(node, result);
             }
         }
@@ -662,7 +665,7 @@ namespace PragmaScript
                 f_type = lt as FrontendFunctionType;
                 if (f_type == null && !(lt is FrontendSumType))
                 {
-                    throw new ParserError($"Variable is not a function.", node.token);
+                    throw new CompilerError($"Variable is not a function.", node.token);
                 }
             }
 
@@ -732,13 +735,13 @@ namespace PragmaScript
                 }
                 if (validTypes.Count == 0)
                 {
-                    throw new ParserError($"Could not find matching overload.", node.token);
+                    throw new CompilerError($"Could not find matching overload.", node.token);
                 }
                 if (validTypes.Count > 1)
                 {
                     // var ambigousLocations = string.Join(",", validTypes.Select(vt => (GetTypeRoot(st.types[vt.Item1]).token, vt.Item2)));
                     var ambigousLocations = string.Join(", ", validTypes.Select(vt => vt.Item2));
-                    throw new ParserError($"Overload is ambigous between {ambigousLocations}", node.token);
+                    throw new CompilerError($"Overload is ambigous between {ambigousLocations}", node.token);
                 }
                 f_type = validTypes[0].Item2;
 
@@ -760,13 +763,13 @@ namespace PragmaScript
                     var arg_t = argumentTypes[0] as FrontendArrayType;
                     if (arg_t == null)
                     {
-                        throw new ParserError($"Argument type to \"len\" fuction must be array", node.argumentList[0].token);
+                        throw new CompilerError($"Argument type to \"len\" fuction must be array", node.argumentList[0].token);
                     }
                     if (arg_t.dims.Count > 1)
                     {
                         if (!(node.argumentList.Count == 2 || node.argumentList.Count == 1))
                         {
-                            throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected 2 or 1 arguments.", node.token);
+                            throw new CompilerError($"Function argument count mismatch! Got {node.argumentList.Count} expected 2 or 1 arguments.", node.token);
                         }
                         if (node.argumentList.Count == 2)
                         {
@@ -780,7 +783,7 @@ namespace PragmaScript
                     {
                         if (node.argumentList.Count != 1)
                         {
-                            throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {1}.", node.token);
+                            throw new CompilerError($"Function argument count mismatch! Got {node.argumentList.Count} expected {1}.", node.token);
                         }
                     }
                     resolve(node, f_type.returnType);
@@ -789,7 +792,7 @@ namespace PragmaScript
                 {
                     if (node.argumentList.Count > f_type.parameters.Count)
                     {
-                        throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
+                        throw new CompilerError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
                     }
                     if (argumentTypes.Count == node.argumentList.Count)
                     {
@@ -799,7 +802,7 @@ namespace PragmaScript
                             {
                                 if (!f_type.parameters[idx].optional)
                                 {
-                                    throw new ParserError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
+                                    throw new CompilerError($"Function argument count mismatch! Got {node.argumentList.Count} expected {f_type.parameters.Count}.", node.token);
                                 }
                                 // NOTE(pragma): all remaining parameters must be optional so so we just break out of the loop
                                 break;
@@ -842,7 +845,7 @@ namespace PragmaScript
                     var ns = node.scope.GetModule(node.modulePath);
                     if (ns == null)
                     {
-                        throw new ParserError("Could not resolve module path", node.token);
+                        throw new CompilerError("Could not resolve module path", node.token);
                     }
                     node.scope = ns.scope;
                 }
@@ -851,7 +854,7 @@ namespace PragmaScript
 
                 if (ov == null)
                 {
-                    throw new ParserError($"Unknown variable \"{node.variableName}\"", node.token);
+                    throw new CompilerError($"Unknown variable \"{node.variableName}\"", node.token);
                 }
                 if (!ov.IsOverloaded)
                 {
@@ -865,7 +868,7 @@ namespace PragmaScript
                         var isLocal = (vd != null) && !vd.isGlobal && !vd.isConstant && !vd.isFunctionParameter && !vd.isNamespace;
                         if (isLocal && Token.IsBefore(node.token, vd.node.token))
                         {
-                            throw new ParserError("Variable can't be accessesd prior to declaration", node.token);
+                            throw new CompilerError("Variable can't be accessesd prior to declaration", node.token);
                         }
                     }
                 }
@@ -1012,7 +1015,7 @@ namespace PragmaScript
         {
             if (node.elements.Count == 0)
             {
-                throw new ParserError("zero sized array detected", node.token);
+                throw new CompilerError("zero sized array detected", node.token);
             }
             List<FrontendType> elementTypes = new List<FrontendType>();
             foreach (var e in node.elements)
@@ -1049,7 +1052,7 @@ namespace PragmaScript
                 }
                 if (!same)
                 {
-                    throw new ParserError("all elements in an array must be of the same type", node.token);
+                    throw new CompilerError("all elements in an array must be of the same type", node.token);
                 }
                 var at = new FrontendArrayType(first, node.dims);
                 resolve(node, at);
@@ -1081,7 +1084,7 @@ namespace PragmaScript
                 }
                 if (st == null)
                 {
-                    throw new ParserError("left side is not a struct type", node.token);
+                    throw new CompilerError("left side is not a struct type", node.token);
                 }
 
                 node.kind = AST.FieldAccess.AccessKind.Struct;
@@ -1104,7 +1107,7 @@ namespace PragmaScript
                     var field = st.GetField(node.fieldName);
                     if (field == null)
                     {
-                        throw new ParserError($"struct does not contain field \"{node.fieldName}\"", node.token);
+                        throw new CompilerError($"struct does not contain field \"{node.fieldName}\"", node.token);
                     }
                     resolve(node, field);
                 }
@@ -1133,7 +1136,7 @@ namespace PragmaScript
                             {
                                 if (node.indices.Count != at.dims.Count)
                                 {
-                                    throw new ParserError("Index count must be 1 or match dimension of array", node.token);
+                                    throw new CompilerError("Index count must be 1 or match dimension of array", node.token);
                                 }
                             }
                         }
@@ -1145,11 +1148,11 @@ namespace PragmaScript
                         et = vt.elementType;
                         if (node.indices.Count != 1)
                         {
-                            throw new ParserError("When indexing into a vector you can only have one index", node.token);
+                            throw new CompilerError("When indexing into a vector you can only have one index", node.token);
                         }
                         break;
                     default:
-                        throw new ParserError("left side is not an array, vector or slice type", node.token);
+                        throw new CompilerError("left side is not an array, vector or slice type", node.token);
                 }
             }
 
@@ -1203,11 +1206,11 @@ namespace PragmaScript
                 {
                     case FrontendArrayType at:
                         st = new FrontendSliceType(at.elementType);
-                      
+
                         // TODO(pragma): HACK remove
-                        if (!AST.activateReturnPointer(node.left))
+                        if (!AST.ActivateReturnPointer(node.left))
                         {
-                            throw new ParserError("Cannot slice constant array", node.token);
+                            throw new CompilerError("Cannot slice constant array", node.token);
                         }
                         if (node.to == null)
                         {
@@ -1266,7 +1269,7 @@ namespace PragmaScript
                         st = new FrontendSliceType(pt.elementType);
                         if (node.to == null)
                         {
-                            throw new ParserError("Slice operator on a pointer type requires a \"to\" index.", node.token);
+                            throw new CompilerError("Slice operator on a pointer type requires a \"to\" index.", node.token);
                         }
                         if (node.from == null)
                         {
@@ -1280,7 +1283,7 @@ namespace PragmaScript
                         };
                         break;
                     default:
-                        throw new ParserError("left side is not an array, slice or pointer type", node.token);
+                        throw new CompilerError("left side is not an array, slice or pointer type", node.token);
                 }
             }
 
@@ -1461,7 +1464,7 @@ namespace PragmaScript
                                        AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned,
                                        AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned))
                     {
-                        throw new ParserError("Only add, subtract and unsigned comparisons are valid pointer operations.", node.token);
+                        throw new CompilerError("Only add, subtract and unsigned comparisons are valid pointer operations.", node.token);
                     }
 
                     bool correctType = false;
@@ -1478,7 +1481,7 @@ namespace PragmaScript
                     // TODO: rather use umm and smm???
                     if (!correctType)
                     {
-                        throw new ParserError($"Right side of pointer arithmetic operation is not of supported type.", node.right.token);
+                        throw new CompilerError($"Right side of pointer arithmetic operation is not of supported type.", node.right.token);
                     }
                 }
                 else if (!FrontendType.CompatibleAndLateBind(lt, rt))
@@ -1493,7 +1496,7 @@ namespace PragmaScript
                     {
                         if (!FrontendType.IntegersOrLateBind(lt, rt))
                         {
-                            throw new ParserError($"Unsigned comparison operators are only valid for integer or pointer types not \"{lt}\".", node.right.token);
+                            throw new CompilerError($"Unsigned comparison operators are only valid for integer or pointer types not \"{lt}\".", node.right.token);
                         }
                     }
                 }
@@ -1512,7 +1515,7 @@ namespace PragmaScript
                     {
                         if (!FrontendType.IntegersOrLateBind(lt, rt))
                         {
-                            throw new ParserError($"Unsigned division operator is only valid for integer types not \"{lt}\".", node.right.token);
+                            throw new CompilerError($"Unsigned division operator is only valid for integer types not \"{lt}\".", node.right.token);
                         }
                     }
 
@@ -1586,7 +1589,7 @@ namespace PragmaScript
                 }
                 else
                 {
-                    throw new ParserError("Cast not allowed for types.", node.token);
+                    throw new CompilerError("Cast not allowed for types.", node.token);
                 }
             }
         }
@@ -1600,7 +1603,7 @@ namespace PragmaScript
                         var base_t_def = node.scope.GetType(node.fullyQualifiedName, node.token);
                         if (base_t_def == null)
                         {
-                            throw new ParserError($"Unknown type: \"{node.fullyQualifiedName}\"", node.token);
+                            throw new CompilerError($"Unknown type: \"{node.fullyQualifiedName}\"", node.token);
                         }
                         FrontendType base_t = null;
                         if (base_t_def.type != null)
@@ -1730,12 +1733,13 @@ namespace PragmaScript
                         if (returnType != null && all_ps && optionalCount == optionalExpressionTypes.Count)
                         {
                             var result = new FrontendFunctionType(null);
+                            result.returnType = returnType;
                             for (int idx = 0; idx < fts.parameters.Count; ++idx)
                             {
                                 var p = fts.parameters[idx];
                                 result.AddParam(p.name, parameterTypes[idx], p.isOptional(), p.embed);
                             }
-                            result.returnType = returnType;
+                            result.calcTypeName();
                             resolve(node, result);
                         }
                     }

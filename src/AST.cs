@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace PragmaScript
 {
-    partial class AST
+    public partial class AST
     {
 
         static void expectTokenType(Token t, Token.TokenType type)
@@ -35,7 +35,6 @@ namespace PragmaScript
         {
             scope.AddType(FrontendType.f32, token);
             scope.AddType(FrontendType.f64, token);
-
             scope.AddType(FrontendType.i16, token);
             scope.AddType(FrontendType.i32, token);
             scope.AddType(FrontendType.i64, token);

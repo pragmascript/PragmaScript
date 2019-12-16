@@ -162,6 +162,7 @@ var glShaderSource: fun(
 var glCompileShader: fun(shader: i32) => void;
 var glDeleteShader: fun(shader: i32) => void;
 
+
 var glCreateProgram: fun() => i32;
 var glAttachShader: fun(program: i32; shader: i32) => void;
 var glLinkProgram: fun(program: i32) => void;

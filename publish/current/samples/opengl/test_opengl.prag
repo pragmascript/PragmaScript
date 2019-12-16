@@ -1,7 +1,8 @@
-import "..\preamble.prag"
-import "..\windows.prag"
-import "..\math.prag"
-import "..\vec.prag"
+import "../preamble.prag"
+import "../windows.prag"
+import "../math.prag"
+import "../vec.prag"
+
 import "opengl.prag"
 
 with Windows;
@@ -27,86 +28,24 @@ let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
     return (t1 - t0)@f64 / perf_count_freq@f64;
 }
 let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
-    return get_seconds_elapsed(t0, t1) * 1000;
+    return get_seconds_elapsed(t0, t1) * 1000; 
 }
-
-let write_file = fun (name: string; buffer: string) => bool
-{
-    var handle = CreateFileA(cstr(name), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, 0);
-    if (handle == null) {
-        CloseHandle(handle);
-        return false;
-    }
-    var bytes_written: i32 = 0;
-    var result = WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
-    if (result != 0) {
-        CloseHandle(handle);
-        assert(buffer.length == bytes_written);
-        return true;
-    } else {
-        CloseHandle(handle);
-        return false;
-    }
-
-    CloseHandle(handle);
-    return false;
-}
-
-let read_file = fun (name: string) => string  
-{
-    var result: string;
-    result.data = nullptr;
-    result.length = 0;
-    var handle = CreateFileA(cstr(name), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, 0);
-    if (handle == null) {
-        return result;
-    }
-
-    var size: i64 = 0;
-    var fsr = GetFileSizeEx(handle, &size);
-    if (fsr == 0 || size == 0) {
-        CloseHandle(handle);
-        return result;
-    }
-
-    var buffer = VirtualAlloc(nullptr, size@mm, MEM_COMMIT, PAGE_READWRITE);
-    if (buffer@mm == null) {
-        CloseHandle(handle);
-        return result;
-    }
-    assert(size@mm <=\ gigabytes(4));
-    var size_32 = size@i32;
-    var bytes_read: i32;
-    var rfr = ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
-    assert(bytes_read == size_32);
-    if (rfr == 0) {
-        VirtualFree(buffer, null, MEM_RELEASE);
-        CloseHandle(handle);
-        return result;		
-    }
-
-    result.data = buffer;
-    result.length = size_32;
-    CloseHandle(handle);
-    return result;
-} 
 
 let render_opengl = fun (@window_state: window_state*; time: f32) => void {
-    // if (!gl_resources_initialized) {
-    //     init_gl_resources();
-    // }
     glViewport(0, 0, client_width, client_height);
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
-
     glDrawElements(GL_TRIANGLES, current_mesh.indices.length, GL_UNSIGNED_INT, nullptr);
+
+    // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
     SwapBuffers(dc);
-}
+} 
 
 let mesh = struct (
     vertices: v3[];
     indices: i32[];
 );
+
 // https://hero.handmade.network/episode/code/day368
 
 var current_mesh = mesh {};
@@ -120,20 +59,19 @@ let create_circle = fun(center: v3; radius: f32; segments: i32 = 96) => mesh {
 
     var vp = memory@v3*;
     result.vertices = vp[:segments+1];
-    // result.vertex_count = segments + 1;
 
     var aspect = window.client_width@f32 / window.client_height@f32;
-
+    
     *vp++ = center;
     for (var i = 0; i < segments; ++i) {
         var v = v3{};
         var phi = Math::tau_32 * i@f32 / segments@f32;
         v.x = radius * Math::cos(phi);
-        v.y = aspect * radius * Math::sin(phi);
+        v.y = aspect * radius * Math::sin(phi); 
         v = add(&v, &c);
         *vp++ = v;
     }
-    var ip = (memory + size_vertices)@i32*;
+    var ip = (memory + size_vertices)@i32*; 
     result.indices = ip[:(result.vertices.length - 1) * 3];
     
     for (var i = 1; i <= segments; ++i) {
@@ -156,19 +94,26 @@ let init_gl_resources = fun() => void {
 
     glGetIntegerv(GL_VIEWPORT, &viewport[0]);
 
-
-
     // make a dummy VAO
     // https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
     var DummyVAO: i32;
     glGenVertexArrays(1, &DummyVAO);
-    glBindVertexArray(DummyVAO);
+    glBindVertexArray(DummyVAO);  
 
-    var vs_source = read_file("..\\vs.glsl\0");
+    var vs_source = @"
+#version 330 core
+layout (location = 0) in vec3 aPos;
+void main()
+{
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+}
+0"; 
+    vs_source[vs_source.length - 1] = 0;
+    
     assert(vs_source.data != nullptr);
     var vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vs_source.data, 0@i32*);
-    glCompileShader(vertexShader);
+    glCompileShader(vertexShader); 
     {
         var success: i32;
         var infoLog: i8[512];
@@ -179,7 +124,17 @@ let init_gl_resources = fun() => void {
         }
     }
     
-    var fs_source = read_file("..\\fs.glsl\0");
+    var fs_source = @"
+#version 330 core
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+}
+0";
+   fs_source[fs_source.length - 1] = 0;
+
     assert(fs_source.data != nullptr);
     var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fs_source.data, 0@i32*);
@@ -415,12 +370,9 @@ let get_opengl_info = fun() => opengl_info {
     return result;
 }
 
-
 // http://mariuszbartosik.com/opengl-4-x-initialization-in-windows-without-a-framework/
 let init_opengl = fun (window: window_state*) => void {
     load_wgl_extensions();
-
-
     var dc = window.dc;
 
 
@@ -605,7 +557,7 @@ let gl_error_callback = fun(
     "compile.debuginfo": "false",
     "compile.ll"    : "false",
     "compile.asm"   : "false",
-    "compile.cpu"   : "native",
+    "compile.cpu"   : "haswell",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
@@ -613,7 +565,7 @@ let gl_error_callback = fun(
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
 
-    SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+    // SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
 
     var t0 = get_perf_counter();
     
@@ -642,6 +594,7 @@ let main = fun() => void {
     window_class.hCursor = LoadCursorA(null, IDC_ARROW);
     RegisterClassExA(&window_class);
     
+    
     let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
     let dw_ex_style = 0 & WS_EX_TOPMOST;
  
@@ -660,7 +613,7 @@ let main = fun() => void {
         null
     );
     window.dc = GetDC(window.handle);
-
+    
     var gl_t0 = get_perf_counter();
     init_opengl(&window);
     init_gl_resources();

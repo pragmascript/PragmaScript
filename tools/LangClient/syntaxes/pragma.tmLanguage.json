@@ -1,0 +1,74 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Pragma",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#storage-modifier"
+		},
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#boolean-literal"
+		},
+		{
+			"include": "#invocation-expression"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control.pragma",
+					"match": "\\b(if|elif|else|for|while|break|continue)\\b"
+				},
+				{
+					"name": "keyword.other.pragma",
+					"match": "\\b(let|var|enum|fun|return|size_of|import|mod|with)\\b"
+				},
+				{
+					"name": "keyword.other.struct.pragma",
+					"match": "\\b(struct)\\b"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.pragma",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.pragma",
+					"match": "\\\\."
+				}
+			]
+		},
+		"comments": {
+			"name": "comment.line.pragma",
+			"match": "(//).*$\n?"
+		},
+		"storage-modifier": {
+			"name": "storage.modifier.pragma",
+			"match": "\\b(extern)\\b"
+		},
+		"boolean-literal": {
+			"patterns": [
+				{
+					"name": "constant.language.boolean.true.pragma",
+					"match": "\\b(true)\\b"
+				},
+				{
+					"name": "constant.language.boolean.false.pragma",
+					"match": "\\b(false)\\b"
+				}
+			]
+		}
+	},
+	"scopeName": "source.pragma"
+}

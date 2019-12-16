@@ -1,0 +1,623 @@
+
+import "../preamble.prag"
+import "../windows.prag"
+import "../math.prag"
+import "../vec.prag"
+
+import "../random.prag"
+
+import "../opengl/opengl.prag"
+
+// https://hero.handmade.network/forums/code-discussion/t/129-howto_-_building_without_import_libraries
+// https://chocolatey.org/packages/mpress#install
+
+
+let window_state = struct 
+(
+    handle: mm;
+    dc: mm;
+    client_width: i32;
+    client_height: i32;
+    wants_to_quit: bool;
+);
+var window: window_state;
+let get_perf_counter = fun() => i64 {
+    var result: i64;
+    Windows::QueryPerformanceCounter(&result);
+    return result;
+}
+var perf_count_freq: i64;
+let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return (t1 - t0)@f64 / perf_count_freq@f64;
+}
+let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return get_seconds_elapsed(t0, t1) * 1000; 
+}
+
+let render_opengl = fun (@window_state: window_state*; time: f32) => void {
+    glViewport(0, 0, client_width, client_height);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDrawElements(GL_TRIANGLES, current_mesh.indices.length, GL_UNSIGNED_INT, nullptr);
+
+    // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
+    Windows::SwapBuffers(dc);
+} 
+
+let mesh = struct (
+    vertices: v3[];
+    indices: i32[];
+);
+
+// https://hero.handmade.network/episode/code/day368
+
+var current_mesh = mesh {};
+let create_circle = fun(center: v3; radius: f32; segments: i32 = 96) => mesh {
+    var c = center;
+    var result = mesh {};
+    var size_vertices = (segments + 1) * size_of(v3)@i32;
+    var size_indices = 3 * segments * size_of(i32)@i32;
+    var total_size = size_vertices + size_indices;
+    var memory = Windows::VirtualAlloc(nullptr, total_size@\mm, Windows::MEM_COMMIT, Windows::PAGE_READWRITE);
+
+    var vp = memory@v3*;
+    result.vertices = vp[:segments+1];
+
+    var aspect = window.client_width@f32 / window.client_height@f32;
+    
+    *vp++ = center;
+    for (var i = 0; i < segments; ++i) {
+        var v = v3{};
+        var phi = Math::tau_32 * i@f32 / segments@f32;
+        v.x = radius * Math::cos(phi);
+        v.y = aspect * radius * Math::sin(phi); 
+        v = add(&v, &c);
+        *vp++ = v;
+    }
+    var ip = (memory + size_vertices)@i32*; 
+    result.indices = ip[:(result.vertices.length - 1) * 3];
+    
+    for (var i = 1; i <= segments; ++i) {
+        *ip++ = 0;
+        *ip++ = i;
+        var next_idx = i + 1;
+        if (next_idx > segments) {
+            assert(next_idx == segments + 1);
+            next_idx = 1;
+        }
+        *ip++ = next_idx;
+    }
+    return result;
+}
+
+var gl_resources_initialized = false;
+let init_gl_resources = fun() => void {
+
+    var viewport: i32[4];
+
+    glGetIntegerv(GL_VIEWPORT, &viewport[0]);
+
+    // make a dummy VAO
+    // https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
+    var DummyVAO: i32;
+    glGenVertexArrays(1, &DummyVAO);
+    glBindVertexArray(DummyVAO);  
+
+    var vs_source = @"
+#version 330 core
+layout (location = 0) in vec3 aPos;
+void main()
+{
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+}
+0"; 
+    vs_source[vs_source.length - 1] = 0;
+    
+    assert(vs_source.data != nullptr);
+    var vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vs_source.data, 0@i32*);
+    glCompileShader(vertexShader); 
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+        if (success == 0) {
+            glGetShaderInfoLog(vertexShader, len(infoLog)@\i32, 0@i32*, &infoLog);
+            debug_print("vs.glsl", from_cstr(&infoLog[0]));
+        }
+    }
+    
+    var fs_source = @"
+#version 330 core
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+}
+0";
+   fs_source[fs_source.length - 1] = 0;
+
+    assert(fs_source.data != nullptr);
+    var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fs_source.data, 0@i32*);
+    glCompileShader(fragmentShader);
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+        if (success == 0) {
+            glGetShaderInfoLog(fragmentShader, len(infoLog)@\i32, 0@i32*, &infoLog);
+            debug_print("fs.glsl", from_cstr(&infoLog[0]));
+        }
+    }
+
+    var shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+        if (success == 0) {
+            glGetProgramInfoLog(shaderProgram, len(infoLog)@\i32, 0@i32*, &infoLog);
+            debug_print("program", from_cstr(&infoLog[0]));
+        }
+    }
+    
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    var mesh = create_circle(vz, 0.3);
+    var vertices_size = @mm mesh.vertices.length * size_of(v3);
+    var indices_size = @mm mesh.indices.length * size_of(i32);
+    current_mesh = mesh;
+
+    var VBO: i32;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices_size, mesh.vertices.data@ptr, GL_DYNAMIC_DRAW);
+    // glBufferData(GL_ARRAY_BUFFER, vertices_size, &vertices@ptr, GL_STATIC_DRAW);
+
+    var EBO: i32;
+    glGenBuffers(1, &EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, mesh.indices.data@ptr, GL_DYNAMIC_DRAW);
+    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, &indices@ptr, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(0);
+
+    glUseProgram(shaderProgram);
+
+    gl_resources_initialized = true;
+}
+
+let process_pending_messages = fun() => void {
+    var msg: Windows::MSG;
+    while (Windows::PeekMessageA(&msg, null, 0, 0, Windows::PM_REMOVE|Windows::PM_NOYIELD) != 0) {
+        var message = msg.message;
+        if (message == Windows::WM_QUIT) {
+            window.wants_to_quit = true;
+        } 
+        elif (message == Windows::WM_SYSKEYDOWN
+            || message == Windows::WM_SYSKEYUP
+            || message == Windows::WM_KEYDOWN
+            || message == Windows::WM_KEYUP) {
+
+            var w_param = @i32 (msg.wParam >> 32@mm);
+            var l_param = @i32 (msg.lParam >> 32@mm);
+            var vk_code = w_param;
+
+            var was_down = (l_param & (1 << 30)) != 0;
+            var is_down = (l_param & (1 << 31)) == 0;
+            var key_up = was_down && !is_down;
+            var key_down = !was_down && is_down; 
+
+            if(vk_code == Windows::VK_ESCAPE) {
+                window.wants_to_quit = true;
+            }
+        } else {
+            Windows::TranslateMessage(&msg);
+            Windows::DispatchMessageA(&msg);
+        }
+    }
+}
+
+let PROCESS_SYSTEM_DPI_AWARE = 1;
+let SetProcessDpiAwareness = extern fun(
+    value: i32;
+) => i32;
+
+let main_window_callback = fun
+(
+    window_handle: mm;
+    message: i32;
+    w_param: mm;
+    l_param: mm;
+) => mm {
+    var result = null;
+    if (message == Windows::WM_SIZE || message == Windows::WM_SIZING) {
+    }
+    elif (message == Windows::WM_CLOSE) {
+        window.wants_to_quit = true;
+    }
+    elif (message == Windows::WM_DESTROY) {
+        window.wants_to_quit = true;
+    }
+    elif (message == Windows::WM_PAINT) {
+        var paint: Windows::PAINTSTRUCT;
+        var context = Windows::BeginPaint(window_handle, &paint);
+        // blit_to_screen(window.dc, &window.backbuffer);
+        Windows::EndPaint(window_handle, &paint);
+    } 
+    else {
+        result = Windows::DefWindowProcA(window_handle, message, w_param, l_param);
+    }
+    return result;
+}
+
+let load_wgl_extensions = fun() => void {
+    var window_class = Windows::WNDCLASSEX {};
+    var class_name = cstr("wgl_extension_dummy_window\0");
+    var window_name = cstr("dummy window\0");
+
+    window_class.cbSize = size_of(Windows::WNDCLASSEX)@i32;
+    window_class.hInstance = Windows::GetModuleHandleA(0);
+    window_class.lpszClassName = class_name;
+    window_class.lpfnWndProc = @ptr Windows::DefWindowProcA;
+    Windows::RegisterClassExA(&window_class);
+    
+    var dummy_wnd = Windows::CreateWindowExA(
+        0,
+        window_class.lpszClassName,
+        window_name,
+        0,
+        Windows::CW_USEDEFAULT,
+        Windows::CW_USEDEFAULT,
+        Windows::CW_USEDEFAULT,
+        Windows::CW_USEDEFAULT,
+        null,
+        null,
+        window_class.hInstance,
+        null
+    );
+    
+    var dummy_dc = Windows::GetDC(dummy_wnd);
+    assert(dummy_dc != null);
+
+    var pfd = Windows::PIXELFORMATDESCRIPTOR { };
+    pfd.nSize = size_of(Windows::PIXELFORMATDESCRIPTOR)@i16;
+    pfd.nVersion = 1;
+    pfd.dwFlags = Windows::PFD_SUPPORT_OPENGL|Windows::PFD_DRAW_TO_WINDOW|Windows::PFD_DOUBLEBUFFER;
+    pfd.cColorBits = 32;
+    pfd.cAlphaBits = 8;
+    
+    var t0 = get_perf_counter();
+    var pfd_idx = Windows::ChoosePixelFormat(dummy_dc, &pfd);
+    var suggested_pfd: Windows::PIXELFORMATDESCRIPTOR;
+    Windows::DescribePixelFormat(dummy_dc, pfd_idx, size_of(Windows::PIXELFORMATDESCRIPTOR)@i32, &suggested_pfd);
+    Windows::SetPixelFormat(dummy_dc, pfd_idx, &suggested_pfd);
+    var t1 = get_perf_counter();
+
+    var gl_rc = wglCreateContext(dummy_dc);
+    var success = wglMakeCurrent(dummy_dc, gl_rc);
+    assert(success != 0);
+
+    *(&wglChoosePixelFormatARB@ptr*) = wglGetProcAddress(cstr("wglChoosePixelFormatARB\0"));
+    assert(wglChoosePixelFormatARB@ptr != nullptr);
+
+    *(&wglCreateContextAttribsARB@ptr*) = wglGetProcAddress(cstr("wglCreateContextAttribsARB\0"));
+    assert(wglCreateContextAttribsARB@ptr != nullptr);
+
+    *(&wglSwapIntervalEXT@ptr*) = wglGetProcAddress(cstr("wglSwapIntervalEXT\0"));
+    assert(wglSwapIntervalEXT@ptr != nullptr);
+
+    *(&wglGetExtensionsStringEXT@ptr*) = wglGetProcAddress(cstr("wglGetExtensionsStringEXT\0"));
+    assert(wglGetExtensionsStringEXT@ptr != nullptr);
+
+    wglMakeCurrent(0, 0);
+    wglDeleteContext(gl_rc);
+    Windows::ReleaseDC(dummy_wnd, dummy_dc);
+    Windows::DestroyWindow(dummy_wnd);
+
+    // debug_print_string("wgl extensions", from_cstr(wglGetExtensionsStringEXT()));
+    debug_print("choose pixel format: ", get_ms_elapsed(t0, t1));
+}
+
+let opengl_info = struct (
+    shading_language_version: string;
+    vendor: string;
+    renderer: string;
+    version: string;
+    extensions: string;
+);
+
+
+let print_opengl_info = fun(@info: opengl_info*) => void {
+    print("OPENGL INFO:\n");
+    debug_print("shading language verison", shading_language_version);
+    debug_print("vendor", vendor);
+    debug_print("renderer", renderer);
+    debug_print("version", version);
+    debug_print("extensions", extensions);
+    print("\n");
+}
+
+let get_opengl_info = fun() => opengl_info {
+    var result: opengl_info;
+    
+    result.shading_language_version = from_cstr(glGetString(GL_SHADING_LANGUAGE_VERSION), -1);
+    result.vendor = from_cstr(glGetString(GL_VENDOR), -1);
+    result.renderer = from_cstr(glGetString(GL_RENDERER), -1);
+    result.version = from_cstr(glGetString(GL_VERSION), -1);
+    
+    // TODO(pragma): GL_EXTENSIONS is deprecated use
+    //   glGetStringi with GL_EXTENSIONS, i and
+    //   GL_NUM_EXTENSIONS
+    // result.extensions = from_cstr(glGetString(GL_EXTENSIONS), -1);
+    // print_opengl_info(&result);
+    return result;
+}
+
+// http://mariuszbartosik.com/opengl-4-x-initialization-in-windows-without-a-framework/
+let init_opengl = fun (window: window_state*) => void {
+    load_wgl_extensions();
+    var dc = window.dc;
+
+
+    var t0 = get_perf_counter();
+    var int_attrib_list = [
+        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+        WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+        WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+        WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+        0
+    ];
+
+    var suggested_pixel_format_index = 0;
+    var extended_pick = 0;
+    wglChoosePixelFormatARB(dc, &int_attrib_list[0], 0@f32*, 1, 
+        &suggested_pixel_format_index, &extended_pick);
+
+    assert(extended_pick == 1);
+
+    var pfd: Windows::PIXELFORMATDESCRIPTOR;
+    Windows::DescribePixelFormat(dc, suggested_pixel_format_index, @i32(size_of(Windows::PIXELFORMATDESCRIPTOR)), &pfd);
+    Windows::SetPixelFormat(dc, suggested_pixel_format_index, &pfd);
+    
+    var t1 = get_perf_counter();
+
+    var opengl_attribs = [
+        WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+        WGL_CONTEXT_MINOR_VERSION_ARB, 5,
+        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+        0
+    ];
+
+    var gl_rc = wglCreateContextAttribsARB(dc, null, &opengl_attribs[0]);
+    var result = wglMakeCurrent(dc, gl_rc);
+    assert(result != 0);
+
+    wglSwapIntervalEXT(1);
+    
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+
+    *(&glDebugMessageCallback@ptr*) = wglGetProcAddress(cstr("glDebugMessageCallback\0"));
+    assert(glDebugMessageCallback@ptr != nullptr);
+    glDebugMessageCallback(@glDebugMessageCallbackType gl_error_callback, nullptr);
+
+    
+    *(&glGenBuffers@ptr*) = wglGetProcAddress(cstr("glGenBuffers\0"));
+    assert(glGenBuffers@ptr != nullptr);
+
+    *(&glBindBuffer@ptr*) = wglGetProcAddress(cstr("glBindBuffer\0"));
+    assert(glBindBuffer@ptr != nullptr);
+
+    *(&glBufferData@ptr*) = wglGetProcAddress(cstr("glBufferData\0"));
+    assert(glBufferData@ptr != nullptr);
+
+    *(&glEnableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glEnableVertexAttribArray\0"));
+    assert(glEnableVertexAttribArray@ptr != nullptr);
+
+    *(&glDisableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glDisableVertexAttribArray\0"));
+    assert(glDisableVertexAttribArray@ptr != nullptr);
+
+    *(&glVertexAttribPointer@ptr*) = wglGetProcAddress(cstr("glVertexAttribPointer\0"));
+    assert(glVertexAttribPointer@ptr != nullptr);
+
+    *(&glCreateShader@ptr*) = wglGetProcAddress(cstr("glCreateShader\0"));
+    assert(glCreateShader@ptr != nullptr);
+
+    *(&glShaderSource@ptr*) = wglGetProcAddress(cstr("glShaderSource\0"));
+    assert(glShaderSource@ptr != nullptr);
+
+    *(&glCompileShader@ptr*) = wglGetProcAddress(cstr("glCompileShader\0"));
+    assert(glCompileShader@ptr != nullptr);
+    
+    *(&glDeleteShader@ptr*) = wglGetProcAddress(cstr("glDeleteShader\0"));
+    assert(glDeleteShader@ptr != nullptr);
+
+    *(&glCreateProgram@ptr*) = wglGetProcAddress(cstr("glCreateProgram\0"));
+    assert(glCreateProgram@ptr != nullptr);
+
+    *(&glAttachShader@ptr*) = wglGetProcAddress(cstr("glAttachShader\0"));
+    assert(glAttachShader@ptr != nullptr);
+
+    *(&glLinkProgram@ptr*) = wglGetProcAddress(cstr("glLinkProgram\0"));
+    assert(glLinkProgram@ptr != nullptr);
+
+    *(&glUseProgram@ptr*) = wglGetProcAddress(cstr("glUseProgram\0"));
+    assert(glUseProgram@ptr != nullptr);
+
+    *(&glDeleteProgram@ptr*) = wglGetProcAddress(cstr("glDeleteProgram\0"));
+    assert(glDeleteProgram@ptr != nullptr);
+
+    *(&glGetShaderiv@ptr*) = wglGetProcAddress(cstr("glGetShaderiv\0"));
+    assert(glGetShaderiv@ptr != nullptr);
+
+    *(&glGetProgramiv@ptr*) = wglGetProcAddress(cstr("glGetProgramiv\0"));
+    assert(glGetProgramiv@ptr != nullptr);
+
+    *(&glGetShaderInfoLog@ptr*) = wglGetProcAddress(cstr("glGetShaderInfoLog\0"));
+    assert(glGetShaderInfoLog@ptr != nullptr);
+
+    *(&glGetProgramInfoLog@ptr*) = wglGetProcAddress(cstr("glGetProgramInfoLog\0"));
+    assert(glGetProgramInfoLog@ptr != nullptr);
+
+    *(&glGenVertexArrays@ptr*) = wglGetProcAddress(cstr("glGenVertexArrays\0"));
+    assert(glGenVertexArrays@ptr != nullptr);
+
+    *(&glBindVertexArray@ptr*) = wglGetProcAddress(cstr("glBindVertexArray\0"));
+    assert(glBindVertexArray@ptr != nullptr);
+
+    *(&glDrawArrays@ptr*) = wglGetProcAddress(cstr("glDrawArrays\0"));
+    assert(glDrawArrays@ptr != nullptr);
+
+    *(&glDrawElements@ptr*) = wglGetProcAddress(cstr("glDrawElements\0"));
+    assert(glDrawElements@ptr != nullptr);
+
+    var t2 = get_perf_counter();
+    var info = get_opengl_info();
+    var t3 = get_perf_counter();
+
+    print_opengl_info(&info);
+}
+
+let gl_error_callback = fun(
+    source: i32;
+    type: i32;
+    id: i32;
+    severity: i32;
+    length: i32;
+    message: ptr;
+    userParam: ptr;
+) => void {
+    print("\n(gl) ");
+    if (type == GL_DEBUG_TYPE_ERROR) {
+        print("error");
+    } elif (type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR) {
+        print("deprecated");
+    } elif (type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR) {
+        print("undefined");
+    } elif (type == GL_DEBUG_TYPE_PORTABILITY) {
+        print("portability");
+    } elif (type == GL_DEBUG_TYPE_PERFORMANCE) {
+        print("performance");
+    } elif (type == GL_DEBUG_TYPE_OTHER) {
+        print("other");
+    } elif (type == GL_DEBUG_TYPE_MARKER) {
+        print("marker");
+    } elif (type == GL_DEBUG_TYPE_PUSH_GROUP) {
+        print("push");
+    } elif (type == GL_DEBUG_TYPE_POP_GROUP) {
+        print("pop");
+    } 
+    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+        print("(note): ");
+    } elif (severity == GL_DEBUG_SEVERITY_LOW) {
+        print("(low): ");
+    } elif (severity == GL_DEBUG_SEVERITY_MEDIUM) {
+        print("(medium): ");
+    } elif (severity == GL_DEBUG_SEVERITY_HIGH) {
+        print("(high): ");
+    }
+    print(from_cstr(message));
+    print("\n");
+
+    if (type == GL_DEBUG_TYPE_ERROR) {
+        assert(false);
+    }
+}
+
+let setup_opengl_window = fun() => void {
+    Windows::QueryPerformanceFrequency(&perf_count_freq);
+
+    SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+    
+    var t0 = get_perf_counter();
+    
+    let buffer_width  = 1280;
+    let buffer_height = 720;
+
+    var client_rect = Windows::RECT { 0, 0, buffer_width, buffer_height };
+    Windows::AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
+
+    var window_width = client_rect.right - client_rect.left;
+    assert(window_width > 0);
+    var window_height = client_rect.bottom - client_rect.top;
+    assert(window_height > 0);
+    window.client_width = buffer_width;
+    window.client_height = buffer_height;
+    
+    var class_name  = cstr("demo_window_class\0");
+    var window_name = cstr("demo\0");
+    var module_handle = Windows::GetModuleHandleA(null);
+    var window_class = Windows::WNDCLASSEX {};
+    window_class.cbSize = size_of(Windows::WNDCLASSEX)@i32;
+    window_class.style = Windows::CS_HREDRAW|Windows::CS_VREDRAW;
+    window_class.lpfnWndProc = @ptr main_window_callback;
+    window_class.hInstance = module_handle;
+    window_class.lpszClassName = class_name;
+    window_class.hCursor = Windows::LoadCursorA(null, Windows::IDC_ARROW);
+    Windows::RegisterClassExA(&window_class);
+    
+    
+    let dw_style = Windows::WS_OVERLAPPED | Windows::WS_CAPTION | Windows::WS_SYSMENU | Windows::WS_MINIMIZEBOX | Windows::WS_VISIBLE;
+    let dw_ex_style = 0 & Windows::WS_EX_TOPMOST;
+    
+    window.handle = Windows::CreateWindowExA(
+        dw_ex_style,
+        class_name,
+        window_name,
+        dw_style,
+        Windows::CW_USEDEFAULT,
+        Windows::CW_USEDEFAULT,
+        window_width,
+        window_height,
+        null,
+        null,
+        module_handle,
+        null
+    );
+    window.dc = Windows::GetDC(window.handle);
+    
+    var gl_t0 = get_perf_counter();
+    init_opengl(&window);
+    init_gl_resources();
+    var gl_t1 = get_perf_counter();
+}
+
+[
+	"compile.output": "demo.exe",
+	"compile.entry" : "true",
+ 	"compile.opt"   : "4",
+    "compile.debuginfo": "false",
+    "compile.ll"    : "false",
+    "compile.asm"   : "false",
+    "compile.cpu"   : "native",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun() => void {
+    setup_opengl_window();
+    var frames = 0;
+    var start_time = get_perf_counter();
+    while (!window.wants_to_quit) {
+        process_pending_messages();
+        var t0 = get_perf_counter();
+        var time = get_seconds_elapsed(start_time, t0);
+        render_opengl(&window, @f32 time);
+        var t1 = get_perf_counter();
+        frames++;
+        if (frames == 60) {
+            debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
+            frames = 0;
+        }
+    }
+    Windows::ExitProcess(0);
+}

@@ -25,7 +25,7 @@ namespace PragmaScript
         AST.ProgramRoot debugRootNode;
         void AppendDebugInfo(Value v)
         {
-            if (!CompilerOptions.debugInfo)
+            if (!CompilerOptions._i.debugInfo)
             {
                 return;
             }
@@ -41,7 +41,7 @@ namespace PragmaScript
         }
         void AppendFunctionDebugInfo(Value value)
         {
-            if (!CompilerOptions.debugInfo)
+            if (!CompilerOptions._i.debugInfo)
             {
                 return;
             }
@@ -62,7 +62,7 @@ namespace PragmaScript
         void AppendFunctionArgumentsDebugInfo(Value value)
         {
 #if false        
-            if (!CompilerOptions.debugInfo) {
+            if (!CompilerOptions._i.debugInfo) {
                 return;
             }
             var f = (Function)value;
@@ -92,7 +92,7 @@ namespace PragmaScript
 
         void AppendDebugDeclareLocalVariable(Value value)
         {
-            if (!CompilerOptions.debugInfo)
+            if (!CompilerOptions._i.debugInfo)
             {
                 return;
             }
@@ -146,7 +146,7 @@ namespace PragmaScript
 
         void AppendGlobalVariableDebugInfo(GlobalVariable gv)
         {
-            if (!CompilerOptions.debugInfo)
+            if (!CompilerOptions._i.debugInfo)
             {
                 return;
             }

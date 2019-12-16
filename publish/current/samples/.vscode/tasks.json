@@ -6,14 +6,12 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "cmd.exe",
+            "command": "..\\bin\\pragma.exe",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "args": [
-                "/C",
-                "..\\bin\\pragma.exe",
                 "-D",
                 "${file}"
             ],
@@ -46,11 +44,9 @@
         {
             "label": "build release",
             "type": "shell",
-            "command": "cmd.exe",
+            "command": "..\\bin\\pragma.exe",
             "group": "build",
             "args": [
-                "/C",
-                "..\\bin\\pragma.exe",
                 "${file}"
             ],
             "problemMatcher": [

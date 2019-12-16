@@ -1,6 +1,9 @@
 import "../preamble.prag"
+import "../random.prag"
 
-["compile.entry"]
+["compile.entry", "compile.run"]
 let main = fun () => void {
 	print("hello world!\n");
+	var x = Random::rand_f32();
 }
+

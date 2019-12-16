@@ -2,6 +2,8 @@ import "../preamble.prag"
 import "../memory.prag"
 import "../math.prag"
 import "../random.prag"
+import "../simd.prag"
+
 
 let relu = fun(x: f32) => f32 {
     if (x > 0.0) {
@@ -9,6 +11,45 @@ let relu = fun(x: f32) => f32 {
     } else {
         return 0.0;
     }
+}
+
+let lrelu = fun(x: f32_4x) => f32_4x {
+    
+    var mask = x > SIMD::set1_ps(0.0);
+    return SIMD::set1_ps(0.0);
+    
+    // if (x > 0.0) {
+    //     return x;
+    // } else {
+    //     return x * 0.01;
+    // }
+}
+
+let softmax = fun(v: column_vec; max_pred: f32) => void {
+    var sum = SIMD::set1_ps(0.0000001);
+    
+    var max_pred_4x = f32_4x { max_pred, max_pred, max_pred, max_pred };
+    
+    for (var idx = 0; idx < v.elements.length; ++idx) {
+        var value = v.elements[idx];
+        value -= max_pred_4x;
+        
+        value = Math::exp(value);
+        v.elements[idx] = value;
+        sum += value;
+    }   
+    
+    var factor = SIMD::rcp_ps(sum);
+    
+    for (var idx = 0; idx < v.elements.length; ++idx) {
+        v.elements[idx] *= factor;
+    }   
+}
+
+let cross_entropy = fun(pred: column_vec; target: i32; max_pred: f32) => f32_4x {
+    softmax(pred, max_pred);
+    var loss = -Math::log(pred.elements[target]);
+    return loss;   
 }
 
 let layer = struct(
@@ -31,11 +72,11 @@ let network = struct(
 let matrix = struct (
     row_count: i32;
     column_count: i32;
-    elements: f32[];  
+    elements: f32_4x[];  
 );
 
 let column_vec = struct (
-    elements: f32[];  
+    elements: f32_4x[];  
 );
 
 let dataset = struct (
@@ -45,16 +86,16 @@ let dataset = struct (
 );
 
 
-let at = fun(@m: matrix; row_idx: i32; column_idx: i32) => f32{
-    assert(row_idx*column_idx < m.elements.length);
-    assert(row_idx < m.row_count);
-    assert(column_idx < m.column_count);
+let at = fun(@m: matrix; row_idx: i32; column_idx: i32) => f32_4x{
+    // assert(row_idx*column_idx < m.elements.length);
+    // assert(row_idx < m.row_count);
+    // assert(column_idx < m.column_count);
     return m.elements[row_idx * column_count + column_idx];
 }
 
 let dot = fun(v: column_vec; m: matrix; dest: column_vec) => void {
     for (var i = 0; i < dest.elements.length; ++i) {
-        var temp = 0.0;
+        var temp = SIMD::set1_ps(0.0);
         for (var j = 0; j < v.elements.length; ++j) {
             var f0 = at(m, j, i);
             var f1 =  v.elements[j];
@@ -69,30 +110,37 @@ let create_matrix = fun(row_count: i32; column_count: i32; arena: memory_arena* 
     result.row_count = row_count;
     result.column_count = column_count;
     result.elements.length = row_count * column_count;
-    var size = size_of(f32) * result.elements.length@mm;
-    result.elements.data = push(arena, size)@f32*;
+    var size = size_of(f32_4x) * result.elements.length@mm;
+    result.elements.data = push(arena, size)@f32_4x*;
+    
     return result;
 }
 
 let init_weight_matrix = fun(@m: matrix; half_range: f32 = 0.1) => void {
     for (var idx = 0; idx < elements.length; ++idx) {
-        elements[idx] = Random::rand_f32(-half_range, +half_range);
+        elements[idx] = Random::rand_f32_4x(SIMD::set1_ps(-half_range), SIMD::set1_ps(+half_range));
+    }    
+}
+
+let init_bias = fun(@v: column_vec; half_range: f32 = 0.1) => void {
+    for (var idx = 0; idx < elements.length; ++idx) {
+        elements[idx] = Random::rand_f32_4x(SIMD::set1_ps(-half_range), SIMD::set1_ps(+half_range));
     }    
 }
 
 let create_matrix = fun(row_count: i32; column_count: i32; values: f32[]; arena: memory_arena* = &temp_memory_arena) => matrix {
+    assert(values.length == row_count * column_count);
     var result = create_matrix(row_count, column_count, arena);
     var size = size_of(f32) * result.elements.length@mm;
     memcpy(result.elements.data@ptr, values.data@ptr, size);
     return result;
 }
 
-
 let create_column_vec = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => column_vec {
     var result = column_vec {};
     result.elements.length = length;
-    var size = size_of(f32) * length@mm;
-    result.elements.data = push(arena, size)@f32*;
+    var size = size_of(f32_4x) * length@mm;
+    result.elements.data = push(arena, size)@f32_4x*;
     return result;
 }
 
@@ -106,15 +154,21 @@ let create_column_vec = fun(values: f32[]; arena: memory_arena* = &temp_memory_a
 let debug_print = fun(name: string; v: column_vec) => void {
     print("[ ");
     for (var idx = 0; idx < v.elements.length; ++idx) {
-        var value = v.elements[idx];
-        print(value);
-        if (idx != v.elements.length - 1) {
-            print(", ");
+        for (var lane_idx = 0; lane_idx < 4; ++lane_idx) {
+            var value = v.elements[idx][lane_idx];
+            if (value >= 0) {
+                print("+");
+            }
+            print(value);
+            if (idx != v.elements.length - 1) {
+                print(", ");
+            }
+            
         }
+        
     }
     print(" ]\n");
 }
-
 
 let debug_print = fun(name: string; m: matrix) => void {
     print("[\n");
@@ -141,6 +195,9 @@ let debug_print = fun(name: string; m: matrix) => void {
 let approx_equal = fun(a: f32; b: f32; EPSILON:f32 = 0.000001) => bool {
     return Math::abs(a - b) < EPSILON;
 }
+
+#if FALSE
+
 let test_matrix = fun() => void {
     var mv = [0.37159574, 0.86752783, 0.76533697, 0.03678563, 0.03157477, 0.97958057];
     var m0 = create_matrix(
@@ -151,18 +208,20 @@ let test_matrix = fun() => void {
     
     var vv = [0.49637618, 0.71788844, 0.89755807];
     var v0 = create_column_vec(vv[:]);
-    debug_print("v0", v0.elements);
+    debug_print("v0", v0);
     var r = create_column_vec(2);
     dot(v0, m0, r);
-    debug_print("r", r.elements);
+    debug_print("r", r);
     assert(approx_equal(r.elements[0], 0.76221803) && approx_equal(r.elements[1], 1.33625858));
 }
+
+#endif
 
 let create_layer = fun(count: i32; output_count: i32; arena: memory_arena* = &temp_memory_arena) => layer {
     var result = layer {};
     result.activations = create_column_vec(count, arena);
     for (var idx = 0; idx < result.bias.elements.length; ++idx) {
-        result.activations.elements[idx] = 0.0;
+        result.activations.elements[idx] = SIMD::set1_ps(0.0);
     }
     
     if (output_count > 0) {
@@ -171,20 +230,19 @@ let create_layer = fun(count: i32; output_count: i32; arena: memory_arena* = &te
         init_weight_matrix(result.weights);
                
         result.grad_weights = create_matrix(count, output_count, arena);
-        zero(result.grad_weights);
+        init_weight_matrix(result.grad_weights, 0.001);
+        
         result.delta_weights = create_matrix(count, output_count, arena);
-        init_weight_matrix(result.delta_weights);
+        zero(result.delta_weights);
         
         result.bias = create_column_vec(output_count, arena);
+        zero(result.bias);
         
         result.grad_bias = create_column_vec(output_count, arena);
-        zero(result.grad_bias);
+        init_bias(result.grad_bias, 0.001);
         
         result.delta_bias = create_column_vec(output_count, arena);
-        for (var idx = 0; idx < result.bias.elements.length; ++idx) {
-            result.bias.elements[idx] = 0.0;
-            result.delta_bias.elements[idx] = Random::rand_f32(-0.01, 0.01);
-        }
+        zero(result.delta_bias);
         
     }
     return result;
@@ -192,13 +250,13 @@ let create_layer = fun(count: i32; output_count: i32; arena: memory_arena* = &te
 
 let zero = fun(m: matrix) => void {
     for (var i = 0; i < m.elements.length; ++i) {
-        m.elements[i] = 0.0;
+        m.elements[i] = SIMD::set1_ps(0.0);
     }
 }
 
 let zero = fun(v: column_vec) => void {
     for (var i = 0; i < v.elements.length; ++i) {
-        v.elements[i] = 0.0;
+        v.elements[i] = SIMD::set1_ps(0.0);
     }
 }
 
@@ -214,17 +272,21 @@ let copy = fun(from: matrix; to: matrix) => void {
     memcpy(to.elements.data@ptr, from.elements.data@ptr, size);
 }
 
-
-let create_network = fun(input_count: i32; hidden_count: i32; output_count: i32; arena: memory_arena* = &temp_memory_arena) => network {
+let create_network = fun(layer_counts: i32[]; arena: memory_arena* = &temp_memory_arena) => network {
     var result = network {};
-    let layer_count = 3;
-    var size = @mm layer_count * size_of(layer);
+
+    var size = @mm layer_counts.length * size_of(layer);
     result.layers.data = @layer* push(arena, size);
-    result.layers.length = layer_count;
+    result.layers.length = layer_counts.length;
     
-    result.layers[0] = create_layer(input_count, hidden_count);
-    result.layers[1] = create_layer(hidden_count, output_count);
-    result.layers[2] = create_layer(output_count, 0);
+    for (var layer_idx = 0; layer_idx < layer_counts.length; ++layer_idx) {
+        var input_count = layer_counts[layer_idx];
+        var output_count = 0;
+        if (layer_idx < layer_counts.length - 1) {
+            output_count = layer_counts[layer_idx + 1];
+        }
+        result.layers[layer_idx] = create_layer(input_count, output_count);
+    }
     
     return result;
 }
@@ -237,7 +299,7 @@ let forward = fun(@layer: layer; dest: column_vec) => void {
     }
     for (var idx = 0; idx < dest.elements.length; ++idx) {
         var a = dest.elements[idx];
-        dest.elements[idx] = relu(a);
+        dest.elements[idx] = lrelu(a);
     }
 }
 
@@ -247,9 +309,297 @@ let forward = fun(@network: network; input: column_vec) => void {
     copy(input, input_activations);
     for (var layer_idx = 0; layer_idx < layers.length - 1; ++layer_idx) {
         forward(layers[layer_idx], layers[layer_idx + 1].activations);
+        
     }
 }
 
+let create_one_hot = fun(class: i32; num_classes: i32; arena: memory_arena* = &temp_memory_arena) => column_vec {
+    var result = create_column_vec(num_classes, arena);
+    assert(class >= 0 && class < num_classes);
+    zero(result);
+    assert(false, "not implemented");
+    // result.elements[class] = 1.0;
+    return result;
+}
+
+
+let error_tuple = struct(
+  loss: f32;
+  accuracy: f32;
+);
+
+let execute_mini_batch = fun(network: network; dataset: dataset; batch_size: i32; verbose: bool = false) => error_tuple {
+    var result = error_tuple {};
+    var samples = 0.0;
+    var loss = 0.0;
+    var accuracy = 0.0;
+    for (var batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
+        var idx = Random::rand_i32() % dataset.count;
+        var ptr_inp = dataset.input + idx;
+        var ptr_out = dataset.output + idx;
+        var inp = *ptr_inp;
+        var out = *ptr_out;
+        
+        forward(network, inp);
+        var out_pred = network.layers[network.layers.length - 1].activations;
+        
+        if (verbose) {
+            // debug_print("inp", inp);
+            debug_print("out", out);
+            // softmax(out_pred);
+            debug_print("pred", out_pred);
+            print("\n");
+        }
+        // softmax(out_pred);
+        
+        var min_pred = MAX_F32;
+        var max_pred = MIN_F32;
+        
+        // ;
+        // for (var i = 0; i < out_pred.elements.length; ++i) {
+        //     var y = out_pred.elements[i];
+        //     if (y < min_pred) {
+        //         min_pred = y;
+        //     }
+        //     if (y > max_pred) {
+        //         max_pred = y;
+        //     }
+        // }
+        
+        // var max_y_idx = -1;
+        // var max_y = -1000000.0;
+        // var max_y_p = -1000000.0;
+        // var max_y_p_idx = -1;
+        
+        // for (var i = 0; i < out.elements.length; ++i) {
+        //     var y_p = out_pred.elements[i];
+        //     var y = out.elements[i];
+        //     if (y > max_y) {
+        //         max_y = y;
+        //         max_y_idx = i;
+        //     }
+        //     if (y_p > max_y_p) {
+        //         max_y_p = y_p;
+        //         max_y_p_idx = i;
+        //     }
+        //     var e = y - y_p;
+        //     loss += e * e;
+        //     samples += 1.0;
+        // }
+        // // loss += cross_entropy(out_pred, max_y_idx, max_pred); 
+        // if (max_y_idx == max_y_p_idx) {
+        //     accuracy += 1.0;
+        // }
+    }
+    
+    
+    loss /= (@f32 batch_size * samples);
+    // loss /= batch_size@f32;
+    accuracy /= batch_size@f32;
+    result.loss = loss;
+    result.accuracy = accuracy;
+    return result;     
+}
+
+// let skip_prob = 0.5;
+// let mutate = fun(@layer: layer*; error: f32; temp: f32) => void {
+//     var delta_error = error - last_error;
+    
+//     for (var bias_idx = 0; bias_idx < bias.elements.length; ++bias_idx) {
+//         if (Random::rand_f32(0.0, 1.0, &random_state) < skip_prob) {
+//             continue;
+//         }
+//         var delta = delta_bias.elements[bias_idx];
+//         if (delta == 0.0) {
+//             delta = Random::rand_f32(-0.001, +0.001);
+//         }
+//         var target_grad = Math::sign(delta * (-delta_error));
+//         var current_grad = grad_bias.elements[bias_idx];
+//         var new_grad = Math::lerp(current_grad, target_grad, 0.001);
+//         grad_bias.elements[bias_idx] = new_grad;
+//         if (Math::sign(new_grad) != Math::sign(current_grad)) {
+//             delta_bias.elements[bias_idx] *= 0.5;
+//         }
+//     }
+    
+//     let weight_decay = 0.9998;
+//     for (var weight_idx = 0; weight_idx < weights.elements.length; ++weight_idx) {
+//         if (Random::rand_f32(0.0, 1.0, &random_state) < skip_prob) {
+//             continue;
+//         }
+//         weights.elements[weight_idx] *= weight_decay;
+//         var delta = delta_weights.elements[weight_idx];
+//         if (delta == 0.0) {
+//             delta = Random::rand_f32(-0.001, +0.001);
+//         }
+//         var target_grad = Math::sign(delta * (-delta_error));
+//         var current_grad = grad_weights.elements[weight_idx];
+//         var new_grad = Math::lerp(current_grad, target_grad, 0.001);
+        
+//         grad_weights.elements[weight_idx] = new_grad;
+//         if (Math::sign(new_grad) != Math::sign(current_grad)) {
+//             delta_weights.elements[weight_idx] *= 0.5;
+//         }
+//     }
+//     last_error = error;   
+// }
+
+// let apply = fun(@layer: layer*; error: f32; temp: f32) => void {
+//     for (var bias_idx = 0; bias_idx < bias.elements.length; ++bias_idx) {
+//         if (Random::rand_f32(0.0, 1.0, &random_state) < skip_prob) {
+//             continue;
+//         }
+//         var grad = grad_bias.elements[bias_idx];
+//         var old_delta = delta_bias.elements[bias_idx];
+        
+//         var step_size = Math::sign(grad) * temp;
+//         // var step_size = grad * temp;
+//         var step = Random::rand_f32(0.0, step_size);
+//         // var step = step_size;
+        
+//         var new_delta = (old_delta + step) * 0.9;
+//         delta_bias.elements[bias_idx] = new_delta;
+//         bias.elements[bias_idx] += new_delta;
+        
+//     }
+//     for (var weight_idx = 0; weight_idx < weights.elements.length; ++weight_idx) {
+//         if (Random::rand_f32(0.0, 1.0, &random_state) < skip_prob) {
+//             continue;
+//         }
+//         var grad = grad_weights.elements[weight_idx];
+//         var old_delta = delta_weights.elements[weight_idx];
+        
+//         var step_size = Math::sign(grad) * temp;
+//         // var step_size = grad * temp;
+//         var step = Random::rand_f32(0.0, step_size);
+//         // var step = step_size;
+        
+//         var new_delta = (old_delta + step) * 0.9;
+//         delta_weights.elements[weight_idx] = new_delta;
+//         weights.elements[weight_idx] += new_delta;
+//     }
+//     last_error = error;
+// }
+
+
+// let mutate = fun(@network: network; error: f32; temp: f32) => void {
+//     for (var layer_idx = 0; layer_idx < layers.length; ++layer_idx) {
+//         mutate(&layers[layer_idx], error, temp);
+//     }
+// }
+
+// var random_state: Random::state;
+// let apply = fun(@network: network; error: f32; temp: f32) => void {
+//     var temp_random_state = random_state;
+//     for (var layer_idx = 0; layer_idx < layers.length; ++layer_idx) {
+//         apply(&layers[layer_idx], error, temp);
+//     }
+//     random_state = temp_random_state;
+// }
+
+["PACKED"]
+let bmp_file_header = struct(
+	magic: i16; // 2
+	size: i32;  // 4
+	reserverd: i32; // 4
+	offset: i32; // 4
+);
+
+
+// let write_bitmap = fun(file_name: string; vec: column_vec; width: i32; height: i32; arena: memory_arena*) => void {
+// 	let pixel_bit_width = 24;
+// 	var pixel_data_size = pixel_bit_width/8 * width * height;
+//     var temp_arena = *arena;
+    
+//     var pixels = push(&temp_arena, pixel_data_size@mm);
+//     var temp_pixels = pixels;
+//     var pixel_idx = 0;
+//     for (var j = 0; j < height; ++j) {
+//         for (var i = 0; i < width; ++i) {
+//             var brightness = Math::clamp(Math::round_to_i32(vec.elements[(height - j - 1) * width + i] * 255.0), 0, 255)@i8;
+//             *(temp_pixels++) = brightness;
+//             *(temp_pixels++) = brightness;
+//             *(temp_pixels++) = brightness;
+//         }    
+//     }
+	
+// 	var bmp_header = bmp_file_header {};
+// 	bmp_header.magic = 0x4D42;
+// 	bmp_header.size = size_of(bmp_file_header)@i32 + size_of(Windows::BITMAPINFOHEADER)@i32 + pixel_data_size;
+// 	bmp_header.offset = size_of(bmp_file_header)@i32 + size_of(Windows::BITMAPINFOHEADER)@i32;
+
+// 	var dib_header = Windows::BITMAPINFOHEADER {};
+// 	dib_header.biSize = size_of(Windows::BITMAPINFOHEADER) @i32;
+// 	dib_header.biWidth = width;
+// 	dib_header.biHeight = height;
+// 	dib_header.biPlanes = 1;
+// 	dib_header.biBitCount = pixel_bit_width@i16;
+// 	dib_header.biCompression = 0;
+// 	dib_header.biSizeImage = 0;
+
+// 	var file_handle = Windows::CreateFileA(cstr(file_name), Windows::GENERIC_WRITE, 0, nullptr, Windows::CREATE_ALWAYS, 0, 0);
+// 	var bytes_written: i32;
+// 	Windows::WriteFile(file_handle, (&bmp_header)@ptr, size_of(bmp_file_header)@i32, &bytes_written, nullptr);
+// 	assert(bytes_written == size_of(bmp_file_header)@i32);
+// 	Windows::WriteFile(file_handle, (&dib_header)@ptr, size_of(Windows::BITMAPINFOHEADER)@i32, &bytes_written, nullptr);
+// 	assert(bytes_written == size_of(Windows::BITMAPINFOHEADER)@i32);
+// 	Windows::WriteFile(file_handle, pixels, pixel_data_size, &bytes_written, nullptr);
+// 	assert(bytes_written == pixel_data_size);
+// 	Windows::CloseHandle(file_handle);
+// }
+
+
+let mnist_dataset = fun(arena: memory_arena* = &temp_memory_arena) => dataset {
+    var result = dataset {};
+    var csv = read_file("C:\\Projects\\dotnet\\PragmaScript\\publish\\current\\samples\\neural\\bin\\mnist_train.csv\0", arena);
+    
+    let dim = 28 * 28;
+    var idx=0;
+    while (csv[idx++] != ord("\n")) { }
+    
+    result.count = 60000 / 4;
+    result.input = @column_vec* push(arena, @mm result.count * size_of(column_vec));
+    result.output = @column_vec* push(arena, @mm result.count * size_of(column_vec));
+
+    
+    var sample_idx = 0;
+
+    while (idx < csv.length) {
+        var t_idx = idx;
+        while (t_idx < csv.length && csv[t_idx] != ord(",")) {
+            t_idx++;
+        }
+        var split = csv[idx:t_idx];
+        var value: i32;
+        if (!from_str(split, &value)) {
+            assert(false);
+        }
+        *(result.output + sample_idx) = create_one_hot(value, 10);
+
+        var out_vec = create_column_vec(dim, arena);
+        idx = t_idx + 1;
+        for (var v_idx = 0; v_idx < dim; ++v_idx) {
+            var t_idx = idx;
+            while (t_idx < csv.length && csv[t_idx] != ord(",") && csv[t_idx] != 13 && csv[t_idx] != 10) {
+                t_idx++;
+            }
+            var split = csv[idx:t_idx];
+            var str:string = split;
+            var value: i32;
+            if (from_str(split, &value)) {
+                out_vec.elements[v_idx] = value@f32 / 255.0;
+            } else {
+                assert(false);
+            }
+            idx = t_idx + 1;
+        }
+        *(result.input + sample_idx) = out_vec;
+        
+        while (csv[idx++] != ord("\n")) { }
+        sample_idx++;
+    }
+    return result;
+}
 
 let xor_dataset = fun(arena: memory_arena* = &temp_memory_arena) => dataset {
     var result = dataset {};
@@ -275,103 +625,75 @@ let xor_dataset = fun(arena: memory_arena* = &temp_memory_arena) => dataset {
     *(result.output + 2) = create_column_vec(outputs[2:3], arena);
     *(result.output + 3) = create_column_vec(outputs[3:4], arena);
     
+    
     result.count = 4;
     return result;     
 }
 
 
-var execute = fun(network: network; dataset: dataset; verbose: bool = false) => f32 {
-    var result = 0.0;
-    for (var idx = 0; idx < dataset.count; ++idx) {
-        var ptr_inp = dataset.input + idx;
-        var ptr_out = dataset.output + idx;
-        var inp = *ptr_inp;
-        var out = *ptr_out;
-        
-        forward(network, inp);
-        var out_pred = network.layers[network.layers.length - 1].activations;
-        if (verbose) {
-            debug_print("inp", inp);
-            debug_print("out", out);
-            debug_print("pred", out_pred);
-            print("\n");
-        }
-        for (var i = 0; i < out.elements.length; ++i) {
-            var e = out.elements[i] - out_pred.elements[i];
-            result += e * e;
-        }
-    }
-    return result;
-}
-
-
-let mutate = fun(@layer: layer*; error: f32; temp: f32) => void {
-        
-    var delta_error = error - last_error;
-        
-    for (var bias_idx = 0; bias_idx < bias.elements.length; ++bias_idx) {
-        var delta = delta_bias.elements[bias_idx];
-        
-        var target_grad = Math::sign(delta * (-delta_error));
-        var current_grad = grad_bias.elements[bias_idx];
-        var new_grad = Math::lerp(current_grad, target_grad, 0.001);
-        grad_bias.elements[bias_idx] = new_grad;
-        
-        var new_delta = delta*0.9 + Random::rand_f32(0.0, Math::sign(new_grad) * temp);
-        bias.elements[bias_idx] += new_delta;
-        delta_bias.elements[bias_idx] = new_delta;
-    }
+let train = fun(network: network; dataset: dataset) => void {
+    let temp_start = 0.00001;
+    let temp_end = 0.000001;
+    let iter_count = 1000000;
+    let check_step = 250;
+    var accuracy = 0.1;
     
-    for (var weight_idx = 0; weight_idx < weights.elements.length; ++weight_idx) {
-        var delta = delta_weights.elements[weight_idx];
-        var target_grad = Math::sign(delta * (-delta_error));
-        var current_grad = grad_weights.elements[weight_idx];
-        var new_grad = Math::lerp(current_grad, target_grad, 0.001);
-        grad_weights.elements[weight_idx] = new_grad;
-        
-        var new_delta = delta*0.9 + Random::rand_f32(0.0, Math::sign(new_grad) * temp);
-        weights.elements[weight_idx] += new_delta;
-        delta_weights.elements[weight_idx] = new_delta;
-    }
-    last_error = error;   
-}
-
-let mutate = fun(@network: network; error: f32; temp: f32) => void {
-    for (var layer_idx = 0; layer_idx < layers.length; ++layer_idx) {
-        mutate(&layers[layer_idx], error, temp);
-    }
-}
-
-var train = fun(network: network; dataset: dataset) => void {
-    let temp_start = 0.0001;
-    let temp_end = 0.0001;
+    random_state = Random::state;
     
-    let max_iter = 100000;
-    for (var iter = 0; iter < max_iter; ++iter) {
-        var mse = execute(network, dataset);
-        var t = (iter@f32 + 1.0) / max_iter@f32;
+    for (var iter = 0; iter < iter_count; ++iter) {
+        var error = execute_mini_batch(network, dataset, 50, iter % check_step == 0);
+        var t = (iter@f32 + 1.0) / iter_count@f32;
         var temp = Math::lerp(temp_start, temp_end, t);
-        if (iter % 10000 == 0) {
-            debug_print("iter", iter);
-            debug_print("mse", mse);
-            debug_print("temp", temp);
+        
+        if (iter % 10 == 0) {
+            print(iter);
+            print(": ");
+            print(error.loss, 8);
+            print("  ( ");
+            accuracy = Math::lerp(accuracy, error.accuracy, 0.01);
+            print(accuracy * 100.0);
+            print("% )\n");
         }
-        mutate(network, mse, temp);
+        
+        var train_error = error.loss; 
+        mutate(network, train_error, temp);
+        apply(network, train_error, temp);
     }
 }
 
-
-["compile.entry"]
-["compile.libs" : "kernel32.lib, libopenlibm.a"]
-["compile.ll"]
-["compile.debuginfo" : "true"]
-["compile.run"]
-["compile.opt" : "4"]
-let main = fun () => void {
-    test_matrix();
-    var net = create_network(2, 2, 1);
+let train_xor = fun() => void {
+    var layer_counts = [2, 4, 1];
+    var net = create_network(layer_counts[:]);
     var data = xor_dataset();
-    
     train(net, data);
-    execute(net, data, true);
+    // execute(net, data, true);
+}
+
+let train_mnist = fun(arena: memory_arena*) => void {
+    var layer_counts = [28*28, 1024, 512, 10];
+    var net = create_network(layer_counts[:], arena);
+    var data = mnist_dataset(arena);
+    train(net, data);
+    // execute(net, data, true);
+}
+
+[
+	"compile.entry" : "true",
+    "compile.output": "neural.exe",
+	"compile.debuginfo": "true",
+	"compile.ll"    : "false",
+	"compile.asm"   : "false",
+ 	"compile.opt"   : "0",
+	"compile.cpu"	: "native",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void {
+    // test_matrix();
+    
+    var arena = create_arena(gigabytes(1));
+    
+    // train_xor();
+    train_mnist(&arena);
 }

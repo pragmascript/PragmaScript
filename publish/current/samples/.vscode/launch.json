@@ -6,10 +6,10 @@
             "type": "cppvsdbg",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceRoot}/neural/bin/output.exe",
+            "program": "${workspaceRoot}/raytracer/bin/raytracer.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceRoot}/test/bin",
+            "cwd": "${workspaceRoot}/opengl/bin",
             "environment": [],
             "externalConsole": true
         }

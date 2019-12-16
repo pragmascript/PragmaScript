@@ -4,7 +4,6 @@ import "../windows.prag"
 import "../math.prag"
 import "../vec.prag"
 import "../vec_simd.prag"
-import "../collections.prag"
 import "../work_queue.prag"
 
 
@@ -628,7 +627,7 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	var time_close_shutter = work.time_close_shutter;
 	
 	var seed0 = work.line@i32;
-	var seed = v4i { seed0, seed0^3141, seed0^293812, seed0^2222};
+	var seed = i32_4x { seed0, seed0^3141, seed0^293812, seed0^2222};
 	Random::init_seed(seed, &random_state);
 	
 	for (var line_idx = line_idx_first; line_idx <= line_idx_last; ++line_idx) {
@@ -664,7 +663,7 @@ let render_line = fun(queue: work_queue*; data: ptr) => void {
 	"compile.entry" : "true",
 	"compile.ll"    : "true",
 	"compile.asm"   : "false",
- 	"compile.opt"   : "4",
+ 	"compile.opt"   : "0",
 	"compile.cpu"	: "native",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, libopenlibm.a",

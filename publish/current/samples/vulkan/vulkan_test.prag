@@ -1,0 +1,164 @@
+import "../preamble.prag"
+import "..\windows.prag"
+
+let window_state = struct 
+(
+    handle: mm;
+    dc: mm;
+    client_width: i32;
+    client_height: i32;
+    wants_to_quit: bool;
+);
+var window: window_state;
+let get_perf_counter = fun() => i64 {
+    var result: i64;
+    Windows::QueryPerformanceCounter(&result);
+    return result;
+}
+var perf_count_freq: i64;
+let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return (t1 - t0)@f64 / perf_count_freq@f64;
+}
+let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return get_seconds_elapsed(t0, t1) * 1000; 
+}
+
+let PROCESS_SYSTEM_DPI_AWARE = 1;
+let SetProcessDpiAwareness = extern fun(
+    value: i32;
+) => i32;
+
+let main_window_callback = fun
+(
+    window_handle: mm;
+    message: i32;
+    w_param: mm;
+    l_param: mm;
+) => mm {
+    var result = null;
+    if (message == Windows::WM_SIZE || message == Windows::WM_SIZING) {
+    }
+    elif (message == Windows::WM_CLOSE) {
+        window.wants_to_quit = true;
+    }
+    elif (message == Windows::WM_DESTROY) {
+        window.wants_to_quit = true;
+    }
+    elif (message == Windows::WM_PAINT) {
+        var paint: Windows::PAINTSTRUCT;
+        var context = Windows::BeginPaint(window_handle, &paint);
+        // blit_to_screen(window.dc, &window.backbuffer);
+        Windows::EndPaint(window_handle, &paint);
+    } 
+    else {
+        result = Windows::DefWindowProcA(window_handle, message, w_param, l_param);
+    }
+    return result;
+}
+
+let process_pending_messages = fun() => void {
+    var msg: Windows::MSG;
+    while (Windows::PeekMessageA(&msg, null, 0, 0, Windows::PM_REMOVE|Windows::PM_NOYIELD) != 0) {
+        var message = msg.message;
+        if (message == Windows::WM_QUIT) {
+            window.wants_to_quit = true;
+        } 
+        elif (message == Windows::WM_SYSKEYDOWN
+            || message == Windows::WM_SYSKEYUP
+            || message == Windows::WM_KEYDOWN
+            || message == Windows::WM_KEYUP) {
+
+            var w_param = @i32 (msg.wParam >> 32@mm);
+            var l_param = @i32 (msg.lParam >> 32@mm);
+            var vk_code = w_param;
+
+            var was_down = (l_param & (1 << 30)) != 0;
+            var is_down = (l_param & (1 << 31)) == 0;
+            var key_up = was_down && !is_down;
+            var key_down = !was_down && is_down; 
+
+            if(vk_code == Windows::VK_ESCAPE) {
+                window.wants_to_quit = true;
+            }
+        } else {
+            Windows::TranslateMessage(&msg);
+            Windows::DispatchMessageA(&msg);
+        }
+    }
+}
+
+[
+    "compile.entry", 
+    "compile.output": "vulkan_test.exe",
+	"compile.debuginfo": "true",
+	"compile.ll"    : "false",
+	"compile.asm"   : "false",
+ 	"compile.opt"   : "0",
+	"compile.cpu"	: "native",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a, user32.lib, shcore.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void {
+    print("Hello, Vulkan!");
+    
+    Windows::QueryPerformanceFrequency(&perf_count_freq);
+    SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+    
+    let buffer_width  = 1280;
+    let buffer_height = 720;
+
+    var client_rect = Windows::RECT { 0, 0, buffer_width, buffer_height };
+    Windows::AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
+
+    var window_width = client_rect.right - client_rect.left;
+    assert(window_width > 0);
+    var window_height = client_rect.bottom - client_rect.top;
+    assert(window_height > 0);
+    window.client_width = buffer_width;
+    window.client_height = buffer_height;
+    
+    var class_name  = cstr("vulkan_test_window_class\0");
+    var window_name = cstr("vulkan test\0");
+    var module_handle = Windows::GetModuleHandleA(null);
+    var window_class = Windows::WNDCLASSEX {};
+    window_class.cbSize = size_of(Windows::WNDCLASSEX)@i32;
+    window_class.style = Windows::CS_HREDRAW|Windows::CS_VREDRAW;
+    window_class.lpfnWndProc = @ptr main_window_callback;
+    window_class.hInstance = module_handle;
+    window_class.lpszClassName = class_name;
+    window_class.hCursor = Windows::LoadCursorA(null, Windows::IDC_ARROW);
+    Windows::RegisterClassExA(&window_class);
+    
+    
+    let dw_style = Windows::WS_OVERLAPPED | Windows::WS_CAPTION | Windows::WS_SYSMENU | Windows::WS_MINIMIZEBOX | Windows::WS_VISIBLE;
+    let dw_ex_style = 0 & Windows::WS_EX_TOPMOST;
+ 
+    window.handle = Windows::CreateWindowExA(
+        dw_ex_style,
+        class_name,
+        window_name,
+        dw_style,
+        Windows::CW_USEDEFAULT,
+        Windows::CW_USEDEFAULT,
+        window_width,
+        window_height,
+        null,
+        null,
+        module_handle,
+        null
+    );
+    window.dc = Windows::GetDC(window.handle);
+    
+    var start_time = get_perf_counter();
+    var frames = 0;
+    while (!window.wants_to_quit) {
+        process_pending_messages();
+        var t0 = get_perf_counter();
+        var time = get_seconds_elapsed(start_time, t0);
+        // render_opengl(&window, @f32 time);
+        var t1 = get_perf_counter();
+    }
+    Windows::ExitProcess(0);
+}
+

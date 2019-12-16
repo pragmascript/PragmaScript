@@ -40,15 +40,15 @@ namespace PragmaScript
             var ll = emitLL();
 
 
-            int optLevel = CompilerOptions.optimizationLevel;
+            int optLevel = CompilerOptions._i.optimizationLevel;
             Debug.Assert(optLevel >= 0 && optLevel <= 4);
             var arch = "x86-64";
 
-            var outputDir = Path.GetDirectoryName(CompilerOptions.inputFilename);
+            var outputDir = Path.GetDirectoryName(CompilerOptions._i.inputFilename);
             var outputTempDir = Path.Combine(outputDir, "obj");
-            var outputTemp = Path.Combine(outputTempDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
+            var outputTemp = Path.Combine(outputTempDir, Path.GetFileNameWithoutExtension(CompilerOptions._i.output));
             var outputBinDir = Path.Combine(outputDir, "bin");
-            var outputBin = Path.Combine(outputBinDir, Path.GetFileNameWithoutExtension(CompilerOptions.output));
+            var outputBin = Path.Combine(outputBinDir, Path.GetFileNameWithoutExtension(CompilerOptions._i.output));
 
             Func<string, string> oxt = (ext) => "\"" + outputTemp + ext + "\"";
             Func<string, string> ox = (ext) => "\"" + outputBin + ext + "\"";
@@ -56,7 +56,7 @@ namespace PragmaScript
             Directory.CreateDirectory(outputTempDir);
             Directory.CreateDirectory(outputBinDir);
 
-            if (CompilerOptions.ll)
+            if (CompilerOptions._i.ll)
             {
                 File.WriteAllText(outputTemp + ".ll", ll);
             }
@@ -70,7 +70,7 @@ namespace PragmaScript
             timer.Reset();
             timer.Start();
 #endif
-            var mcpu = CompilerOptions.cpu.ToLower();
+            var mcpu = CompilerOptions._i.cpu.ToLower();
             bool error = false;
 
             bool use_fast_flags = false;
@@ -93,7 +93,7 @@ namespace PragmaScript
                 {
                     fast_flags = "-enable-no-infs-fp-math -enable-no-nans-fp-math -enable-no-signed-zeros-fp-math -enable-unsafe-fp-math -enable-no-trapping-fp-math -fp-contract=fast ";
                 }
-                if (CompilerOptions.ll)
+                if (CompilerOptions._i.ll)
                 {
                     optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} {fast_flags}-march={arch} -mcpu={mcpu} -S -o {oxt("_opt.ll")}";
                     optProcess.StartInfo.RedirectStandardInput = false;
@@ -146,7 +146,7 @@ namespace PragmaScript
                     Debug.Assert(count < buffer.Length);
                     reader.Close();
                     bufferSize = count;
-                    if (CompilerOptions.bc)
+                    if (CompilerOptions._i.bc)
                     {
                         File.WriteAllBytes(oxt("_opt.bc"), buffer.Take(bufferSize).ToArray());
                     }
@@ -163,12 +163,12 @@ namespace PragmaScript
             {
                 inp = oxt(".ll");
             }
-            if (!error && CompilerOptions.asm)
+            if (!error && CompilerOptions._i.asm)
             {
                 Console.WriteLine("assembler...(debug)");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                if (CompilerOptions.ll)
+                if (CompilerOptions._i.ll)
                 {
                     llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=asm -o {oxt(".asm")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
@@ -221,7 +221,7 @@ namespace PragmaScript
                 Console.WriteLine("assembler...");
                 var llcProcess = new Process();
                 llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
-                if (CompilerOptions.ll)
+                if (CompilerOptions._i.ll)
                 {
                     llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=obj -o {oxt(".o")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
@@ -270,14 +270,14 @@ namespace PragmaScript
             }
             if (!error)
             {
-                var libs = String.Join(" ", CompilerOptions.libs);
-                var lib_path = String.Join(" /libpath:", CompilerOptions.lib_path.Select(s => "\"" + s + "\""));
+                var libs = String.Join(" ", CompilerOptions._i.libs);
+                var lib_path = String.Join(" /libpath:", CompilerOptions._i.lib_path.Select(s => "\"" + s + "\""));
                 Console.WriteLine("linker...");
                 var lldProcess = new Process();
 
                 lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
                 var flags = "/entry:__init";
-                if (CompilerOptions.dll)
+                if (CompilerOptions._i.dll)
                 {
                     flags += $" /NODEFAULTLIB /dll /out:{ox(".dll")}";
                 }
@@ -285,12 +285,15 @@ namespace PragmaScript
                 {
                     flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
                 }
-                if (CompilerOptions.debug)
+                if (CompilerOptions._i.debug)
                 {
                     flags += " /DEBUG";
                 }
 
+
+
                 lldProcess.StartInfo.Arguments = $"{libs} {oxt(".o")} {flags} /libpath:{lib_path}";
+                Console.WriteLine($"linker: \"{lldProcess.StartInfo.Arguments}");
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;
@@ -317,7 +320,7 @@ namespace PragmaScript
 #endif
 
 
-            if (!error && CompilerOptions.runAfterCompile)
+            if (!error && CompilerOptions._i.runAfterCompile)
             {
                 Console.WriteLine("running...");
                 var outputProcess = new Process();
@@ -383,8 +386,6 @@ namespace PragmaScript
             Visit(merge, main);
         }
 
-
-
         public void Visit(AST.FileRoot node, AST.FunctionDefinition main)
         {
             var constVariables = new List<AST.Node>();
@@ -429,7 +430,7 @@ namespace PragmaScript
             }
 
             FunctionType ft;
-            if (CompilerOptions.dll)
+            if (CompilerOptions._i.dll)
             {
                 ft = new FunctionType(i32_t, mm_t, i32_t, ptr_t);
             }
@@ -438,24 +439,34 @@ namespace PragmaScript
                 ft = new FunctionType(void_t);
             }
 
-            var initFun = new AST.FunctionDefinition(main.token, main.scope);
-            initFun.parent = node;
-            initFun.body = main.body;
-            initFun.funName = "__init";
-            var tp = new FrontendFunctionType("__init");
-            tp.returnType = FrontendType.void_;
-            typeChecker.ResolveNode(initFun, tp);
+            Block entry;
+            Block vars;
+            if (CompilerOptions._i.buildExecuteable)
+            {
+                var initFun = new AST.FunctionDefinition(main.token, main.scope);
+                initFun.parent = node;
+                initFun.body = main.body;
+                initFun.funName = "__init";
+                var tp = new FrontendFunctionType("__init");
+                tp.returnType = FrontendType.void_;
+                typeChecker.ResolveNode(initFun, tp);
 
+                var function = builder.AddFunction(ft, initFun, "__init");
+                function.internalLinkage = false;
+                vars = builder.AppendBasicBlock(function, "vars");
+                entry = builder.AppendBasicBlock(function, "entry");
+                builder.context.SetFunctionBlocks(function, vars, entry, null);
 
-            var function = builder.AddFunction(ft, initFun, "__init");
-            function.internalLinkage = false;
-            var vars = builder.AppendBasicBlock(function, "vars");
-            var entry = builder.AppendBasicBlock(function, "entry");
-            builder.context.SetFunctionBlocks(function, vars, entry, null);
-
-            // var blockTemp = builder.GetInsertBlock();
-            builder.PositionAtEnd(entry);
-
+                builder.PositionAtEnd(entry);
+            }
+            else
+            {
+                var function = builder.AddFunction(ft, debugRootNode, "__init");
+                entry = builder.AppendBasicBlock(function, "entry");
+                vars = builder.AppendBasicBlock(function, "vars");
+                builder.context.SetFunctionBlocks(function, vars, entry, null);
+                builder.PositionAtEnd(entry);
+            }
 
             foreach (var decl in functionDefinitions)
             {
@@ -494,7 +505,7 @@ namespace PragmaScript
                 builder.BuildCall(mf, node);
             }
 
-            if (CompilerOptions.dll)
+            if (CompilerOptions._i.dll)
             {
                 builder.BuildRet(one_i32_v, node);
             }
@@ -681,7 +692,7 @@ namespace PragmaScript
         void InvalidBinOp(AST.BinOp node)
         {
             var text = $"Binary operator \"{node.token.text}\" not defined for types \"{this.typeChecker.GetNodeType(node.left)}\" and \"{this.typeChecker.GetNodeType(node.right)}\"!";
-            throw new ParserError(text, node.token);
+            throw new CompilerError(text, node.token);
         }
 
         public void Visit(AST.BinOp node)
@@ -1003,7 +1014,7 @@ namespace PragmaScript
         void InvalidUnaryOp(AST.UnaryOp node)
         {
             var text = $"Unary operator \"{node.token.text}\" not defined for type \"{this.typeChecker.GetNodeType(node.expression)}\"!";
-            throw new ParserError(text, node.token);
+            throw new CompilerError(text, node.token);
         }
 
 
@@ -1075,8 +1086,9 @@ namespace PragmaScript
                 case AST.UnaryOp.UnaryOpType.PreInc:
                     {
                         result = builder.BuildLoad(v, node, "preinc_load");
-                        if (!(vtype is PointerType)) {
-                           throw new ParserError("Cannot take pointer of element.", node.token);
+                        if (!(vtype is PointerType))
+                        {
+                            throw new CompilerError("Cannot take pointer of element.", node.token);
                         }
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
@@ -1103,8 +1115,9 @@ namespace PragmaScript
                 case AST.UnaryOp.UnaryOpType.PreDec:
                     {
                         result = builder.BuildLoad(v, node, "predec_load");
-                        if (!(vtype is PointerType)) {
-                           throw new ParserError("Cannot take pointer of element.", node.token);
+                        if (!(vtype is PointerType))
+                        {
+                            throw new CompilerError("Cannot take pointer of element.", node.token);
                         }
 
                         var vet = (vtype as PointerType).elementType;
@@ -1132,8 +1145,9 @@ namespace PragmaScript
                 case AST.UnaryOp.UnaryOpType.PostInc:
                     {
                         result = builder.BuildLoad(v, node, "postinc_load");
-                        if (!(vtype is PointerType)) {
-                           throw new ParserError("Cannot take pointer of element.", node.token);
+                        if (!(vtype is PointerType))
+                        {
+                            throw new CompilerError("Cannot take pointer of element.", node.token);
                         }
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
@@ -1168,8 +1182,9 @@ namespace PragmaScript
                 case AST.UnaryOp.UnaryOpType.PostDec:
                     {
                         result = builder.BuildLoad(v, node, "postdec_load");
-                        if (!(vtype is PointerType)) {
-                           throw new ParserError("Cannot take pointer of element.", node.token);
+                        if (!(vtype is PointerType))
+                        {
+                            throw new CompilerError("Cannot take pointer of element.", node.token);
                         }
                         var vet = (vtype as PointerType).elementType;
                         var vet_kind = vet.kind;
@@ -1213,7 +1228,7 @@ namespace PragmaScript
             var baseType = typeChecker.GetNodeType(node.expression);
             var targetType = typeChecker.GetNodeType(node);
             var text = $"Typecast operator \"{node.token.text}\" not defined for base type \"{baseType}\" and target type \"{targetType}\"!";
-            throw new ParserError(text, node.token);
+            throw new CompilerError(text, node.token);
         }
 
 
@@ -1481,7 +1496,7 @@ namespace PragmaScript
                         var el = valueStack.Pop();
                         if (!el.isConst)
                         {
-                            throw new ParserError($"Element {i + 1} of compound literal must be a compile-time constant.", node.argumentList[1].token);
+                            throw new CompilerError($"Element {i + 1} of compound literal must be a compile-time constant.", node.argumentList[1].token);
                         }
                         elements.Add(el);
                     }
@@ -1720,7 +1735,7 @@ namespace PragmaScript
                     var el = valueStack.Pop();
                     if (!el.isConst)
                     {
-                        throw new ParserError($"Element {i + 1} of array constructor must be a compile-time constant.", node.elements[1].token);
+                        throw new CompilerError($"Element {i + 1} of array constructor must be a compile-time constant.", node.elements[1].token);
                     }
                     elements.Add(el);
                 }
@@ -1810,8 +1825,9 @@ namespace PragmaScript
                     Debug.Assert(node.expression == null);
 
                     var ac = new ConstInt(i32_t, (ulong)node.typeString.allocationCount);
-                    if (!(vType is PointerType)) {
-                        throw new ParserError("Cannot take pointer of element.", node.expression.token);
+                    if (!(vType is PointerType))
+                    {
+                        throw new CompilerError("Cannot take pointer of element.", node.expression.token);
                     }
                     var et = (vType as PointerType).elementType;
 
@@ -1895,8 +1911,9 @@ namespace PragmaScript
                 var resultType = result.type;
                 // var resultTypeName = typeToString(resultType);
 
-                if (!(targetType is PointerType)) {
-                    throw new ParserError("Cannot take pointer of element.", node.left.token);
+                if (!(targetType is PointerType))
+                {
+                    throw new CompilerError("Cannot take pointer of element.", node.left.token);
                 }
                 var et = (targetType as PointerType).elementType;
                 if (!et.EqualType(resultType))
@@ -1973,13 +1990,14 @@ namespace PragmaScript
 
             if (!variables.TryGetValue(vd, out var v))
             {
-                throw new ParserError("Ordering violation or can't use non constant Value in constant declaration!", node.token);
+                throw new CompilerError("Ordering violation or can't use non constant Value in constant declaration!", node.token);
             }
             Value result;
             if (vd.isConstant)
             {
-                if (node.returnPointer && !(v is Function)) {
-                    throw new ParserError("Cannot take pointer of constant!", node.token);
+                if (node.returnPointer && !(v is Function))
+                {
+                    throw new CompilerError("Cannot take pointer of constant!", node.token);
                 }
                 result = v;
                 // Debug.Assert(LLVM.IsConstant(v));
@@ -2008,7 +2026,7 @@ namespace PragmaScript
                         var shift = valueStack.Pop();
                         if (!shift.isConst)
                         {
-                            throw new ParserError($"Argument 2 to \"{feft.funName}\" must be a compile-time constant.", node.argumentList[1].token);
+                            throw new CompilerError($"Argument 2 to \"{feft.funName}\" must be a compile-time constant.", node.argumentList[1].token);
                         }
                         var i8_16x_t = new VectorType(16, Const.i8_t);
                         var zero = builder.ConstNull(i8_16x_t);
@@ -2034,7 +2052,7 @@ namespace PragmaScript
                         var shift = valueStack.Pop();
                         if (!shift.isConst)
                         {
-                            throw new ParserError($"Argument 2 to \"{feft.funName}\" must be a compile-time constant.", node.argumentList[1].token);
+                            throw new CompilerError($"Argument 2 to \"{feft.funName}\" must be a compile-time constant.", node.argumentList[1].token);
                         }
                         var i8_16x_t = new VectorType(16, Const.i8_t);
                         var zero = builder.ConstNull(i8_16x_t);
@@ -2102,7 +2120,7 @@ namespace PragmaScript
                                 var idx = valueStack.Pop();
                                 if (!idx.isConst)
                                 {
-                                    throw new ParserError("Argument 2 of \"len\" must be a compile-time constant.", node.argumentList[1].token);
+                                    throw new CompilerError("Argument 2 of \"len\" must be a compile-time constant.", node.argumentList[1].token);
                                 }
                                 result = builder.BuildExtractValue(arr, node, "len_extract", idx);
                             }
@@ -2126,7 +2144,7 @@ namespace PragmaScript
 
                         if (str == null)
                         {
-                            throw new ParserError("Argument 1 of \"__emit__\" must be a compile-time constant string.", node.argumentList[0].token);
+                            throw new CompilerError("Argument 1 of \"__emit__\" must be a compile-time constant string.", node.argumentList[0].token);
                         }
                         builder.BuildEmit(str.Verbatim(), node);
                     }
@@ -2462,22 +2480,26 @@ namespace PragmaScript
         HashSet<Block> CalculateReachableBlocks()
         {
             HashSet<Block> reachableBlocks = new HashSet<Block>();
-            void CalculateReachableBlocksRec(Block block) 
+            void CalculateReachableBlocksRec(Block block)
             {
-                if (reachableBlocks.Contains(block)) {
+                if (reachableBlocks.Contains(block))
+                {
                     return;
                 }
                 reachableBlocks.Add(block);
-                if (block.args.Count > 0) {
+                if (block.args.Count > 0)
+                {
                     var last = block.args.Last();
-                    if (last.op == Op.Br) 
+                    if (last.op == Op.Br)
                     {
-                        foreach (var v in last.args) {
-                            if (v is Block target) {
-                                CalculateReachableBlocksRec(target);    
+                        foreach (var v in last.args)
+                        {
+                            if (v is Block target)
+                            {
+                                CalculateReachableBlocksRec(target);
                             }
                         }
-                    }    
+                    }
                 }
             }
             var entry = builder.context.currentFunctionContext.entry;
@@ -2495,24 +2517,25 @@ namespace PragmaScript
             var rb = fc.@return;
             if (returnType.kind != TypeKind.Void && !insertBlock.HasTerminator() && reachableBlocks.Contains(insertBlock))
             {
-                throw new ParserError("Not all codepaths return a value!", node.token);
+                throw new CompilerError("Not all codepaths return a value!", node.token);
                 // if (returnType.kind != TypeKind.Void) {
                 //     var dummy = builder.BuildBitCast(zero_i32_v, returnType, node, "dummy");
                 //     fc.RegisterReturnEdge(dummy, insertBlock);    
                 // }
                 // builder.BuildBr(rb, node);
             }
-            
+
             var notReachableBlocks = new HashSet<Block>(builder.context.currentFunction.blocks);
             notReachableBlocks.ExceptWith(reachableBlocks);
-            foreach (var b in notReachableBlocks) {
+            foreach (var b in notReachableBlocks)
+            {
                 if (b != fc.vars && b != fc.@return)
                 {
                     builder.RemoveBasicBlock(b);
                 }
             }
             edges.RemoveAll(e => notReachableBlocks.Contains(e.Item2));
-            
+
             if (returnType.kind == TypeKind.Void)
             {
                 if (!insertBlock.HasTerminator() && reachableBlocks.Contains(insertBlock))
@@ -2529,7 +2552,7 @@ namespace PragmaScript
                 var phi = builder.BuildPhi(returnType, node, "return_phi", edges.ToArray());
                 builder.BuildRet(phi, node);
             }
-            
+
         }
 
         public void Visit(AST.FunctionDefinition node, bool proto = false)
@@ -2586,11 +2609,11 @@ namespace PragmaScript
                 {
                     function.exportDLL = true;
                 }
-                
+
                 var vars = builder.AppendBasicBlock(function, "vars");
                 var entry = builder.AppendBasicBlock(function, "entry");
-                var @return = builder.AppendBasicBlock(function, "return"); 
-                
+                var @return = builder.AppendBasicBlock(function, "return");
+
                 builder.context.SetFunctionBlocks(function, vars, entry, @return);
 
                 var blockTemp = builder.GetInsertBlock();
@@ -2835,10 +2858,11 @@ namespace PragmaScript
                 {
                     var fe_nt = typeChecker.GetNodeType(node);
                     var be_nt = GetTypeRef(fe_nt);
-                    
+
                     uint[] uindices = { (uint)idx };
                     result = builder.BuildExtractValue(v, node, "struct_field_extract", new ConstInt(i32_t, (ulong)idx));
-                    if (result.type.kind == TypeKind.Pointer && !result.type.EqualType(be_nt)) {
+                    if (result.type.kind == TypeKind.Pointer && !result.type.EqualType(be_nt))
+                    {
                         result = builder.BuildBitCast(result, be_nt, node, "hack_bitcast");
                     }
                 }

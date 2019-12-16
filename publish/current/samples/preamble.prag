@@ -25,6 +25,24 @@ let terabytes = fun (bytes: mm) => mm
 let null = @mm 0;
 let nullptr = @ptr 0;
 
+let ZERO_F32: f32 = 0.0;
+let ONE_F32: f32 = 1.0;
+let NAN_F32 = ZERO_F32 / ZERO_F32;
+let INF_F32 = ONE_F32 / ZERO_F32;
+let NEG_INF_32 = -ONE_F32 / ZERO_F32;
+let MAX_F32: f32 = 0x7F7FFFFF_f32;
+let MIN_F32: f32 = 0xFF7FFFFF_f32;
+
+
+let ZERO_F64: f64 = 0.0;
+let ONE_F64: f64 = 1.0;
+let NAN_F64 = ZERO_F64 / ZERO_F64;
+let INF_F64 = ONE_F64 / ZERO_F64;
+let NEG_INF_64 = -ONE_F64 / ZERO_F64;
+
+let MAX_F64: f64 = 0x7FEFFFFFFFFFFFFF_f64;
+let MIN_F64: f64 = 0xFFEFFFFFFFFFFFFF_f64;
+
 ["stub"]
 let _rdtsc = extern fun () => i64;
 
@@ -60,7 +78,69 @@ let __chkstk = extern fun () => void;
 			result.length = 0;
 		}
 		return result;
+		
 	}
+	
+	let read_file = fun(path: string; arena: memory_arena* = &temp_memory_arena) => i8[] {
+		var temp_arena = *arena;
+		
+		var result: i8[];
+		result.data = nullptr;
+		result.length = 0;
+		var handle = Windows::CreateFileA(cstr(path), Windows::GENERIC_READ, Windows::FILE_SHARE_READ, nullptr, Windows::OPEN_EXISTING, 0, 0);
+		if (handle == Windows::INVALID_HANDLE_VALUE) {
+			return result;
+		}
+
+		var size: i64 = 0;
+		var fsr = Windows::GetFileSizeEx(handle, &size);
+		if (fsr == 0 || size == 0) {
+			Windows::CloseHandle(handle);
+			return result;
+		}
+		
+		var buffer = push(arena, size@mm);
+		if (buffer@mm == null) {
+			Windows::CloseHandle(handle);
+			return result;
+		}
+		assert(size@mm <=\ gigabytes(4));
+		var size_32 = @i32 size;
+		var bytes_read: i32;
+		var rfr = Windows::ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
+		assert(bytes_read == size_32);
+		if (rfr == 0) {
+			*arena = temp_arena;
+			Windows::CloseHandle(handle);
+			return result;		
+		}
+
+		result.data = buffer;
+		result.length = size_32;
+		Windows::CloseHandle(handle);
+		return result;
+	}
+	let write_file = fun (name: string; buffer: string) => bool
+	{
+		var handle = Windows::CreateFileA(cstr(name), Windows::GENERIC_WRITE, 0, nullptr, Windows::CREATE_ALWAYS, 0, 0);
+		if (handle == null) {
+			Windows::CloseHandle(handle);
+			return false;
+		}
+		var bytes_written: i32 = 0;
+		var result = Windows::WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
+		if (result != 0) {
+			Windows::CloseHandle(handle);
+			assert(buffer.length == bytes_written);
+			return true;
+		} else {
+			Windows::CloseHandle(handle);
+			return false;
+		}
+
+		Windows::CloseHandle(handle);
+		return false;
+}
 	let CopyMemory = extern("RtlCopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
 #ENDIF
 
@@ -86,15 +166,15 @@ let from_str = fun(str: string; value: i32*) => bool {
 		return false;
 	}
 	var first_digit_idx = 0;
-	if (str[0] == ord("+")@i8 || str[0] == ord("-")@i8) {
+	if (str[0] == ord("+") || str[0] == ord("-")) {
 		first_digit_idx = 1;
-		if (str[0] == ord("-")@i8) {
+		if (str[0] == ord("-")) {
 			sign = -1;
 		}
 	}
 	var decimal_factor = 1;
 	for (var str_idx = str.length - 1; str_idx >= first_digit_idx; --str_idx) {
-		var chr = str[str_idx]@i32;
+		var chr = str[str_idx];
 		var current_digit: i32;
 		if (chr == ord("0")) {
 			current_digit = 0;
@@ -143,15 +223,15 @@ let from_hex_str = fun(str: string; value: i32*) => bool {
 		return false;
 	}
 	var first_digit_idx = 0;
-	if (str[0] == ord("+")@i8 || str[0] == ord("-")@i8) {
+	if (str[0] == ord("+") || str[0] == ord("-")) {
 		first_digit_idx = 1;
-		if (str[0] == ord("-")@i8) {
+		if (str[0] == ord("-")) {
 			sign = -1;
 		}
 	}
 	var hex_factor = 1;
 	for (var str_idx = str.length - 1; str_idx >= first_digit_idx; --str_idx) {
-		var chr = str[str_idx]@i32;
+		var chr = str[str_idx];
 		var current_digit: i32;
 		if (chr == ord("0")) {
 			current_digit = 0;
@@ -217,7 +297,7 @@ let to_hex_str = fun(value: i32; arena: memory_arena* = &temp_memory_arena) => s
 	
 	for (var str_idx = 7; str_idx >= 0; --str_idx) {
 		var digit = temp & 0xF;
-		var char: i32;
+		var char: i8;
 		if (digit == 0) {
 			char = ord("0");
 		}
@@ -266,7 +346,7 @@ let to_hex_str = fun(value: i32; arena: memory_arena* = &temp_memory_arena) => s
 		elif (digit == 15) {
 			char = ord("F");
 		}
-		result[str_idx] = @i8 char;
+		result[str_idx] = char;
 		temp >>=\ 4;
 	}	
 	// var offset = str_idx + 1;
@@ -289,7 +369,7 @@ let to_str = fun(value: i32; signed: bool = true; arena: memory_arena* = &temp_m
 	
 	for (; str_idx >= 0; --str_idx) {
 		var digit = temp % 10;
-		var char: i32;
+		var char: i8;
 		if (digit == 0) {
 			char = ord("0");
 		}
@@ -320,7 +400,7 @@ let to_str = fun(value: i32; signed: bool = true; arena: memory_arena* = &temp_m
 		elif (digit == 9) {
 			char = ord("9");
 		}
-		result[str_idx] = @i8 char;
+		result[str_idx] = char;
 		temp /= 10;
 		if (temp == 0) {
 			break;
@@ -328,7 +408,7 @@ let to_str = fun(value: i32; signed: bool = true; arena: memory_arena* = &temp_m
 	}	
 	
 	if (signed && negative) {
-		result[--str_idx] = @i8 ord("-");
+		result[--str_idx] = ord("-");
 	}
 	
 	var offset = str_idx;
@@ -384,10 +464,10 @@ let from_cstr = fun(cstr: ptr; maxLength: i32 = 1024) => string {
 	return result;
 }
 
-let ord = fun(value: string) => i32
+let ord = fun(value: string) => i8
 {
 	assert(value.length == 1);
-	return @i32 value[0];
+	return value[0];
 }
 
 let strings_are_equal = fun(a: string; b: string) => bool {
@@ -580,8 +660,49 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 		++start;
 	}
 }
+
+let is_nan = fun(x: f32) => bool {
+	return (x == NAN_F32) || (x == -NAN_F32);
+}
+
+let is_nan = fun(x: f64) => bool {
+	return (x == NAN_F64) || (x == -NAN_F64);
+}
+
+let is_inf = fun(x: f32) => bool {
+	return x == INF_F32;
+}
+
+let is_inf = fun(x: f64) => bool {
+	return x == INF_F64;
+}
+
+let is_neg_inf = fun(x: f32) => bool {
+	return x == NEG_INF_32;
+}
+
+let is_neg_inf = fun(x: f64) => bool {
+	return x == NEG_INF_64;
+}
+
 let print = fun (value: f64; precision: i32 = 4) => void
 {
+	var temp_value = value;
+	var neg_inf = NEG_INF_32;
+	var inf = INF_F32;
+	var nan = NAN_F32;
+	
+	if (is_nan(value)) {
+		print("NaN");
+		return;
+	} elif (is_inf(value)) {
+		print("INF");
+		return;
+	} elif (is_neg_inf(value)) {
+		print("-INF");
+		return;
+	}
+	
 	var v = value;
 	var pd: print_dest;
 	pd.pos = 0;
@@ -603,7 +724,11 @@ let print = fun (value: f64; precision: i32 = 4) => void
 		v *= 10.0;
 		var int_part = @i32 v;
 		v -= @f64 int_part;
-		assert(int_part < 10 && int_part >= 0);
+		if (int_part >= 10 || int_part < 0) {
+			print("NaN(ind)");
+			return;
+		}
+		// assert(int_part < 10 && int_part >= 0);
 		out_char(&pd, decimal_digits[int_part]);
 		if (int_part != 0) {
 			last_non_zero = pd.pos;

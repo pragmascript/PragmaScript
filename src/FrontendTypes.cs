@@ -17,7 +17,7 @@ namespace PragmaScript
         public static readonly FrontendType bool_ = new FrontendType("bool");
         public static readonly FrontendType mm = new FrontendType("mm");
 
-        public static readonly FrontendSliceType string_ = new FrontendSliceType(i8, "string");
+        public static readonly FrontendSliceType string_ = new FrontendSliceType(i8);
         public static readonly FrontendPointerType ptr = new FrontendPointerType(i8);
 
         public static readonly FrontendType f32_4x = new FrontendVectorType(f32, 4);

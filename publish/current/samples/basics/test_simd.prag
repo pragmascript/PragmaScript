@@ -1,7 +1,7 @@
 import "../preamble.prag"
 import "../random.prag"
 import "../simd.prag"
-
+import "../math.prag"
 
 let print_vec = fun(v: f32_4x) => void 	{
 	print("v: ");
@@ -48,14 +48,14 @@ let foo = struct (
 
 
 [
-	"compile.output": "hello_world.exe",
+	"compile.output": "test_simd.exe",
 	"compile.debuginfo": "true",
 	"compile.entry" : "true",
 	"compile.ll"    : "true",
 	"compile.asm"   : "false",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
- 	"compile.libs"  : "kernel32.lib",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun () => void {
@@ -78,6 +78,13 @@ let main = fun () => void {
 	var test = SIMD::cvtepi32_ps(mask);
 	debug_print("mask", mask);
 	debug_print("test", test);
+	
+	
+	// var foobarzuz = Random::rand_f32_4x() < Random::rand_f32_4x();
+	
+	
+	// var y = Math::exp(x);
+	
 	
 	// debug_print("rnd", Random::rand_i32());
 	// debug_print("rnd", Random::rand_i32());

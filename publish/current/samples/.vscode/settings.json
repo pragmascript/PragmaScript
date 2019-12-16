@@ -2,9 +2,9 @@
 {
     "editor.fontSize": 13,
     "workbench.editor.showIcons": true,
-    "files.associations": {
-        "*.prag": "csharp"
-    },
-    "problems.autoReveal": true
-
+    // "files.associations": {
+    //     "*.prag": "csharp"
+    // },
+    "problems.autoReveal": true,
+    "debug.allowBreakpointsEverywhere": true
 }

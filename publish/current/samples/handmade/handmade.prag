@@ -54,8 +54,7 @@ mod Handmade::Game
 
         let tile_size = 72;
         let offset = tile_size / 2;
-        
-        
+
         let data_00 = [
             [1, 1, 1, 1,  1, 1, 1, 1,  0, 1, 1, 1,  1, 1, 1, 1],
             [1, 1, 0, 0,  0, 1, 0, 0,  0, 0, 0, 0,  0, 0, 1, 1],
@@ -112,7 +111,7 @@ mod Handmade::Game
         
         var current_tile_map = &world.tile_maps[0, 0];
         render_tilemap(&world, current_tile_map, render_target);
-
+        
         var player_size = tile_size / 2;
         var hs = player_size@f32 / 2;
         

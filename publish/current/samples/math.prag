@@ -1,5 +1,4 @@
 import "preamble.prag"
-
 // http://openlibm.org/
 mod Math
 {
@@ -48,6 +47,12 @@ mod Math
 	let log2    = extern("llvm.log2.f32")   fun (x: f32) => f32;
 	["READNONE"]
 	let log10   = extern("llvm.log10.f32")  fun (x: f32) => f32;
+	
+	["READNONE"]
+    let exp = extern("llvm.exp.f32") fun (x: f32_4x) => f32_4x;
+	["READNONE"]
+	let log = extern("llvm.log.f32") fun (x: f32_4x) => f32_4x;
+	
 
 	// ["READNONE"]
 	// let min     = extern("llvm.minnum.f32") fun (a: f32; b: f32) => f32;

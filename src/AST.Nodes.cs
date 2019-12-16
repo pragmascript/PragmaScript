@@ -696,8 +696,8 @@ namespace PragmaScript
             public List<string> modulePath;
             public string variableName;
             // HACK: returnPointer is a HACK remove this?????
-            public bool returnPointer {get; set;}
-            
+            public bool returnPointer { get; set; }
+
 
             // HACK: overloadedIdx is a HACK remove this?????
             public int overloadedIdx = -1;
@@ -1378,7 +1378,7 @@ namespace PragmaScript
                         type = BinOpType.LessEqualUnsigned;
                         break;
                     default:
-                        throw new ParserError("Invalid token type for binary operation", next);
+                        throw new CompilerError("Invalid token type for binary operation", next);
                 }
             }
 
@@ -1577,7 +1577,7 @@ namespace PragmaScript
                         type = UnaryOpType.SizeOf;
                         break;
                     default:
-                        throw new ParserError("Invalid token type for unary operator", next);
+                        throw new CompilerError("Invalid token type for unary operator", next);
                 }
             }
             public override IEnumerable<Node> GetChilds()

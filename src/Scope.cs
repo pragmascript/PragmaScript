@@ -2,9 +2,10 @@
 using System.Diagnostics;
 using System.Linq;
 
-namespace PragmaScript {
+namespace PragmaScript
+{
 
-    class Scope
+    public class Scope
     {
         public class Module
         {
@@ -24,11 +25,13 @@ namespace PragmaScript {
                 List<Module> mod = new List<Module>();
 
                 var current = this;
-                while (true) {
+                while (true)
+                {
                     mod.Add(current);
                     Debug.Assert(current.scope.parent != null);
                     current = current.scope.parent.module;
-                    if (current == null) {
+                    if (current == null)
+                    {
                         break;
                     }
                 }
@@ -44,8 +47,9 @@ namespace PragmaScript {
         }
 
 
-        
-        public class VariableDefinition {
+
+        public class VariableDefinition
+        {
             public bool isGlobal = false;
             public bool isNamespace = false;
             public bool isConstant = false;
@@ -58,17 +62,20 @@ namespace PragmaScript {
             public FrontendType type;
         }
 
-        public class OverloadedVariableDefinition {
+        public class OverloadedVariableDefinition
+        {
             public bool allowOverloading;
             public List<VariableDefinition> variables;
-            public OverloadedVariableDefinition() {
+            public OverloadedVariableDefinition()
+            {
                 variables = new List<VariableDefinition>();
             }
-            public OverloadedVariableDefinition(VariableDefinition vd) {
+            public OverloadedVariableDefinition(VariableDefinition vd)
+            {
                 variables = new List<VariableDefinition>(1);
                 variables.Add(vd);
             }
-            public bool IsOverloaded { get { return variables.Count > 1;} }
+            public bool IsOverloaded { get { return variables.Count > 1; } }
             public VariableDefinition First { get { return variables[0]; } }
         }
 
@@ -103,9 +110,7 @@ namespace PragmaScript {
         }
 
 
-        // TODO: make this non static
-        public static Dictionary<string, Module> modules = new Dictionary<string, Module>();
-
+        public Dictionary<string, Module> modules;
         public Scope parent;
         public AST.FunctionDefinition function;
         public Module module;
@@ -115,30 +120,62 @@ namespace PragmaScript {
         public Dictionary<string, TypeDefinition> types = new Dictionary<string, TypeDefinition>();
 
         public AST.Node owner;
+        public List<Scope> childs = new List<Scope>();
+
+        public List<(Token start, Token end)> tokenRanges = new List<(Token start, Token end)>();
+
         public Scope(Scope parent, AST.FunctionDefinition function)
         {
+            if (parent == null)
+            {
+                modules = new Dictionary<string, Module>();
+            }
+            else
+            {
+                modules = parent.modules;
+                parent.childs.Add(this);
+                Debug.Assert(parent.modules != null);
+            }
             this.parent = parent;
             this.function = function;
         }
+
+        public void AddTokenRangeForModule(Token start, Token end)
+        {
+            Debug.Assert(module != null);
+            tokenRanges.Add((start, end));
+            if (parent != null && parent.module != null)
+            {
+                parent.AddTokenRangeForModule(start, end);
+            }
+        }
+
 
         public OverloadedVariableDefinition GetVar(string name, Token from, bool recurse = true)
         {
             OverloadedVariableDefinition result = new OverloadedVariableDefinition();
 
-            if (variables.TryGetValue(name, out var ovd)) {
+            if (variables.TryGetValue(name, out var ovd))
+            {
                 result.variables.AddRange(ovd.variables);
                 result.allowOverloading = ovd.allowOverloading;
             }
 
-            foreach (var mod in importedModules) {
-                if (mod.scope.variables.TryGetValue(name, out var mvd)) {
-                    if (result.variables.Count > 0 && !result.allowOverloading) {
+            foreach (var mod in importedModules)
+            {
+                if (mod.scope.variables.TryGetValue(name, out var mvd))
+                {
+                    if (result.variables.Count > 0 && !result.allowOverloading)
+                    {
                         Debug.Assert(result.variables.Count == 1);
                         var p0 = $"\"{result.First.node.scope.module.GetPath()}::{name}\"";
                         var p1 = $"\"{mod.GetPath()}::{name}\"";
-                        throw new ParserError($"Access to variable is ambigious between {p0} and {p1}.", from);
-                    } else {
-                        if (result.variables.Count > 0) {
+                        throw new CompilerError($"Access to variable is ambigious between {p0} and {p1}.", from);
+                    }
+                    else
+                    {
+                        if (result.variables.Count > 0)
+                        {
                             Debug.Assert(result.allowOverloading);
                             Debug.Assert(mvd.allowOverloading);
                         }
@@ -146,13 +183,17 @@ namespace PragmaScript {
                     }
                 }
             }
-            if (result.variables.Count > 0) {
+            if (result.variables.Count > 0)
+            {
                 return result;
             }
 
-            if (recurse && parent != null) {
+            if (recurse && parent != null)
+            {
                 return parent.GetVar(name, from);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
@@ -162,7 +203,8 @@ namespace PragmaScript {
             Debug.Assert(node != null);
 
             bool variablePresent = variables.ContainsKey(name);
-            if (!allowOverloading && variablePresent) {
+            if (!allowOverloading && variablePresent)
+            {
                 throw new RedefinedVariable(name, t);
             }
             var v = new VariableDefinition();
@@ -172,11 +214,14 @@ namespace PragmaScript {
             v.node = node;
             v.isConstant = isConst;
             OverloadedVariableDefinition ov;
-            if (variablePresent) {
+            if (variablePresent)
+            {
                 ov = variables[name];
                 Debug.Assert(ov.allowOverloading);
                 ov.variables.Add(v);
-            } else {
+            }
+            else
+            {
                 ov = new OverloadedVariableDefinition(v);
                 variables.Add(name, ov);
                 ov.allowOverloading = allowOverloading;
@@ -189,7 +234,8 @@ namespace PragmaScript {
             Debug.Assert(@type != null);
 
             bool variablePresent = variables.ContainsKey(name);
-            if (!allowOverloading && variables.ContainsKey(name)) {
+            if (!allowOverloading && variables.ContainsKey(name))
+            {
                 throw new RedefinedVariable(name, t);
             }
 
@@ -201,11 +247,14 @@ namespace PragmaScript {
             v.isConstant = isConst;
 
             OverloadedVariableDefinition ov;
-            if (variablePresent) {
+            if (variablePresent)
+            {
                 ov = variables[name];
                 Debug.Assert(ov.allowOverloading);
                 ov.variables.Add(v);
-            } else {
+            }
+            else
+            {
                 ov = new OverloadedVariableDefinition(v);
                 variables.Add(name, ov);
                 ov.allowOverloading = allowOverloading;
@@ -216,31 +265,52 @@ namespace PragmaScript {
 
         public TypeDefinition GetType(FullyQualifiedName typeName, Token from)
         {
-            if (typeName.path.Count == 1) {
+            if (typeName.path.Count == 1)
+            {
                 var name = typeName.GetName();
                 var result = getType(name, true, from);
                 return result;
-            } else {
+            }
+            else
+            {
                 var mod_name = string.Join("::", typeName.path.Take(typeName.path.Count - 1));
                 var mod = GetModule(mod_name);
-                if (mod == null && module != null) {
+                if (mod == null && module != null)
+                {
                     var path = $"{module.GetPath()}::{mod_name}";
                     mod = GetModule(path);
                 }
-                if (mod != null) {
+                if (mod != null)
+                {
                     return mod.scope.getType(typeName.GetName(), false, from);
-                } else {
+                }
+                else
+                {
                     return null;
                 }
             }
         }
 
+        public string GetFullyQualifiedName(string name)
+        {
+            string result = name;
+            if (module != null)
+            {
+                result = $"{module.GetPath()}::{name}";
+            }
+            return result;
+        }
+
+
         TypeDefinition getType(string typeName, bool recursive, Token from)
         {
             TypeDefinition result;
-            if (recursive) {
+            if (recursive)
+            {
                 result = this.getTypeRec(typeName, from);
-            } else {
+            }
+            else
+            {
                 types.TryGetValue(typeName, out result);
 
             }
@@ -251,31 +321,42 @@ namespace PragmaScript {
         {
             TypeDefinition result;
 
-            if (types.TryGetValue(typeName, out result)) {
+            if (types.TryGetValue(typeName, out result))
+            {
                 return result;
             }
 
-            if (result == null) {
+            if (result == null)
+            {
                 Module result_mod = null;
-                foreach (var mod in importedModules) {
-                    if (mod.scope.types.TryGetValue(typeName, out var td)) {
-                        if (result != null) {
+                foreach (var mod in importedModules)
+                {
+                    if (mod.scope.types.TryGetValue(typeName, out var td))
+                    {
+                        if (result != null)
+                        {
                             var p0 = $"\"{result_mod.GetPath()}.{typeName}\"";
                             var p1 = $"\"{mod.GetPath()}.{typeName}\"";
-                            throw new ParserError($"Access to variable is ambigious between {p0} and {p1}.", from);
-                        } else {
+                            throw new CompilerError($"Access to variable is ambigious between {p0} and {p1}.", from);
+                        }
+                        else
+                        {
                             result = td;
                             result_mod = mod;
                         }
                     }
                 }
-                if (result != null) {
+                if (result != null)
+                {
                     return result;
                 }
             }
-            if (parent != null) {
+            if (parent != null)
+            {
                 return parent.getTypeRec(typeName, from);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
@@ -283,7 +364,8 @@ namespace PragmaScript {
         public void AddType(string name, AST.Node node, Token t)
         {
             Debug.Assert(node != null);
-            if (types.ContainsKey(name)) {
+            if (types.ContainsKey(name))
+            {
                 throw new RedefinedType(name, t);
             }
             var td = new TypeDefinition();
@@ -295,7 +377,8 @@ namespace PragmaScript {
         public Scope GetRootScope()
         {
             Scope result = this;
-            while (result.parent != null) {
+            while (result.parent != null)
+            {
                 result = result.parent;
             }
             return result;
@@ -307,12 +390,16 @@ namespace PragmaScript {
 
             string path_string = null;
             Scope root_scope;
-            if (root) {
+            if (root)
+            {
                 root_scope = GetRootScope();
                 path_string = "";
-            } else {
+            }
+            else
+            {
                 root_scope = this;
-                if (module != null) {
+                if (module != null)
+                {
                     path_string = module.GetPath();
                 }
             }
@@ -320,19 +407,26 @@ namespace PragmaScript {
             Scope parentScope = root_scope;
             Module lastModule = module;
 
-            foreach (var p in path) {
+            foreach (var p in path)
+            {
                 Debug.Assert(!string.IsNullOrWhiteSpace(p));
-                if (string.IsNullOrWhiteSpace(path_string)) {
+                if (string.IsNullOrWhiteSpace(path_string))
+                {
                     path_string = p;
-                } else {
+                }
+                else
+                {
                     path_string = $"{path_string}::{p}";
                 }
-                if (!modules.ContainsKey(path_string)) {
+                if (!modules.ContainsKey(path_string))
+                {
                     var n = new Module(p, parentScope);
                     modules.Add(path_string, n);
                     parentScope = n.scope;
                     lastModule = n;
-                } else {
+                }
+                else
+                {
                     lastModule = modules[path_string];
                     parentScope = lastModule.scope;
                 }
@@ -355,7 +449,8 @@ namespace PragmaScript {
 
         public void AddTypeAlias(FrontendType t, Token token, string alias)
         {
-            if (types.ContainsKey(alias)) {
+            if (types.ContainsKey(alias))
+            {
                 throw new RedefinedType(alias, token);
             }
             var td = new TypeDefinition();
@@ -368,7 +463,8 @@ namespace PragmaScript {
 
         public void AddType(FrontendType t, Token token)
         {
-            if (types.ContainsKey(t.ToString())) {
+            if (types.ContainsKey(t.ToString()))
+            {
                 throw new RedefinedType(t.ToString(), token);
             }
             var td = new TypeDefinition();

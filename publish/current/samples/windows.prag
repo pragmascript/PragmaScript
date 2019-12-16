@@ -4,7 +4,7 @@
     let STD_ERROR_HANDLE  = -12;
     let STD_OUTPUT_HANDLE = -11;
     let STD_INPUT_HANDLE  = -10;
-    let INVALID_HANDLE_VALUE:mm = 0xFFFFFFFF;
+    let INVALID_HANDLE_VALUE:mm = 0xFFFFFFFFFFFFFFFF;
 
     var console_output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
     var console_input_handle = GetStdHandle(STD_INPUT_HANDLE);
@@ -274,6 +274,23 @@
     let ENABLE_LVB_GRID_WORLDWIDE = 0x0010;
     let SetConsoleMode = extern fun(handle: mm; dwMode: i32) => i32;
     
+    let FOREGROUND_BLUE = 0x0001;
+    let FOREGROUND_GREEN = 0x0002;
+    let FOREGROUND_RED = 0x0004;
+    let FOREGROUND_INTENSITY = 0x0008;
+    let BACKGROUND_BLUE = 0x0010;
+    let BACKGROUND_GREEN = 0x0020;
+    let BACKGROUND_RED = 0x0040;
+    let BACKGROUND_INTENSITY = 0x0080;
+    let COMMON_LVB_LEADING_BYTE = 0x0100;
+    let COMMON_LVB_TRAILING_BYTE = 0x0200;
+    let COMMON_LVB_GRID_HORIZONTAL = 0x0400;
+    let COMMON_LVB_GRID_LVERTICAL = 0x0800;
+    let COMMON_LVB_GRID_RVERTICAL = 0x1000;
+    let COMMON_LVB_REVERSE_VIDEO = 0x4000;
+    let COMMON_LVB_UNDERSCORE = 0x8000;
+    let SetConsoleTextAttribute = extern fun(handle: mm; wAttributes: i32) => i32;
+    
     
     let CreateWindowExA = extern fun
     (
@@ -395,6 +412,32 @@
     let timeBeginPeriod = extern fun (ms: i32) => i32;
     let VREFRESH = 116;
     let GetDeviceCaps = extern fun (hdc: mm; index: i32) => i32;
+    
+    
+    
+    // let ProcessorArchitecture = enum (
+    //     X86 = 0;
+    //     Arm = 5;
+    //     Itanium = 6;
+    //     X64 = 9;
+    //     ARM64 = 12;
+    //     Unknown = 0xFFFF;
+    // );
+
+    let SYSTEM_INFO  = struct (
+        ProcessorArchitecture: i32; //
+        PageSize: i32; // DWORD
+        MinimumApplicationAddress: ptr; // (long IntPtr)void*
+        MaximumApplicationAddress: ptr; // (long IntPtr)void*
+        ActiveProcessorMask: ptr;  // DWORD*
+        NumberOfProcessors: i32; // DWORD  uint(WTF)
+        ProcessorType: i32; // DWORD
+        AllocationGranularity: i32; // DWORD
+        ProcessorLevel: i16; // WORD
+        ProcessorRevision: i16; // WORD
+    );
+    let GetSystemInfo = extern fun(info: SYSTEM_INFO*) => void;
+    
 
     let IDC_ARROW:mm = 32512;
 

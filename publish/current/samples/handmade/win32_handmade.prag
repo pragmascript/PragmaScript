@@ -324,12 +324,12 @@ mod Handmade::Platform
 				elif (vk_code == VK_DOWN) {
 					update_game_button(&game_input.down_arrow, is_down);
 				}
-				elif (key_down && vk_code == ord("L")) {
+				elif (key_down && vk_code == ord("L")@i32) {
 					if (key_down) {
 						win_state.is_recording = !win_state.is_recording;
 					}
 				}
-				elif (key_down && vk_code == ord("P")) {
+				elif (key_down && vk_code == ord("P")@i32) {
 					if (key_down) {
 						win_state.is_replaying = !win_state.is_replaying;
 					}
@@ -483,7 +483,7 @@ mod Handmade::Platform
 
 		window.width = 1280;
 		window.height = 720;
-
+		
 		create_backbuffer(&backbuffer, window.width, window.height);
 
 		var class_name  = cstr("PragmaScriptWindowClass\0");

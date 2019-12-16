@@ -127,12 +127,12 @@ let get_orthogonal = fun (v: v3_4x*) => v3_4x {
     var c0 = v3_4x {
         SIMD::set1_ps(1.0),
         SIMD::set1_ps(0.0),
-        SIMD::set1_ps(0.0),
+        SIMD::set1_ps(0.0)
     };
     var c1 = v3_4x {
         SIMD::set1_ps(0.0),
         SIMD::set1_ps(1.0),
-        SIMD::set1_ps(0.0),
+        SIMD::set1_ps(0.0)
     };
     var result = cross(v, &c0);
     // if (sqr_length(&result) < 0.0001) {
@@ -144,13 +144,14 @@ let get_orthogonal = fun (v: v3_4x) => v3_4x {
         var c0 = v3_4x {
         SIMD::set1_ps(1.0),
         SIMD::set1_ps(0.0),
-        SIMD::set1_ps(0.0),
+        SIMD::set1_ps(0.0)
     };
     var c1 = v3_4x {
         SIMD::set1_ps(0.0),
         SIMD::set1_ps(1.0),
-        SIMD::set1_ps(0.0),
+        SIMD::set1_ps(0.0)
     };
+    
     var result0 = cross(v, c0);
     var result1 = cross(v, c1);
     var l0 = sqr_length(&result0);
@@ -158,7 +159,8 @@ let get_orthogonal = fun (v: v3_4x) => v3_4x {
     // if (sqr_length(&result) < 0.0001) {
     //     result = cross(v, c1);
     // }
-    return result;
+    // return result;
+    return result0;
 }
 let reflect = fun (v: v3_4x*; n: v3_4x*) => v3_4x {
     

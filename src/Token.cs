@@ -39,7 +39,7 @@ namespace PragmaScript
         public enum TokenType
         {
             WhiteSpace, Let, Var, Fun, Identifier,
-            OpenBracket, CloseBracket, IntNumber, FloatNumber, Assignment, Error,
+            OpenBracket, CloseBracket, IntNumber, FloatNumber, HexFloat32Number, HexFloat64Number, Assignment, Error,
             Add, Subtract, Multiply, Divide, Remainder, Semicolon, Comma, Return,
             LeftShift, RightShift,
             ConditionalOR, ConditionalAND, LogicalOR, LogicalXOR, LogicalAND,
@@ -250,6 +250,22 @@ namespace PragmaScript
             }
         }
 
+        public static bool ContinuesWith(string line, int pos, string test)
+        {
+            if (pos + test.Length > line.Length)
+            {
+                return false;
+            }
+            for (int idx = 0; idx < test.Length; ++idx)
+            {
+                if (line[pos + idx] != test[idx])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public static Token NextToken(string[] lines, ref int pos, ref int lineIdx, string filename)
         {
             var t = new Token(filename);
@@ -332,15 +348,22 @@ namespace PragmaScript
                             pos++;
                             if (pos >= line.Length)
                             {
-                                if (lineIdx >= lines.Length)
+                                while (true)
                                 {
-                                    t.text = sb.ToString();
-                                    throw new LexerError("Verbatim string constant exceeds file!", t);
+                                    lineIdx++;
+                                    if (lineIdx >= lines.Length)
+                                    {
+                                        t.text = sb.ToString();
+                                        throw new LexerError("Verbatim string constant exceeds file!", t);
+                                    }
+                                    pos = 0;
+                                    line = lines[lineIdx];
+                                    sb.Append(Environment.NewLine);
+                                    if (line.Length > 0)
+                                    {
+                                        break;
+                                    }
                                 }
-                                lineIdx++;
-                                pos = 0;
-                                line = lines[lineIdx];
-                                sb.Append(Environment.NewLine);
                             }
                             current = line[pos];
                             if (current == '"')
@@ -376,6 +399,7 @@ namespace PragmaScript
                 }
 
             }
+
             // test if first char is a radix 10 digit
             if (char.IsDigit(current))
             {
@@ -383,7 +407,7 @@ namespace PragmaScript
                 bool isHexadecimal = false;
                 if (pos + 1 < line.Length)
                 {
-                    if (line[pos + 1] == 'x')
+                    if (line[pos + 1] == 'x' && current == '0')
                     {
                         isHexadecimal = true;
                         pos += 2;
@@ -416,7 +440,37 @@ namespace PragmaScript
                         break;
                     current = line[pos];
                 }
-                t.type = containsDecimalSeperator ? TokenType.FloatNumber : TokenType.IntNumber;
+
+
+                var tType = containsDecimalSeperator ? TokenType.FloatNumber : TokenType.IntNumber;
+
+                if (ContinuesWith(line, pos, "_f32"))
+                {
+                    pos += "_f32".Length;
+                    if (isHexadecimal)
+                    {
+                        tType = Token.TokenType.HexFloat32Number;
+                    }
+                    else
+                    {
+                        tType = Token.TokenType.FloatNumber;
+                    }
+                }
+
+                if (ContinuesWith(line, pos, "_f64"))
+                {
+                    pos += "_f64".Length;
+                    if (isHexadecimal)
+                    {
+                        tType = Token.TokenType.HexFloat64Number;
+                    }
+                    else
+                    {
+                        tType = Token.TokenType.FloatNumber;
+                    }
+                }
+
+                t.type = tType;
                 t.text = line.Substring(t.pos_idx, t.length);
                 return t;
             }
@@ -489,6 +543,7 @@ namespace PragmaScript
 
         public override string ToString()
         {
+
             if (type != TokenType.Error)
             {
                 return string.Format("({0}, file \"{1}\", line {2}, pos {3}, \"{4}\")", type.ToString(), filename, Line, Pos, text);
@@ -533,6 +588,7 @@ namespace PragmaScript
 
         public static bool IsBefore(Token a, Token b)
         {
+
             Debug.Assert(a.filename == b.filename);
             if (a.Line == b.Line)
             {
@@ -544,6 +600,7 @@ namespace PragmaScript
 
         public static bool IsAfter(Token a, Token b)
         {
+
             return IsBefore(b, a);
         }
 
