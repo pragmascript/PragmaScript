@@ -1,0 +1,1042 @@
+import "../preamble.prag"
+import "../windows.prag"
+import "../math.prag"
+import "../memory.prag"
+import "../vec.prag"
+import "../xml.prag"
+
+
+import "opengl.prag"
+
+with Windows;
+
+// https://hero.handmade.network/forums/code-discussion/t/129-howto_-_building_without_import_libraries
+
+let window_state = struct 
+(
+    handle: mm;
+    dc: mm;
+    client_width: i32;
+    client_height: i32;
+    wants_to_quit: bool;
+);
+var window: window_state;
+let get_perf_counter = fun() => i64 {
+    var result: i64;
+    QueryPerformanceCounter(&result);
+    return result;
+}
+var perf_count_freq: i64;
+let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return (t1 - t0)@f64 / perf_count_freq@f64;
+}
+let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
+    return get_seconds_elapsed(t0, t1) * 1000; 
+}
+
+
+
+let render_opengl = fun (@window_state: window_state*; time: f32) => void {
+    
+    var neuro = @"
+The sky above the port was the color of television, tuned to a dead
+channel.
+    ""It's not like I'm using,"" Case heard someone say, as he
+shouldered his way through the crowd around the door of the Chat.
+""It's like my body's developed this massive drug deficiency."" It
+was a Sprawl voice and a Sprawl joke. The Chatsubo was a bar for
+professional expatriates; you could drink there for a week and never hear
+two words in Japanese.
+     Ratz was tending bar, his prosthetic arm jerking monotonously as he
+filled a tray of glasses with draft Kirin. He saw Case and smiled, his teeth
+a web work of East European steel and brown decay. Case found a place at the
+bar, between the unlikely tan on one of Lonny Zone's whores and  the
+crisp naval uniform of a tall African whose cheekbones were ridged with
+precise rows of tribal scars. ""Wage was in here early, with two Joe boys,""
+Ratz said, shoving a draft across the bar with his good hand. ""Maybe some
+business with you, Case?""
+     Case shrugged. The girl to his right giggled and nudged him.
+     The bartender's smile widened. His ugliness was the stuff of
+legend. In an age of affordable beauty, there was something heraldic about
+his lack of it. The antique arm whined as he reached for another mug. It was
+a Russian military prosthesis, a seven-function force-feedback manipulator,
+cased in grubby pink plastic. ""You are too much the artiste, Herr Case.""
+Ratz grunted; the sound served him as laughter. He scratched his overhang of
+white-shirted belly with the pink claw. ""You are the artiste of the slightly
+funny deal.""
+";
+
+    glViewport(0, 0, client_width, client_height);
+    glClearColor(gl_state.clear_color.x, gl_state.clear_color.y, gl_state.clear_color.z, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    var font_size = 24.0 + (1.0 + Math::sin(time*0.2)) * 64.0;
+
+    render_text(neuro, &font, font_size, v2(320, 700), client_width, client_height);
+
+    // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
+    SwapBuffers(dc);
+} 
+
+let mesh = struct (
+    vertices: v3[];
+    indices: i32[];
+    uvs: v2[];
+);
+
+// https://hero.handmade.network/episode/code/day368
+// https://github.com/Chlumsky/msdfgen
+// https://medium.com/@calebfaith/implementing-msdf-font-in-opengl-ea09a9ab7e00
+// https://github.com/soimy/msdf-bmfont-xml
+let bitmap = struct (
+    width: i32;
+    height: i32;
+    pixels: i8*;
+);
+
+
+["PACKED"]
+let bmp_file_header = struct(
+	magic: i16;
+	size: i32;
+	reserverd: i32;
+	offset: i32;
+);
+
+let load_bitmap = fun(file: string) => bitmap {
+    var result = bitmap { };
+    var bmp = read_file(file);
+    var file_header = bmp.data@bmp_file_header*;
+    assert(file_header.magic == 0x4D42);
+    assert(file_header.size <= bmp.length);
+    
+    var bmp_info = (bmp.data + size_of(bmp_file_header))@Windows::BITMAPINFOHEADER*;
+    assert(bmp_info.biPlanes == 1);
+    assert(bmp_info.biCompression == 0);
+    assert(bmp_info.biBitCount == 24);
+    result.width = bmp_info.biWidth;
+    result.height = bmp_info.biHeight;
+    result.pixels = bmp.data + file_header.offset;
+    assert(result.width > 0 && result.width < 4096);
+    assert(result.height > 0 && result.height < 4096);
+    
+    return result;
+}
+
+let load_texture = fun(file: string; width: i32* = 0@i32*; height: i32* = 0@i32*) => i32 {
+    var bmp = load_bitmap(file);
+    
+    var tex: i32;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, bmp.width, bmp.height, 0, GL_BGR, GL_UNSIGNED_BYTE, bmp.pixels);
+    // glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    
+    
+    
+    if (width != 0@i32*) {
+        *width = bmp.width;
+    }
+    if (height != 0@i32*) {
+        *height = bmp.height;
+    }
+    
+    return tex;
+}
+
+let create_quad = fun(center: v3; radius: v2) => mesh {
+    var c = center;
+    var result = mesh {};
+    var size_vertices = 4 * size_of(v3);
+    var size_indices = 6 * size_of(i32);
+    var size_uvs = 4 * size_of(v2);
+    
+    var vertices = @v3* push(&temp_memory_arena, size_vertices);
+    var indices = @i32* push(&temp_memory_arena, size_indices);
+    var uvs = @v2* push(&temp_memory_arena, size_uvs);
+    
+    var temp_v = vertices;
+    var temp_uvs = uvs;
+    *(temp_v++) = v3(center.x - radius.x, center.y - radius.y, center.z);
+    *(temp_uvs++) = v2(0, 0);
+    *(temp_v++) = v3(center.x + radius.x, center.y - radius.y, center.z);
+    *(temp_uvs++) = v2(1, 0);
+    *(temp_v++) = v3(center.x + radius.x, center.y + radius.y, center.z);
+    *(temp_uvs++) = v2(1, 1);
+    *(temp_v++) = v3(center.x - radius.x, center.y + radius.y, center.z);
+    *(temp_uvs++) = v2(0, 1);
+    
+    var temp_i = indices;
+    *(temp_i++) = 0;
+    *(temp_i++) = 1;
+    *(temp_i++) = 2;
+    
+    *(temp_i++) = 2;
+    *(temp_i++) = 3;
+    *(temp_i++) = 0;
+    
+    result.vertices = vertices[:4];
+    result.indices = indices[:6];
+    result.uvs = uvs[:4];
+    
+    return result;
+}
+
+
+let add_quad = fun(mesh: mesh*; top_left: v3; size: v2; uv0: v2; uv1: v2; current_quad_count: i32) => i32 {
+    var p = top_left;
+
+    var current_vertex_count = current_quad_count * 4;
+    var current_index_count = current_quad_count * 6;
+    
+    assert(mesh.vertices.length >= current_vertex_count + 4);
+    assert(mesh.uvs.length >= current_vertex_count + 4);
+    assert(mesh.indices.length >= current_index_count + 6);
+    
+    var vertices = mesh.vertices.data + current_quad_count*4;
+    var uvs = mesh.uvs.data + current_quad_count*4;
+    var indices = mesh.indices.data + current_quad_count*6;
+    
+    var temp_v = vertices;
+    var temp_uvs = uvs;
+    *(temp_v++) = v3(p.x, p.y, p.z);
+    *(temp_uvs++) = v2(uv0.x, uv0.y);
+    *(temp_v++) = v3(p.x + size.x, p.y, p.z);
+    *(temp_uvs++) = v2(uv1.x, uv0.y);
+    *(temp_v++) = v3(p.x + size.x, p.y - size.y, p.z);
+    *(temp_uvs++) = v2(uv1.x, uv1.y);
+    *(temp_v++) = v3(p.x, p.y - size.y, p.z);
+    *(temp_uvs++) = v2(uv0.x, uv1.y);
+    
+    var temp_i = indices;
+    *(temp_i++) = current_vertex_count + 0;
+    *(temp_i++) = current_vertex_count + 1;
+    *(temp_i++) = current_vertex_count + 2;
+    
+    *(temp_i++) = current_vertex_count + 2;
+    *(temp_i++) = current_vertex_count + 3;
+    *(temp_i++) = current_vertex_count + 0;
+    
+    return current_quad_count + 1;
+}
+
+
+let gl_state = struct(
+    font_shader: i32;
+    foreground_color_uniform_location: i32;
+    background_color_uniform_location: i32;
+    clear_color: v3;
+);
+var gl_state: gl_state;
+
+
+var font: font;
+var gl_resources_initialized = false;
+
+let set_font_color = fun(foreground_color: v3; background_color: v3) => void {
+    glUniform4f(gl_state.foreground_color_uniform_location, foreground_color.x, foreground_color.y, foreground_color.z, 1.0);
+    glUniform4f(gl_state.background_color_uniform_location, background_color.x, background_color.y, background_color.z, 1.0);
+    gl_state.clear_color = background_color;
+}
+
+let init_gl_resources = fun(window_state: window_state*) => void {
+    
+    var viewport: i32[4];
+
+    glGetIntegerv(GL_VIEWPORT, &viewport[0]);
+
+    // make a dummy VAO
+    // https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
+    var DummyVAO: i32;
+    glGenVertexArrays(1, &DummyVAO);
+    glBindVertexArray(DummyVAO);  
+
+    var vs_source = @"
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec2 aUV;
+out vec2 UV;
+void main()
+{
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+    UV = aUV;
+}
+0"; 
+    vs_source[vs_source.length - 1] = 0;
+    
+    assert(vs_source.data != nullptr);
+    var vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vs_source.data, 0@i32*);
+    glCompileShader(vertexShader); 
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+        if (success == 0) {
+            glGetShaderInfoLog(vertexShader, len(infoLog)@\i32, 0@i32*, &infoLog);
+            debug_print("vs.glsl", from_cstr(&infoLog[0]));
+        }
+    }
+    
+    var fs_source = @"
+#version 330 core
+in vec2 UV;
+out vec4 FragColor;
+
+uniform sampler2D tex;
+uniform vec4 foreground_color;
+uniform vec4 background_color;
+
+float median(float r, float g, float b) {
+    return max(min(r, g), min(max(r, g), b));
+}
+
+void main()
+{
+    float px_range = 8.0;
+    vec2 msdf_unit = px_range / vec2(textureSize(tex, 0));
+    vec3 sample = texture(tex, UV).rgb;
+    float signed_dist = median(sample.r, sample.g, sample.b) - 0.5;
+    signed_dist *= dot(msdf_unit, 0.5/fwidth(UV));
+    float opacity = clamp(signed_dist + 0.5, 0.0, 1.0);
+    FragColor = mix(background_color, foreground_color, opacity);
+
+    // vec4 col = texture(tex, UV);
+    // FragColor = col; // vec4(UV.x, UV.y, 0.0, 1.0);
+}
+0";
+   fs_source[fs_source.length - 1] = 0;
+
+    assert(fs_source.data != nullptr);
+    var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fs_source.data, 0@i32*);
+    glCompileShader(fragmentShader);
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+        if (success == 0) {
+            glGetShaderInfoLog(fragmentShader, len(infoLog)@\i32, 0@i32*, &infoLog);
+            debug_print("fs.glsl", from_cstr(&infoLog[0]));
+        }
+    }
+
+    var shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+        if (success == 0) {
+            glGetProgramInfoLog(shaderProgram, len(infoLog)@\i32, 0@i32*, &infoLog);
+            debug_print("program", from_cstr(&infoLog[0]));
+        }
+    }
+    
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    var mesh = create_quad(v3z, v2(0.6, 0.6));
+    var vertices_size = @mm mesh.vertices.length * size_of(v3);
+    var indices_size = @mm mesh.indices.length * size_of(i32);
+
+    var VBO: i32;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices_size, mesh.vertices.data@ptr, GL_DYNAMIC_DRAW);
+    // glBufferData(GL_ARRAY_BUFFER, vertices_size, &vertices@ptr, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(0);
+
+
+    var UVBO: i32;
+    glGenBuffers(1, &UVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, UVBO);
+    glBufferData(GL_ARRAY_BUFFER, @mm mesh.uvs.length * size_of(v2), mesh.uvs.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(1);
+
+
+    var EBO: i32;
+    glGenBuffers(1, &EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, mesh.indices.data@ptr, GL_DYNAMIC_DRAW);
+    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, &indices@ptr, GL_STATIC_DRAW);
+    
+    glUseProgram(shaderProgram);
+    
+    font = load_font(window_state);
+    glUniform1i(glGetUniformLocation(shaderProgram, cstr("tex\0")), 0);
+    
+    gl_state.background_color_uniform_location = glGetUniformLocation(shaderProgram, cstr("background_color\0"));
+    gl_state.foreground_color_uniform_location = glGetUniformLocation(shaderProgram, cstr("foreground_color\0"));
+    gl_state.font_shader = shaderProgram;
+    set_font_color(v3(0.831, 0.831, 0.788), v3(0.118, 0.118, 0.118));
+    
+    gl_resources_initialized = true;
+}
+
+let glyph = struct(
+    id: i8;
+    x_offset: i32;
+    y_offset: i32;
+    x_advance: i32;
+    pos_x: i32;
+    pos_y: i32;
+    width: i32;
+    height: i32;
+);
+
+let font = struct (
+    texture_handle: i32;
+    vbo: i32;
+    ebo: i32;
+    uvbo: i32;
+    
+    atlas_width: i32;
+    atlas_height: i32;
+    base_size: i32;
+    line_height: i32;
+    
+    glyphs: glyph[];
+    
+    kerning_table: i32[];
+);
+
+
+
+let load_font = fun(window_state: window_state*) => font {
+    var result = font { };
+    
+    result.texture_handle = load_texture("fonts/atlas.bmp\0", &result.atlas_width, &result.atlas_height);
+    glGenBuffers(1, &result.vbo);
+    glGenBuffers(1, &result.ebo);
+    glGenBuffers(1, &result.uvbo);
+    
+    let glyph_count = 256;
+    
+    result.glyphs.data = push(&temp_memory_arena, size_of(glyph) * glyph_count@mm)@glyph*;
+    result.glyphs.length = glyph_count;
+    
+    for (var i = 0; i < glyph_count; ++i) {
+        result.glyphs[i] = glyph { };
+    }
+    
+    var xml = read_xml("fonts/atlas.png.fnt\0");
+    var e_font = get_child(&xml, "font");
+    from_str(get_attrib_value(get_child(e_font, "info"), "size"), &result.base_size);
+    from_str(get_attrib_value(get_child(e_font, "common"), "lineHeight"), &result.base_size);
+    
+    var e_chars = get_child(e_font, "chars");
+    for (var char_idx = 0; char_idx < e_chars.childs.count; char_idx++) {
+        var e_char = e_chars.childs.data + char_idx;
+        var glyph = glyph { };
+        var id_32 = 0;
+        from_str(get_attrib_value(e_char, "id"), &id_32);
+        assert(id_32 >= 0 && id_32 < glyph_count);
+        glyph.id = id_32@i8;
+        from_str(get_attrib_value(e_char, "xoffset"), &glyph.x_offset);
+        from_str(get_attrib_value(e_char, "yoffset"), &glyph.y_offset);
+        from_str(get_attrib_value(e_char, "xadvance"), &glyph.x_advance);
+        from_str(get_attrib_value(e_char, "x"), &glyph.pos_x);
+        from_str(get_attrib_value(e_char, "y"), &glyph.pos_y);
+        from_str(get_attrib_value(e_char, "width"), &glyph.width);
+        from_str(get_attrib_value(e_char, "height"), &glyph.height);
+        result.glyphs[id_32] = glyph;
+    }
+    
+    var kerning_count: i32;
+    from_str(get_attrib_value(get_child(e_font, "kernings"), "count"), &kerning_count);
+    if (kerning_count == 0) {
+        var test = AddFontResourceA(cstr("fonts\\TheanoDidot-Regular.ttf\0"));
+        var font_handle = CreateFontA(result.base_size, 0, 0, 0,
+                                      FW_NORMAL,
+                                      0,
+                                      0,
+                                      0,
+                                      DEFAULT_CHARSET,
+                                      OUT_DEFAULT_PRECIS,
+                                      CLIP_DEFAULT_PRECIS,
+                                      ANTIALIASED_QUALITY,
+                                      DEFAULT_PITCH|FF_DONTCARE,
+                                      cstr("Theano Didot\0"));
+        assert(font_handle != Windows::INVALID_HANDLE_VALUE);
+        var font_dc = CreateCompatibleDC(GetDC(0));
+        SelectObject(font_dc, font_handle);
+        var kerning_pair_count = GetKerningPairsA(font_dc, 0, nullptr@KERNINGPAIR*);
+        
+        var kerning_pairs = @KERNINGPAIR* allocate(size_of(KERNINGPAIR) * kerning_pair_count@mm);
+        GetKerningPairsA(font_dc, kerning_pair_count, kerning_pairs);
+        
+        result.kerning_table.data = @i32* push(&temp_memory_arena, @mm (glyph_count*glyph_count) * size_of(i32));
+        result.kerning_table.length = glyph_count*glyph_count;
+        memset(result.kerning_table.data@ptr, 0, result.kerning_table.length@mm);
+        for (var kerning_pair_idx = 0; kerning_pair_idx < kerning_pair_count; kerning_pair_idx++) {
+            var kp = kerning_pairs + kerning_pair_idx;
+            var idx = @i32 kp.wSecond * glyph_count + kp.wFirst@i32;
+            result.kerning_table[idx] = kp.iKernAmount;
+        }
+        
+        free(kerning_pairs@ptr);
+    }
+    return result;
+}
+
+
+let map_to_gl = fun(p: v3; width: i32; height: i32) => v3 {
+    var result = v3(
+        2.0 * (p.x / (width@f32 - 1.0)) - 1.0,
+        2.0 * (p.y / (height@f32 - 1.0)) - 1.0,
+        p.z
+    );
+    return result;
+}
+
+let get_kerning_pair = fun(font: font*; first: i8; second: i8) => i32 {
+    var idx = @i32 second * font.glyphs.length + first@i32;
+    return font.kerning_table[idx];
+}
+
+let render_text = fun(text: string; font: font*; font_size: f32; start_pos: v2; 
+                      client_width: i32; client_height: i32) => void {
+    var watermark = temp_memory_arena.used;
+    var relative_size = font_size / font.base_size@f32;
+    
+    var current_quad_count = 0;
+    var quads = mesh { };
+    quads.vertices.data = push(&temp_memory_arena, @mm text.length * 4 * size_of(v3))@v3*;
+    quads.vertices.length = text.length * 4;
+    quads.uvs.data = push(&temp_memory_arena, @mm text.length * 4 * size_of(v2))@v2*;
+    quads.uvs.length = text.length * 4;
+    quads.indices.data = push(&temp_memory_arena, @mm text.length * 6 * size_of(i32))@i32*;
+    quads.indices.length = text.length * 6;
+
+    
+    // debug_print("render_text", "");
+    var p = start_pos;
+    for (var char_idx = 0; char_idx < text.length; ++char_idx) {
+        var char = text[char_idx];
+        var glyph = &font.glyphs[text[char_idx]@i32];
+        
+        var w = font.atlas_width@f32 - 1.0;
+        var h = font.atlas_height@f32 - 1.0;
+        var uv0 = v2(glyph.pos_x@f32 / w, 1.0 - glyph.pos_y@f32 / h);
+        var uv1 = v2(
+            @f32 (glyph.pos_x + glyph.width) / w,
+            1.0 - @f32 (glyph.pos_y + glyph.height) / h
+        );
+        
+        
+        var p_size = v2(relative_size * glyph.width@f32, relative_size * glyph.height@f32);
+        var size = v2(2*p_size.x / (client_width - 1)@f32, 2*p_size.y / (client_height - 1)@f32);
+ 
+        var pos = add(v3(p.x, p.y, 0), v3(relative_size * glyph.x_offset@f32, -relative_size *  glyph.y_offset@f32, 0));
+        pos = map_to_gl(v3(pos.x, pos.y, 0), client_width, client_height);
+        
+        p.x += relative_size * glyph.x_advance@f32;        
+        if (char_idx < text.length - 1) {
+            var first = text[char_idx];
+            var second = text[char_idx + 1];
+            var kerning = get_kerning_pair(font, first, second);
+            p.x += relative_size * kerning@f32;
+        }
+        if (char_idx != 0 && char == ord("\n")) {
+            p.y -= relative_size * font.base_size@f32;
+            p.x = start_pos.x;
+        }
+        if (char != ord(" ") && char != ord("\n")) {
+            current_quad_count = add_quad(&quads, pos, size, uv0, uv1, current_quad_count);    
+        }
+    }
+    
+    glBindBuffer(GL_ARRAY_BUFFER, font.vbo);
+    glBufferData(GL_ARRAY_BUFFER, @mm quads.vertices.length * size_of(v3), quads.vertices.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(0);
+    
+    
+    glBindBuffer(GL_ARRAY_BUFFER, font.uvbo);
+    glBufferData(GL_ARRAY_BUFFER, @mm quads.uvs.length * size_of(v2), quads.uvs.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(1);
+    
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, font.ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, @mm quads.indices.length * size_of(i32), quads.indices.data@ptr, GL_DYNAMIC_DRAW);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, font.texture_handle);
+    
+    glDrawElements(GL_TRIANGLES, quads.indices.length, GL_UNSIGNED_INT, nullptr);
+        
+    
+    temp_memory_arena.used = watermark;
+}
+
+let process_pending_messages = fun() => void {
+    var msg: MSG;
+    while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE|PM_NOYIELD) != 0) {
+        var message = msg.message;
+        if (message == WM_QUIT) {
+            window.wants_to_quit = true;
+        } 
+        elif (message == WM_SYSKEYDOWN
+            || message == WM_SYSKEYUP
+            || message == WM_KEYDOWN
+            || message == WM_KEYUP) {
+
+            var w_param = @i32 (msg.wParam >> 32@mm);
+            var l_param = @i32 (msg.lParam >> 32@mm);
+            var vk_code = w_param;
+
+            var was_down = (l_param & (1 << 30)) != 0;
+            var is_down = (l_param & (1 << 31)) == 0;
+            var key_up = was_down && !is_down;
+            var key_down = !was_down && is_down; 
+
+            if(vk_code == VK_ESCAPE) {
+                window.wants_to_quit = true;
+            }
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+        }
+    }
+}
+
+let PROCESS_SYSTEM_DPI_AWARE = 1;
+let SetProcessDpiAwareness = extern fun(
+    value: i32;
+) => i32;
+
+let main_window_callback = fun
+(
+    window_handle: mm;
+    message: i32;
+    w_param: mm;
+    l_param: mm;
+) => mm {
+    var result = null;
+    if (message == WM_SIZE || message == WM_SIZING) {
+    }
+    elif (message == WM_CLOSE) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_DESTROY) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_PAINT) {
+        var paint: PAINTSTRUCT;
+        var context = BeginPaint(window_handle, &paint);
+        // blit_to_screen(window.dc, &window.backbuffer);
+        EndPaint(window_handle, &paint);
+    } 
+    else {
+        result = DefWindowProcA(window_handle, message, w_param, l_param);
+    }
+    return result;
+}
+
+let load_wgl_extensions = fun() => void {
+    var window_class = WNDCLASSEX {};
+    var class_name = cstr("wgl_extension_dummy_window\0");
+    var window_name = cstr("dummy window\0");
+
+    window_class.cbSize = size_of(WNDCLASSEX)@i32;
+    window_class.hInstance = GetModuleHandleA(0);
+    window_class.lpszClassName = class_name;
+    window_class.lpfnWndProc = @ptr DefWindowProcA;
+    RegisterClassExA(&window_class);
+    var dummy_wnd = CreateWindowExA(
+        0,
+        window_class.lpszClassName,
+        window_name,
+        0,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        null,
+        null,
+        window_class.hInstance,
+        null
+    );
+    
+    var dummy_dc = GetDC(dummy_wnd);
+    assert(dummy_dc != null);
+
+    var pfd = PIXELFORMATDESCRIPTOR { };
+    pfd.nSize = size_of(PIXELFORMATDESCRIPTOR)@i16;
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
+    pfd.cColorBits = 32;
+    pfd.cAlphaBits = 8;
+    
+    var t0 = get_perf_counter();
+    var pfd_idx = ChoosePixelFormat(dummy_dc, &pfd);
+    var suggested_pfd: PIXELFORMATDESCRIPTOR;
+    DescribePixelFormat(dummy_dc, pfd_idx, size_of(PIXELFORMATDESCRIPTOR)@i32, &suggested_pfd);
+    SetPixelFormat(dummy_dc, pfd_idx, &suggested_pfd);
+    var t1 = get_perf_counter();
+
+    var gl_rc = wglCreateContext(dummy_dc);
+    var success = wglMakeCurrent(dummy_dc, gl_rc);
+    assert(success != 0);
+
+    *(&wglChoosePixelFormatARB@ptr*) = wglGetProcAddress(cstr("wglChoosePixelFormatARB\0"));
+    assert(wglChoosePixelFormatARB@ptr != nullptr);
+
+    *(&wglCreateContextAttribsARB@ptr*) = wglGetProcAddress(cstr("wglCreateContextAttribsARB\0"));
+    assert(wglCreateContextAttribsARB@ptr != nullptr);
+
+    *(&wglSwapIntervalEXT@ptr*) = wglGetProcAddress(cstr("wglSwapIntervalEXT\0"));
+    assert(wglSwapIntervalEXT@ptr != nullptr);
+
+    *(&wglGetExtensionsStringEXT@ptr*) = wglGetProcAddress(cstr("wglGetExtensionsStringEXT\0"));
+    assert(wglGetExtensionsStringEXT@ptr != nullptr);
+
+    wglMakeCurrent(0, 0);
+    wglDeleteContext(gl_rc);
+    ReleaseDC(dummy_wnd, dummy_dc);
+    DestroyWindow(dummy_wnd);
+
+    // debug_print_string("wgl extensions", from_cstr(wglGetExtensionsStringEXT()));
+    debug_print("choose pixel format: ", get_ms_elapsed(t0, t1));
+}
+
+let opengl_info = struct (
+    shading_language_version: string;
+    vendor: string;
+    renderer: string;
+    version: string;
+    extensions: string;
+);
+
+
+let print_opengl_info = fun(@info: opengl_info*) => void {
+    print("OPENGL INFO:\n");
+    debug_print("shading language verison", shading_language_version);
+    debug_print("vendor", vendor);
+    debug_print("renderer", renderer);
+    debug_print("version", version);
+    // debug_print("extensions", extensions);
+    print("\n");
+}
+
+let get_opengl_info = fun() => opengl_info {
+    var result: opengl_info;
+    
+    result.shading_language_version = from_cstr(glGetString(GL_SHADING_LANGUAGE_VERSION), -1);
+    result.vendor = from_cstr(glGetString(GL_VENDOR), -1);
+    result.renderer = from_cstr(glGetString(GL_RENDERER), -1);
+    result.version = from_cstr(glGetString(GL_VERSION), -1);
+    
+    // TODO(pragma): GL_EXTENSIONS is deprecated use
+    //   glGetStringi with GL_EXTENSIONS, i and
+    //   GL_NUM_EXTENSIONS
+    // result.extensions = from_cstr(glGetString(GL_EXTENSIONS), -1);
+    // print_opengl_info(&result);
+    return result;
+}
+
+// http://mariuszbartosik.com/opengl-4-x-initialization-in-windows-without-a-framework/
+let init_opengl = fun (window_dc: mm) => void {
+    load_wgl_extensions();
+    var dc = window.dc;
+
+
+    var t0 = get_perf_counter();
+    var int_attrib_list = [
+        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+        WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+        WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+        WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+        // WGL_SAMPLE_BUFFERS_ARB, 1, // Number of buffers (must be 1 at time of writing)
+        // WGL_SAMPLES_ARB, 0,       
+        0
+    ];
+
+    var suggested_pixel_format_index = 0;
+    var extended_pick = 0;
+    wglChoosePixelFormatARB(dc, &int_attrib_list[0], 0@f32*, 1, 
+        &suggested_pixel_format_index, &extended_pick);
+
+    // debug_print_i32("suggested_pixel_format_index", suggested_pixel_format_index);
+    // debug_print_i32("extended_pick", extended_pick);
+    assert(extended_pick == 1);
+
+    var pfd: PIXELFORMATDESCRIPTOR;
+    DescribePixelFormat(dc, suggested_pixel_format_index, @i32(size_of(PIXELFORMATDESCRIPTOR)), &pfd);
+    SetPixelFormat(dc, suggested_pixel_format_index, &pfd);
+    
+    var t1 = get_perf_counter();
+
+    var opengl_attribs = [
+        WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+        WGL_CONTEXT_MINOR_VERSION_ARB, 5,
+        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+        0
+    ];
+
+    var gl_rc = wglCreateContextAttribsARB(dc, null, &opengl_attribs[0]);
+    var result = wglMakeCurrent(dc, gl_rc);
+    assert(result != 0);
+
+    wglSwapIntervalEXT(0);
+    
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+
+    *(&glDebugMessageCallback@ptr*) = wglGetProcAddress(cstr("glDebugMessageCallback\0"));
+    assert(glDebugMessageCallback@ptr != nullptr);
+    glDebugMessageCallback(@glDebugMessageCallbackType gl_error_callback, nullptr);
+
+    
+    
+    *(&glGenerateMipmap@ptr*) = wglGetProcAddress(cstr("glGenerateMipmap\0"));
+    assert(glGenerateMipmap@ptr != nullptr);
+
+    *(&glGetUniformLocation@ptr*) = wglGetProcAddress(cstr("glGetUniformLocation\0"));
+    assert(glGetUniformLocation@ptr != nullptr);
+
+    *(&glUniform4f@ptr*) = wglGetProcAddress(cstr("glUniform4f\0"));
+    assert(glUniform4f@ptr != nullptr);
+
+    *(&glUniform1i@ptr*) = wglGetProcAddress(cstr("glUniform1i\0"));
+    assert(glUniform1i@ptr != nullptr);
+    
+    *(&glActiveTexture@ptr*) = wglGetProcAddress(cstr("glActiveTexture\0"));
+    assert(glActiveTexture@ptr != nullptr);
+
+    *(&glBindTexture@ptr*) = wglGetProcAddress(cstr("glBindTexture\0"));
+    assert(glBindTexture@ptr != nullptr);
+    
+    *(&glGenTextures@ptr*) = wglGetProcAddress(cstr("glGenTextures\0"));
+    assert(glGenTextures@ptr != nullptr);
+    
+    *(&glGenBuffers@ptr*) = wglGetProcAddress(cstr("glGenBuffers\0"));
+    assert(glGenBuffers@ptr != nullptr);
+
+    *(&glBindBuffer@ptr*) = wglGetProcAddress(cstr("glBindBuffer\0"));
+    assert(glBindBuffer@ptr != nullptr);
+
+    *(&glBufferData@ptr*) = wglGetProcAddress(cstr("glBufferData\0"));
+    assert(glBufferData@ptr != nullptr);
+
+    *(&glEnableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glEnableVertexAttribArray\0"));
+    assert(glEnableVertexAttribArray@ptr != nullptr);
+
+    *(&glDisableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glDisableVertexAttribArray\0"));
+    assert(glDisableVertexAttribArray@ptr != nullptr);
+
+    *(&glVertexAttribPointer@ptr*) = wglGetProcAddress(cstr("glVertexAttribPointer\0"));
+    assert(glVertexAttribPointer@ptr != nullptr);
+
+    *(&glCreateShader@ptr*) = wglGetProcAddress(cstr("glCreateShader\0"));
+    assert(glCreateShader@ptr != nullptr);
+
+    *(&glShaderSource@ptr*) = wglGetProcAddress(cstr("glShaderSource\0"));
+    assert(glShaderSource@ptr != nullptr);
+
+    *(&glCompileShader@ptr*) = wglGetProcAddress(cstr("glCompileShader\0"));
+    assert(glCompileShader@ptr != nullptr);
+    
+    *(&glDeleteShader@ptr*) = wglGetProcAddress(cstr("glDeleteShader\0"));
+    assert(glDeleteShader@ptr != nullptr);
+
+    *(&glCreateProgram@ptr*) = wglGetProcAddress(cstr("glCreateProgram\0"));
+    assert(glCreateProgram@ptr != nullptr);
+
+    *(&glAttachShader@ptr*) = wglGetProcAddress(cstr("glAttachShader\0"));
+    assert(glAttachShader@ptr != nullptr);
+
+    *(&glLinkProgram@ptr*) = wglGetProcAddress(cstr("glLinkProgram\0"));
+    assert(glLinkProgram@ptr != nullptr);
+
+    *(&glUseProgram@ptr*) = wglGetProcAddress(cstr("glUseProgram\0"));
+    assert(glUseProgram@ptr != nullptr);
+
+    *(&glDeleteProgram@ptr*) = wglGetProcAddress(cstr("glDeleteProgram\0"));
+    assert(glDeleteProgram@ptr != nullptr);
+
+    *(&glGetShaderiv@ptr*) = wglGetProcAddress(cstr("glGetShaderiv\0"));
+    assert(glGetShaderiv@ptr != nullptr);
+
+    *(&glGetProgramiv@ptr*) = wglGetProcAddress(cstr("glGetProgramiv\0"));
+    assert(glGetProgramiv@ptr != nullptr);
+
+    *(&glGetShaderInfoLog@ptr*) = wglGetProcAddress(cstr("glGetShaderInfoLog\0"));
+    assert(glGetShaderInfoLog@ptr != nullptr);
+
+    *(&glGetProgramInfoLog@ptr*) = wglGetProcAddress(cstr("glGetProgramInfoLog\0"));
+    assert(glGetProgramInfoLog@ptr != nullptr);
+
+    *(&glGenVertexArrays@ptr*) = wglGetProcAddress(cstr("glGenVertexArrays\0"));
+    assert(glGenVertexArrays@ptr != nullptr);
+
+    *(&glBindVertexArray@ptr*) = wglGetProcAddress(cstr("glBindVertexArray\0"));
+    assert(glBindVertexArray@ptr != nullptr);
+
+    *(&glDrawArrays@ptr*) = wglGetProcAddress(cstr("glDrawArrays\0"));
+    assert(glDrawArrays@ptr != nullptr);
+
+    *(&glDrawElements@ptr*) = wglGetProcAddress(cstr("glDrawElements\0"));
+    assert(glDrawElements@ptr != nullptr);
+
+    var t2 = get_perf_counter();
+    var info = get_opengl_info();
+    var t3 = get_perf_counter();
+
+    print_opengl_info(&info);
+
+
+
+    // debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
+    // debug_print_f64("create context: ", get_ms_elapsed(t1, t2));
+    // debug_print_f64("get info: ", get_ms_elapsed(t2, t3));
+}
+
+let gl_error_callback = fun(
+    source: i32;
+    type: i32;
+    id: i32;
+    severity: i32;
+    length: i32;
+    message: ptr;
+    userParam: ptr;
+) => void {
+    if (severity <= GL_DEBUG_SEVERITY_NOTIFICATION) {
+        return;
+    }
+    print("\n(gl) ");
+    if (type == GL_DEBUG_TYPE_ERROR) {
+        print("error");
+    } elif (type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR) {
+        print("deprecated");
+    } elif (type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR) {
+        print("undefined");
+    } elif (type == GL_DEBUG_TYPE_PORTABILITY) {
+        print("portability");
+    } elif (type == GL_DEBUG_TYPE_PERFORMANCE) {
+        print("performance");
+    } elif (type == GL_DEBUG_TYPE_OTHER) {
+        print("other");
+    } elif (type == GL_DEBUG_TYPE_MARKER) {
+        print("marker");
+    } elif (type == GL_DEBUG_TYPE_PUSH_GROUP) {
+        print("push");
+    } elif (type == GL_DEBUG_TYPE_POP_GROUP) {
+        print("pop");
+    } 
+    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+        print("(note): ");
+    } elif (severity == GL_DEBUG_SEVERITY_LOW) {
+        print("(low): ");
+    } elif (severity == GL_DEBUG_SEVERITY_MEDIUM) {
+        print("(medium): ");
+    } elif (severity == GL_DEBUG_SEVERITY_HIGH) {
+        print("(high): ");
+    }
+    print(from_cstr(message));
+    print("\n");
+
+    if (type == GL_DEBUG_TYPE_ERROR) {
+        assert(false);
+    }
+}
+
+[
+	"compile.output": "font.exe",
+	"compile.entry" : "true",
+ 	"compile.opt"   : "0",
+    "compile.debuginfo": "true",
+    "compile.ll"    : "false",
+    "compile.asm"   : "false",
+    "compile.cpu"   : "native", // "sandybridge",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun() => void {
+    QueryPerformanceFrequency(&perf_count_freq);
+
+    SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+
+    var t0 = get_perf_counter();
+    
+    let buffer_width  = 1340;
+    let buffer_height = 720;
+
+    var client_rect = RECT { 0, 0, buffer_width, buffer_height };
+    AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
+
+    var window_width = client_rect.right - client_rect.left;
+    assert(window_width > 0);
+    var window_height = client_rect.bottom - client_rect.top;
+    assert(window_height > 0);
+    window.client_width = buffer_width;
+    window.client_height = buffer_height;
+    
+    var class_name  = cstr("opengl_test_window_class\0");
+    var window_name = cstr("opengl test\0");
+    var module_handle = GetModuleHandleA(null);
+    var window_class = WNDCLASSEX {};
+    window_class.cbSize = size_of(WNDCLASSEX)@i32;
+    window_class.style = CS_HREDRAW|CS_VREDRAW;
+    window_class.lpfnWndProc = @ptr main_window_callback;
+    window_class.hInstance = module_handle;
+    window_class.lpszClassName = class_name;
+    window_class.hCursor = LoadCursorA(null, IDC_ARROW);
+    RegisterClassExA(&window_class);
+    
+    
+    let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
+    let dw_ex_style = 0 & WS_EX_TOPMOST;
+ 
+    window.handle = CreateWindowExA(
+        dw_ex_style,
+        class_name,
+        window_name,
+        dw_style,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        window_width,
+        window_height,
+        null,
+        null,
+        module_handle,
+        null
+    );
+    window.dc = GetDC(window.handle);
+    
+    var gl_t0 = get_perf_counter();
+    init_opengl(window.dc);
+    init_gl_resources(&window);
+    var gl_t1 = get_perf_counter();
+
+    // debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
+    var frames = 0;
+
+    var start_time = get_perf_counter();
+    while (!window.wants_to_quit) {
+        process_pending_messages();
+        var t0 = get_perf_counter();
+        var time = get_seconds_elapsed(start_time, t0);
+        render_opengl(&window, @f32 time);
+        var t1 = get_perf_counter();
+        frames++;
+        if (frames == 600) {
+            // debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
+            frames = 0;
+        }
+    }
+    ExitProcess(0);
+}

@@ -18,6 +18,9 @@ let glEnable = extern fun(cap: i32) => void;
 let glGetString = extern fun(flags: i32) => ptr;
 let glGetIntegerv = extern fun(flags: i32; param: i32*) => void;
 
+let glTexParameteri = extern fun(target: i32; pname: i32; param: i32) => void;
+let glTexImage2D = extern fun(target: i32; level: i32; internalformat: i32; width: i32; height: i32; border: i32; format: i32; type: i32; pixels: ptr) => void;
+
 
 let glDebugMessageCallbackType = fun(
     source: i32;
@@ -49,6 +52,64 @@ let GL_UNSIGNED_SHORT               = 0x1403;
 let GL_INT                          = 0x1404;
 let GL_UNSIGNED_INT                 = 0x1405;
 let GL_FLOAT                        = 0x1406;
+
+let GL_RED                            = 0x1903;
+let GL_GREEN                          = 0x1904;
+let GL_BLUE                           = 0x1905;
+let GL_ALPHA                          = 0x1906;
+let GL_RGB                            = 0x1907;
+let GL_RGBA                           = 0x1908;
+let GL_BGR                            = 0x80E0;
+let GL_BGRA                           = 0x80E1;
+
+
+let GL_TEXTURE_2D                      = 0x0DE1;
+let GL_NEAREST                         = 0x2600;
+let GL_LINEAR                          = 0x2601;
+let GL_NEAREST_MIPMAP_NEAREST          = 0x2700;
+let GL_LINEAR_MIPMAP_NEAREST           = 0x2701;
+let GL_NEAREST_MIPMAP_LINEAR           = 0x2702;
+let GL_LINEAR_MIPMAP_LINEAR            = 0x2703;
+let GL_TEXTURE_MAG_FILTER              = 0x2800;
+let GL_TEXTURE_MIN_FILTER              = 0x2801;
+let GL_TEXTURE_WRAP_S                  = 0x2802;
+let GL_TEXTURE_WRAP_T                  = 0x2803;
+let GL_REPEAT                          = 0x2901;
+let GL_CLAMP_TO_EDGE                   = 0x812F;
+
+let GL_TEXTURE0                       = 0x84C0;
+let GL_TEXTURE1                       = 0x84C1;
+let GL_TEXTURE2                       = 0x84C2;
+let GL_TEXTURE3                       = 0x84C3;
+let GL_TEXTURE4                       = 0x84C4;
+let GL_TEXTURE5                       = 0x84C5;
+let GL_TEXTURE6                       = 0x84C6;
+let GL_TEXTURE7                       = 0x84C7;
+let GL_TEXTURE8                       = 0x84C8;
+let GL_TEXTURE9                       = 0x84C9;
+let GL_TEXTURE10                      = 0x84CA;
+let GL_TEXTURE11                      = 0x84CB;
+let GL_TEXTURE12                      = 0x84CC;
+let GL_TEXTURE13                      = 0x84CD;
+let GL_TEXTURE14                      = 0x84CE;
+let GL_TEXTURE15                      = 0x84CF;
+let GL_TEXTURE16                      = 0x84D0;
+let GL_TEXTURE17                      = 0x84D1;
+let GL_TEXTURE18                      = 0x84D2;
+let GL_TEXTURE19                      = 0x84D3;
+let GL_TEXTURE20                      = 0x84D4;
+let GL_TEXTURE21                      = 0x84D5;
+let GL_TEXTURE22                      = 0x84D6;
+let GL_TEXTURE23                      = 0x84D7;
+let GL_TEXTURE24                      = 0x84D8;
+let GL_TEXTURE25                      = 0x84D9;
+let GL_TEXTURE26                      = 0x84DA;
+let GL_TEXTURE27                      = 0x84DB;
+let GL_TEXTURE28                      = 0x84DC;
+let GL_TEXTURE29                      = 0x84DD;
+let GL_TEXTURE30                      = 0x84DE;
+let GL_TEXTURE31                      = 0x84DF;
+
 
 
 let GL_ARRAY_BUFFER                 = 0x8892;
@@ -83,6 +144,8 @@ let WGL_PIXEL_TYPE_ARB               = 0x2013;
 let WGL_TYPE_RGBA_ARB                = 0x202B;
 let WGL_FULL_ACCELERATION_ARB        = 0x2027;
 let WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB = 0x20A9;
+let WGL_SAMPLE_BUFFERS_ARB           = 0x2041;
+let WGL_SAMPLES_ARB                  = 0x2042;
 
 let WGL_CONTEXT_MAJOR_VERSION_ARB           = 0x2091;
 let WGL_CONTEXT_MINOR_VERSION_ARB           = 0x2092;
@@ -137,6 +200,11 @@ var glDebugMessageCallback: fun(
  ) => void;
 
 
+var glGenTextures: fun(count: i32; textures: i32*) => void;
+var glBindTexture: fun(target: i32; texture: i32) => void;
+var glActiveTexture: fun(texture: i32) => void;
+var glGenerateMipmap: fun(target: i32) => void;
+
 var glGenBuffers: fun(count: i32; buffers: i32*) => void;
 var glBindBuffer: fun(target: i32; buffer: i32) => void;
 var glBufferData: fun(mode: i32; size: mm; data: ptr; usage: i32) => void;
@@ -180,7 +248,10 @@ var glGetProgramInfoLog: fun(
     maxLength: i32;
     legnth: i32*;
     infoLog: i8*) => void;
-
+    
+var glUniform1i: fun(location: i32; v0: i32) => void;
+var glUniform4f: fun(location: i32; v0: f32; v1: f32; v2: f32; v3: f32) => void;
+var glGetUniformLocation: fun(program: i32; name: i8*) => i32;
 
 var glGenVertexArrays: fun(count: i32; arrays: i32*) => void;
 var glBindVertexArray: fun(array: i32) => void;
@@ -196,3 +267,4 @@ var glDrawElements: fun(
     type: i32;
     indices: ptr;
 ) => void;
+

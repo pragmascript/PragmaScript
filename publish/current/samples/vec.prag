@@ -11,7 +11,7 @@ let v3 = fun (x: f32; y: f32; z: f32) => v3 {
     var result = v3 { x, y, z};
     return result;
 }
-var vz = v3 {0.0, 0.0, 0.0};
+var v3z = v3 {0.0, 0.0, 0.0};
 let add = fun (a: v3*; b: v3*) => v3 {
     var result = v3 { a.x + b.x, a.y + b.y, a.z + b.z};
     return result;
@@ -161,3 +161,14 @@ let debug_print = fun(name: string; value: v3) => void {
     print(value.z);
     print(")\n");
 }
+
+let v2 = struct 
+(
+    x: f32;
+    y: f32;
+);
+let v2 = fun (x: f32; y: f32) => v2 {
+    var result = v2 { x, y};
+    return result;
+}
+var v2z = v2 {0.0, 0.0};

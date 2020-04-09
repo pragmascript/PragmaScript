@@ -1,0 +1,55 @@
+import "../preamble.prag"
+import "../random.prag"
+import "../math.prag"
+
+let f = fun(x: f32; y: f32) => f32 {
+    var result = x * y + Math::sin(x);
+    return result;
+}
+
+let fdx = fun(x: f32; y: f32) => f32 {
+    var result = y + Math::cos(x);
+    return result;
+}
+
+let fdy = fun(x: f32; y: f32) => f32 {
+    var result = x;
+    return result;
+}
+
+let ft = fun(x: f32;y: f32) => f32;
+
+let delta = 0.000001;
+let dx_at = fun(x: f32; y: f32) => f32 {
+    var result = (f(x + delta, y) - f(x - delta, y)) / (2.0 * delta);
+    return result;
+}
+let dy_at = fun(x: f32; y: f32) => f32 {
+    var result = (f(x, y + delta) - f(x, y - delta)) / (2.0 * delta);
+    return result;
+}
+
+
+[
+	"compile.output": "nn.exe",
+	"compile.entry" : "true",
+ 	"compile.opt"   : "0",
+    "compile.debuginfo": "true",
+    "compile.ll"    : "false",
+    "compile.asm"   : "false",
+    "compile.cpu"   : "native", // "sandybridge",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void {
+    let x = 1.2;
+    let y = -0.3;
+    debug_print("x", x);
+    debug_print("y", y);
+    debug_print("f", f(x, y));
+    debug_print("dx_at", dx_at(x, y));
+    debug_print("dy_at", dy_at(x, y));
+    debug_print("fdx", fdx(x, y));
+    debug_print("fdy", fdy(x, y));
+}

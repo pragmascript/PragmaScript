@@ -29,6 +29,14 @@ let push = fun(@arena: memory_arena*; push_size: mm) => ptr {
 	return result;
 }
 
+var start_temp = fun(@arena: memory_arena*;) => mm {
+	return used;
+}
+
+var stop_temp = fun(@arena: memory_arena*; temp_used: mm) => void {
+	used = temp_used;
+}
+
 let create_arena = fun(size: mm) => memory_arena {
 	var data = allocate(size);
 	var result: memory_arena;
@@ -43,5 +51,11 @@ let create_arena = fun(size: mm) => memory_arena {
 	}
 	return result;
 }
+
+let get_slice = fun(@arena: memory_arena*) => i8[] {
+	var result = base[:used@i32];
+	return result;
+}
+
 
 

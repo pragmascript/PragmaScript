@@ -1,0 +1,273 @@
+import "preamble.prag"
+
+
+let initial_slice_capacity = 32;
+let xml_element_slice = struct(
+    count: i32;
+    capacity: i32;
+    data: xml_element*;
+);
+
+let xml_attrib_slice = struct(
+    count: i32;
+    capacity: i32;
+    data: xml_attrib*;
+);
+
+let xml_element = struct (
+    name: string;
+    childs: xml_element_slice;
+    attribs: xml_attrib_slice;
+);
+let xml_attrib = struct (
+    key: string;
+    value: string;
+);
+
+let add = fun(slice: xml_attrib_slice*; elem: xml_attrib; arena: memory_arena* = &temp_memory_arena) => xml_attrib* {  
+    if (slice.capacity == 0) {
+        *slice = create_attrib_slice(initial_slice_capacity, 0, arena);
+    }  
+    elif (slice.count + 1 > slice.capacity) {
+        var temp_ptr = slice.data@i8*;
+        *slice = create_attrib_slice(slice.capacity * 2, slice.count + 1, arena);
+        memcpy(temp_ptr, slice.data@i8*, @mm slice.count * size_of(xml_attrib));
+    }
+    var result = slice.data + slice.count;
+    *result = elem;
+    slice.count++;
+    assert(slice.count <= slice.capacity);
+    return result;
+}
+
+
+let add_child = fun(elem: xml_element*; name: string; arena: memory_arena* = &temp_memory_arena) => xml_element* {
+    var slice = elem.childs;
+    var result: xml_element*;
+    if (slice.capacity == 0) {
+        assert(slice.count == 0);
+        elem.childs = create_element_slice(initial_slice_capacity, 0, arena);
+    }
+    elif (slice.count + 1 > slice.capacity) {
+        elem.childs = create_element_slice(slice.capacity * 2, slice.count, arena);
+        memcpy(elem.childs.data@i8*, slice.data@i8*, @mm slice.count * size_of(xml_element));
+    }
+    result = elem.childs.data + elem.childs.count;
+    elem.childs.count += 1;
+    assert(elem.childs.count <= elem.childs.capacity);
+    
+    *result = xml_element { };
+    result.name = clone(name);
+    
+    return result;
+}
+
+
+
+let create_element_slice = fun(capacity: i32; count: i32; arena: memory_arena* = &temp_memory_arena) => xml_element_slice {
+    var result: xml_element_slice;
+    result.capacity = capacity;
+    result.count = count;
+    result.data = push(arena, @mm result.capacity * size_of(xml_element)) @xml_element*;
+    return result;
+}
+
+let create_attrib_slice = fun(capacity: i32; count: i32; arena: memory_arena* = &temp_memory_arena) => xml_attrib_slice {
+    var result: xml_attrib_slice;
+    result.capacity = capacity;
+    result.count = count;
+    result.data = push(arena, @mm result.capacity * size_of(xml_attrib)) @xml_attrib*;
+    return result;
+}
+
+let clone = fun(s: string; arena: memory_arena* = &temp_memory_arena) => string {
+    var result: string;
+    result.length = s.length;
+    result.data = push(arena, result.length@mm)@i8*;
+    memcpy(result.data, s.data, s.length@mm);
+    return result;
+}
+
+// let init = fun(elem: xml_element*; name: string; arena: memory_arena* = &temp_memory_arena) => void {
+//     elem.name = clone(name, arena);
+//     elem.childs = create_element_slice(initial_slice_capacity, 0, arena);
+// }
+
+let at = fun(s: string; pos: i32) => i8 { 
+    if (pos >= s.length || pos < 0) {
+        return 0;
+    } else {
+        return s[pos];
+    }
+}
+
+let skip_whitespace = fun(s: string; pos: i32) => i32 {
+    // print("skip whitespace: \n");
+    var temp = pos; 
+    while (is_whitespace(at(s, temp))) {
+        temp++;
+        // print(temp);
+        // print(": ");
+        // print(s[temp:(temp + 1)]); 
+        // print("\n");
+    }
+    return temp;
+    print("\n");
+}
+
+let is_name_char = fun(char: i8) => bool {
+    if (char >= 48 && char <= 57) {
+        return true;
+    }
+    elif (char >= 65 && char <= 90) {
+        return true;
+    }
+    elif (char >= 97 && char <= 122 ) {
+        return true;
+    }
+    return false;
+}
+
+let read_name = fun(s: string; pos: i32) => string {
+    assert(at(s, pos) != 0 && !is_whitespace(at(s, pos)));
+    var result: string;
+    result.data = s.data + pos;
+    result.length = 0;
+    while (is_name_char(at(s, pos + result.length))) { result.length++; }
+    
+    return result;
+}
+
+
+let parse_attribs = fun(text: string; pos: i32*; parent: xml_element*; arena: memory_arena* = &temp_memory_arena) => 
+void {
+    *pos = skip_whitespace(text, *pos);
+    var next_char = at(text, *pos);
+    while (is_name_char(next_char)) {
+        var attrib = xml_attrib { };
+        attrib.key = read_name(text, *pos);
+        *pos = *pos + attrib.key.length;
+        *pos = skip_whitespace(text, *pos);
+        assert(at(text, *pos) == ord("="));
+        *pos = *pos + 1;
+        assert(at(text, *pos) == ord("\""));
+        *pos = *pos + 1;
+        attrib.value = string { };
+        attrib.value.data = text.data + (*pos);
+        while (at(text, *pos) != ord("\"")) {
+            *pos = *pos + 1;
+            attrib.value.length++;
+        }
+        add(&parent.attribs, attrib, arena);
+        *pos = *pos + 1;
+        *pos = skip_whitespace(text, *pos);
+        next_char = at(text, *pos);
+    }
+}
+
+let parse_close_tag = fun(text: string; pos: i32*) => string {
+    assert(at(text, *pos) == ord("<"));
+    *pos = *pos + 1;
+    assert(at(text, *pos) == ord("/"));
+    *pos = *pos + 1;
+    *pos = skip_whitespace(text, *pos);
+    var result = string { };
+    result.data = &text[*pos];
+    while (result[result.length] != ord(">")) { result.length++; }
+    *pos = *pos + result.length;
+    assert(at(text, *pos) == ord(">"));
+    *pos = *pos + 1;
+    return result;
+}
+
+let parse_element = fun(text: string; pos: i32*; parent: xml_element*; arena: memory_arena* = &temp_memory_arena) => void {
+    assert(at(text, *pos) == ord("<"));
+    pos++;
+    *pos = skip_whitespace(text, *pos);
+    var name = read_name(text, *pos);
+    
+    // debug_print("tag", name);
+    assert(name.length > 0);
+    *pos = *pos + name.length;
+    
+    var current = add_child(parent, name, arena);
+    // debug_print("childs", parent.childs.count);
+    parse_attribs(text, pos, current, arena);
+    
+    
+    *pos = skip_whitespace(text, *pos);
+    if (at(text, *pos) == ord(">")) {
+        *pos = *pos + 1;
+        while (true) {
+            *pos = skip_whitespace(text, *pos);
+            if (at(text, *pos) == ord("<") && at(text, *pos + 1) != ord("/")) {
+                parse_element(text, pos, current, arena);    
+            } else {
+                break;
+            }
+        }
+        *pos = skip_whitespace(text, *pos);
+        assert(at(text, *pos) == ord("<"));
+        var close_tag_name = parse_close_tag(text, pos);
+        // debug_print("close", close_tag_name);
+        assert(strings_are_equal(current.name, close_tag_name));
+    } elif (at(text, *pos) == ord("/")) {
+        *pos = *pos + 1;
+        assert(at(text, *pos) == ord(">"));
+        *pos = *pos + 1;
+    }
+}
+
+let read_xml = fun(path: string; arena: memory_arena* = &temp_memory_arena) => xml_element {
+    var root = xml_element { };
+    var text = read_file(path, arena);
+    
+    var pos = 0;
+    while (at(text, ++pos) != ord(">")) { }
+    
+    if (pos >= text.length) {
+        return root;
+    }
+    while (at(text, ++pos) != ord("<")) { }
+
+    
+    root.name = "root";
+    parse_element(text, &pos, &root, arena);
+    
+    return root;
+}
+
+let get_child = fun(elem: xml_element*; name: string) => xml_element* {
+    for (var child_idx = 0; child_idx < elem.childs.count; ++child_idx) {
+        var child = elem.childs.data + child_idx;
+        if (strings_are_equal(child.name, name)) {
+            return child;
+        }
+    }
+    return 0@xml_element*;
+}
+
+
+let get_attrib = fun(elem: xml_element*; key: string) => xml_attrib* {
+    for (var attrib_idx = 0; attrib_idx < elem.attribs.count; ++attrib_idx) {
+        var attrib = elem.attribs.data + attrib_idx;
+        if (strings_are_equal(attrib.key, key)) {
+            return attrib;
+        }
+    }
+    return 0@xml_attrib*;
+}
+
+let get_attrib_value = fun(elem: xml_element*; key: string) => string {
+    for (var attrib_idx = 0; attrib_idx < elem.attribs.count; ++attrib_idx) {
+        var attrib = elem.attribs.data + attrib_idx;
+        if (strings_are_equal(attrib.key, key)) {
+            return attrib.value;
+        }
+    }
+    return string { };
+}
+
+
+
+

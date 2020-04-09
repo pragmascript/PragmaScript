@@ -87,6 +87,12 @@ let process_pending_messages = fun() => void {
     }
 }
 
+
+let render = fun(window: window_state*; time: f32) => void {
+    
+}
+
+
 [
     "compile.entry", 
     "compile.output": "vulkan_test.exe",
@@ -156,7 +162,7 @@ let main = fun () => void {
         process_pending_messages();
         var t0 = get_perf_counter();
         var time = get_seconds_elapsed(start_time, t0);
-        // render_opengl(&window, @f32 time);
+        render(&window, @f32 time);
         var t1 = get_perf_counter();
     }
     Windows::ExitProcess(0);

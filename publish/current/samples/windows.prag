@@ -258,6 +258,72 @@
     let ExitProcess = extern fun(signal: i32) => void;
     
     
+    let ANSI_CHARSET            = 0;
+    let DEFAULT_CHARSET         = 1;
+    let SYMBOL_CHARSET          = 2;
+    let OUT_DEFAULT_PRECIS          = 0;
+    let OUT_STRING_PRECIS           = 1;
+    let OUT_CHARACTER_PRECIS        = 2;
+    let OUT_STROKE_PRECIS           = 3;
+    let OUT_TT_PRECIS               = 4;
+    let OUT_DEVICE_PRECIS           = 5;
+    let OUT_RASTER_PRECIS           = 6;
+    let OUT_TT_ONLY_PRECIS          = 7;
+    let OUT_OUTLINE_PRECIS          = 8;
+    let OUT_SCREEN_OUTLINE_PRECIS   = 9;
+    let OUT_PS_ONLY_PRECIS          = 10;
+    let CLIP_DEFAULT_PRECIS     = 0;
+    let CLIP_CHARACTER_PRECIS   = 1;
+    let CLIP_STROKE_PRECIS      = 2;
+    let FW_DONTCARE         = 0;
+    let FW_THIN             = 100;
+    let FW_EXTRALIGHT       = 200;
+    let FW_LIGHT            = 300;
+    let FW_NORMAL           = 400;
+    let FW_MEDIUM           = 500;
+    let FW_SEMIBOLD         = 600;
+    let FW_BOLD             = 700;
+    let FW_EXTRABOLD        = 800;
+    let FW_HEAVY            = 900;
+    let DEFAULT_QUALITY         = 0;
+    let DRAFT_QUALITY           = 1;
+    let PROOF_QUALITY           = 2;
+    let NONANTIALIASED_QUALITY  = 3;
+    let ANTIALIASED_QUALITY     = 4;
+    let CLEARTYPE_QUALITY       = 5;
+    let CLEARTYPE_NATURAL_QUALITY       = 6;
+    let DEFAULT_PITCH           = 0;
+    let FIXED_PITCH             = 1;
+    let VARIABLE_PITCH          = 2;
+    let MONO_FONT               = 8;
+    let FF_DONTCARE         = (0<<4);
+    let AddFontResourceA = extern fun(str: i8*) => i32;
+    let CreateFontA = extern fun (
+      cHeight: i32;
+      cWidth: i32;
+      cEscapement: i32;
+      cOrientation: i32;
+      cWeight: i32;
+      bItalic: i32;
+      bUnderline: i32;
+      bStrikeOut: i32;
+      iCharSet: i32;
+      iOutPrecision: i32;
+      iClipPrecision: i32;
+      iQuality: i32;
+      iPitchAndFamily: i32;
+      pszFaceName: i8*
+    ) => mm;
+    
+    ["PACKED"]
+    let KERNINGPAIR = struct(
+      wFirst: i16;
+      wSecond: i16;
+      iKernAmount: i32;
+    );
+    let GetKerningPairsA = extern fun(dc: mm; nPairs:i32; lpKernPair: KERNINGPAIR*) => i32;
+    let SelectObject = extern fun(hdc: mm; h: mm) => mm;
+    
     let ENABLE_ECHO_INPUT = 0x0004;
     let ENABLE_EXTENDED_FLAGS = 0x0080;
     let ENABLE_INSERT_MODE = 0x0020;

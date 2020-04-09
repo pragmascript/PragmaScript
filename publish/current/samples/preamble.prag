@@ -1,9 +1,12 @@
 ﻿#if PLATFORM_WINDOWS
 	import "windows.prag"
 #endif
+
+
 import "memory.prag"
 
-var temp_memory_arena: memory_arena = create_arena(megabytes(32));
+var temp_memory_arena: memory_arena = create_arena(megabytes(64));
+// var temp_memory_arena: memory_arena = create_arena(64);
 
 let kilobytes = fun (bytes: mm) => mm 
 {
@@ -21,6 +24,44 @@ let terabytes = fun (bytes: mm) => mm
 {
 	return bytes * 1024 * 1024 * 1024 * 1024;
 }
+
+let endian_swap = fun(value: i16) => i16 {
+    var result =
+        ((value >>\ 8) & (0xFF))  << 0 |
+        ((value >>\ 0) & (0xFF))  << 8;
+    return result;
+}
+let endian_swap = fun(value: i16*) => void {
+    *value = endian_swap(*value);
+}
+
+
+let endian_swap = fun(value: i32) => i32 {
+    var result =
+        ((value >>\ 24) & (0xFF)) << 0  |
+        ((value >>\ 16) & (0xFF)) << 8  |
+        ((value >>\ 8) & (0xFF))  << 16 |
+        ((value >>\ 0) & (0xFF))  << 24;
+    return result;
+}
+let endian_swap = fun(value: i32*) => void {
+    *value = endian_swap(*value);
+}
+
+let endian_swap = fun(value: i64) => i64 {
+    var result =
+        ((value >>\ 56) & (0xFF)) << 0  |
+        ((value >>\ 48) & (0xFF)) << 8  |
+        ((value >>\ 40) & (0xFF)) << 16 |
+        ((value >>\ 32) & (0xFF)) << 24 |
+        ((value >>\ 24) & (0xFF)) << 32 |
+        ((value >>\ 16) & (0xFF)) << 40 |
+        ((value >>\ 8) & (0xFF))  << 48 |
+        ((value >>\ 0) & (0xFF))  << 56;
+    return result;
+}
+
+
 
 let null = @mm 0;
 let nullptr = @ptr 0;
@@ -291,6 +332,23 @@ let from_hex_str = fun(str: string; value: i32*) => bool {
 	return true;
 }
 
+let to_binary_str = fun(value: i16;  arena: memory_arena* = &temp_memory_arena) => string {
+	var result = make_string(16, arena);
+	var temp = value;
+	for (var str_idx = 15; str_idx >= 0; --str_idx) {
+		var digit = temp & 0x1;
+		temp = temp >>\ 1;
+		var char: i8;
+		if (digit == 0) {
+			char = ord("0");
+		} else {
+			char = ord("1");
+		}
+		result[str_idx] = char;
+	}
+	return result;
+}
+
 let to_hex_str = fun(value: i32; arena: memory_arena* = &temp_memory_arena) => string {
 	var result = make_string(8, arena);
 	var temp = value;
@@ -417,7 +475,7 @@ let to_str = fun(value: i32; signed: bool = true; arena: memory_arena* = &temp_m
 	return result;
 }
 
-["conditional":"debug"]
+["conditional":"SLOW"]
 let assert = fun 
 (
 	value: bool; 
@@ -440,7 +498,7 @@ let assert = fun
 	}
 }
 
-#if DEBUG
+#if SLOW
 let cstr = fun(value: string; filepos: string = __file_pos__()) => i8* 
 {
 	assert(value[value.length - 1] == 0, "c-string not null terminated", filepos);
@@ -541,8 +599,6 @@ let memset = fun
 	}
 	return dest;
 }
-
-
 
 
 	// TODO(pragma): READ/WRITE barrier?
