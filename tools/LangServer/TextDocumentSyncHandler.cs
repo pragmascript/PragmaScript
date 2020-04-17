@@ -112,6 +112,10 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
             });
             foundError = true;
         }
+        catch (Exception)
+        {
+            foundError = true;
+        }
 
         if (!foundError)
         {

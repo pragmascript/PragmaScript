@@ -16,10 +16,20 @@ import "../math.prag"
 ]
 let main = fun () => void 
 {   
-    foo();
+    ptr_bug();
+    // foo();
     // enum_test();
     //slice_test();
 }
+
+let ptr_bug = fun() => void
+{
+    var ptr_w_1 = 0@ptr;
+    var ptr_w_2 = 16@ptr;
+    var dist = ptr_w_2 - ptr_w_1;
+    assert(dist == 16);
+}
+
 // FIXED
 #if FALSE
     let sphere = struct(
@@ -186,7 +196,9 @@ mod Fumm
 }
 
 
-#if TRUE
+
+
+#if FALSE
 
 with Math;
 with Fumm;
@@ -200,6 +212,8 @@ let foo = fun() => void {
 
     var c = 0.0;
     var d = 1.0;
+    
+    // this should not be ambigious?
     swap(&c, &d);
     debug_print("c", c);
     debug_print("d", d);

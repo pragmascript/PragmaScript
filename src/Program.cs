@@ -6,8 +6,16 @@ using System.Diagnostics;
 
 using static PragmaScript.AST;
 
+
 namespace PragmaScript
 {
+
+    class Options
+    {
+
+
+    }
+
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
     class Program
     {
@@ -29,10 +37,11 @@ namespace PragmaScript
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "test", "array.prag");
-            CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "opengl", "test_opengl.prag");
+            CompilerOptions._i.inputFilename = Path.Combine(programDir, "opengl", "png.prag");
             // CompilerOptions._i.inputFilename = Path.Combine("test", "bugs.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "wasapi", "wasapi.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "raytracer", "raytracer.prag");
@@ -59,14 +68,22 @@ namespace PragmaScript
             Console.WriteLine("    pragma.exe [options] <input>");
             Console.WriteLine();
             Console.WriteLine("OPTIONS:");
-            Console.WriteLine("    -O <filename>   set output filename");
-            Console.WriteLine("    -D              build in debug mode");
-            Console.WriteLine("    -O0             turn off optimizations");
-            Console.WriteLine("    -OX             turn on optimization level X in [1..3]");
-            Console.WriteLine("    -R              run program after compilation");
-            Console.WriteLine("    -ASM            output generated assembly");
-            Console.WriteLine("    -LL             output LLVM IL");
+            Console.WriteLine("    -O <filename>     set output filename");
+            Console.WriteLine("    -D                build in debug mode");
+            Console.WriteLine("    -O0               turn off optimizations");
+            Console.WriteLine("    -OX               turn on optimization level X in [1..3]");
+            Console.WriteLine("    -R                run program after compilation");
+            Console.WriteLine("    -ASM              output generated assembly");
+            Console.WriteLine("    -LL               output LLVM IL");
+            Console.WriteLine("    -N <projectname>  [template] create new project with name and optional template");
         }
+
+        static void createProject()
+        {
+            Console.WriteLine("Enter name: ");
+            var name = Console.ReadLine();
+        }
+
         static void parseARGS(string[] args)
         {
             for (int i = 0; i < args.Length; ++i)
@@ -104,6 +121,10 @@ namespace PragmaScript
                         case "-HELP":
                         case "H":
                             printHelp();
+                            Environment.Exit(0);
+                            break;
+                        case "N":
+                            createProject();
                             Environment.Exit(0);
                             break;
                         case "R":

@@ -6,7 +6,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceRoot}/raytracer/bin/raytracer.exe",
+            "program": "${workspaceRoot}/test/bin/bugs.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}/opengl/bin",

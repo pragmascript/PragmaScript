@@ -12,10 +12,14 @@ public class LanguageHelper
         return pos >= token.Pos && pos < token.Pos + token.length;
     }
 
-    public static AST.Node FindNode(Scope scope, int posZeroBased, int lineZeroBased)
+    public static AST.Node FindNode(Scope scope, int posZeroBased, int lineZeroBased, string filePath)
     {
         AST.Node FindNodeRec(AST.Node node, int pos, int line)
         {
+            if (node.token.filename != filePath)
+            {
+                return null;
+            }
             if (InsideToken(node.token, pos, line))
             {
                 return node;

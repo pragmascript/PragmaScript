@@ -6,7 +6,6 @@ import "../memory.prag"
 import "../zlib.prag"
 
 
-
 let bitmap = struct (
     width: i32;
     height: i32;
@@ -287,6 +286,9 @@ let apply_png_filters = fun(scanlines: ptr; bmp: bitmap) => void {
         }
         // TODO(pragma): POINTER DISTANCE IS BROKEN IN COMPILER FIX
         // "dst_ptr - dst_ptr_prev_row" this outputs 2048 but SHOULD output 16384
+        
+        assert(dst_ptr - dst_ptr_prev_row == row_byte_offset);
+        
         assert(dst_ptr@mm - dst_ptr_prev_row@mm == row_byte_offset@mm);
     }
 }
@@ -315,7 +317,7 @@ let load_png = fun(file: string) => bitmap {
     var width = stream.info.width;
     var height = stream.info.height;
     
-    var size = width * height * 4 * 2;  // RGBA 
+    var size = width * height * 4 + height;  // RGBA 
     var scanlines = allocate(size@mm);
     decompress(get_slice(&stream.info.compressed_data), scanlines[:size]);
     
@@ -345,11 +347,35 @@ let print_hex = fun(name: string; value: i32) => void {
     "compile.asm"   : "false",
     "compile.cpu"   : "native", // "sandybridge",
  	"compile.run"   : "true",
- 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
 ]
 let main = fun() => void {
+    
+    var t0: i64;
+    var t1: i64;
+    Windows::QueryPerformanceCounter(&t0);
     var bmp = load_png("png_test_2.png\0");
+    Windows::QueryPerformanceCounter(&t1);
+    
+    var freq: i64;
+    Windows::QueryPerformanceFrequency(&freq);
+    var seconds_elapsed = (t1 - t0)@f64 / freq@f64;
+    
+    
+    var seconds_decode_huffman = decode_huffman_ticks@f64 / freq@f64;
+    var seconds_build_huffman = build_huffman_ticks@f64 / freq@f64;
+    
+    debug_print("width", bmp.width);
+    debug_print("height", bmp.height);
+    debug_print("seconds", seconds_elapsed);
+    
+    // debug_print("decode_huffman_seconds", seconds_decode_huffman);
+    // debug_print("build_huffman_seconds", seconds_build_huffman);
+    
+    
+    
     // var bmp = load_png("png_test_2.png\0");
     // save_bitmap("decompressed.bmp\0", bmp);
 }
+

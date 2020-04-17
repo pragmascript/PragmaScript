@@ -902,8 +902,8 @@ namespace PragmaScript
                                             var li = builder.BuildPtrToInt(left, mm_t, node, "ptr_to_int");
                                             var ri = builder.BuildPtrToInt(right, mm_t, node, "ptr_to_int");
                                             var sub = builder.BuildSub(li, ri, node, "sub");
-                                            var lpt = ((PointerType)leftType).elementType;
-                                            var size_of = builder.BuildSizeOf(leftType, node);
+                                            var let = ((PointerType)leftType).elementType;
+                                            var size_of = builder.BuildSizeOf(let, node);
                                             result = builder.BuildSDiv(sub, size_of, node, "div");
                                         }
                                         break;

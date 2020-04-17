@@ -59,7 +59,7 @@ class HoverHandler : IHoverHandler
 
         var pos = (int)request.Position.Character;
         var line = (int)request.Position.Line;
-        var node = FindNode(scope, pos, line);
+        var node = FindNode(scope, pos, line, documentPath);
         if (node == null)
         {
             return new Hover();

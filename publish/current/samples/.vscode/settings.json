@@ -6,5 +6,8 @@
     //     "*.prag": "csharp"
     // },
     "problems.autoReveal": true,
-    "debug.allowBreakpointsEverywhere": true
+    "debug.allowBreakpointsEverywhere": true,
+    "lldb.displayFormat": "auto",
+    "lldb.showDisassembly": "always",
+    "lldb.dereferencePointers": true
 }

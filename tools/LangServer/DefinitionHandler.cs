@@ -48,10 +48,8 @@ class DefinitionHandler : IDefinitionHandler
 
         var pos = (int)request.Position.Character;
         var line = (int)request.Position.Line;
-
         var scope = GetCurrentScope(rootScope, (int)request.Position.Character, (int)request.Position.Line, documentPath);
-
-        var node = FindNode(scope, pos, line);
+        var node = FindNode(scope, pos, line, documentPath);
         if (node == null)
         {
             return new LocationOrLocationLinks();

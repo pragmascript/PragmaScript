@@ -10,7 +10,7 @@
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(CompileConfig)' == 'Release'" >
+  <PropertyGroup Condition="'$(CompileConfig)' == 'Release'">
     <Optimization>true</Optimization>
     <DebugSymbols>false</DebugSymbols>
   <DebugType>portable</DebugType>
@@ -23,6 +23,9 @@
   </Target>
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.6.0" />
   </ItemGroup>
 </Project>
   

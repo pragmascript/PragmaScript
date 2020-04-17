@@ -332,10 +332,44 @@ let from_hex_str = fun(str: string; value: i32*) => bool {
 	return true;
 }
 
+let to_binary_str = fun(value: i8;  arena: memory_arena* = &temp_memory_arena) => string {
+	var result = make_string(8, arena);
+	var temp = value;
+	for (var str_idx = 7; str_idx >= 0; --str_idx) {
+		var digit = temp & 0x1;
+		temp = temp >>\ 1;
+		var char: i8;
+		if (digit == 0) {
+			char = ord("0");
+		} else {
+			char = ord("1");
+		}
+		result[str_idx] = char;
+	}
+	return result;
+}
+
 let to_binary_str = fun(value: i16;  arena: memory_arena* = &temp_memory_arena) => string {
 	var result = make_string(16, arena);
 	var temp = value;
 	for (var str_idx = 15; str_idx >= 0; --str_idx) {
+		var digit = temp & 0x1;
+		temp = temp >>\ 1;
+		var char: i8;
+		if (digit == 0) {
+			char = ord("0");
+		} else {
+			char = ord("1");
+		}
+		result[str_idx] = char;
+	}
+	return result;
+}
+
+let to_binary_str = fun(value: i32;  arena: memory_arena* = &temp_memory_arena) => string {
+	var result = make_string(32, arena);
+	var temp = value;
+	for (var str_idx = 31; str_idx >= 0; --str_idx) {
 		var digit = temp & 0x1;
 		temp = temp >>\ 1;
 		var char: i8;
@@ -475,7 +509,7 @@ let to_str = fun(value: i32; signed: bool = true; arena: memory_arena* = &temp_m
 	return result;
 }
 
-["conditional":"SLOW"]
+["conditional":"debug"]
 let assert = fun 
 (
 	value: bool; 

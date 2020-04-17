@@ -760,33 +760,36 @@ namespace PragmaScript
                 // TODO(pragma): ugly hack
                 if (f_type.specialFun && f_type.funName == "len")
                 {
-                    var arg_t = argumentTypes[0] as FrontendArrayType;
-                    if (arg_t == null)
+                    if (argumentTypes.Count == node.argumentList.Count)
                     {
-                        throw new CompilerError($"Argument type to \"len\" fuction must be array", node.argumentList[0].token);
-                    }
-                    if (arg_t.dims.Count > 1)
-                    {
-                        if (!(node.argumentList.Count == 2 || node.argumentList.Count == 1))
+                        var arg_t = argumentTypes[0] as FrontendArrayType;
+                        if (arg_t == null)
                         {
-                            throw new CompilerError($"Function argument count mismatch! Got {node.argumentList.Count} expected 2 or 1 arguments.", node.token);
+                            throw new CompilerError($"Argument type to \"len\" fuction must be array", node.argumentList[0].token);
                         }
-                        if (node.argumentList.Count == 2)
+                        if (arg_t.dims.Count > 1)
                         {
-                            if (!FrontendType.CompatibleAndLateBind(argumentTypes[1], FrontendType.i32))
+                            if (!(node.argumentList.Count == 2 || node.argumentList.Count == 1))
                             {
-                                throw new ParserExpectedArgumentType(FrontendType.i32, argumentTypes[1], 2, node.argumentList[1].token);
+                                throw new CompilerError($"Function argument count mismatch! Got {node.argumentList.Count} expected 2 or 1 arguments.", node.token);
+                            }
+                            if (node.argumentList.Count == 2)
+                            {
+                                if (!FrontendType.CompatibleAndLateBind(argumentTypes[1], FrontendType.i32))
+                                {
+                                    throw new ParserExpectedArgumentType(FrontendType.i32, argumentTypes[1], 2, node.argumentList[1].token);
+                                }
                             }
                         }
-                    }
-                    else
-                    {
-                        if (node.argumentList.Count != 1)
+                        else
                         {
-                            throw new CompilerError($"Function argument count mismatch! Got {node.argumentList.Count} expected {1}.", node.token);
+                            if (node.argumentList.Count != 1)
+                            {
+                                throw new CompilerError($"Function argument count mismatch! Got {node.argumentList.Count} expected {1}.", node.token);
+                            }
                         }
+                        resolve(node, f_type.returnType);
                     }
-                    resolve(node, f_type.returnType);
                 }
                 else
                 {
