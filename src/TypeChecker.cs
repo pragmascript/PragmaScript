@@ -600,16 +600,21 @@ namespace PragmaScript
                 result = new FrontendStructType(fqn);
                 result.packed = node.packed;
                 result.preResolved = true;
+                if (!typeRoots.ContainsKey(result))
+                {
+                    typeRoots.Add(result, node);
+                }
                 pre_resolve(node, result);
             }
             else
             {
                 result = pre_resolved[node] as FrontendStructType;
+                if (!typeRoots.ContainsKey(result))
+                {
+                    typeRoots.Add(result, node);
+                }
             }
-            if (!typeRoots.ContainsKey(result))
-            {
-                typeRoots.Add(result, node);
-            }
+
 
             List<FrontendType> fieldTypes = new List<FrontendType>();
             foreach (var p in node.fields)
@@ -1237,6 +1242,7 @@ namespace PragmaScript
                     case FrontendSliceType other_st:
                         st = other_st;
                         var otherSlice = node.left;
+
                         // TODO(pragma): move this to desugar????
                         var fa = new AST.FieldAccess(node.token, node.scope);
                         fa.fieldName = "data";
@@ -1325,6 +1331,7 @@ namespace PragmaScript
                 }
             }
             FrontendType c_t = null;
+            if (node.capacity != null)
             {
                 checkTypeDynamic(node.capacity);
                 c_t = getType(node.capacity);

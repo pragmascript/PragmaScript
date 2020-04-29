@@ -1,0 +1,421 @@
+import "ld.prag"
+
+import "../png.prag"
+import "../random.prag"
+
+
+let tile_map = struct(
+    tile_count_x: i32;
+    tile_count_y: i32;
+    atlas_tex_handle: i32;
+    
+    vertices: v3[];
+    indices: i32[];
+    uvs0: v2[];
+    uvs1: v2[];
+    uvs2: v2[];
+    
+    vbo: i32;
+    ebo: i32;
+    uv0bo: i32;
+    uv1bo: i32;
+    uv2bo: i32;
+
+    tile_uvs: v2[];
+    tile_uv_size: v2;
+);
+
+
+
+let render_tile_map = fun(@tile_map: tile_map*; time: f32) => void {
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tile_map.atlas_tex_handle);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(0);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, uv0bo);
+    glBufferData(GL_ARRAY_BUFFER, @mm uvs0.length * size_of(v2), uvs0.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(1);
+    
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    
+    glDrawElements(GL_TRIANGLES, indices.length, GL_UNSIGNED_INT, nullptr);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, uv1bo);
+    glBufferData(GL_ARRAY_BUFFER, @mm uvs1.length * size_of(v2), uvs1.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(1);
+    
+    glDrawElements(GL_TRIANGLES, indices.length, GL_UNSIGNED_INT, nullptr);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, uv2bo);
+    glBufferData(GL_ARRAY_BUFFER, @mm uvs2.length * size_of(v2), uvs2.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(1);
+    
+    glDrawElements(GL_TRIANGLES, indices.length, GL_UNSIGNED_INT, nullptr);
+    
+}
+
+var current_tile_map: tile_map;
+let render_opengl = fun (@window_state: window_state*; time: f32) => void {
+    glViewport(0, 0, client_width, client_height);
+    glClearColor(1., 0.0, 1.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    render_tile_map(&current_tile_map, time);
+    
+    // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
+    SwapBuffers(dc);
+} 
+
+let add_quad = fun(tile_map: tile_map*; top_left: v3; size: v2; current_quad_count: i32) => i32 {
+    var p = top_left;
+
+    var current_vertex_count = current_quad_count * 4;
+    var current_index_count = current_quad_count * 6;
+    
+    assert(tile_map.vertices.length >= current_vertex_count + 4);
+    assert(tile_map.indices.length >= current_index_count + 6);
+    
+    var vertices = tile_map.vertices.data + current_quad_count*4;
+    var indices = tile_map.indices.data + current_quad_count*6;
+    
+    var temp_v = vertices;
+    *(temp_v++) = v3(p.x, p.y, p.z);
+    *(temp_v++) = v3(p.x + size.x, p.y, p.z);
+    *(temp_v++) = v3(p.x + size.x, p.y + size.y, p.z);
+    *(temp_v++) = v3(p.x, p.y + size.y, p.z);
+    
+    var temp_i = indices;
+    *(temp_i++) = current_vertex_count + 0;
+    *(temp_i++) = current_vertex_count + 1;
+    *(temp_i++) = current_vertex_count + 2;
+    
+    *(temp_i++) = current_vertex_count + 2;
+    *(temp_i++) = current_vertex_count + 3;
+    *(temp_i++) = current_vertex_count + 0;
+    
+    return current_quad_count + 1;
+}
+
+
+let get_random_grass = fun() => basic_tiles {
+    var rnd_idx = Random::rand_i32() % 4;
+    if (rnd_idx == 0) {
+        return basic_tiles::green;
+    }
+    elif (rnd_idx == 1) {
+        return basic_tiles::grass0;
+    }
+    elif (rnd_idx == 2) {
+        return basic_tiles::grass1;
+    }
+    else {
+        return basic_tiles::flowers;
+    }
+    return basic_tiles::red;
+}
+
+let get_random_tree = fun() => basic_tiles {
+    var rnd_idx = Random::rand_i32() % 4;
+    if (rnd_idx == 0) {
+        return basic_tiles::tree0;
+    }
+    elif (rnd_idx == 1) {
+        return basic_tiles::tree1;
+    }
+    elif (rnd_idx == 2) {
+        return basic_tiles::tree2;
+    }
+    else {
+        return basic_tiles::tree3;
+    }
+    
+    return basic_tiles::red;
+}
+
+
+let init_tile_map = fun() => tile_map {
+    let width = 1920;
+    let height = 1080;
+    let tile_size = 64;
+    let tile_count_x = 30;
+    let tile_count_y = 16;
+    let tile_count = tile_count_x * tile_count_y;
+    
+    var result = tile_map { };
+    result.tile_count_x = tile_count_x;
+    result.tile_count_y = tile_count_y;
+
+
+    // TODO(pragma): use linear allocator here
+    result.vertices.data = @v3* allocate(@mm tile_count * 4 * size_of(v3));
+    result.vertices.length = tile_count * 4;
+    result.uvs0.data = @v2* allocate(@mm tile_count * 4 * size_of(v2));
+    result.uvs0.length = tile_count * 4;
+    result.uvs1.data = @v2* allocate(@mm tile_count * 4 * size_of(v2));
+    result.uvs1.length = tile_count * 4;
+    result.uvs2.data = @v2* allocate(@mm tile_count * 4 * size_of(v2));
+    result.uvs2.length = tile_count * 4;
+    result.indices.data = @i32* allocate(@mm tile_count * 6 * size_of(i32));
+    result.indices.length = tile_count * 6;
+    
+    var rx = 0.5 * Math::remainder(width@f32, tile_size@f32);
+    var ry = 0.5 * Math::remainder(height@f32, tile_size@f32);
+    var size_v = v2(2 * tile_size@f32 / (width@f32 - rx), 2 * tile_size@f32 / (height@f32 - ry));   
+    
+    let tile_set_x = 8;
+    let tile_set_y = 15;
+    let tile_set_count = tile_set_x * tile_set_y;
+       
+    var delta = v2(1.0 / tile_set_x@f32, 1.0 / tile_set_y@f32);
+    var small_delta = v2(delta.x / 16, delta.y / 16);
+    var quad_count = 0;
+    
+    // quad_count = add_quad(&result, v3(-0.99, -0.99, 0), v2(1.98, 1.98), uv0, uv1, quad_count);
+    
+    var tile_uvs_ptr = @v2* allocate(@mm tile_set_count * size_of(v2)); 
+    result.tile_uvs = tile_uvs_ptr[:tile_set_count];
+    result.tile_uv_size = v2(delta.x, -delta.y);
+    for (var j = 0; j < tile_set_y; ++j) {
+        for (var i = 0; i < tile_set_x; ++i) {
+            var uv0 = v2(delta.x * i@f32, delta.y * j@f32);
+            var uv1 = v2(uv0.x + delta.x, uv0.y + delta.y);
+            *tile_uvs_ptr++ = v2(uv0.x, uv1.y);
+        }
+    }
+    
+    for (var j = 0; j < tile_count_y; ++j) {
+        var y = ry + (j * tile_size)@f32;
+        y = 2.0 * (y / height@f32) - 1.0;
+        for (var i = 0; i < tile_count_x; ++i) {
+            var x = rx + (i * tile_size)@f32;
+            x = 2.0 * (x / width@f32) - 1.0;
+            
+            // var tile_idx = Random::rand_i32() % basic_tiles::_LAST@i32;
+            quad_count = add_quad(&result, v3(x, y, 0), size_v, quad_count);
+        }
+    }
+    
+    for (var j = 0; j < tile_count_y; ++j) {
+        for (var i = 0; i < tile_count_x; ++i) {
+            set_tile(&result, result.uvs0, get_random_grass(), i, j);
+            if (Random::rand_i32() % 4 == 0) {
+                set_tile(&result, result.uvs1, get_random_tree(), i, j);
+            }
+            else
+            {
+                set_tile(&result, result.uvs1, basic_tiles::_e0, i, j);
+            }
+            set_tile(&result, result.uvs2, basic_tiles::_e0, i, j);
+        }
+    }
+    
+    var tex_width: i32;
+    var tex_height: i32;
+    result.atlas_tex_handle = load_texture("basictiles.png\0", &tex_width, &tex_height);
+    
+    set_tile_1(&result, basic_tiles::tree0, 1, 3);
+    
+    return result;
+}
+
+let load_texture = fun(file: string; width: i32* = 0@i32*; height: i32* = 0@i32*) => i32 {
+    var bmp = load_png(file);
+    
+    var pp = bmp.pixels;
+    
+    var tex: i32;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bmp.width, bmp.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bmp.pixels);
+    // glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    
+    if (width != 0@i32*) {
+        *width = bmp.width;
+    }
+    if (height != 0@i32*) {
+        *height = bmp.height;
+    }
+    
+    return tex;
+}
+
+let basic_tiles = enum(
+    bwall0_d; bwall0;   bwall1_d; bwall1;   rwall0_d; rwall0;  rwall1_d; rwall_1;
+    wfloor0;  red;      sand;     green;    flowers;  water;   sfloor0;   ewall; 
+    wfloor1;  rcarp;    bush0;    bush1;    bush2;    wfall;   empty0;   ewall_d;
+    c_tl;     c_t;      c_tr;     amph;     firepl;   ice0;    tree0;    well;
+    c_l;      path_d;   c_r;      chest0;   chest1;   ice1;    tree1;    pillar;
+    c_bl;     c_b;      c_br;     idk1;     idk2;     bed_t;   chair0;   statue;
+    door0;    door1;    door3;    fence_h;  zem;      bed_b;   table;    drawer;
+    stairs_u; stairs_d; stones;   fende_v;  flame_0;  flame_1; dirt0;    dirt1;
+    grass0;   grass1;   flames;   sign;     gold;     gems;    sarmor;   smagic;
+    earth;    sfloor1;  lava0;    lava1;    tree2;    tree3;   sweapon;  spotion;
+    shallw_v; shallw_h; _e0;      _e1;      _e2;      _e3;     _e4;      _e5;
+    whallw_v; whallw_h; _e6;      pillar_t; tree4;   _e7;     _e8;      _e9;
+    _e10;     _e11;     _e13;     pillar_b; _LAST; 
+);
+
+let set_tile_0 = fun(tile_map: tile_map*; tile: basic_tiles; x: i32; y: i32) => void {
+    set_tile(tile_map, tile_map.uvs0, tile, x, y);
+}
+let set_tile_1 = fun(tile_map: tile_map*; tile: basic_tiles; x: i32; y: i32) => void {
+    set_tile(tile_map, tile_map.uvs1, tile, x, y);
+}
+let set_tile_2 = fun(tile_map: tile_map*; tile: basic_tiles; x: i32; y: i32) => void {
+    set_tile(tile_map, tile_map.uvs2, tile, x, y);
+}
+
+let set_tile = fun(tile_map: tile_map*; uvs: v2[]; tile: basic_tiles; x: i32; y: i32) => void {
+    var t_idx = tile@i32;
+    var uv_size = tile_map.tile_uv_size;
+    var uv0 = tile_map.tile_uvs[tile@i32];
+    var uv1 = v2(uv0.x + uv_size.x, uv0.y + uv_size.y);
+    var ty = tile_map.tile_count_y - 1 - y;
+    var uv_idx = (ty * tile_map.tile_count_x + x) * 4;
+    var uv_ptr = &uvs[uv_idx];
+    *uv_ptr++ = v2(uv0.x, uv0.y);
+    *uv_ptr++ = v2(uv1.x, uv0.y);
+    *uv_ptr++ = v2(uv1.x, uv1.y);
+    *uv_ptr++ = v2(uv0.x, uv1.y);
+}
+
+var gl_resources_initialized = false;
+let init_gl_resources = fun() => void {
+    var viewport: i32[4];
+
+    glGetIntegerv(GL_VIEWPORT, &viewport[0]);
+
+    // make a dummy VAO
+    // https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
+    var DummyVAO: i32;
+    glGenVertexArrays(1, &DummyVAO);
+    glBindVertexArray(DummyVAO);  
+
+    var vs_source = @"
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec2 aUV;
+out vec2 UV;
+void main()
+{
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+    UV = aUV;
+}
+0"; 
+    vs_source[vs_source.length - 1] = 0;
+    
+    assert(vs_source.data != nullptr);
+    var vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vs_source.data, 0@i32*);
+    glCompileShader(vertexShader); 
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+        if (success == 0) {
+            glGetShaderInfoLog(vertexShader, len(infoLog)@\i32, 0@i32*, &infoLog);
+            debug_print("vs.glsl", from_cstr(&infoLog[0]));
+        }
+    }
+    
+    var fs_source = @"
+#version 330 core
+in vec2 UV;
+out vec4 FragColor;
+
+uniform sampler2D tex;
+
+void main()
+{
+    vec4 tex_color = texture(tex, vec2(UV.x, UV.y));
+    if (tex_color.a < 1.0) {
+        discard;
+    }
+    FragColor = tex_color; // vec4(tex_color.a, tex_color.a, tex_color.a, 1.0); // vec4(UV.x, -UV.y, 0.0, 1.0);
+}
+0";
+   fs_source[fs_source.length - 1] = 0;
+
+    assert(fs_source.data != nullptr);
+    var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fs_source.data, 0@i32*);
+    glCompileShader(fragmentShader);
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+        if (success == 0) {
+            glGetShaderInfoLog(fragmentShader, len(infoLog)@\i32, 0@i32*, &infoLog);
+            debug_print("fs.glsl", from_cstr(&infoLog[0]));
+        }
+    }
+
+    var shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    {
+        var success: i32;
+        var infoLog: i8[512];
+        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+        if (success == 0) {
+            glGetProgramInfoLog(shaderProgram, len(infoLog)@\i32, 0@i32*, &infoLog);
+            debug_print("program", from_cstr(&infoLog[0]));
+        }
+    }
+    
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    current_tile_map = init_tile_map();
+    
+    var vertices_size = @mm current_tile_map.vertices.length * size_of(v3);
+    var indices_size = @mm current_tile_map.indices.length * size_of(i32);
+
+    
+    glGenBuffers(1, &current_tile_map.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, current_tile_map.vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertices_size, current_tile_map.vertices.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(0);
+
+    glGenBuffers(1, &current_tile_map.uv0bo);
+    glBindBuffer(GL_ARRAY_BUFFER, current_tile_map.uv0bo);
+    glBufferData(GL_ARRAY_BUFFER, @mm current_tile_map.uvs0.length * size_of(v2), current_tile_map.uvs0.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(1);
+    
+    glGenBuffers(1, &current_tile_map.uv1bo);
+    glBindBuffer(GL_ARRAY_BUFFER, current_tile_map.uv1bo);
+    glBufferData(GL_ARRAY_BUFFER, @mm current_tile_map.uvs1.length * size_of(v2), current_tile_map.uvs1.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(1);
+    
+    glGenBuffers(1, &current_tile_map.uv2bo);
+    glBindBuffer(GL_ARRAY_BUFFER, current_tile_map.uv2bo);
+    glBufferData(GL_ARRAY_BUFFER, @mm current_tile_map.uvs2.length * size_of(v2), current_tile_map.uvs2.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(1);
+    
+    
+    glGenBuffers(1, &current_tile_map.ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, current_tile_map.ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, current_tile_map.indices.data@ptr, GL_DYNAMIC_DRAW);
+    glUseProgram(shaderProgram);
+    glUniform1i(glGetUniformLocation(shaderProgram, cstr("tex\0")), 0);
+    
+    
+    gl_resources_initialized = true;
+}

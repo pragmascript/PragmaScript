@@ -1409,6 +1409,7 @@ namespace PragmaScript
             result.returnPointer = returnPointer;
             result.left = left;
             result.fieldName = fieldName.text;
+            result.fieldNameToken = fieldName;
 
             // TODO: what happens if the field is an array? [ ] no idea
             return result;

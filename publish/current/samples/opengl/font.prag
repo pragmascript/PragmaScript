@@ -518,7 +518,7 @@ let render_text = fun(text: string; font: font*; font_size: f32; start_pos: v2;
     quads.uvs.length = text.length * 4;
     quads.indices.data = push(&temp_memory_arena, @mm text.length * 6 * size_of(i32))@i32*;
     quads.indices.length = text.length * 6;
-
+    
     
     // debug_print("render_text", "");
     var p = start_pos;
@@ -799,8 +799,8 @@ let init_opengl = fun (window_dc: mm) => void {
     assert(glDebugMessageCallback@ptr != nullptr);
     glDebugMessageCallback(@glDebugMessageCallbackType gl_error_callback, nullptr);
 
-    
-    
+
+
     *(&glGenerateMipmap@ptr*) = wglGetProcAddress(cstr("glGenerateMipmap\0"));
     assert(glGenerateMipmap@ptr != nullptr);
 

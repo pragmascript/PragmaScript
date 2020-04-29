@@ -3,7 +3,9 @@ import "../windows.prag"
 import "../math.prag"
 import "../vec.prag"
 
-import "opengl.prag"
+import "../opengl/opengl.prag"
+import "renderer.prag"
+import "game.prag"
 
 with Windows;
 
@@ -29,179 +31,6 @@ let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
 }
 let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
     return get_seconds_elapsed(t0, t1) * 1000; 
-}
-
-let render_opengl = fun (@window_state: window_state*; time: f32) => void {
-    glViewport(0, 0, client_width, client_height);
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDrawElements(GL_TRIANGLES, current_mesh.indices.length, GL_UNSIGNED_INT, nullptr);
-
-    // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
-    SwapBuffers(dc);
-} 
-
-let mesh = struct (
-    vertices: v3[];
-    indices: i32[];
-);
-
-// https://hero.handmade.network/episode/code/day368
-
-var current_mesh = mesh {};
-let create_circle = fun(center: v3; radius: f32; segments: i32 = 96) => mesh {
-    var c = center;
-    var result = mesh {};
-    var size_vertices = (segments + 1) * size_of(v3)@i32;
-    var size_indices = 3 * segments * size_of(i32)@i32;
-    var total_size = size_vertices + size_indices;
-    var memory = Windows::VirtualAlloc(nullptr, total_size@\mm, MEM_COMMIT, PAGE_READWRITE);
-
-    var vp = memory@v3*;
-    result.vertices = vp[:segments+1];
-
-    var aspect = window.client_width@f32 / window.client_height@f32;
-    
-    *vp++ = center;
-    for (var i = 0; i < segments; ++i) {
-        var v = v3{};
-        var phi = Math::tau_32 * i@f32 / segments@f32;
-        v.x = radius * Math::cos(phi);
-        v.y = aspect * radius * Math::sin(phi); 
-        v = add(&v, &c);
-        *vp++ = v;
-    }
-    var ip = (memory + size_vertices)@i32*; 
-    result.indices = ip[:(result.vertices.length - 1) * 3];
-    
-    for (var i = 1; i <= segments; ++i) {
-        *ip++ = 0;
-        *ip++ = i;
-        var next_idx = i + 1;
-        if (next_idx > segments) {
-            assert(next_idx == segments + 1);
-            next_idx = 1;
-        }
-        *ip++ = next_idx;
-    }
-    return result;
-}
-
-var gl_resources_initialized = false;
-let init_gl_resources = fun() => void {
-
-    var viewport: i32[4];
-
-    glGetIntegerv(GL_VIEWPORT, &viewport[0]);
-
-    // make a dummy VAO
-    // https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
-    var DummyVAO: i32;
-    glGenVertexArrays(1, &DummyVAO);
-    glBindVertexArray(DummyVAO);  
-
-    var vs_source = @"
-#version 330 core
-layout (location = 0) in vec3 aPos;
-void main()
-{
-    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-}
-0"; 
-    vs_source[vs_source.length - 1] = 0;
-    
-    assert(vs_source.data != nullptr);
-    var vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vs_source.data, 0@i32*);
-    glCompileShader(vertexShader); 
-    {
-        var success: i32;
-        var infoLog: i8[512];
-        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-        if (success == 0) {
-            glGetShaderInfoLog(vertexShader, len(infoLog)@\i32, 0@i32*, &infoLog);
-            debug_print("vs.glsl", from_cstr(&infoLog[0]));
-        }
-    }
-    
-    var fs_source = @"
-#version 330 core
-out vec4 FragColor;
-
-void main()
-{
-    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-}
-0";
-   fs_source[fs_source.length - 1] = 0;
-
-    assert(fs_source.data != nullptr);
-    var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fs_source.data, 0@i32*);
-    glCompileShader(fragmentShader);
-    {
-        var success: i32;
-        var infoLog: i8[512];
-        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-        if (success == 0) {
-            glGetShaderInfoLog(fragmentShader, len(infoLog)@\i32, 0@i32*, &infoLog);
-            debug_print("fs.glsl", from_cstr(&infoLog[0]));
-        }
-    }
-
-    var shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    {
-        var success: i32;
-        var infoLog: i8[512];
-        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-        if (success == 0) {
-            glGetProgramInfoLog(shaderProgram, len(infoLog)@\i32, 0@i32*, &infoLog);
-            debug_print("program", from_cstr(&infoLog[0]));
-        }
-    }
-    
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    // var vertices = [
-    //      0.5,  0.5, 0.0,
-    //      0.5, -0.5, 0.0,
-    //     -0.5, -0.5, 0.0,
-    //     -0.5,  0.5, 0.0
-    // ];
-    // var vertices_size = len(vertices) * size_of(f32);
-    // var indices = [
-    //     0, 1, 3,
-    //     1, 2, 3
-    // ];
-    // var indices_size = len(indices) * size_of(i32);
-
-    var mesh = create_circle(v3z, 0.3);
-    var vertices_size = @mm mesh.vertices.length * size_of(v3);
-    var indices_size = @mm mesh.indices.length * size_of(i32);
-    current_mesh = mesh;
-
-    var VBO: i32;
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices_size, mesh.vertices.data@ptr, GL_DYNAMIC_DRAW);
-    // glBufferData(GL_ARRAY_BUFFER, vertices_size, &vertices@ptr, GL_STATIC_DRAW);
-
-    var EBO: i32;
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, mesh.indices.data@ptr, GL_DYNAMIC_DRAW);
-    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, &indices@ptr, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
-    glEnableVertexAttribArray(0);
-
-    glUseProgram(shaderProgram);
-
-    gl_resources_initialized = true;
 }
 
 let process_pending_messages = fun() => void {
@@ -430,6 +259,29 @@ let init_opengl = fun (window: window_state*) => void {
 
     *(&glBufferData@ptr*) = wglGetProcAddress(cstr("glBufferData\0"));
     assert(glBufferData@ptr != nullptr);
+    
+    
+    *(&glGenerateMipmap@ptr*) = wglGetProcAddress(cstr("glGenerateMipmap\0"));
+    assert(glGenerateMipmap@ptr != nullptr);
+
+    *(&glGetUniformLocation@ptr*) = wglGetProcAddress(cstr("glGetUniformLocation\0"));
+    assert(glGetUniformLocation@ptr != nullptr);
+
+    *(&glUniform4f@ptr*) = wglGetProcAddress(cstr("glUniform4f\0"));
+    assert(glUniform4f@ptr != nullptr);
+
+    *(&glUniform1i@ptr*) = wglGetProcAddress(cstr("glUniform1i\0"));
+    assert(glUniform1i@ptr != nullptr);
+    
+    *(&glActiveTexture@ptr*) = wglGetProcAddress(cstr("glActiveTexture\0"));
+    assert(glActiveTexture@ptr != nullptr);
+
+    *(&glBindTexture@ptr*) = wglGetProcAddress(cstr("glBindTexture\0"));
+    assert(glBindTexture@ptr != nullptr);
+    
+    *(&glGenTextures@ptr*) = wglGetProcAddress(cstr("glGenTextures\0"));
+    assert(glGenTextures@ptr != nullptr);
+
 
     *(&glEnableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glEnableVertexAttribArray\0"));
     assert(glEnableVertexAttribArray@ptr != nullptr);
@@ -551,10 +403,10 @@ let gl_error_callback = fun(
 }
 
 [
-	"compile.output": "opengl_test.exe",
+	"compile.output": "ld.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "0",
-    "compile.debuginfo": "false",
+ 	"compile.opt"   : "4",
+    "compile.debuginfo": "true",
     "compile.ll"    : "false",
     "compile.asm"   : "false",
     "compile.cpu"   : "haswell",
@@ -583,7 +435,7 @@ let main = fun() => void {
     window.client_height = buffer_height;
     
     var class_name  = cstr("opengl_test_window_class\0");
-    var window_name = cstr("opengl test\0");
+    var window_name = cstr("ld46\0");
     var module_handle = GetModuleHandleA(null);
     var window_class = WNDCLASSEX {};
     window_class.cbSize = size_of(WNDCLASSEX)@i32;
@@ -627,6 +479,10 @@ let main = fun() => void {
         process_pending_messages();
         var t0 = get_perf_counter();
         var time = get_seconds_elapsed(start_time, t0);
+        
+        if (frames % 5 == 0) {
+            update(&current_tile_map, time@f32);
+        }
         render_opengl(&window, @f32 time);
         var t1 = get_perf_counter();
         frames++;

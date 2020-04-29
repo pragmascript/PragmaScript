@@ -41,7 +41,7 @@ namespace PragmaScript
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "opengl", "test_opengl.prag");
-            CompilerOptions._i.inputFilename = Path.Combine(programDir, "opengl", "png.prag");
+            CompilerOptions._i.inputFilename = Path.Combine(programDir, "ld46", "ld.prag");
             // CompilerOptions._i.inputFilename = Path.Combine("test", "bugs.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "wasapi", "wasapi.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "raytracer", "raytracer.prag");

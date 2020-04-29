@@ -16,12 +16,29 @@ import "../math.prag"
 ]
 let main = fun () => void 
 {   
-    ptr_bug();
+    array_ref_bug();
+    // ptr_bug();
     // foo();
     // enum_test();
     //slice_test();
 }
 
+
+
+
+let struct_with_array = struct(
+    // arr: i32[512]; this works!
+    arr: i32[30000];
+);
+
+let array_ref_llvm_bug = fun() => void {
+    var temp = allocate(size_of(struct_with_array))@struct_with_array*;
+    
+    var arr = temp.arr;
+    debug_print("arr[0]", arr[0]);
+}
+
+#if FALSE
 let ptr_bug = fun() => void
 {
     var ptr_w_1 = 0@ptr;
@@ -31,7 +48,7 @@ let ptr_bug = fun() => void
 }
 
 // FIXED
-#if FALSE
+
     let sphere = struct(
         pos_x: f32;
         pos_y: f32;

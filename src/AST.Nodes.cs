@@ -1032,6 +1032,7 @@ namespace PragmaScript
             public AccessKind kind;
             public Node left;
             public string fieldName;
+            public Token fieldNameToken;
             public bool IsArrow = false;
             public bool IsVolatile = false;
 
@@ -1044,13 +1045,14 @@ namespace PragmaScript
             public FieldAccess(Token t, Scope s) :
                 base(t, s)
             {
-
+                fieldNameToken = Token.Undefined;
             }
             public override Node DeepCloneTree()
             {
                 var result = new FieldAccess(token, scope);
                 result.left = left.DeepCloneTree();
                 result.fieldName = fieldName;
+                result.fieldNameToken = fieldNameToken;
                 result.IsArrow = IsArrow;
                 result.IsVolatile = IsVolatile;
                 result.returnPointer = returnPointer;

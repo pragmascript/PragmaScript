@@ -9,10 +9,7 @@ let zlib_header = struct(
 );
 
 
-
-
 // DEFLATE Compressed Data Format Specification
-
 
 // http://graphics.stanford.edu/~seander/bithacks.html#BitReverseObvious
 let reverse_bits = fun(value: i8) => i8 {
@@ -228,7 +225,6 @@ let build_huffman = fun(length_codes: i32[]) => huffman_data* {
     // TODO(pragma): WHY IS THIS FASTER EVEN THOUGH THE MEMORY SHOULD BE ZERO FROM VIRTUAL ALLOC ANYWAY??????ß
     memset(&result.table[0]@ptr, 0, len(result.table) * size_of(huffman_table_entry));
     
-    // var table = result.table; // TODO(pragma): this breaks LLVM assembler
     for (var code_idx = 0; code_idx < MAX_CODE; ++code_idx) {
         var code_len = code_bit_length[code_idx];
         if (code_len != 0 && code_len < 15) {
@@ -285,10 +281,6 @@ let decode_huffman = fun(huffman: huffman_data*; stream: zlib_stream*) => i16 {
 #endif    
     
     return entry.symbol;
-}
-
-let make_slice = fun(ptr: i32*; count: i32) => i32[] {
-    return ptr[:count];
 }
 
 let decode_lookup_tuple = struct(
@@ -361,11 +353,12 @@ let init_distance_lookup = fun() => decode_lookup_tuple[] {
     *temp++ = decode_lookup_tuple { 16385, 13 }; // 28
     *temp++ = decode_lookup_tuple { 24577, 13 }; // 29
     
-    var result: decode_lookup_tuple[];
-    result.data = buffer;
-    result.length = count;
+    // var result: decode_lookup_tuple[];
+    // result.data = buffer;
+    // result.length = count;
     
-    // TODO(pragma): return buffer[:count]; not working in compiler
+    return buffer[:count];
+    
     
     return result;
 }
@@ -453,10 +446,9 @@ let dyn_huffman_block = fun(stream: zlib_stream*; length_lookup: decode_lookup_t
     }
     assert(cl_ptr == literal_len_code_length + hlit + hdist);
     
-    // var lit_length_huff = build_huffman(literal_len_code_length[:hlit]); // TODO(pragma): kills the compiler
+    var lit_length_huff = build_huffman(literal_len_code_length[:hlit]); // TODO(pragma): kills the compiler
     
-    var lit_length_huff = build_huffman(make_slice(literal_len_code_length, hlit));
-    var dist_huff = build_huffman(make_slice(dist_code_length, hdist));
+    var dist_huff = build_huffman(dist_code_length[:hdist]);
     
     while (true) {
         var length_value = decode_huffman(lit_length_huff, stream);

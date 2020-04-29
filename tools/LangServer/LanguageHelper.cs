@@ -26,6 +26,13 @@ public class LanguageHelper
             }
             else
             {
+                if (node is AST.FieldAccess fa)
+                {
+                    if (InsideToken(fa.fieldNameToken, pos, line))
+                    {
+                        return node;
+                    }
+                }
                 foreach (var child in node.GetChilds())
                 {
                     var result = FindNodeRec(child, pos, line);

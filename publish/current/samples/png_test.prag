@@ -1,9 +1,9 @@
-import "../preamble.prag"
-import "../windows.prag"
-import "../math.prag"
-import "../memory.prag"
+import "preamble.prag"
+import "windows.prag"
+import "math.prag"
+import "memory.prag"
 
-import "../zlib.prag"
+import "zlib.prag"
 
 
 let bitmap = struct (
@@ -11,7 +11,6 @@ let bitmap = struct (
     height: i32;
     pixels: i8*;
 );
-
 
 ["PACKED"]
 let bmp_file_header = struct(
@@ -284,12 +283,7 @@ let apply_png_filters = fun(scanlines: ptr; bmp: bitmap) => void {
         else {
             assert(false);
         }
-        // TODO(pragma): POINTER DISTANCE IS BROKEN IN COMPILER FIX
-        // "dst_ptr - dst_ptr_prev_row" this outputs 2048 but SHOULD output 16384
-        
-        assert(dst_ptr - dst_ptr_prev_row == row_byte_offset);
-        
-        assert(dst_ptr@mm - dst_ptr_prev_row@mm == row_byte_offset@mm);
+        assert((dst_ptr - dst_ptr_prev_row)@i32 == row_byte_offset);
     }
 }
 
@@ -338,6 +332,9 @@ let print_hex = fun(name: string; value: i32) => void {
     print("\n");
 }
 
+
+
+#if false
 [
 	"compile.output": "png.exe",
 	"compile.entry" : "true",
@@ -378,4 +375,4 @@ let main = fun() => void {
     // var bmp = load_png("png_test_2.png\0");
     // save_bitmap("decompressed.bmp\0", bmp);
 }
-
+#endif

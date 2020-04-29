@@ -1,0 +1,34 @@
+import "ld.prag"
+
+let word_map = struct(
+);
+let world_chunk_size = 64;
+let world_chunk = struct(
+);
+let camera = struct(
+);
+
+let update = fun(tile_map: tile_map*; time: f32) => void {
+    var uvs0 = tile_map.uvs0;
+    var uvs1 = tile_map.uvs1;
+    var tcx = tile_map.tile_count_x;
+    var tcy = tile_map.tile_count_y;
+    var offset = 4 * tcx;
+    for (var j = 0; j < tcy - 1; ++j) {
+        for (var i = 0; i < 4*tcx; ++i) {
+            uvs0[j * tcx * 4 + i] = uvs0[j * tcx * 4 + offset + i];
+            uvs1[j * tcx * 4 + i] = uvs1[j * tcx * 4 + offset + i];
+        }
+    }
+    for (var i = 0; i < tcx; ++i) {
+        set_tile(tile_map, uvs0, get_random_grass(), i, 0);
+        if (Random::rand_i32() % 4 == 0) {
+            set_tile(tile_map, uvs1, get_random_tree(), i, 0);
+        }
+        else
+        {
+            set_tile(tile_map, uvs1, basic_tiles::_e0, i, 0);
+        }
+    }
+}
+

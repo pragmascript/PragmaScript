@@ -5,11 +5,11 @@
             "name": "(Windows) Launch",
             "type": "cppvsdbg",
             "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceRoot}/test/bin/bugs.exe",
+            // "preLaunchTask": "build",
+            "program": "${workspaceRoot}/ld46/bin/ld.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceRoot}/opengl/bin",
+            "cwd": "${workspaceRoot}/ld46/bin",
             "environment": [],
             "externalConsole": true
         }
