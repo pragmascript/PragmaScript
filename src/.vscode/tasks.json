@@ -9,7 +9,7 @@
             "args": [
                 "build",
                 "-c",
-                "debug"
+                "Debug"
             ],
             "isBuildCommand": true,
             "problemMatcher": "$msCompile"

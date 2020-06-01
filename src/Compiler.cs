@@ -72,7 +72,11 @@ namespace PragmaScript
 
             Stack<Token[]> toCompile = new Stack<Token[]>();
 
-            var ffn = Path.GetFullPath(filename);
+            var ffn = filename;
+            if (!Path.IsPathRooted(filename)) 
+            {
+                ffn = Path.GetFullPath(filename);
+            }
             toImport.Enqueue((ffn, Token.Undefined));
             imported.Add(ffn);
 
@@ -95,7 +99,7 @@ namespace PragmaScript
                         text = File.ReadAllText(fn);
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     throw new CompilerError($"Could not read import file \"{fn}\"", import_token);
                 }

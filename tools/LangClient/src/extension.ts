@@ -10,7 +10,9 @@ import { Trace } from 'vscode-jsonrpc';
 export function activate(context: vscode.ExtensionContext) {
 
     // The server is implemented in node
-    let serverExe = 'C:\\Projects\\dotnet\\PragmaScript\\tools\\LangServer\\bin\\Debug\\netcoreapp3.0\\LangServer.exe';
+    // let serverExe = 'C:\\Projects\\dotnet\\PragmaScript\\tools\\LangServer\\bin\\Debug\\netcoreapp3.1\\LangServer.exe';
+    let serverExe = '/home/pragma/dotnet_projects/PragmaScript/tools/LangServer/bin/Debug/netcoreapp3.1/LangServer';
+    
 
     // If the extension is launched in debug mode then the debug server options are used
     // Otherwise the run options are used

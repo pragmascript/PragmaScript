@@ -90,7 +90,7 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
             // Debugger.Launch();
             var co = new PragmaScript.CompilerOptions
             {
-                inputFilename = documentPath,
+                inputFilename = document.AbsolutePath,
                 buildExecuteable = false
             };
             var (rootScope, tc) = compiler.Compile(co);
@@ -98,13 +98,24 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
         }
         catch (CompilerError error)
         {
+            var process = System.Diagnostics.Process.GetCurrentProcess();
             var diag = new Diagnostic
             {
-                Message = error.message,
+                Message = $"{process.ProcessName}::{process.Id}: " + error.message,
                 Severity = DiagnosticSeverity.Error,
                 Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(error.token.Line - 1, error.token.Pos - 1), new Position(error.token.Line - 1, error.token.Pos - 1 + error.token.length)),
             };
-            var uri = UriHelper.FromFileSystemPath(error.token.filename);
+
+            Uri uri;
+            if (error.token == Token.Undefined)
+            {
+                uri = document;
+            }
+            else
+            {
+                uri = UriHelper.FromFileSystemPath(error.token.filename);
+            }
+
             router.Document.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Diagnostics = new List<Diagnostic> { diag },
@@ -170,7 +181,4 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
             IncludeText = true
         };
     }
-
-
-
 }

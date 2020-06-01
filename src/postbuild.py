@@ -1,13 +1,15 @@
 from shutil import copy
 import os
 import sys
+import platform
 
-if sys.argv[1] == "-release":
-    prefixPath = "bin/release"
-elif sys.argv[1] == "-debug":
-    prefixPath = "bin/debug"
+
+if sys.argv[1] == "-Release":
+    prefixPath = "bin/Release"
+elif sys.argv[1] == "-Debug":
+    prefixPath = "bin/Debug"
 else:
-    assert false
+    assert False
 
 
 cwd = os.getcwd()
@@ -17,8 +19,13 @@ def nj(*paths):
     return os.path.normpath(os.path.join(*paths))
 
 
-binPath = nj(cwd, prefixPath, "netcoreapp3.0/win7-x64")
+if platform.system() == "Windows":
+    binPath = nj(cwd, prefixPath, "netcoreapp3.1/win7-x64")
+elif platform.system() == "Linux":
+    binPath = nj(cwd, prefixPath, "netcoreapp3.1/linux-x64")
+
 publishPath = nj(cwd, "../publish/current/bin")
+
 
 for _, _, files in os.walk(binPath):
     for f in files:

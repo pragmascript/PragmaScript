@@ -12,8 +12,6 @@ namespace PragmaScript
 
     class Options
     {
-
-
     }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
@@ -28,11 +26,11 @@ namespace PragmaScript
 
 #if false
             CompilerOptions._i.debug = true;
-            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"..\publish\current\samples"));
+            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"../publish/current/samples"));
             System.IO.Directory.SetCurrentDirectory(programDir);
 
             // CompilerOptions._i.buildExecuteable = false;
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "preamble.prag");
+            CompilerOptions._i.inputFilename = Path.Combine(programDir, "preamble.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
@@ -41,7 +39,7 @@ namespace PragmaScript
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "opengl", "test_opengl.prag");
-            CompilerOptions._i.inputFilename = Path.Combine(programDir, "ld46", "ld.prag");
+            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "ld46", "ld.prag");
             // CompilerOptions._i.inputFilename = Path.Combine("test", "bugs.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "wasapi", "wasapi.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "raytracer", "raytracer.prag");

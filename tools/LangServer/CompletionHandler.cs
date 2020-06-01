@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
@@ -12,7 +13,6 @@ using PragmaScript;
 
 
 using static LanguageHelper;
-
 
 class HoverHandler : IHoverHandler
 {
@@ -32,16 +32,6 @@ class HoverHandler : IHoverHandler
             Pattern = "**/*.prag"
         }
     );
-
-    public TextDocumentRegistrationOptions GetRegistrationOptions()
-    {
-        var result = new TextDocumentChangeRegistrationOptions
-        {
-            DocumentSelector = _documentSelector,
-            SyncKind = TextDocumentSyncKind.Full,
-        };
-        return result;
-    }
 
     public async Task<Hover> Handle(HoverParams request, CancellationToken cancellationToken)
     {
@@ -86,6 +76,15 @@ class HoverHandler : IHoverHandler
     public void SetCapability(HoverCapability capability)
     {
         this.capability = capability;
+    }
+
+    HoverRegistrationOptions IRegistration<HoverRegistrationOptions>.GetRegistrationOptions()
+    {
+        var result = new HoverRegistrationOptions
+        {
+            DocumentSelector = _documentSelector
+        };
+        return result;
     }
 }
 

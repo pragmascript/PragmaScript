@@ -181,9 +181,107 @@ let __chkstk = extern fun () => void;
 
 		Windows::CloseHandle(handle);
 		return false;
-}
+	}
 	let CopyMemory = extern("RtlCopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
-#ENDIF
+#endif
+
+#if PLATFORM_LINUX
+	// https://jameshfisher.com/2018/02/19/how-to-syscall-in-c/
+	// https://www.gamekiller.net/threads/tutorial-writing-c-software-without-the-standard-library-linux-edition.3247890/
+	// https://the-linux-channel.the-toffee-project.org/index.php?page=5-tutorials-a-linux-system-call-in-c-without-a-standard-library
+	// https://github.com/raminfp/linux_syscall/tree/master/C_syscall_without_standard_library_linux
+
+	let print = fun (s: string) => void	{
+		assert(Windows::console_output_handle != Windows::INVALID_HANDLE_VALUE);
+		Windows::WriteFile(Windows::console_output_handle, s.data, s.length, @i32* nullptr, nullptr);
+	}
+	let print_error = fun (s: string) => void {
+		assert(Windows::console_error_handle != Windows::INVALID_HANDLE_VALUE);
+		Windows::WriteFile(Windows::console_error_handle, s.data, s.length, @i32* nullptr, nullptr);
+	}
+	let allocate = fun(size: mm) => ptr {
+		var result = Windows::VirtualAlloc(0@ptr, size, Windows::MEM_COMMIT | Windows::MEM_RESERVE, Windows::PAGE_READWRITE);
+		return result;
+	}
+	let free = fun(p: ptr) => void 	{
+		Windows::VirtualFree(p, null, Windows::MEM_RELEASE);
+	}
+	let readln = fun(arena: memory_arena* = &temp_memory_arena) => string {
+		var result = string {};
+		result.data = push(arena, 256);
+		result.length = 256;
+		Windows::SetConsoleMode(Windows::console_input_handle,  
+			Windows::ENABLE_LINE_INPUT | Windows::ENABLE_ECHO_INPUT |  Windows::ENABLE_PROCESSED_INPUT );
+		Windows::ReadFile(Windows::console_input_handle, result.data, result.length, &result.length, nullptr);
+		result.length -= 2;
+		if (result.length < 0) {
+			result.length = 0;
+		}
+		return result;
+		
+	}
+	let read_file = fun(path: string; arena: memory_arena* = &temp_memory_arena) => i8[] {
+		var temp_arena = *arena;
+		
+		var result: i8[];
+		result.data = nullptr;
+		result.length = 0;
+		var handle = Windows::CreateFileA(cstr(path), Windows::GENERIC_READ, Windows::FILE_SHARE_READ, nullptr, Windows::OPEN_EXISTING, 0, 0);
+		if (handle == Windows::INVALID_HANDLE_VALUE) {
+			return result;
+		}
+
+		var size: i64 = 0;
+		var fsr = Windows::GetFileSizeEx(handle, &size);
+		if (fsr == 0 || size == 0) {
+			Windows::CloseHandle(handle);
+			return result;
+		}
+		
+		var buffer = push(arena, size@mm);
+		if (buffer@mm == null) {
+			Windows::CloseHandle(handle);
+			return result;
+		}
+		assert(size@mm <=\ gigabytes(4));
+		var size_32 = @i32 size;
+		var bytes_read: i32;
+		var rfr = Windows::ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
+		assert(bytes_read == size_32);
+		if (rfr == 0) {
+			*arena = temp_arena;
+			Windows::CloseHandle(handle);
+			return result;		
+		}
+
+		result.data = buffer;
+		result.length = size_32;
+		Windows::CloseHandle(handle);
+		return result;
+	}
+	let write_file = fun (name: string; buffer: string) => bool
+	{
+		var handle = Windows::CreateFileA(cstr(name), Windows::GENERIC_WRITE, 0, nullptr, Windows::CREATE_ALWAYS, 0, 0);
+		if (handle == null) {
+			Windows::CloseHandle(handle);
+			return false;
+		}
+		var bytes_written: i32 = 0;
+		var result = Windows::WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
+		if (result != 0) {
+			Windows::CloseHandle(handle);
+			assert(buffer.length == bytes_written);
+			return true;
+		} else {
+			Windows::CloseHandle(handle);
+			return false;
+		}
+
+		Windows::CloseHandle(handle);
+		return false;
+	}
+	let CopyMemory = extern("RtlCopyMemory") fun (dest: ptr; src: ptr; length: mm) => void; 
+#endif
 
 let make_string = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => string {
 	var result = string {};

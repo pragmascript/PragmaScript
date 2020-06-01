@@ -30,7 +30,15 @@ public static class UriHelper
             fileSystemPath = fileSystemPath.Replace('/', '\\');
         }
 
-        return Path.GetFullPath(fileSystemPath);
+        var fullPath = Path.GetFullPath(fileSystemPath);
+        if (fullPath.StartsWith("/")) 
+        {
+            return fullPath.Substring(1);
+        }
+        else
+        {
+            return fullPath;
+        }
     }
 
     /// <summary>

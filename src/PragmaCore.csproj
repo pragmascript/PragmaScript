@@ -2,8 +2,9 @@
   <PropertyGroup>
     <AssemblyName>pragma</AssemblyName>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.0</TargetFramework>
-    <RuntimeIdentifier>win7-x64</RuntimeIdentifier>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' ">linux-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$(OS)' == 'Windows_NT' ">win7-x64</RuntimeIdentifier>
     <DefineConstants>DISPLAY_TIMINGS</DefineConstants>
     <StartupObject></StartupObject>
     <PublishReadyToRun>true</PublishReadyToRun>
@@ -16,10 +17,10 @@
   <DebugType>portable</DebugType>
 </PropertyGroup>
   <Target Name="MyPostCompileTarget1" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Exec Command="python postbuild.py -release" />
+    <Exec Command="python postbuild.py -Release" />
   </Target>
   <Target Name="MyPostCompileTarget2" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
-    <Exec Command="python postbuild.py -debug" />
+    <Exec Command="python postbuild.py -Debug" />
   </Target>
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" />

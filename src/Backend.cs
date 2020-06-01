@@ -1010,14 +1010,11 @@ namespace PragmaScript
             valueStack.Push(phi);
         }
 
-
         void InvalidUnaryOp(AST.UnaryOp node)
         {
             var text = $"Unary operator \"{node.token.text}\" not defined for type \"{this.typeChecker.GetNodeType(node.expression)}\"!";
             throw new CompilerError(text, node.token);
         }
-
-
 
         public void Visit(AST.UnaryOp node)
         {
@@ -1230,7 +1227,6 @@ namespace PragmaScript
             var text = $"Typecast operator \"{node.token.text}\" not defined for base type \"{baseType}\" and target type \"{targetType}\"!";
             throw new CompilerError(text, node.token);
         }
-
 
         public void Visit(AST.TypeCastOp node)
         {
@@ -2298,8 +2294,6 @@ namespace PragmaScript
             var condition = valueStack.Pop();
             Debug.Assert(SSAType.IsBoolType(condition.type));
 
-            bool everythingHasTermination = true;
-
             var insert = builder.GetInsertBlock();
 
             var thenBlock = builder.AppendBasicBlock("then");
@@ -2324,10 +2318,6 @@ namespace PragmaScript
                 builder.MoveBasicBlockAfter(elseBlock, lastBlock);
                 lastBlock = elseBlock;
             }
-            else
-            {
-                everythingHasTermination = false;
-            }
 
             endIfBlock = builder.AppendBasicBlock("endif");
             builder.MoveBasicBlockAfter(endIfBlock, lastBlock);
@@ -2351,7 +2341,6 @@ namespace PragmaScript
             if (!builder.GetInsertBlock().HasTerminator())
             {
                 builder.BuildBr(endIfBlock, node);
-                everythingHasTermination = false;
             }
 
             for (int i = 0; i < elifBlocks.Count; ++i)
@@ -2383,7 +2372,6 @@ namespace PragmaScript
                 if (!builder.GetInsertBlock().HasTerminator())
                 {
                     builder.BuildBr(endIfBlock, node);
-                    everythingHasTermination = false;
                 }
             }
 
@@ -2394,7 +2382,6 @@ namespace PragmaScript
                 if (!builder.GetInsertBlock().HasTerminator())
                 {
                     builder.BuildBr(endIfBlock, node);
-                    everythingHasTermination = false;
                 }
             }
             builder.PositionAtEnd(endIfBlock);
