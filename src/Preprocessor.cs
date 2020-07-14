@@ -18,7 +18,7 @@ namespace PragmaScript
             public bool Condition;
             public bool InElse;
         }
-        public static string Preprocess(string text)
+        public static string Preprocess(string text, Platform platform)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -35,21 +35,18 @@ namespace PragmaScript
                 defines.Add("RELEASE");
             }
 
-            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+
+            if (platform == Platform.WindowsX64)
             {
                 defines.Add("PLATFORM_WINDOWS");
                 CompilerOptions._i.libs.Add("kernel32.lib");
                 CompilerOptions._i.lib_path.Add("lib");
             }
-            else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux))
+            else if (platform == Platform.LinuxX64)
             {
                 defines.Add("PLATFORM_LINUX");
             }
-            else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
-            {
-                defines.Add("PLATFORM_MAC");
-            }
-
+            
             StringBuilder result = new StringBuilder(text.Length);
             int idx = 0;
 

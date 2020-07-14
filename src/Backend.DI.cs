@@ -302,22 +302,39 @@ namespace PragmaScript
                 debugInfoScopeLookup.Add(root, compileUnitIdx);
                 debugInfoCompileUnitIdx = compileUnitIdx;
 
+                if (platform == Platform.WindowsX64)
+                {
+                    string debugInfoVersion = "!{i32 2, !\"Debug Info Version\", i32 3}";
+                    var debugInfoVersionIdx = AddDebugInfoNode(debugInfoVersion);
+                    debugInfoModuleFlags.Add(debugInfoVersionIdx);
 
-                string debugInfoVersion = "!{i32 2, !\"Debug Info Version\", i32 3}";
-                var debugInfoVersionIdx = AddDebugInfoNode(debugInfoVersion);
-                debugInfoModuleFlags.Add(debugInfoVersionIdx);
+                    string codeViewVersion = "!{i32 2, !\"CodeView\", i32 1}";
+                    var codeViewVersionIdx = AddDebugInfoNode(codeViewVersion);
+                    debugInfoModuleFlags.Add(codeViewVersionIdx);
 
-                string codeViewVersion = "!{i32 2, !\"CodeView\", i32 1}";
-                var codeViewVersionIdx = AddDebugInfoNode(codeViewVersion);
-                debugInfoModuleFlags.Add(codeViewVersionIdx);
+                    string wcharSize = "!{i32 1, !\"wchar_size\", i32 2}";
+                    var wcharSizeIdx = AddDebugInfoNode(wcharSize);
+                    debugInfoModuleFlags.Add(wcharSizeIdx);
 
-                string wcharSize = "!{i32 1, !\"wchar_size\", i32 2}";
-                var wcharSizeIdx = AddDebugInfoNode(wcharSize);
-                debugInfoModuleFlags.Add(wcharSizeIdx);
+                    string picLevel = "!{i32 7, !\"PIC Level\", i32 2}";
+                    var picLevelIdx = AddDebugInfoNode(picLevel);
+                    debugInfoModuleFlags.Add(picLevelIdx);
+                }
+                else if (platform == Platform.LinuxX64)
+                {
+                    string debugInfoVersion = "!{i32 2, !\"Debug Info Version\", i32 3}";
+                    var debugInfoVersionIdx = AddDebugInfoNode(debugInfoVersion);
+                    debugInfoModuleFlags.Add(debugInfoVersionIdx);
 
-                string picLevel = "!{i32 7, !\"PIC Level\", i32 2}";
-                var picLevelIdx = AddDebugInfoNode(picLevel);
-                debugInfoModuleFlags.Add(picLevelIdx);
+                    string codeViewVersion = "!{i32 7, !\"Dwarf Version\", i32 4}";
+                    var codeViewVersionIdx = AddDebugInfoNode(codeViewVersion);
+                    debugInfoModuleFlags.Add(codeViewVersionIdx);
+
+                    string wcharSize = "!{i32 1, !\"wchar_size\", i32 2}";
+                    var wcharSizeIdx = AddDebugInfoNode(wcharSize);
+                    debugInfoModuleFlags.Add(wcharSizeIdx);
+                }
+                
 
                 // TODO(pragma): versions??
                 string ident = $"!{{!{producer}}}";

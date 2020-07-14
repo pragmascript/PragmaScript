@@ -6,9 +6,10 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using OmniSharp.Extensions.Embedded.MediatR;
+using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 
@@ -28,6 +29,8 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
     private readonly DocumentSelector documentSelector = new DocumentSelector(
         new DocumentFilter()
         {
+            Language = "pragma",
+            Scheme = "file",
             Pattern = "**/*.prag"
         }
     );
@@ -48,7 +51,7 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
                 }
             }
             return result;
-        }, logToConsole: false);
+        });
     }
 
     public TextDocumentChangeRegistrationOptions GetRegistrationOptions()
@@ -65,9 +68,9 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
         return new TextDocumentAttributes(uri, "pragma");
     }
 
-    string UpdateBuffer(Uri document, string text)
+    string UpdateBuffer(DocumentUri document, string text)
     {
-        var documentPath = UriHelper.GetFileSystemPath(document);
+        var documentPath = DocumentUri.GetFileSystemPath(document);
         if (documentPath == null)
         {
             return documentPath;
@@ -81,7 +84,7 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
 
     }
 
-    void compileAndSubmitErrors(Uri document, string text)
+    void compileAndSubmitErrors(DocumentUri document, string text)
     {
         var documentPath = UpdateBuffer(document, text);
         bool foundError = false;
@@ -90,7 +93,7 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
             // Debugger.Launch();
             var co = new PragmaScript.CompilerOptions
             {
-                inputFilename = document.AbsolutePath,
+                inputFilename = document.Path,
                 buildExecuteable = false
             };
             var (rootScope, tc) = compiler.Compile(co);
@@ -106,17 +109,18 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
                 Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(error.token.Line - 1, error.token.Pos - 1), new Position(error.token.Line - 1, error.token.Pos - 1 + error.token.length)),
             };
 
-            Uri uri;
+            DocumentUri uri;
             if (error.token == Token.Undefined)
             {
                 uri = document;
             }
             else
             {
-                uri = UriHelper.FromFileSystemPath(error.token.filename);
+                uri = DocumentUri.FromFileSystemPath(error.token.filename);
             }
 
-            router.Document.PublishDiagnostics(new PublishDiagnosticsParams
+
+            router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Diagnostics = new List<Diagnostic> { diag },
                 Uri = uri,
@@ -130,7 +134,7 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
 
         if (!foundError)
         {
-            router.Document.PublishDiagnostics(new PublishDiagnosticsParams
+            router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Diagnostics = new List<Diagnostic> { },
                 Uri = document,
@@ -180,5 +184,10 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
             DocumentSelector = documentSelector,
             IncludeText = true
         };
+    }
+
+    public TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
+    {
+        return new TextDocumentAttributes(uri, "pragma");
     }
 }

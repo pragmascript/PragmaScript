@@ -300,6 +300,7 @@ namespace PragmaScript
             public Value BuildArrayAlloca(SSAType t, Value size, AST.Node contextNode, string name = null)
             {
                 var result = new Value(Op.Alloca, new PointerType(t), size);
+                result.alignment = 16;
                 Debug.Assert(size.type.kind == TypeKind.Integer);
                 AddOp(result, name, contextNode: contextNode);
                 return result;

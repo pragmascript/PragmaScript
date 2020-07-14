@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
@@ -23,6 +24,8 @@ class SignatureHelpHandler : ISignatureHelpHandler
     private readonly DocumentSelector _documentSelector = new DocumentSelector(
         new DocumentFilter()
         {
+            Language = "pragma",
+            Scheme = "file",
             Pattern = "**/*.prag"
         }
     );
@@ -35,7 +38,7 @@ class SignatureHelpHandler : ISignatureHelpHandler
 
     public async Task<SignatureHelp> Handle(SignatureHelpParams request, CancellationToken cancellationToken)
     {
-        var documentPath = UriHelper.GetFileSystemPath(request.TextDocument.Uri);
+        var documentPath = DocumentUri.GetFileSystemPath(request.TextDocument.Uri);
         if (string.IsNullOrEmpty(documentPath))
         {
             return new SignatureHelp();

@@ -13,7 +13,7 @@
       <HintPath>../../src/bin/Debug/netcoreapp3.1/win7-x64/pragma.dll</HintPath>
     </Reference>
     <PackageReference Include="GuiLabs.Language.Xml" Version="1.2.38" />
-    <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.16.0" />
+    <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.17.2" />
   </ItemGroup>
 
 </Project>

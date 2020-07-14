@@ -57,6 +57,11 @@ namespace PragmaScript
             }
         }
 
+
+// https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
+
+
+
         string preamble = @"
 ; declare align 64 i8* @VirtualAlloc(i8* nocapture, i64, i32, i32) #0 
 
@@ -76,6 +81,42 @@ define void @__chkstk() #0 {
   ret void
 }
 
+define internal i64 @__read(i32 %fd, i8* %buffer, i64 %size) #0 {
+    %result = tail call i64 asm sideeffect ""syscall"", ""={ax},0,{di},{si},{dx},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 0, i32 %fd, i8* %buffer, i64 %size) nounwind
+    ret i64 %result
+}
+
+define internal i64 @__write(i32 %fd, i8* %buffer, i64 %size) #0 {
+    %result = tail call i64 asm sideeffect ""syscall"", ""={ax},0,{di},{si},{dx},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 1, i32 %fd, i8* %buffer, i64 %size) nounwind
+    ret i64 %result
+}
+
+define internal i32 @__open(i8* %filename, i32 %flags, i32 %mode) #0 {
+    %result = tail call i32 asm sideeffect ""syscall"", ""={ax},0,{di},{si},{dx},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 2, i8* %filename, i32 %flags, i32 %mode) nounwind
+    ret i32 %result
+}
+
+define internal i32 @__openat(i32 %dirfd, i8* %filename, i32 %flags, i32 %mode) #0 {
+    %result = tail call i32 asm sideeffect ""syscall"", ""={ax},0,{di},{si},{dx},{r10}~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 257, %dirfd, i8* %filename, i32 %flags, i32 %mode) nounwind
+    ret i32 %result
+}
+
+define internal i8* @__mmap(i8* %addr, i64 %length, i32 %prot, i32 %flags, i32 %fd, i64 %offset) #0 {
+    %result = tail call i8* asm sideeffect ""syscall"", ""={ax},0,{di},{si},{dx},{r10},{r8},{r9},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 9, i8* %addr, i64 %length, i32 %prot, i32 %flags, i32 %fd, i64 %offset) nounwind
+    ret i8* %result
+}
+
+define internal i32 @__munmap(i8* %addr, i64 %length) #0 {
+    %result = tail call i32 asm sideeffect ""syscall"", ""={ax},0,{di},{si},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 11, i8* %addr, i64 %length) nounwind
+    ret i32 %result
+}
+
+define internal void @__exit() #0 {
+    %result = tail call i64 asm sideeffect ""syscall"", ""={ax},0,{di},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 60, i32 0) nounwind
+    ret void
+}
+
+
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
 ";
         NumberFormatInfo nfi = new NumberFormatInfo();
@@ -87,7 +128,16 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
             sb = new StringBuilder();
             AL("target datalayout = \"e-m:w-i64:64-f80:128-n8:16:32:64-S128\"");
             // AL("target triple = \"x86_64-pc-windows-msvc\"");
-            AL("target triple = \"x86_64-pc-windows-msvc19.11.25508\"");
+            switch (platform)
+            {
+                case Platform.WindowsX64:
+                AL("target triple = \"x86_64-pc-windows-msvc19.11.25508\"");
+                break;
+                case Platform.LinuxX64:
+                AL("target triple = \"x86_64-pc-linux-gnu\"");
+                break;
+            }
+            
             AL();
             foreach (var v in mod.globals.args)
             {
@@ -138,6 +188,8 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                     AP("uwtable ");
                     //  AP("uwtable \"correctly-rounded-divide-sqrt-fp-math\"=\"false\" \"disable-tail-calls\"=\"false\" \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"false\" \"no-infs-fp-math\"=\"false\" \"no-jump-tables\"=\"false\" \"no-nans-fp-math\"=\"false\" \"no-signed-zeros-fp-math\"=\"false\" \"no-trapping-math\"=\"false\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+fxsr,+mmx,+sse,+sse2,+x87\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" ");
                 }
+
+                AP("alignstack=4 ");
 
                 AL("}");
             }

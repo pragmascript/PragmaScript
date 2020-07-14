@@ -3,13 +3,14 @@
     "configurations": [
         {
             "name": "(Windows) Launch",
-            "type": "cppvsdbg",
+            //"type": "cppvsdbg",
+            "type": "cppdbg",
             "request": "launch",
             // "preLaunchTask": "build",
-            "program": "${workspaceRoot}/ld46/bin/ld.exe",
+            "program": "${workspaceRoot}/basics/bin/output",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceRoot}/ld46/bin",
+            "cwd": "${workspaceRoot}/basics/bin",
             "environment": [],
             "externalConsole": true
         }

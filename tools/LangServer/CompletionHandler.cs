@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
@@ -29,21 +30,27 @@ class HoverHandler : IHoverHandler
     private readonly DocumentSelector _documentSelector = new DocumentSelector(
         new DocumentFilter()
         {
+            Language = "pragma",
+            Scheme = "file",
             Pattern = "**/*.prag"
         }
     );
 
     public async Task<Hover> Handle(HoverParams request, CancellationToken cancellationToken)
     {
-        var documentPath = UriHelper.GetFileSystemPath(request.TextDocument.Uri);
+        var emptyHover = new Hover
+        {
+            Contents = new MarkedStringsOrMarkupContent(new MarkedString[] { }),
+        };
+        var documentPath = DocumentUri.GetFileSystemPath(request.TextDocument.Uri);
         if (string.IsNullOrEmpty(documentPath))
         {
-            return new Hover();
+            return emptyHover;
         }
         var (rootScope, tc) = buffers.GetScope(documentPath);
         if (rootScope == null)
         {
-            return new Hover();
+            return emptyHover;
         }
         var scope = GetCurrentScope(rootScope, (int)request.Position.Character, (int)request.Position.Line, documentPath);
 
@@ -52,7 +59,7 @@ class HoverHandler : IHoverHandler
         var node = FindNode(scope, pos, line, documentPath);
         if (node == null)
         {
-            return new Hover();
+            return emptyHover;
         }
         if (node is AST.VariableReference vr)
         {
@@ -69,9 +76,7 @@ class HoverHandler : IHoverHandler
             };
         }
 
-
-
-        return new Hover();
+        return emptyHover;
     }
     public void SetCapability(HoverCapability capability)
     {
@@ -98,6 +103,8 @@ class CompletionHandler : ICompletionHandler
     private readonly DocumentSelector _documentSelector = new DocumentSelector(
         new DocumentFilter()
         {
+            Language = "pragma",
+            Scheme = "file",
             Pattern = "**/*.prag"
         }
     );
@@ -266,7 +273,7 @@ class CompletionHandler : ICompletionHandler
 
     public async Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
     {
-        var documentPath = UriHelper.GetFileSystemPath(request.TextDocument.Uri);
+        var documentPath = DocumentUri.GetFileSystemPath(request.TextDocument.Uri);
         if (string.IsNullOrEmpty(documentPath))
         {
             return new CompletionList();

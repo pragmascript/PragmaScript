@@ -9,6 +9,13 @@ using static PragmaScript.AST;
 
 namespace PragmaScript
 {
+    public enum CompilerMessageType
+    {
+        Warning,
+        Error,
+        Info,
+        Timing
+    }
 
     class Options
     {
@@ -30,12 +37,17 @@ namespace PragmaScript
             System.IO.Directory.SetCurrentDirectory(programDir);
 
             // CompilerOptions._i.buildExecuteable = false;
-            CompilerOptions._i.inputFilename = Path.Combine(programDir, "preamble.prag");
+            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "preamble.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "test", "array.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            
+            
+            CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            
+
+            
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "opengl", "test_opengl.prag");
@@ -52,7 +64,23 @@ namespace PragmaScript
                 Console.WriteLine("Input file name missing!");
                 return;
             }
-            compiler.Compile(co);
+
+            try
+            {
+                compiler.Compile(co);
+            }
+            catch (Exception e)
+            {
+                if (e is CompilerError || e is LexerError) 
+                {
+                    CompilerMessage(e.Message, CompilerMessageType.Error);
+                }
+                else
+                {
+                    throw e;
+                }
+            }
+            
         }
 
 
@@ -80,6 +108,22 @@ namespace PragmaScript
         {
             Console.WriteLine("Enter name: ");
             var name = Console.ReadLine();
+        }
+
+        
+        public static void CompilerMessage(string message, CompilerMessageType type)
+        {
+            bool shouldPrint = CompilerOptions._i.verbose;
+            switch (type)
+            {
+                case CompilerMessageType.Warning:
+                case CompilerMessageType.Error:
+                    shouldPrint = true;
+                    break;
+            }
+            if (shouldPrint) {
+                Console.WriteLine(message);
+            }
         }
 
         static void parseARGS(string[] args)
@@ -135,6 +179,10 @@ namespace PragmaScript
                         case "O":
                         case "OUTPUT":
                             CompilerOptions._i.output = args[++i];
+                            break;
+                        case "V":
+                        case "VERBOSE":
+                            CompilerOptions._i.verbose = true;
                             break;
                         default:
                             System.Console.WriteLine(("Unknown command line option"));

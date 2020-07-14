@@ -9,6 +9,10 @@ using static PragmaScript.SSA.Const;
 
 namespace PragmaScript
 {
+    public enum Platform
+    {
+        WindowsX64, LinuxX64
+    }
     partial class Backend
     {
         TypeChecker typeChecker;
@@ -18,8 +22,9 @@ namespace PragmaScript
 
         Dictionary<FunctionAttribs, int> functionAttribs;
         string exeDir;
+        Platform platform;
 
-        public Backend(TypeChecker typeChecker)
+        public Backend(TypeChecker typeChecker, Platform platform)
         {
             functionAttribs = new Dictionary<FunctionAttribs, int>();
             this.typeChecker = typeChecker;
@@ -27,16 +32,14 @@ namespace PragmaScript
             builder = new Builder(mod);
             exeDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
             functionAttribs.Add(FunctionAttribs.nounwind, 0);
+            this.platform = platform;
         }
 
+        
         public void AOT()
         {
-
-
-#if DISPLAY_TIMINGS
             var timer = new Stopwatch();
             timer.Start();
-#endif
             var ll = emitLL();
 
 
@@ -64,12 +67,10 @@ namespace PragmaScript
             var buffer = new byte[bufferSize];
 
 
-#if DISPLAY_TIMINGS
             timer.Stop();
-            Console.WriteLine($"backend preparation time: {timer.ElapsedMilliseconds}ms");
+            Program.CompilerMessage($"backend preparation time: {timer.ElapsedMilliseconds}ms", CompilerMessageType.Timing);
             timer.Reset();
             timer.Start();
-#endif
             var mcpu = CompilerOptions._i.cpu.ToLower();
             bool error = false;
 
@@ -84,9 +85,19 @@ namespace PragmaScript
             if (optLevel > 0)
             {
                 var opt_string = !use_fast_flags ? optLevel.ToString() : "fast";
-                Console.WriteLine($"optimizer... (O{opt_string})");
+                Program.CompilerMessage($"optimizer... (O{opt_string})", CompilerMessageType.Info);
                 var optProcess = new Process();
-                optProcess.StartInfo.FileName = RelDir(@"External\opt.exe");
+
+                switch (platform)
+                {
+                    case Platform.WindowsX64:
+                        optProcess.StartInfo.FileName = RelDir(@"external/opt.exe");
+                    break;
+                    case Platform.LinuxX64:
+                        optProcess.StartInfo.FileName = RelDir(@"external/opt");
+                    break;
+                }
+                
 
                 var fast_flags = "";
                 if (use_fast_flags)
@@ -99,13 +110,10 @@ namespace PragmaScript
                     optProcess.StartInfo.RedirectStandardInput = false;
                     optProcess.StartInfo.RedirectStandardOutput = false;
                     optProcess.StartInfo.UseShellExecute = false;
-
-#if false
-                    System.Console.WriteLine("***************************************");
-                    System.Console.WriteLine($"opt: {optProcess.StartInfo.FileName}");
-                    System.Console.WriteLine($"arg: {optProcess.StartInfo.Arguments}");
-                    System.Console.WriteLine("***************************************");
-#endif
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
+                    Program.CompilerMessage($"opt: {optProcess.StartInfo.FileName}", CompilerMessageType.Info);
+                    Program.CompilerMessage($"arg: {optProcess.StartInfo.Arguments}", CompilerMessageType.Info);
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
 
                     optProcess.Start();
                     optProcess.WaitForExit();
@@ -116,12 +124,10 @@ namespace PragmaScript
                     optProcess.StartInfo.RedirectStandardInput = true;
                     optProcess.StartInfo.RedirectStandardOutput = true;
                     optProcess.StartInfo.UseShellExecute = false;
-#if false
-                    System.Console.WriteLine("***************************************");
-                    System.Console.WriteLine($"opt: {optProcess.StartInfo.FileName}");
-                    System.Console.WriteLine($"arg: {optProcess.StartInfo.Arguments}");
-                    System.Console.WriteLine("***************************************");
-#endif
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
+                    Program.CompilerMessage($"opt: {optProcess.StartInfo.FileName}", CompilerMessageType.Info);
+                    Program.CompilerMessage($"arg: {optProcess.StartInfo.Arguments}", CompilerMessageType.Info);
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
 
                     optProcess.Start();
                     var writer = optProcess.StandardInput;
@@ -165,21 +171,29 @@ namespace PragmaScript
             }
             if (!error && CompilerOptions._i.asm)
             {
-                Console.WriteLine("assembler...(debug)");
+                Program.CompilerMessage("assembler...(debug)", CompilerMessageType.Info);
                 var llcProcess = new Process();
-                llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
+
+                switch (platform)
+                {
+                    case Platform.WindowsX64:
+                        llcProcess.StartInfo.FileName = RelDir("external/llc.exe");
+                    break;
+                    case Platform.LinuxX64:
+                        llcProcess.StartInfo.FileName = RelDir("external/llc");
+                    break;
+                }
+
                 if (CompilerOptions._i.ll)
                 {
                     llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=asm -o {oxt(".asm")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
-#if false
-                    System.Console.WriteLine("***************************************");
-                    System.Console.WriteLine($"llc: {llcProcess.StartInfo.FileName}");
-                    System.Console.WriteLine($"arg: {llcProcess.StartInfo.Arguments}");
-                    System.Console.WriteLine("***************************************");
-#endif
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
+                    Program.CompilerMessage($"llc: {llcProcess.StartInfo.FileName}", CompilerMessageType.Info);
+                    Program.CompilerMessage($"arg: {llcProcess.StartInfo.Arguments}", CompilerMessageType.Info);
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
 
                     llcProcess.Start();
                     llcProcess.WaitForExit();
@@ -190,12 +204,10 @@ namespace PragmaScript
                     llcProcess.StartInfo.RedirectStandardInput = true;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
-#if false                    
-                    System.Console.WriteLine("***************************************");
-                    System.Console.WriteLine($"llc: {llcProcess.StartInfo.FileName}");
-                    System.Console.WriteLine($"arg: {llcProcess.StartInfo.Arguments}");
-                    System.Console.WriteLine("***************************************");
-#endif
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
+                    Program.CompilerMessage($"llc: {llcProcess.StartInfo.FileName}", CompilerMessageType.Info);
+                    Program.CompilerMessage($"arg: {llcProcess.StartInfo.Arguments}", CompilerMessageType.Info);
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
                     llcProcess.Start();
                     var writer = llcProcess.StandardInput;
                     if (optLevel > 0)
@@ -218,22 +230,29 @@ namespace PragmaScript
             }
             if (!error)
             {
-                Console.WriteLine("assembler...");
+                Program.CompilerMessage("assembler...", CompilerMessageType.Info);
                 var llcProcess = new Process();
-                llcProcess.StartInfo.FileName = RelDir(@"External\llc.exe");
+
+                switch (platform)
+                {
+                    case Platform.WindowsX64:
+                        llcProcess.StartInfo.FileName = RelDir("external/llc.exe");
+                    break;
+                    case Platform.LinuxX64:
+                        llcProcess.StartInfo.FileName = RelDir("external/llc");
+                    break;
+                }
+
                 if (CompilerOptions._i.ll)
                 {
                     llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=obj -o {oxt(".o")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
-#if false
-                    System.Console.WriteLine("***************************************");
-                    System.Console.WriteLine($"llc: {llcProcess.StartInfo.FileName}");
-                    System.Console.WriteLine($"arg: {llcProcess.StartInfo.Arguments}");
-                    System.Console.WriteLine("***************************************");
-#endif
-
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
+                    Program.CompilerMessage($"llc: {llcProcess.StartInfo.FileName}", CompilerMessageType.Info);
+                    Program.CompilerMessage($"arg: {llcProcess.StartInfo.Arguments}", CompilerMessageType.Info);
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
                     llcProcess.Start();
                     llcProcess.WaitForExit();
                 }
@@ -243,12 +262,12 @@ namespace PragmaScript
                     llcProcess.StartInfo.RedirectStandardInput = true;
                     llcProcess.StartInfo.RedirectStandardOutput = false;
                     llcProcess.StartInfo.UseShellExecute = false;
-#if false                    
-                    System.Console.WriteLine("***************************************");
-                    System.Console.WriteLine($"llc: {llcProcess.StartInfo.FileName}");
-                    System.Console.WriteLine($"arg: {llcProcess.StartInfo.Arguments}");
-                    System.Console.WriteLine("***************************************");
-#endif
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
+                    Program.CompilerMessage($"llc: {llcProcess.StartInfo.FileName}", CompilerMessageType.Info);
+                    Program.CompilerMessage($"arg: {llcProcess.StartInfo.Arguments}", CompilerMessageType.Info);
+                    Program.CompilerMessage("***************************************", CompilerMessageType.Info);
+
+                    
                     llcProcess.Start();
                     var writer = llcProcess.StandardInput;
                     if (optLevel > 0)
@@ -272,37 +291,44 @@ namespace PragmaScript
             {
                 var libs = String.Join(" ", CompilerOptions._i.libs);
                 var lib_path = String.Join(" /libpath:", CompilerOptions._i.lib_path.Select(s => "\"" + s + "\""));
-                Console.WriteLine("linker...");
+                Program.CompilerMessage("linker...", CompilerMessageType.Info);
                 var lldProcess = new Process();
 
-                lldProcess.StartInfo.FileName = RelDir(@"External\lld-link.exe");
-                var flags = "/entry:__init";
-                if (CompilerOptions._i.dll)
+                switch (platform)
                 {
-                    flags += $" /NODEFAULTLIB /dll /out:{ox(".dll")}";
-                }
-                else
-                {
-                    flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
-                }
-                if (CompilerOptions._i.debug)
-                {
-                    flags += " /DEBUG";
+                    case Platform.WindowsX64: 
+                    {
+                        lldProcess.StartInfo.FileName = RelDir("external/lld-link.exe");
+                        var flags = "/entry:__init";
+                        if (CompilerOptions._i.dll)
+                        {
+                            flags += $" /NODEFAULTLIB /dll /out:{ox(".dll")}";
+                        }
+                        else
+                        {
+                            flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
+                        }
+                        if (CompilerOptions._i.debug)
+                        {
+                            flags += " /DEBUG";
+                        }
+                        lldProcess.StartInfo.Arguments = $"{libs} {oxt(".o")} {flags} /libpath:{lib_path}";
+                    } break;
+                    case Platform.LinuxX64:
+                        lldProcess.StartInfo.FileName = RelDir("external/ld.lld");// "/usr/bin/ld"; // RelDir("external/ld.lld");
+                        lldProcess.StartInfo.Arguments = $"-o {ox("")} {oxt(".o")} -e__init";
+                    break;
                 }
 
 
-
-                lldProcess.StartInfo.Arguments = $"{libs} {oxt(".o")} {flags} /libpath:{lib_path}";
-                Console.WriteLine($"linker: \"{lldProcess.StartInfo.Arguments}");
+                // Console.WriteLine($"linker: \"{lldProcess.StartInfo.Arguments}\"");
                 lldProcess.StartInfo.RedirectStandardInput = false;
                 lldProcess.StartInfo.RedirectStandardOutput = false;
                 lldProcess.StartInfo.UseShellExecute = false;
-#if false
-                System.Console.WriteLine("***************************************");
-                System.Console.WriteLine($"lld: {lldProcess.StartInfo.FileName}");
-                System.Console.WriteLine($"arg: {lldProcess.StartInfo.Arguments}");
-                System.Console.WriteLine("***************************************");
-#endif
+                Program.CompilerMessage("***************************************", CompilerMessageType.Info);
+                Program.CompilerMessage($"lld: {lldProcess.StartInfo.FileName}", CompilerMessageType.Info);
+                Program.CompilerMessage($"arg: {lldProcess.StartInfo.Arguments}", CompilerMessageType.Info);
+                Program.CompilerMessage("***************************************", CompilerMessageType.Info);
                 lldProcess.Start();
                 lldProcess.WaitForExit();
                 if (lldProcess.ExitCode != 0)
@@ -312,20 +338,26 @@ namespace PragmaScript
                 lldProcess.Close();
             }
 
-#if DISPLAY_TIMINGS
             timer.Stop();
-            Console.WriteLine($"backend llvm time: {timer.ElapsedMilliseconds}ms");
+            Program.CompilerMessage($"backend llvm time: {timer.ElapsedMilliseconds}ms", CompilerMessageType.Timing);
             timer.Reset();
             timer.Start();
-#endif
 
 
             if (!error && CompilerOptions._i.runAfterCompile)
             {
-                Console.WriteLine("running...");
+                Program.CompilerMessage("running...", CompilerMessageType.Info);
                 var outputProcess = new Process();
                 outputProcess.StartInfo.WorkingDirectory = outputBinDir;
-                outputProcess.StartInfo.FileName = ox(".exe");
+                switch (platform)
+                {
+                    case Platform.WindowsX64:
+                        outputProcess.StartInfo.FileName = ox(".exe");
+                        break;
+                    case Platform.LinuxX64:
+                        outputProcess.StartInfo.FileName = outputBin;
+                        break;
+                }
                 outputProcess.StartInfo.Arguments = "";
                 outputProcess.StartInfo.RedirectStandardInput = false;
                 outputProcess.StartInfo.RedirectStandardOutput = false;
@@ -339,12 +371,10 @@ namespace PragmaScript
                 outputProcess.Close();
             }
 
-#if DISPLAY_TIMINGS
-            timer.Stop();
-            System.Console.WriteLine($"Run time: {timer.ElapsedMilliseconds} ms");
-#endif
-            Console.WriteLine("done.");
 
+            timer.Stop();
+            Program.CompilerMessage($"Run time: {timer.ElapsedMilliseconds} ms", CompilerMessageType.Timing);
+            Program.CompilerMessage("done.", CompilerMessageType.Info);
         }
 
         public string RelDir(string dir)
@@ -511,6 +541,10 @@ namespace PragmaScript
             }
             else
             {
+                if (platform == Platform.LinuxX64)
+                {
+                    builder.BuildEmit("call void @__exit()", node, "exit");
+                }
                 builder.BuildRet(void_v, node);
             }
             builder.PositionAtEnd(vars);
@@ -652,7 +686,7 @@ namespace PragmaScript
 
             builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
 
-            var arr_struct_ptr = builder.BuildAlloca(arr_struct_type, node, "arr_struct_alloca");
+            var arr_struct_ptr = builder.BuildAlloca(arr_struct_type, node, "arr_struct_alloca", 16);
             var str_length = (uint)str.Length;
             var elem_type = GetTypeRef(type.elementType);
 
@@ -2076,6 +2110,9 @@ namespace PragmaScript
                 VisitSIMDFunction(node, feft);
                 return;
             }
+
+
+            // TODO(pragma): remove string compares
             switch (feft.funName)
             {
                 case "__file_pos__":

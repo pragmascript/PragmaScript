@@ -1,9 +1,23 @@
 import "../preamble.prag"
 
-["compile.entry", "compile.run"]
-let main = fun () => void {
-	// print("hello world!\n");
-	for (var i = 0; i < 12; ++i) {
+let to_upper = fun(str: string) => void {
+	for (var char_idx = 0; char_idx < str.length; ++char_idx) {
+		if (str[char_idx] >= ord("a") && str[char_idx] <= ord("z")) {
+			str[char_idx] += ord("A") - ord("a");
+		}
 	}
 }
 
+[
+	"compile.entry", 
+	"compile.run", 
+	"compile.opt": "0",
+	"compile.asm",
+	"compile.ll"
+]
+let main = fun () => void {
+	print("Enter name: ");
+	var name = readln();
+	to_upper(name);
+	debug_print("Oh hello", name);
+}

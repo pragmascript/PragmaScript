@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 
+#if false
 public static class UriHelper
 {
     /// <summary>
@@ -65,3 +66,5 @@ public static class UriHelper
         return new Uri("file:///" + fileSystemPath);
     }
 }
+
+#endif

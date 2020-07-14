@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
@@ -23,6 +24,8 @@ class DefinitionHandler : IDefinitionHandler
     private readonly DocumentSelector _documentSelector = new DocumentSelector(
         new DocumentFilter()
         {
+            Language = "pragma",
+            Scheme = "file",
             Pattern = "**/*.prag"
         }
     );
@@ -46,7 +49,7 @@ class DefinitionHandler : IDefinitionHandler
 
     public async Task<LocationOrLocationLinks> Handle(DefinitionParams request, CancellationToken cancellationToken)
     {
-        var documentPath = UriHelper.GetFileSystemPath(request.TextDocument.Uri);
+        var documentPath = DocumentUri.GetFileSystemPath(request.TextDocument.Uri);
         if (string.IsNullOrEmpty(documentPath))
         {
             return new LocationOrLocationLinks();
@@ -100,7 +103,7 @@ class DefinitionHandler : IDefinitionHandler
                     }
                     var location = new Location()
                     {
-                        Uri = UriHelper.FromFileSystemPath(token.filename),
+                        Uri = DocumentUri.FromFileSystemPath(token.filename),
                         Range = new Range(
                             new Position(token.Line - 1, token.Pos - 1),
                             new Position(token.Line - 1, token.Pos - 1 + token.length)
@@ -118,7 +121,7 @@ class DefinitionHandler : IDefinitionHandler
                     {
                         var location = new Location()
                         {
-                            Uri = UriHelper.FromFileSystemPath(token.filename),
+                            Uri = DocumentUri.FromFileSystemPath(token.filename),
                             Range = new Range(
                                             new Position(token.Line - 1, token.Pos - 1),
                                             new Position(token.Line - 1, token.Pos - 1 + token.length)
@@ -140,7 +143,7 @@ class DefinitionHandler : IDefinitionHandler
                         {
                             var location = new Location()
                             {
-                                Uri = UriHelper.FromFileSystemPath(token.filename),
+                                Uri = DocumentUri.FromFileSystemPath(token.filename),
                                 Range = new Range(
                                                 new Position(token.Line - 1, token.Pos - 1),
                                                 new Position(token.Line - 1, token.Pos - 1 + token.length)
@@ -161,7 +164,7 @@ class DefinitionHandler : IDefinitionHandler
                         var token = tr.token;
                         var location = new Location()
                         {
-                            Uri = UriHelper.FromFileSystemPath(token.filename),
+                            Uri = DocumentUri.FromFileSystemPath(token.filename),
                             Range = new Range(
                                 new Position(token.Line - 1, token.Pos - 1),
                                 new Position(token.Line - 1, token.Pos - 1 + token.length)
@@ -175,17 +178,16 @@ class DefinitionHandler : IDefinitionHandler
         return new LocationOrLocationLinks();
     }
 
-
-    TextDocumentRegistrationOptions IRegistration<TextDocumentRegistrationOptions>.GetRegistrationOptions()
-    {
-        return new TextDocumentRegistrationOptions
-        {
-            DocumentSelector = _documentSelector,
-        };
-    }
-
     public void SetCapability(DefinitionCapability capability)
     {
         this.capability = capability;
+    }
+
+    public DefinitionRegistrationOptions GetRegistrationOptions()
+    {
+        return new DefinitionRegistrationOptions
+        {
+            DocumentSelector = _documentSelector,
+        };
     }
 }

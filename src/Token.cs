@@ -392,6 +392,8 @@ namespace PragmaScript
                                 sb.Append(current);
                             }
                         }
+                        pos++;
+                        sb.Append("\"");
                         t.text = sb.ToString();
                         t.length = t.text.Length;
                         return t;

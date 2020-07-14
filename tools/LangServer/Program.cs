@@ -17,7 +17,6 @@ namespace LangServer
                 .WithOutput(Console.OpenStandardOutput())
                 .WithLoggerFactory(new LoggerFactory())
                 .AddDefaultLoggingProvider()
-                .WithMinimumLogLevel(LogLevel.Trace)
                 .WithServices(ConfigureServices)
                 .WithHandler<TextDocumentSyncHandler>()
                 .WithHandler<CompletionHandler>()

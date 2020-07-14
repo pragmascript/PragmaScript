@@ -25,6 +25,7 @@ namespace PragmaScript
         public List<string> lib_path = new List<string>();
         public bool dll = false;
         public string output = "output.exe";
+        public bool verbose = false;
 
         public bool useFastMath
         {
@@ -42,29 +43,33 @@ namespace PragmaScript
     public class Compiler
     {
         Func<string, string> GetFileText;
-        bool logToConsole;
 
-        public Compiler(Func<string, string> GetFileText = null, bool logToConsole = true)
+        public Compiler(Func<string, string> GetFileText = null)
         {
             this.GetFileText = GetFileText;
-            this.logToConsole = logToConsole;
-        }
-
-        public void Log(string s)
-        {
-            if (logToConsole)
-            {
-                System.Console.WriteLine(s);
-            }
         }
 
         public (Scope root, TypeChecker tc) Compile(CompilerOptions options)
         {
+            Platform platform;
+            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+            {
+                platform = Platform.WindowsX64;
+            }
+            else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux))
+            {
+                platform = Platform.LinuxX64;
+            }
+            else
+            {
+                throw new Exception("Platform not supported");
+            }
+
             var filename = options.inputFilename;
             var buildExecuteable = options.buildExecuteable;
 
             var timer = new Stopwatch();
-            Log("parsing...");
+            Program.CompilerMessage("parsing...", CompilerMessageType.Info);
             timer.Start();
 
             Queue<(string, Token)> toImport = new Queue<(string, Token)>();
@@ -109,7 +114,7 @@ namespace PragmaScript
                     throw new CompilerError($"Empty import file \"{fn}\"", import_token);
                 }
 
-                text = Preprocessor.Preprocess(text);
+                text = Preprocessor.Preprocess(text, platform);
                 var tokens = Tokenize(text, fn);
 
                 AST.ParseState ps = new ParseState();
@@ -149,9 +154,9 @@ namespace PragmaScript
             }
 
             timer.Stop();
-            Log($"{timer.ElapsedMilliseconds}ms");
+            Program.CompilerMessage($"{timer.ElapsedMilliseconds}ms", CompilerMessageType.Timing);
 
-            Log("type checking...");
+            Program.CompilerMessage("type checking...", CompilerMessageType.Info);
             timer.Reset();
             timer.Start();
 
@@ -161,8 +166,8 @@ namespace PragmaScript
             tc.CheckTypes(root);
 
             timer.Stop();
-            Log($"{timer.ElapsedMilliseconds}ms");
-            Log("de-sugar...");
+            Program.CompilerMessage($"{timer.ElapsedMilliseconds}ms", CompilerMessageType.Timing);
+            Program.CompilerMessage("de-sugar...", CompilerMessageType.Info);
             timer.Reset();
             timer.Start();
 
@@ -171,19 +176,19 @@ namespace PragmaScript
             ParseTreeTransformations.Desugar(tc.namespaceAccesses, tc);
 
             timer.Stop();
-            Log($"{timer.ElapsedMilliseconds}ms");
+            Program.CompilerMessage($"{timer.ElapsedMilliseconds}ms", CompilerMessageType.Timing);
 
-            Log("backend...");
+            Program.CompilerMessage("backend...", CompilerMessageType.Info);
             timer.Reset();
             timer.Start();
-            var backend = new Backend(tc);
+            var backend = new Backend(tc, platform);
             if (buildExecuteable && entry == null)
             {
                 throw new CompilerError("No entry point defined", root.token);
             }
             backend.Visit(root, entry);
             timer.Stop();
-            Log($"{timer.ElapsedMilliseconds}ms");
+            Program.CompilerMessage($"{timer.ElapsedMilliseconds}ms", CompilerMessageType.Timing);
             if (buildExecuteable)
             {
                 backend.AOT();
@@ -194,16 +199,23 @@ namespace PragmaScript
         Token[] Tokenize(string text, string filename)
         {
             Token[] result = null;
-            try
-            {
-                List<Token> ts = new List<Token>();
-                Token.Tokenize(ts, text, filename);
-                result = ts.ToArray();
-            }
-            catch (LexerError e)
-            {
-                Log(e.Message);
-            }
+
+            List<Token> ts = new List<Token>();
+            Token.Tokenize(ts, text, filename);
+            result = ts.ToArray();
+
+            // try
+            // {
+            //     List<Token> ts = new List<Token>();
+            //     Token.Tokenize(ts, text, filename);
+            //     result = ts.ToArray();
+            // }
+            // catch (LexerError e)
+            // {
+
+            //     throw new CompilerError(e.message);
+            //     // Program.CompilerMessage(e.Message, CompilerMessageType.Error);
+            // }
             return result;
         }
 

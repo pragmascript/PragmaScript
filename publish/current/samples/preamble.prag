@@ -1,12 +1,14 @@
 ﻿#if PLATFORM_WINDOWS
 	import "windows.prag"
 #endif
-
+#if PLATFORM_LINUX
+	import "linux.prag"
+#endif
 
 import "memory.prag"
 
-var temp_memory_arena: memory_arena = create_arena(megabytes(64));
-// var temp_memory_arena: memory_arena = create_arena(64);
+// var temp_memory_arena  = memory_arena{};
+var temp_memory_arena: memory_arena = create_arena(megabytes(8));
 
 let kilobytes = fun (bytes: mm) => mm 
 {
@@ -34,7 +36,6 @@ let endian_swap = fun(value: i16) => i16 {
 let endian_swap = fun(value: i16*) => void {
     *value = endian_swap(*value);
 }
-
 
 let endian_swap = fun(value: i32) => i32 {
     var result =
@@ -121,7 +122,6 @@ let __chkstk = extern fun () => void;
 		return result;
 		
 	}
-	
 	let read_file = fun(path: string; arena: memory_arena* = &temp_memory_arena) => i8[] {
 		var temp_arena = *arena;
 		
@@ -191,21 +191,101 @@ let __chkstk = extern fun () => void;
 	// https://the-linux-channel.the-toffee-project.org/index.php?page=5-tutorials-a-linux-system-call-in-c-without-a-standard-library
 	// https://github.com/raminfp/linux_syscall/tree/master/C_syscall_without_standard_library_linux
 
+
+
 	let print = fun (s: string) => void	{
-		assert(Windows::console_output_handle != Windows::INVALID_HANDLE_VALUE);
-		Windows::WriteFile(Windows::console_output_handle, s.data, s.length, @i32* nullptr, nullptr);
+		Linux::__write(1, s.data, @mm s.length);
 	}
 	let print_error = fun (s: string) => void {
-		assert(Windows::console_error_handle != Windows::INVALID_HANDLE_VALUE);
-		Windows::WriteFile(Windows::console_error_handle, s.data, s.length, @i32* nullptr, nullptr);
+		Linux::__write(1, s.data, @mm s.length);
 	}
+
 	let allocate = fun(size: mm) => ptr {
-		var result = Windows::VirtualAlloc(0@ptr, size, Windows::MEM_COMMIT | Windows::MEM_RESERVE, Windows::PAGE_READWRITE);
+		if (size > 0) {
+			var memory = Linux::__mmap(nullptr, size, Linux::PROT_READ | Linux::PROT_WRITE, Linux::MAP_PRIVATE | Linux::MAP_ANONYMOUS, 0, 0);
+			*(memory@mm*) = size;
+			return memory + size_of(mm);
+		} else {
+			return nullptr;
+		}
+
+	}
+	let free = fun(addr: ptr) => void 	{
+		if (addr != nullptr) {
+			var size = *((addr - size_of(mm))@mm*);
+			Linux::__munmap(addr, size);
+		}
+	}
+
+	// TODO(pragma): speed
+	let CopyMemory = fun (dest: ptr; src: ptr; length: mm) => void
+	{
+		for (var offset: mm = 0; offset < length; ++offset)
+		{
+			*(dest + offset) = *(src + offset);
+		}
+	} 
+
+	let readln = fun(arena: memory_arena* = &temp_memory_arena) => string {
+		var result = string {};
+		result.data = push(arena, 256);
+		result.length = 256;
+		
+		result.length = @i32 Linux::__read(0, result.data, result.length@mm);
+
+		result.length -= 1;
+		if (result.length < 0) {
+			result.length = 0;
+		}
 		return result;
 	}
-	let free = fun(p: ptr) => void 	{
-		Windows::VirtualFree(p, null, Windows::MEM_RELEASE);
+	
+	let read_file = fun(path: string; arena: memory_arena* = &temp_memory_arena) => i8[] {
+		var temp_arena = *arena;
+		
+		var result: i8[];
+		result.data = nullptr;
+		result.length = 0;
+
+		var handle = Linux::__openat(Linux::AT_FDCWD, cstr(path), Linux::O_RDONLY, 0); 
+		
+
+		
+		// if (handle == Windows::INVALID_HANDLE_VALUE) {
+		// 	return result;
+		// }
+
+		// var size: i64 = 0;
+		// var fsr = Windows::GetFileSizeEx(handle, &size);
+		// if (fsr == 0 || size == 0) {
+		// 	Windows::CloseHandle(handle);
+		// 	return result;
+		// }
+		
+		// var buffer = push(arena, size@mm);
+		// if (buffer@mm == null) {
+		// 	Windows::CloseHandle(handle);
+		// 	return result;
+		// }
+		// assert(size@mm <=\ gigabytes(4));
+		// var size_32 = @i32 size;
+		// var bytes_read: i32;
+		// var rfr = Windows::ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
+		// assert(bytes_read == size_32);
+		// if (rfr == 0) {
+		// 	*arena = temp_arena;
+		// 	Windows::CloseHandle(handle);
+		// 	return result;		
+		// }
+
+		// result.data = buffer;
+		// result.length = size_32;
+		// Windows::CloseHandle(handle);
+		return result;
 	}
+
+
+#if false
 	let readln = fun(arena: memory_arena* = &temp_memory_arena) => string {
 		var result = string {};
 		result.data = push(arena, 256);
@@ -280,7 +360,10 @@ let __chkstk = extern fun () => void;
 		Windows::CloseHandle(handle);
 		return false;
 	}
-	let CopyMemory = extern("RtlCopyMemory") fun (dest: ptr; src: ptr; length: mm) => void; 
+	
+#endif
+
+
 #endif
 
 let make_string = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => string {
@@ -759,7 +842,6 @@ let atomic_inc = fun(ptr: i32*) => i32
 {
 	return atomic_add(ptr, 1);
 }
-
 let atomic_inc = fun(ptr: i64*) => i64
 {
 	return atomic_add(ptr, 1);
