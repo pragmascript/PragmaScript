@@ -2614,7 +2614,10 @@ namespace PragmaScript
                 }
                 if (function.isStub)
                 {
-                    Debug.Assert(function.name == $"@{functionName}");
+                    if (function.name != $"@{functionName}")
+                    {
+                        throw new CompilerError($"STUB name (\"{function.name}\") does not correspond to function name. (\"@{functionName}\")", node.token);
+                    }
                 }
                 variables.Add(node.variableDefinition, function);
             }

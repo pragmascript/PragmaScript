@@ -242,128 +242,55 @@ let __chkstk = extern fun () => void;
 	
 	let read_file = fun(path: string; arena: memory_arena* = &temp_memory_arena) => i8[] {
 		var temp_arena = *arena;
-		
 		var result: i8[];
 		result.data = nullptr;
 		result.length = 0;
 
-		var handle = Linux::__openat(Linux::AT_FDCWD, cstr(path), Linux::O_RDONLY, 0); 
-		
-
-		
-		// if (handle == Windows::INVALID_HANDLE_VALUE) {
-		// 	return result;
-		// }
-
-		// var size: i64 = 0;
-		// var fsr = Windows::GetFileSizeEx(handle, &size);
-		// if (fsr == 0 || size == 0) {
-		// 	Windows::CloseHandle(handle);
-		// 	return result;
-		// }
-		
-		// var buffer = push(arena, size@mm);
-		// if (buffer@mm == null) {
-		// 	Windows::CloseHandle(handle);
-		// 	return result;
-		// }
-		// assert(size@mm <=\ gigabytes(4));
-		// var size_32 = @i32 size;
-		// var bytes_read: i32;
-		// var rfr = Windows::ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
-		// assert(bytes_read == size_32);
-		// if (rfr == 0) {
-		// 	*arena = temp_arena;
-		// 	Windows::CloseHandle(handle);
-		// 	return result;		
-		// }
-
-		// result.data = buffer;
-		// result.length = size_32;
-		// Windows::CloseHandle(handle);
-		return result;
-	}
-
-
-#if false
-	let readln = fun(arena: memory_arena* = &temp_memory_arena) => string {
-		var result = string {};
-		result.data = push(arena, 256);
-		result.length = 256;
-		Windows::SetConsoleMode(Windows::console_input_handle,  
-			Windows::ENABLE_LINE_INPUT | Windows::ENABLE_ECHO_INPUT |  Windows::ENABLE_PROCESSED_INPUT );
-		Windows::ReadFile(Windows::console_input_handle, result.data, result.length, &result.length, nullptr);
-		result.length -= 2;
-		if (result.length < 0) {
-			result.length = 0;
-		}
-		return result;
-		
-	}
-	let read_file = fun(path: string; arena: memory_arena* = &temp_memory_arena) => i8[] {
-		var temp_arena = *arena;
-		
-		var result: i8[];
-		result.data = nullptr;
-		result.length = 0;
-		var handle = Windows::CreateFileA(cstr(path), Windows::GENERIC_READ, Windows::FILE_SHARE_READ, nullptr, Windows::OPEN_EXISTING, 0, 0);
-		if (handle == Windows::INVALID_HANDLE_VALUE) {
+		var fd = Linux::__openat(Linux::AT_FDCWD, cstr(path), Linux::O_RDONLY, 0); 
+		if (fd == -1) {
 			return result;
 		}
 
-		var size: i64 = 0;
-		var fsr = Windows::GetFileSizeEx(handle, &size);
-		if (fsr == 0 || size == 0) {
-			Windows::CloseHandle(handle);
+		var statbuf: Linux::stat;
+		var fstat_result = Linux::__fstatat(Linux::AT_FDCWD, cstr(path), (&statbuf)@ptr, 0);
+		var file_size = statbuf.st_size@mm;
+
+		if (fstat_result == -1 || file_size <= 0) {
+			Linux::__close(fd);
 			return result;
 		}
-		
-		var buffer = push(arena, size@mm);
+
+		assert(file_size@mm <=\ gigabytes(4));
+
+		var buffer = push(arena, file_size);
 		if (buffer@mm == null) {
-			Windows::CloseHandle(handle);
+			Linux::__close(fd);
 			return result;
 		}
-		assert(size@mm <=\ gigabytes(4));
-		var size_32 = @i32 size;
-		var bytes_read: i32;
-		var rfr = Windows::ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
-		assert(bytes_read == size_32);
-		if (rfr == 0) {
-			*arena = temp_arena;
-			Windows::CloseHandle(handle);
-			return result;		
-		}
 
-		result.data = buffer;
-		result.length = size_32;
-		Windows::CloseHandle(handle);
+		var read_size = Linux::__read(fd, buffer, file_size);
+		if (read_size >= 0) {
+			result.data = buffer;
+			result.length = @i32 read_size;
+		} else {
+			*arena = temp_arena;
+		}
+		Linux::__close(fd);
 		return result;
 	}
-	let write_file = fun (name: string; buffer: string) => bool
-	{
-		var handle = Windows::CreateFileA(cstr(name), Windows::GENERIC_WRITE, 0, nullptr, Windows::CREATE_ALWAYS, 0, 0);
-		if (handle == null) {
-			Windows::CloseHandle(handle);
+	let write_file = fun (path: string; buffer: string) => bool	{
+		var c_str_path = cstr(path);
+		var fd = Linux::__openat(Linux::AT_FDCWD, c_str_path, Linux::O_WRONLY|Linux::O_CREAT, 0); 
+		if (fd == -1) {
 			return false;
 		}
-		var bytes_written: i32 = 0;
-		var result = Windows::WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
-		if (result != 0) {
-			Windows::CloseHandle(handle);
-			assert(buffer.length == bytes_written);
-			return true;
-		} else {
-			Windows::CloseHandle(handle);
-			return false;
+		var bytes_written = Linux::__write(fd, buffer.data, buffer.length@mm);
+		if (bytes_written != 0) {
+			assert(buffer.length == bytes_written@i32);
 		}
-
-		Windows::CloseHandle(handle);
-		return false;
+		Linux::__close(fd);
+		return bytes_written@i32 == buffer.length;
 	}
-	
-#endif
-
-
 #endif
 
 let make_string = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => string {
@@ -1035,6 +962,10 @@ let debug_print = fun (name: string; value: i64; signed: bool = true) => void
 	print(": ");
 	print(value, signed);
 	print("\n");
+}
+let debug_print = fun (name: string; value: mm; signed: bool = true) => void
+{
+	debug_print(name, value@i64, signed);
 }
 let debug_print = fun (name: string; value: i32; signed: bool = true) => void
 {

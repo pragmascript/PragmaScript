@@ -11,13 +11,11 @@ let to_upper = fun(str: string) => void {
 [
 	"compile.entry", 
 	"compile.run", 
-	"compile.opt": "0",
-	"compile.asm",
-	"compile.ll"
+	"compile.opt": "0"
 ]
-let main = fun () => void {
-	print("Enter name: ");
-	var name = readln();
-	to_upper(name);
-	debug_print("Oh hello", name);
+let main = fun () => void {	
+	var content = read_file("../hello_world.prag\0");
+	to_upper(content);
+	// print(content);
+	write_file("hello_world_upper.up\0", content);
 }

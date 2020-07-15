@@ -10,6 +10,9 @@ mod Linux
     let __open = extern fun(filename: i8*; flags: i32; mode: i32) => i32;
 
     ["stub"]
+    let __close = extern fun(fd: i32) => i32;
+
+    ["stub"]
     let __openat = extern fun(dirfd: i32; filename: i8*; flags: i32; mode: i32) => i32;
 
     ["stub"]
@@ -17,6 +20,61 @@ mod Linux
 
     ["stub"]
     let __munmap = extern fun(addr: ptr; length: mm) => i32;
+
+
+    // *** Dumping AST Record Layout
+    //      0 | struct stat
+    //      0 |   __dev_t st_dev
+    //      8 |   __ino_t st_ino
+    //     16 |   __nlink_t st_nlink
+    //     24 |   __mode_t st_mode
+    //     28 |   __uid_t st_uid
+    //     32 |   __gid_t st_gid
+    //     36 |   int __pad0
+    //     40 |   __dev_t st_rdev
+    //     48 |   __off_t st_size
+    //     56 |   __blksize_t st_blksize
+    //     64 |   __blkcnt_t st_blocks
+    //     72 |   struct timespec st_atim
+    //     72 |     __time_t tv_sec
+    //     80 |     __syscall_slong_t tv_nsec
+    //     88 |   struct timespec st_mtim
+    //     88 |     __time_t tv_sec
+    //     96 |     __syscall_slong_t tv_nsec
+    //    104 |   struct timespec st_ctim
+    //    104 |     __time_t tv_sec
+    //    112 |     __syscall_slong_t tv_nsec
+    //    120 |   __syscall_slong_t [3] __glibc_reserved
+    //        | [sizeof=144, dsize=144, align=8,
+    //        |  nvsize=144, nvalign=8]
+
+
+    let timespec = struct(
+        tv_sec: i64;
+        tv_nsec: i64;
+    );
+
+    ["packed"]
+    let stat = struct(
+        st_dev: i64;
+        st_ino: i64;
+        st_nlink: i64;
+        st_mode: i32;
+        st_uid: i32;
+        st_gid: i32;
+        __pad0: i32;
+        st_rdev: i64;
+        st_size: i64;
+        st_blksize: i64;
+        st_blocks: i64;
+        st_atim: timespec;
+        st_mtim: timespec;
+        st_ctim: timespec;
+        reserved: i64[3];
+    );
+
+    ["stub"]
+    let __fstatat = extern fun(dfd: i32; filename: i8*; statbuf: i8*; flag: i32) => i32;
 
     let MAP_SHARED =     0x01;
     let MAP_PRIVATE =    0x02;

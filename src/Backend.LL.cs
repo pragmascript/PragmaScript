@@ -96,8 +96,8 @@ define internal i32 @__open(i8* %filename, i32 %flags, i32 %mode) #0 {
     ret i32 %result
 }
 
-define internal i32 @__openat(i32 %dirfd, i8* %filename, i32 %flags, i32 %mode) #0 {
-    %result = tail call i32 asm sideeffect ""syscall"", ""={ax},0,{di},{si},{dx},{r10}~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 257, %dirfd, i8* %filename, i32 %flags, i32 %mode) nounwind
+define internal i32 @__close(i32 %fd) #0 {
+    %result = tail call i32 asm sideeffect ""syscall"", ""={ax},0,{di},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 3, i32 %fd) nounwind
     ret i32 %result
 }
 
@@ -111,11 +111,20 @@ define internal i32 @__munmap(i8* %addr, i64 %length) #0 {
     ret i32 %result
 }
 
+define internal i32 @__openat(i32 %dirfd, i8* %filename, i32 %flags, i32 %mode) #0 {
+    %result = tail call i32 asm sideeffect ""syscall"", ""={ax},0,{di},{si},{dx},{r10}~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 257, i32 %dirfd, i8* %filename, i32 %flags, i32 %mode) nounwind
+    ret i32 %result
+}
+
+define internal i32 @__fstatat(i32 %dfd, i8* %filename, i8* %statbuf, i32 %flag) #0 {
+    %result = tail call i32 asm sideeffect ""syscall"", ""={ax},0,{di},{si},{dx},{r10}~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 262, i32 %dfd, i8* %filename, i8* %statbuf, i32 %flag) nounwind
+    ret i32 %result
+}
+
 define internal void @__exit() #0 {
     %result = tail call i64 asm sideeffect ""syscall"", ""={ax},0,{di},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}""(i64 60, i32 0) nounwind
     ret void
 }
-
 
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
 ";
