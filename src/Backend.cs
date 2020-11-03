@@ -1624,7 +1624,6 @@ namespace PragmaScript
             }
         }
 
-
         public void Visit(AST.CompoundLiteral node, bool isConst = false, bool returnPointer = false)
         {
             var sc = node;
@@ -2576,7 +2575,6 @@ namespace PragmaScript
                 var phi = builder.BuildPhi(returnType, node, "return_phi", edges.ToArray());
                 builder.BuildRet(phi, node);
             }
-
         }
 
         public void Visit(AST.FunctionDefinition node, bool proto = false)
@@ -2673,7 +2671,6 @@ namespace PragmaScript
             Debug.Assert(builder.context.IsLoop());
             builder.BuildBr(builder.context.PeekLoop().next, node);
         }
-
 
         public void Visit(AST.IndexedElementAccess node)
         {

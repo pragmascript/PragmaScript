@@ -93,7 +93,7 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
             // Debugger.Launch();
             var co = new PragmaScript.CompilerOptions
             {
-                inputFilename = document.Path,
+                inputFilename = document.GetFileSystemPath(),
                 buildExecuteable = false
             };
             var (rootScope, tc) = compiler.Compile(co);

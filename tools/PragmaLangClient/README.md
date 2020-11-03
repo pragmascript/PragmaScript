@@ -1,6 +1,6 @@
-# client README
+# pragmaclient README
 
-This is the README for your extension "client". After writing up a brief description, we recommend including the following sections.
+This is the README for your extension "pragmaclient". After writing up a brief description, we recommend including the following sections.
 
 ## Features
 
