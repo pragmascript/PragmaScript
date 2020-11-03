@@ -6,7 +6,12 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "../bin/pragma",
+            "windows":{
+                "command": "..\\bin\\pragma.exe"
+            },
+            "linux": {
+                "command": "../bin/pragma"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
