@@ -107,7 +107,8 @@ void main()
 {
     gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
 }
-0"; 
+
+\0";;
     vs_source[vs_source.length - 1] = 0;
     
     assert(vs_source.data != nullptr);
@@ -132,7 +133,8 @@ void main()
 {
     FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
 }
-0";
+
+\0";;
    fs_source[fs_source.length - 1] = 0;
 
     assert(fs_source.data != nullptr);
@@ -554,10 +556,10 @@ let gl_error_callback = fun(
 	"compile.output": "opengl_test.exe",
 	"compile.entry" : "true",
  	"compile.opt"   : "0",
-    "compile.debuginfo": "false",
-    "compile.ll"    : "false",
-    "compile.asm"   : "false",
-    "compile.cpu"   : "haswell",
+    "compile.debuginfo": "true",
+    "compile.ll"    : "true",
+    "compile.asm"   : "true",
+    "compile.cpu"   : "native",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
@@ -565,7 +567,7 @@ let gl_error_callback = fun(
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
 
-    // SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+    SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
 
     var t0 = get_perf_counter();
     

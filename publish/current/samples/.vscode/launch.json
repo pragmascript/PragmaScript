@@ -3,14 +3,14 @@
     "configurations": [
         {
             "name": "(Windows) Launch",
-            //"type": "cppvsdbg",
-            "type": "cppdbg",
+            "type": "cppvsdbg",
+            //"type": "cppdbg",
             "request": "launch",
             // "preLaunchTask": "build",
-            "program": "${workspaceRoot}/basics/bin/output",
+            "program": "${workspaceRoot}/opengl/bin/opengl_test.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceRoot}/basics/bin",
+            "cwd": "${workspaceRoot}/opengl/bin/",
             "environment": [],
             "externalConsole": true
         }
