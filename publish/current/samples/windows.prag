@@ -61,6 +61,7 @@
     let VK_LEFT    = 0x25;
     let VK_RIGHT   = 0x27;
     let VK_SPACE   = 0x20;
+    let VK_RETURN   = 0x0D;
     
 
     ["PACKED"]

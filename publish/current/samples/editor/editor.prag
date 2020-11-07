@@ -89,9 +89,28 @@ let main_window_callback = fun
     return result;
 }
 
+
 let editor_state = struct(
-    text: string;
+    line_pos: i32;
+    char_pos: i32;
+    lines: string[];
 );
+
+
+let max_line_length = 1024;
+let max_line_count = 32;
+
+let create_editor_state = fun() => editor_state  {
+    var result: editor_state;
+    result.line_pos = 0;
+    result.char_pos = 0;
+    result.lines.data = allocate(size_of(string) * max_line_count@mm)@string*;
+    for (var line_idx = 0; line_idx < max_line_count; ++line_idx) {
+        result.lines[line_idx].length = 0;
+        result.lines[line_idx].data = allocate(size_of(i8) * max_line_length@mm);
+    }
+    return result;
+}
 var editor_state: editor_state;
 
 let printable = fun (vk_code: i32) => bool {
@@ -101,24 +120,37 @@ let printable = fun (vk_code: i32) => bool {
     elif (vk_code >= ord("0")@i32 && vk_code <= ord("9")@i32) {
         return true;
     }
-    elif (vk_code == 32) {
+    elif (vk_code == VK_SPACE) {
         return true;
     }
+
     return false;
 }
 
 let handle_editor_key_down = fun(vk_code: i32) => void {
     debug_print("vk_code", vk_code);
+    
+    
+    // TODO(pragma): this is really ugly. there needs to be a better way to do this.
+    var current_line = editor_state.lines[editor_state.line_pos];
+    var current_line_ptr = &editor_state.lines[editor_state.line_pos];
     if (printable(vk_code)) {
-        editor_state.text[editor_state.text.length++] = vk_code@i8;
+        // TODO(pragma): why does this not compile?
+        // (*current_line_ptr*)[current_line_ptr.length++] = vk_code@i8;
+        current_line[current_line_ptr.length++] = vk_code@i8;
     }
     elif (vk_code == VK_BACK) {
-        if (editor_state.text.length > 0) {
-            editor_state.text[editor_state.text.length--] = 0;
+        if (current_line.length > 0) {
+            current_line[current_line_ptr.length--] = 0;
         }
     }
-    debug_print("new_text", editor_state.text);
-    debug_print("new_text.length", editor_state.text.length);
+    elif (vk_code == VK_RETURN) {
+        editor_state.line_pos++;
+    }
+    editor_state.line_pos = Math::clamp(editor_state.line_pos, 0, max_line_count - 1);
+    
+    debug_print("new_text", current_line);
+    debug_print("new_text.length", current_line_ptr.length);
 }
 
 
@@ -194,15 +226,14 @@ let main = fun() => void {
     // debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
     var frames = 0;
     
-    editor_state.text.data = allocate(megabytes(1));
-    editor_state.text.length = 0;
+    editor_state = create_editor_state();
 
     var start_time = get_perf_counter();
     while (!window.wants_to_quit) {
         process_pending_messages();
         var t0 = get_perf_counter();
         var time = get_seconds_elapsed(start_time, t0);
-        render_opengl(window.client_width, window.client_height, editor_state.text, window.dc, time@f32);
+        render_opengl(window.client_width, window.client_height, editor_state.lines[editor_state.line_pos], window.dc, time@f32);
         var t1 = get_perf_counter();
         frames++;
         if (frames == 600) {

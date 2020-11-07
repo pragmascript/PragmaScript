@@ -135,7 +135,7 @@ let get_kerning_pair = fun(font: font*; first: i8; second: i8) => i32 {
 
 let render_text = fun(text: string; font: font*; font_size: f32; start_pos: v2; 
                       client_width: i32; client_height: i32) => void {
-    var watermark = temp_memory_arena.used;
+    var watermark = start_temp(&temp_memory_arena);
     var relative_size = font_size / font.base_size@f32;
     
     var current_quad_count = 0;
@@ -149,7 +149,7 @@ let render_text = fun(text: string; font: font*; font_size: f32; start_pos: v2;
     quads.indices.length = text.length * 6;
     
     // TODO(pragma): why do i have to zero the triangles
-    memset(quads.indices.data@i8*, 0, @mm text.length * 6 * size_of(i32));
+    memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
     
     // debug_print("render_text", "");
     var p = start_pos;
@@ -207,7 +207,6 @@ let render_text = fun(text: string; font: font*; font_size: f32; start_pos: v2;
     
     glDrawElements(GL_TRIANGLES, quads.indices.length, GL_UNSIGNED_INT, nullptr);
         
-    
-    temp_memory_arena.used = watermark;
+    stop_temp(&temp_memory_arena, watermark);
 }
 

@@ -31,7 +31,7 @@ namespace PragmaScript
             var co = new CompilerOptions();
             parseARGS(args);
 
-#if true
+#if false
             CompilerOptions._i.debug = true;
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"../publish/current/samples"));
             System.IO.Directory.SetCurrentDirectory(programDir);
