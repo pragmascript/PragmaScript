@@ -139,8 +139,8 @@ let render_text = fun(text: string; font: font*; font_size: f32; start_pos: v2;
     var relative_size = font_size / font.base_size@f32;
     
     var current_quad_count = 0;
-    var quads = mesh { }
-    ;
+    var quads = mesh { };
+    
     quads.vertices.data = push(&temp_memory_arena, @mm text.length * 4 * size_of(v3))@v3*;
     quads.vertices.length = text.length * 4;
     quads.uvs.data = push(&temp_memory_arena, @mm text.length * 4 * size_of(v2))@v2*;

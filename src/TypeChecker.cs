@@ -1705,9 +1705,9 @@ namespace PragmaScript
                                 optionalCount++;
                                 checkTypeDynamic(p.defaultValueExpression);
                                 var et = getType(p.defaultValueExpression);
-                                optionalExpressionTypes.Add(et);
                                 if (et != null)
                                 {
+                                    optionalExpressionTypes.Add(et);
                                 }
                                 else
                                 {
