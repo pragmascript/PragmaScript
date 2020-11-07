@@ -355,7 +355,12 @@ namespace PragmaScript
                                 }
                             }
                             var ns = scope.AddModule(path, root: true);
-                            scope.importedModules.Add(ns);
+                            
+                            // TODO(pragma): DO I need to speed this up?
+                            if (!scope.importedModules.Contains(ns))
+                            {
+                                scope.importedModules.Add(ns);    
+                            }
                             foundWith = true;
                             ps.ExpectNextToken(Token.TokenType.Semicolon);
                             current = ps.NextToken();

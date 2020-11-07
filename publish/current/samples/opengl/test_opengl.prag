@@ -108,7 +108,7 @@ void main()
     gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
 }
 
-\0";;
+";
     vs_source[vs_source.length - 1] = 0;
     
     assert(vs_source.data != nullptr);
@@ -134,7 +134,7 @@ void main()
     FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
 }
 
-\0";;
+";
    fs_source[fs_source.length - 1] = 0;
 
     assert(fs_source.data != nullptr);
@@ -553,7 +553,7 @@ let gl_error_callback = fun(
 }
 
 [
-	"compile.output": "opengl_test.exe",
+	"compile.output": "test_opengl.exe",
 	"compile.entry" : "true",
  	"compile.opt"   : "0",
     "compile.debuginfo": "true",

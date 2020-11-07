@@ -54,12 +54,14 @@
     let VK_LBUTTON = 0x01;
     let VK_RBUTTON = 0x02;
     let VK_MBUTTON = 0x04;
+    let VK_BACK    = 0x08;
     let VK_ESCAPE  = 0x1B;
     let VK_UP      = 0x26;
     let VK_DOWN    = 0x28;
     let VK_LEFT    = 0x25;
     let VK_RIGHT   = 0x27;
     let VK_SPACE   = 0x20;
+    
 
     ["PACKED"]
     let WNDCLASSEX = struct 

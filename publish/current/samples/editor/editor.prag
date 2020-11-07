@@ -1,0 +1,214 @@
+import "../preamble.prag"
+import "../windows.prag"
+import "../math.prag"
+import "../memory.prag"
+import "../vec.prag"
+
+
+import "editor_opengl.prag"
+
+
+with Windows;
+
+// https://hero.handmade.network/forums/code-discussion/t/129-howto_-_building_without_import_libraries
+
+let window_state = struct 
+(
+    handle: mm;
+    dc: mm;
+    client_width: i32;
+    client_height: i32;
+    wants_to_quit: bool;
+);
+var window: window_state;
+let process_pending_messages = fun() => void {
+    var msg: MSG;
+    while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE|PM_NOYIELD) != 0) {
+        var message = msg.message;
+        if (message == WM_QUIT) {
+            window.wants_to_quit = true;
+        } 
+        elif (message == WM_SYSKEYDOWN
+            || message == WM_SYSKEYUP
+            || message == WM_KEYDOWN
+            || message == WM_KEYUP) {
+
+            var w_param = @i32 (msg.wParam >> 32@mm);
+            var l_param = @i32 (msg.lParam >> 32@mm);
+            var vk_code = w_param;
+
+            var was_down = (l_param & (1 << 30)) != 0;
+            var is_down = (l_param & (1 << 31)) == 0;
+            var key_up = was_down && !is_down;
+            var key_down = !was_down && is_down; 
+
+            if (key_down) {
+                handle_editor_key_down(vk_code);
+            }
+
+            if(vk_code == VK_ESCAPE) {
+                window.wants_to_quit = true;
+            }
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+        }
+    }
+}
+
+let PROCESS_SYSTEM_DPI_AWARE = 1;
+let SetProcessDpiAwareness = extern fun(
+    value: i32;
+) => i32;
+
+let main_window_callback = fun
+(
+    window_handle: mm;
+    message: i32;
+    w_param: mm;
+    l_param: mm;
+) => mm {
+    var result = null;
+    if (message == WM_SIZE || message == WM_SIZING) {
+    }
+    elif (message == WM_CLOSE) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_DESTROY) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_PAINT) {
+        var paint: PAINTSTRUCT;
+        var context = BeginPaint(window_handle, &paint);
+        // blit_to_screen(window.dc, &window.backbuffer);
+        EndPaint(window_handle, &paint);
+    } 
+    else {
+        result = DefWindowProcA(window_handle, message, w_param, l_param);
+    }
+    return result;
+}
+
+let editor_state = struct(
+    text: string;
+);
+var editor_state: editor_state;
+
+let printable = fun (vk_code: i32) => bool {
+    if (vk_code >= ord("A")@i32 && vk_code <= ord("Z")@i32) {
+        return true;
+    }
+    elif (vk_code >= ord("0")@i32 && vk_code <= ord("9")@i32) {
+        return true;
+    }
+    elif (vk_code == 32) {
+        return true;
+    }
+    return false;
+}
+
+let handle_editor_key_down = fun(vk_code: i32) => void {
+    debug_print("vk_code", vk_code);
+    if (printable(vk_code)) {
+        editor_state.text[editor_state.text.length++] = vk_code@i8;
+    }
+    elif (vk_code == VK_BACK) {
+        if (editor_state.text.length > 0) {
+            editor_state.text[editor_state.text.length--] = 0;
+        }
+    }
+    debug_print("new_text", editor_state.text);
+    debug_print("new_text.length", editor_state.text.length);
+}
+
+
+[
+	"compile.output": "edit.exe",
+	"compile.entry" : "true",
+ 	"compile.opt"   : "0",
+    "compile.debuginfo": "true",
+    "compile.ll"    : "false",
+    "compile.asm"   : "false",
+    "compile.cpu"   : "native", // "sandybridge",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun() => void {
+    QueryPerformanceFrequency(&perf_count_freq);
+
+    SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+
+    var t0 = get_perf_counter();
+    
+    let buffer_width  = 1920;
+    let buffer_height = 1080;
+    
+
+    var client_rect = RECT { 0, 0, buffer_width, buffer_height };
+    AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
+
+    var window_width = client_rect.right - client_rect.left;
+    assert(window_width > 0);
+    var window_height = client_rect.bottom - client_rect.top;
+    assert(window_height > 0);
+    window.client_width = buffer_width;
+    window.client_height = buffer_height;
+    
+    var class_name  = cstr("editor_window_class\0");
+    var window_name = cstr("editor test\0");
+    var module_handle = GetModuleHandleA(null);
+    var window_class = WNDCLASSEX {};
+    window_class.cbSize = size_of(WNDCLASSEX)@i32;
+    window_class.style = CS_HREDRAW|CS_VREDRAW;
+    window_class.lpfnWndProc = @ptr main_window_callback;
+    window_class.hInstance = module_handle;
+    window_class.lpszClassName = class_name;
+    window_class.hCursor = LoadCursorA(null, IDC_ARROW);
+    RegisterClassExA(&window_class);
+    
+    let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
+    let dw_ex_style = 0 & WS_EX_TOPMOST;
+ 
+    window.handle = CreateWindowExA(
+        dw_ex_style,
+        class_name,
+        window_name,
+        dw_style,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        window_width,
+        window_height,
+        null,
+        null,
+        module_handle,
+        null
+    );
+    window.dc = GetDC(window.handle);
+    
+    var gl_t0 = get_perf_counter();
+    init_opengl(window.dc);
+    init_gl_resources();
+    var gl_t1 = get_perf_counter();
+
+    // debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
+    var frames = 0;
+    
+    editor_state.text.data = allocate(megabytes(1));
+    editor_state.text.length = 0;
+
+    var start_time = get_perf_counter();
+    while (!window.wants_to_quit) {
+        process_pending_messages();
+        var t0 = get_perf_counter();
+        var time = get_seconds_elapsed(start_time, t0);
+        render_opengl(window.client_width, window.client_height, editor_state.text, window.dc, time@f32);
+        var t1 = get_perf_counter();
+        frames++;
+        if (frames == 600) {
+            // debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
+            frames = 0;
+        }
+    }
+    ExitProcess(0);
+}

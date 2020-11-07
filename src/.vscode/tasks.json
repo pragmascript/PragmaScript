@@ -1,23 +1,20 @@
 {
-    "version": "0.1.0",
+    "version": "2.0.0",
     "tasks": [
         {
+            "label": "build",
+            "group": "build",
             "command": "dotnet",
-            "echoCommand": true,
-            "taskName": "build",
-            "isShellCommand": true,
             "args": [
                 "build",
                 "-c",
                 "Debug"
             ],
-            "isBuildCommand": true,
             "problemMatcher": "$msCompile"
         },
         {
             "command": "python",
-            "taskName": "publish",
-            "isShellCommand": true,
+            "label": "publish",
             "args": [
                 "publish.py"
             ]

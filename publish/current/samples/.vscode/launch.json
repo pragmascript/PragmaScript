@@ -7,10 +7,10 @@
             //"type": "cppdbg",
             "request": "launch",
             // "preLaunchTask": "build",
-            "program": "${workspaceRoot}/opengl/bin/opengl_test.exe",
+            "program": "${workspaceRoot}/editor/bin/edit.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceRoot}/opengl/bin/",
+            "cwd": "${workspaceRoot}/editor/bin/",
             "environment": [],
             "externalConsole": true
         }

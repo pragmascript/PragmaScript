@@ -198,8 +198,15 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                     //  AP("uwtable \"correctly-rounded-divide-sqrt-fp-math\"=\"false\" \"disable-tail-calls\"=\"false\" \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"false\" \"no-infs-fp-math\"=\"false\" \"no-jump-tables\"=\"false\" \"no-nans-fp-math\"=\"false\" \"no-signed-zeros-fp-math\"=\"false\" \"no-trapping-math\"=\"false\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+fxsr,+mmx,+sse,+sse2,+x87\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" ");
                 }
 
-                AP("alignstack=4 ");
 
+                // NOTE(pragma): alignstack=4 crashes test_opengl on Windows for some reason. The crash is inside __chkstk call.
+                // TODO(pragma): need to investigate why alignstack=4 crashes on Windows in test_opengl.prag in call to __chkstk
+                // TODO(pragma): we should setup the linker so we no longer need __chkstk at all since we can just should be able to tell the linker to always commit the requested stack memory
+                
+                if (this.platform == Platform.LinuxX64)
+                {
+                    AP("alignstack=4 ");    
+                }
                 AL("}");
             }
 

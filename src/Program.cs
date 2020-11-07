@@ -44,13 +44,13 @@ namespace PragmaScript
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "test", "array.prag");
             
             
-            CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             
 
             
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "opengl", "test_opengl.prag");
+            CompilerOptions._i.inputFilename = Path.Combine(programDir, "editor", "editor.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "ld46", "ld.prag");
             // CompilerOptions._i.inputFilename = Path.Combine("test", "bugs.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "wasapi", "wasapi.prag");
@@ -65,21 +65,21 @@ namespace PragmaScript
                 return;
             }
 
-            try
+            // try
             {
                 compiler.Compile(co);
             }
-            catch (Exception e)
-            {
-                if (e is CompilerError || e is LexerError) 
-                {
-                    CompilerMessage(e.Message, CompilerMessageType.Error);
-                }
-                else
-                {
-                    throw e;
-                }
-            }
+            // catch (Exception e)
+            // {
+            //     if (e is CompilerError || e is LexerError) 
+            //     {
+            //         CompilerMessage(e.Message, CompilerMessageType.Error);
+            //     }
+            //     else
+            //     {
+            //         throw e;
+            //     }
+            // }
             
         }
 

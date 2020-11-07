@@ -313,7 +313,7 @@ void main()
     gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
     UV = aUV;
 }
-0"; 
+"; 
     vs_source[vs_source.length - 1] = 0;
     
     assert(vs_source.data != nullptr);
@@ -345,7 +345,7 @@ void main()
     }
     FragColor = tex_color; // vec4(tex_color.a, tex_color.a, tex_color.a, 1.0); // vec4(UV.x, -UV.y, 0.0, 1.0);
 }
-0";
+";
    fs_source[fs_source.length - 1] = 0;
 
     assert(fs_source.data != nullptr);

@@ -337,7 +337,7 @@ namespace PragmaScript
                         {
                             var p0 = $"\"{result_mod.GetPath()}.{typeName}\"";
                             var p1 = $"\"{mod.GetPath()}.{typeName}\"";
-                            throw new CompilerError($"Access to variable is ambigious between {p0} and {p1}.", from);
+                            throw new CompilerError($"Access to type is ambigious between {p0} and {p1}.", from);
                         }
                         else
                         {
