@@ -41,9 +41,15 @@ let process_pending_messages = fun() => void {
             var is_down = (l_param & (1 << 31)) == 0;
             var key_up = was_down && !is_down;
             var key_down = !was_down && is_down; 
-
+            
+            // https://docs.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
+            // TODO(pragma): handl repeat keys!
+            
             if (key_down) {
                 handle_editor_key_down(vk_code);
+            }
+            if (key_up) {
+                handle_editor_key_up(vk_code);
             }
 
             if(vk_code == VK_ESCAPE) {
@@ -89,11 +95,23 @@ let main_window_callback = fun
     return result;
 }
 
-
-let editor_state = struct(
+let cursor = struct(
     line_pos: i32;
     char_pos: i32;
+    target_char_pos: i32;
+    draw_cursor: bool;
+    cursor_last_blink_time: f32;
+);
+
+let editor_state = struct(
     lines: string[];
+    
+    keyboard_state: i8*;
+    shift_pressed: bool;
+    
+    cursor: cursor;
+    
+    time: f32;
 );
 
 
@@ -101,56 +119,163 @@ let max_line_length = 1024;
 let max_line_count = 32;
 
 let create_editor_state = fun() => editor_state  {
-    var result: editor_state;
-    result.line_pos = 0;
-    result.char_pos = 0;
+    var result = editor_state { };
+    result.cursor.line_pos = 0;
+    result.cursor.char_pos = 0;
     result.lines.data = allocate(size_of(string) * max_line_count@mm)@string*;
+    result.lines.length = max_line_count;
+    result.keyboard_state = allocate(256);
+
+    var line_size = size_of(i8) * max_line_length@mm;    
+    var text_block_size = line_size * max_line_count@mm;
+    var text_block_ptr = allocate(text_block_size);
+    
     for (var line_idx = 0; line_idx < max_line_count; ++line_idx) {
         result.lines[line_idx].length = 0;
-        result.lines[line_idx].data = allocate(size_of(i8) * max_line_length@mm);
+        result.lines[line_idx].data = text_block_ptr;
+        text_block_ptr += line_size;
     }
     return result;
 }
 var editor_state: editor_state;
 
-let printable = fun (vk_code: i32) => bool {
-    if (vk_code >= ord("A")@i32 && vk_code <= ord("Z")@i32) {
-        return true;
-    }
-    elif (vk_code >= ord("0")@i32 && vk_code <= ord("9")@i32) {
-        return true;
-    }
-    elif (vk_code == VK_SPACE) {
-        return true;
-    }
+// let printable = fun (vk_code: i32) => bool {
+//     if (vk_code >= ord("A")@i32 && vk_code <= ord("Z")@i32) {
+//         return true;
+//     }
+//     elif (vk_code >= ord("0")@i32 && vk_code <= ord("9")@i32) {
+//         return true;
+//     }
+//     elif (vk_code == VK_SPACE) {
+//         return true;
+//     }
+//     return false;
+// }
 
-    return false;
+let printable = fun(char: i8) => bool {
+    return char >= 32 & char <= 126;
+}
+
+let to_upper = fun(char: i8) => i8 {
+    var result = char;
+    if (char >= ord("a") && char <= ord("z")) {
+        result += ord("A") - ord("a");
+    }
+    return result;
+}
+
+let to_lower = fun(char: i8) => i8 {
+    var result = char;
+    if (char >= ord("A") && char <= ord("Z")) {
+        result -= ord("A") - ord("a");
+    }
+    return result;
+}
+
+let reset_cursor_blink = fun() => void {
+    editor_state.cursor.draw_cursor = true;
+    editor_state.cursor.cursor_last_blink_time = editor_state.time;
 }
 
 let handle_editor_key_down = fun(vk_code: i32) => void {
-    debug_print("vk_code", vk_code);
-    
+    var cursor = &editor_state.cursor;
+    var lines = editor_state.lines;
     
     // TODO(pragma): this is really ugly. there needs to be a better way to do this.
-    var current_line = editor_state.lines[editor_state.line_pos];
-    var current_line_ptr = &editor_state.lines[editor_state.line_pos];
-    if (printable(vk_code)) {
-        // TODO(pragma): why does this not compile?
-        // (*current_line_ptr*)[current_line_ptr.length++] = vk_code@i8;
-        current_line[current_line_ptr.length++] = vk_code@i8;
+    var current_line = lines[cursor.line_pos];
+    var current_line_ptr = &lines[cursor.line_pos];
+    
+    var char_word: i16 = 0;
+    GetKeyboardState(editor_state.keyboard_state);
+    ToAscii(vk_code, vk_code, editor_state.keyboard_state, &char_word, 0);
+    assert(char_word >= 0 && char_word < 256);
+    var char: i8 = char_word@i8;
+    
+    var should_reset_blink = false;
+    
+    if (printable(char@i8)) {
+        current_line[current_line_ptr.length++] = char@i8;
+        cursor.char_pos++;
+        should_reset_blink = true;
     }
     elif (vk_code == VK_BACK) {
         if (current_line.length > 0) {
             current_line[current_line_ptr.length--] = 0;
+            cursor.char_pos--;
+            should_reset_blink = true;
+        } else {
+            if (cursor.line_pos > 0) {
+                cursor.line_pos--;
+                current_line = lines[cursor.line_pos];
+                current_line_ptr = &lines[cursor.line_pos];
+                cursor.char_pos = current_line.length;
+                
+                // TODO(pragma): this should not be done line by line: this is just one big memcpy.
+                for (var line_idx = cursor.line_pos; line_idx < max_line_count - 1; ++line_idx) {
+                    var src_line = lines[line_idx + 1];
+                    var dest_line = lines[line_idx];
+                    memcpy(dest_line.data, src_line.data, src_line.length@mm);
+                }
+            }
         }
     }
     elif (vk_code == VK_RETURN) {
-        editor_state.line_pos++;
+        cursor.line_pos++;
+        cursor.char_pos = 0;
+        should_reset_blink = true;
     }
-    editor_state.line_pos = Math::clamp(editor_state.line_pos, 0, max_line_count - 1);
+    elif (vk_code == VK_SHIFT) {
+        editor_state.shift_pressed = true;
+    }
+    elif (vk_code == VK_LEFT) {
+        if (cursor.char_pos > 0) {
+            cursor.char_pos--;
+            should_reset_blink = true;
+        } else {
+            if (cursor.line_pos > 0) {
+               cursor.line_pos--;    
+               should_reset_blink = true;
+               cursor.char_pos = lines[cursor.line_pos].length;
+            }
+        }
+    }
+    elif (vk_code == VK_RIGHT) {
+        if (cursor.char_pos < current_line.length) {
+            cursor.char_pos++;
+            should_reset_blink = true;
+        } else {
+            if (cursor.line_pos < max_line_count - 1) {
+                cursor.line_pos++;
+                should_reset_blink = true;    
+            }
+        }
+    }
+    elif (vk_code == VK_UP) {
+        if (cursor.line_pos > 0) {
+            cursor.line_pos--;
+        }
+    }
+    elif (vk_code == VK_DOWN) {
+        if (cursor.line_pos < max_line_count - 1) {
+            cursor.line_pos++;
+        }
+    }
+    cursor.line_pos = Math::clamp(cursor.line_pos, 0, max_line_count - 1);
     
-    debug_print("new_text", current_line);
-    debug_print("new_text.length", current_line_ptr.length);
+    if (should_reset_blink) {
+        reset_cursor_blink();
+    }
+    
+    // debug_print("key_down", vk_code);
+    // debug_print("new_text", current_line);
+    // debug_print("new_text.length", current_line_ptr.length);
+}
+
+let handle_editor_key_up = fun(vk_code: i32) => void {
+    // debug_print("key_up", vk_code);
+    if (vk_code == VK_SHIFT) {
+        editor_state.shift_pressed = false;
+    }
 }
 
 
@@ -233,7 +358,8 @@ let main = fun() => void {
         process_pending_messages();
         var t0 = get_perf_counter();
         var time = get_seconds_elapsed(start_time, t0);
-        render_opengl(window.client_width, window.client_height, editor_state.lines[editor_state.line_pos], window.dc, time@f32);
+        editor_state.time = time@f32;
+        render_opengl(window.client_width, window.client_height, &editor_state, window.dc);
         var t1 = get_perf_counter();
         frames++;
         if (frames == 600) {

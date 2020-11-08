@@ -62,8 +62,21 @@
     let VK_RIGHT   = 0x27;
     let VK_SPACE   = 0x20;
     let VK_RETURN   = 0x0D;
+    let VK_SHIFT = 0x10;
+    let VK_CONTROL = 0x11;
+    let VK_MENU = 0x12;
+    let VK_ALT = VK_MENU;
     
-
+    let ToAscii = extern fun(
+      uVirtKey: i32;
+      uScanCode: i32;
+      lpKeyState: ptr;
+      lpChar: i16*;
+      uFlags: i32;
+    ) => i32;
+    
+    let GetKeyboardState = extern fun(lpKeyState: i8*) => i32;
+    
     ["PACKED"]
     let WNDCLASSEX = struct 
     (

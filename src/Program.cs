@@ -65,21 +65,21 @@ namespace PragmaScript
                 return;
             }
 
-            // try
+            try
             {
                 compiler.Compile(co);
             }
-            // catch (Exception e)
-            // {
-            //     if (e is CompilerError || e is LexerError) 
-            //     {
-            //         CompilerMessage(e.Message, CompilerMessageType.Error);
-            //     }
-            //     else
-            //     {
-            //         throw e;
-            //     }
-            // }
+            catch (Exception e)
+            {
+                if (e is CompilerError || e is LexerError) 
+                {
+                    CompilerMessage(e.Message, CompilerMessageType.Error);
+                }
+                else
+                {
+                    throw e;
+                }
+            }
             
         }
 

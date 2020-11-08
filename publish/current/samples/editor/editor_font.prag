@@ -3,6 +3,8 @@ import "../vec.prag"
 import "../opengl/opengl.prag"
 import "../xml.prag"
 
+
+import "editor.prag"
 import "editor_opengl.prag"
 
 let glyph = struct(
@@ -133,59 +135,84 @@ let get_kerning_pair = fun(font: font*; first: i8; second: i8) => i32 {
     return font.kerning_table[idx];
 }
 
-let render_text = fun(text: string; font: font*; font_size: f32; start_pos: v2; 
-                      client_width: i32; client_height: i32) => void {
+
+let add_character = fun(char: i8; char_next: i8; font: font*;
+                        quads: mesh*; current_quad_count: i32; relative_size: f32; 
+                        p: v2*; client_width: i32; client_height: i32) => i32 {
+    var result = current_quad_count;
+    
+    var glyph = &font.glyphs[char@i32];
+    var w = font.atlas_width@f32 - 1.0;
+    var h = font.atlas_height@f32 - 1.0;
+    var uv0 = v2(glyph.pos_x@f32 / w, 1.0 - glyph.pos_y@f32 / h);
+    var uv1 = v2(
+        @f32 (glyph.pos_x + glyph.width) / w,
+        1.0 - @f32 (glyph.pos_y + glyph.height) / h
+    );
+    var p_size = v2(relative_size * glyph.width@f32, relative_size * glyph.height@f32);
+    var size = v2(2*p_size.x / (client_width - 1)@f32, 2*p_size.y / (client_height - 1)@f32);
+
+    var pos = add(v3(p.x, p.y, 0), v3(relative_size * glyph.x_offset@f32, -relative_size *  glyph.y_offset@f32, 0));
+    pos = map_to_gl(v3(pos.x, pos.y, 0), client_width, client_height);
+    
+    p.x += relative_size * glyph.x_advance@f32;
+    if (char_next != 0) {
+        var first = char;
+        var second = char_next;
+        var kerning = get_kerning_pair(font, first, second);
+        p.x += relative_size * kerning@f32;
+    }        
+    if (char != ord(" ") && char != ord("\n")) {
+        result = add_quad(quads, pos, size, uv0, uv1, current_quad_count);    
+    }
+    
+    return result;
+}
+
+let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32; start_pos: v2; client_width: i32; client_height: i32) => void {
     var watermark = start_temp(&temp_memory_arena);
+    var cursor = &editor_state.cursor;
     var relative_size = font_size / font.base_size@f32;
     
     var current_quad_count = 0;
     var quads = mesh { };
+    let max_chars = max_line_length * max_line_count;
     
-    quads.vertices.data = push(&temp_memory_arena, @mm text.length * 4 * size_of(v3))@v3*;
-    quads.vertices.length = text.length * 4;
-    quads.uvs.data = push(&temp_memory_arena, @mm text.length * 4 * size_of(v2))@v2*;
-    quads.uvs.length = text.length * 4;
-    quads.indices.data = push(&temp_memory_arena, @mm text.length * 6 * size_of(i32))@i32*;
-    quads.indices.length = text.length * 6;
+    quads.vertices.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v3))@v3*;
+    quads.vertices.length = max_chars * 4;
+    quads.uvs.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v2))@v2*;
+    quads.uvs.length = max_chars* 4;
+    quads.indices.data = push(&temp_memory_arena, @mm max_chars * 6 * size_of(i32))@i32*;
+    quads.indices.length = max_chars * 6;
     
     // TODO(pragma): why do i have to zero the triangles
     memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
     
+    var lines = editor_state.lines;
+    
     // debug_print("render_text", "");
     var p = start_pos;
-    for (var char_idx = 0; char_idx < text.length; ++char_idx) {
-        var char = text[char_idx];
-        var glyph = &font.glyphs[text[char_idx]@i32];
-        
-        var w = font.atlas_width@f32 - 1.0;
-        var h = font.atlas_height@f32 - 1.0;
-        var uv0 = v2(glyph.pos_x@f32 / w, 1.0 - glyph.pos_y@f32 / h);
-        var uv1 = v2(
-            @f32 (glyph.pos_x + glyph.width) / w,
-            1.0 - @f32 (glyph.pos_y + glyph.height) / h
-        );
-        
-        
-        var p_size = v2(relative_size * glyph.width@f32, relative_size * glyph.height@f32);
-        var size = v2(2*p_size.x / (client_width - 1)@f32, 2*p_size.y / (client_height - 1)@f32);
- 
-        var pos = add(v3(p.x, p.y, 0), v3(relative_size * glyph.x_offset@f32, -relative_size *  glyph.y_offset@f32, 0));
-        pos = map_to_gl(v3(pos.x, pos.y, 0), client_width, client_height);
-        
-        p.x += relative_size * glyph.x_advance@f32;        
-        if (char_idx < text.length - 1) {
-            var first = text[char_idx];
-            var second = text[char_idx + 1];
-            var kerning = get_kerning_pair(font, first, second);
-            p.x += relative_size * kerning@f32;
+    
+    for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
+        var current_line = lines[line_idx];
+        for (var char_idx = 0; char_idx < current_line.length + 1; ++char_idx) {
+            var cursor_p = p;
+            if (char_idx != current_line.length) {
+                var char = current_line[char_idx];
+                var char_next: i8 = 0;
+                if (char_idx < current_line.length - 1) {
+                    char_next = current_line[char_idx + 1];    
+                }
+                current_quad_count = add_character(char, char_next, font, &quads, current_quad_count, relative_size, &p, client_width, client_height);
+            }
+            if (cursor.draw_cursor && line_idx == cursor.line_pos && char_idx == cursor.char_pos) {
+                cursor_p.x -= 18.0 * relative_size;
+                cursor_p.y += 24.0 * relative_size;
+                current_quad_count = add_character(ord("|"), 0, font, &quads, current_quad_count, relative_size*1.2, &cursor_p, client_width, client_height);
+            }
         }
-        if (char_idx != 0 && char == ord("\n")) {
-            p.y -= relative_size * font.base_size@f32;
-            p.x = start_pos.x;
-        }
-        if (char != ord(" ") && char != ord("\n")) {
-            current_quad_count = add_quad(&quads, pos, size, uv0, uv1, current_quad_count);    
-        }
+        p.y -= relative_size * font.base_size@f32;
+        p.x = start_pos.x;
     }
     
     

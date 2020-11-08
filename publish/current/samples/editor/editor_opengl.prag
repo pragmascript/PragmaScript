@@ -623,49 +623,30 @@ void main()
     gl_state.foreground_color_uniform_location = glGetUniformLocation(shaderProgram, cstr("foreground_color\0"));
     gl_state.font_shader = shaderProgram;
     set_font_color(v3(0.831, 0.831, 0.788), v3(0.118, 0.118, 0.118));
-    
+     
     gl_resources_initialized = true;
 }
 
 
-let render_opengl = fun (client_width: i32; client_height: i32; text: string; window_dc: mm; time: f32) => void {
-    
-    var neuro = @"
-The sky above the port was the color of television, tuned to a dead
-channel.
-    ""It's not like I'm using,"" Case heard someone say, as he
-shouldered his way through the crowd around the door of the Chat.
-""It's like my body's developed this massive drug deficiency."" It
-was a Sprawl voice and a Sprawl joke. The Chatsubo was a bar for
-professional expatriates; you could drink there for a week and never hear
-two words in Japanese.
-     Ratz was tending bar, his prosthetic arm jerking monotonously as he
-filled a tray of glasses with draft Kirin. He saw Case and smiled, his teeth
-a web work of East European steel and brown decay. Case found a place at the
-bar, between the unlikely tan on one of Lonny Zone's whores and  the
-crisp naval uniform of a tall African whose cheekbones were ridged with
-precise rows of tribal scars. ""Wage was in here early, with two Joe boys,""
-Ratz said, shoving a draft across the bar with his good hand. ""Maybe some
-business with you, Case?""
-     Case shrugged. The girl to his right giggled and nudged him.
-     The bartender's smile widened. His ugliness was the stuff of
-legend. In an age of affordable beauty, there was something heraldic about
-his lack of it. The antique arm whined as he reached for another mug. It was
-a Russian military prosthesis, a seven-function force-feedback manipulator,
-cased in grubby pink plastic. ""You are too much the artiste, Herr Case.""
-Ratz grunted; the sound served him as laughter. He scratched his overhang of
-white-shirted belly with the pink claw. ""You are the artiste of the slightly
-funny deal.""
-";
 
+let render_opengl = fun (client_width: i32; client_height: i32; editor_state: editor_state*; window_dc: mm) => void {
     glViewport(0, 0, client_width, client_height);
     glClearColor(gl_state.clear_color.x, gl_state.clear_color.y, gl_state.clear_color.z, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
     
-    var font_size = 64.0 + (1.0 + Math::sin(time*0.2)) * 12.0;
-
-    render_text(text, &font, font_size, v2(320, 700), client_width, client_height);
-
+    var time = editor_state.time;
+    var font_size = 64.0;
+    
+    var cursor = &editor_state.cursor;
+    
+    var flip_cursor = time - cursor.cursor_last_blink_time >= 0.5;
+    if (flip_cursor) {
+        cursor.cursor_last_blink_time = time;
+        cursor.draw_cursor = !cursor.draw_cursor;
+    }
+    
+    render_text(editor_state, &font, font_size, v2(40, client_height@f32 - 40), client_width, client_height);
+    
     // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
     SwapBuffers(window_dc);
 } 

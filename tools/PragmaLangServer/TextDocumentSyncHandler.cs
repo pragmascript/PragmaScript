@@ -23,9 +23,7 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
     private readonly BufferManager buffers;
     private SynchronizationCapability capability;
     private Compiler compiler;
-
-
-
+    
     private readonly DocumentSelector documentSelector = new DocumentSelector(
         new DocumentFilter()
         {
@@ -136,7 +134,7 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
         {
             router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
-                Diagnostics = new List<Diagnostic> { },
+                Diagnostics = new List<Diagnostic>{  },
                 Uri = document,
             });
         }
