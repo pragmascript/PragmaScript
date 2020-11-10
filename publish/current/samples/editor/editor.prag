@@ -12,6 +12,14 @@ with Windows;
 
 // https://hero.handmade.network/forums/code-discussion/t/129-howto_-_building_without_import_libraries
 
+
+let max_line_length = 1024;
+let max_line_count = 32;
+let key_repeat_delay = 0.5;
+let key_repeat_interval = 0.020;
+
+
+
 let window_state = struct 
 (
     handle: mm;
@@ -33,6 +41,8 @@ let process_pending_messages = fun() => void {
             || message == WM_KEYDOWN
             || message == WM_KEYUP) {
 
+            // TODO(pragma): read this https://blog.molecular-matters.com/2011/09/05/properly-handling-keyboard-input/
+
             var w_param = @i32 (msg.wParam >> 32@mm);
             var l_param = @i32 (msg.lParam >> 32@mm);
             var vk_code = w_param;
@@ -42,16 +52,26 @@ let process_pending_messages = fun() => void {
             var key_up = was_down && !is_down;
             var key_down = !was_down && is_down; 
             
-            // https://docs.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
-            // TODO(pragma): handl repeat keys!
+            // debug_print("w_param", w_param);
+            // debug_print("l_param", l_param);
             
             if (key_down) {
                 handle_editor_key_down(vk_code);
+                editor_state.key_down_state[vk_code].last_key_down_time = editor_state.time;
             }
             if (key_up) {
                 handle_editor_key_up(vk_code);
             }
-
+            if (is_down) {
+                var time = editor_state.time;
+                var key_down_state = &editor_state.key_down_state[vk_code];
+                if (time - key_down_state.last_key_down_time > key_repeat_delay) {
+                    if (time - key_down_state.last_last_key_repeat_time > key_repeat_interval) {
+                        key_down_state.last_last_key_repeat_time = time;
+                        handle_editor_key_down(vk_code);
+                    }
+                }
+            }
             if(vk_code == VK_ESCAPE) {
                 window.wants_to_quit = true;
             }
@@ -61,6 +81,7 @@ let process_pending_messages = fun() => void {
         }
     }
 }
+
 
 let PROCESS_SYSTEM_DPI_AWARE = 1;
 let SetProcessDpiAwareness = extern fun(
@@ -98,9 +119,16 @@ let main_window_callback = fun
 let cursor = struct(
     line_pos: i32;
     char_pos: i32;
+    last_valid_char_pos: i32;
     target_char_pos: i32;
     draw_cursor: bool;
     cursor_last_blink_time: f32;
+);
+
+
+let key_down_state = struct(
+    last_key_down_time: f32;
+    last_last_key_repeat_time: f32;
 );
 
 let editor_state = struct(
@@ -112,16 +140,15 @@ let editor_state = struct(
     cursor: cursor;
     
     time: f32;
+    
+    key_down_state: key_down_state[];
 );
-
-
-let max_line_length = 1024;
-let max_line_count = 32;
 
 let create_editor_state = fun() => editor_state  {
     var result = editor_state { };
     result.cursor.line_pos = 0;
     result.cursor.char_pos = 0;
+    result.cursor.last_valid_char_pos = 0;
     result.lines.data = allocate(size_of(string) * max_line_count@mm)@string*;
     result.lines.length = max_line_count;
     result.keyboard_state = allocate(256);
@@ -135,24 +162,15 @@ let create_editor_state = fun() => editor_state  {
         result.lines[line_idx].data = text_block_ptr;
         text_block_ptr += line_size;
     }
+    
+    result.key_down_state.data = @key_down_state* allocate(256 * size_of(key_down_state));
+    result.key_down_state.length = 256;
+    
     return result;
 }
 var editor_state: editor_state;
 
-// let printable = fun (vk_code: i32) => bool {
-//     if (vk_code >= ord("A")@i32 && vk_code <= ord("Z")@i32) {
-//         return true;
-//     }
-//     elif (vk_code >= ord("0")@i32 && vk_code <= ord("9")@i32) {
-//         return true;
-//     }
-//     elif (vk_code == VK_SPACE) {
-//         return true;
-//     }
-//     return false;
-// }
-
-let printable = fun(char: i8) => bool {
+let is_printable = fun(char: i8) => bool {
     return char >= 32 & char <= 126;
 }
 
@@ -184,6 +202,8 @@ let handle_editor_key_down = fun(vk_code: i32) => void {
     // TODO(pragma): this is really ugly. there needs to be a better way to do this.
     var current_line = lines[cursor.line_pos];
     var current_line_ptr = &lines[cursor.line_pos];
+    assert(current_line.length >= 0 && current_line.length < max_line_length);
+    
     
     var char_word: i16 = 0;
     GetKeyboardState(editor_state.keyboard_state);
@@ -192,76 +212,149 @@ let handle_editor_key_down = fun(vk_code: i32) => void {
     var char: i8 = char_word@i8;
     
     var should_reset_blink = false;
-    
-    if (printable(char@i8)) {
-        current_line[current_line_ptr.length++] = char@i8;
-        cursor.char_pos++;
+    if (is_printable(char@i8)) {
         should_reset_blink = true;
+        assert(current_line_ptr.length + 1 < max_line_length);
+        for (var char_idx = current_line.length - 1; char_idx >= cursor.char_pos; --char_idx) {
+            current_line[char_idx + 1] = current_line[char_idx];
+        }
+        current_line_ptr.length++;
+        current_line[cursor.char_pos++] = char@i8;
+        cursor.last_valid_char_pos = cursor.char_pos;
     }
     elif (vk_code == VK_BACK) {
-        if (current_line.length > 0) {
-            current_line[current_line_ptr.length--] = 0;
+        should_reset_blink = true;
+        if (cursor.char_pos > 0) {
+            current_line_ptr.length--;
+            for (var char_idx = cursor.char_pos - 1; char_idx < current_line.length - 1; ++char_idx) {
+                current_line[char_idx] = current_line[char_idx + 1];
+            }
+            current_line[current_line_ptr.length] = 0;
             cursor.char_pos--;
-            should_reset_blink = true;
         } else {
             if (cursor.line_pos > 0) {
-                cursor.line_pos--;
-                current_line = lines[cursor.line_pos];
-                current_line_ptr = &lines[cursor.line_pos];
-                cursor.char_pos = current_line.length;
+                var dest_line = lines[cursor.line_pos - 1];
+                cursor.char_pos = dest_line.length;
+                var src_line = lines[cursor.line_pos];
+                for (var char_idx = 0; char_idx < src_line.length; ++char_idx) {
+                    dest_line[dest_line.length + char_idx] = src_line[char_idx];
+                    src_line[char_idx] = 0;
+                }
+                lines[cursor.line_pos - 1].length += src_line.length;
+                lines[cursor.line_pos].length = 0;
+                assert(lines[cursor.line_pos - 1].length < max_line_length);                
                 
-                // TODO(pragma): this should not be done line by line: this is just one big memcpy.
                 for (var line_idx = cursor.line_pos; line_idx < max_line_count - 1; ++line_idx) {
                     var src_line = lines[line_idx + 1];
                     var dest_line = lines[line_idx];
                     memcpy(dest_line.data, src_line.data, src_line.length@mm);
+                    lines[line_idx].length = src_line.length;
+                }
+                lines[max_line_count - 1].length = 0;
+
+                cursor.line_pos--;
+            }
+        }
+        cursor.last_valid_char_pos = cursor.char_pos;
+    }
+    elif (vk_code == VK_DELETE) {
+        should_reset_blink = true;
+        if (cursor.char_pos < current_line.length) {
+            for (var char_idx = cursor.char_pos; char_idx < current_line.length; ++char_idx) {
+                if (char_idx == current_line.length - 1) {
+                    current_line[char_idx] = 0;
+                } else {
+                    current_line[char_idx] = current_line[char_idx + 1];
+                }
+            }
+            current_line_ptr.length--;
+        } else {
+            if (cursor.line_pos < max_line_count - 1) {
+                var next_line = lines[cursor.line_pos + 1];
+                for (var char_idx = 0; char_idx < next_line.length; ++char_idx) {
+                    current_line[cursor.char_pos + char_idx] = next_line[char_idx];
+                }
+                current_line_ptr.length += next_line.length;
+                for (var line_idx = cursor.line_pos + 1; line_idx < max_line_count; ++line_idx) {
+                    var src_line = lines[line_idx + 1];
+                    var dest_line = lines[line_idx];
+                    memcpy(dest_line.data, src_line.data, src_line.length@mm);
+                    lines[line_idx].length = src_line.length;
                 }
             }
         }
     }
     elif (vk_code == VK_RETURN) {
-        cursor.line_pos++;
-        cursor.char_pos = 0;
         should_reset_blink = true;
+        for (var line_idx = max_line_count - 2; line_idx > cursor.line_pos; --line_idx) {
+            var src_line = lines[line_idx];
+            var dest_line = lines[line_idx + 1];
+            memcpy(dest_line.data, src_line.data, src_line.length@mm);
+            lines[line_idx + 1].length = src_line.length;
+        }
+        cursor.line_pos++;
+        
+        var new_line = lines[cursor.line_pos];
+        memset(new_line.data, 0, max_line_length@mm);
+        var temp_pos = 0;
+        for (var char_idx = cursor.char_pos; char_idx < current_line.length; ++char_idx) {
+            new_line[temp_pos++] = current_line[char_idx];
+            current_line[char_idx] = 0;
+        }
+        current_line_ptr.length = cursor.char_pos;
+        lines[cursor.line_pos].length = temp_pos;
+        
+        cursor.char_pos = 0;
+        cursor.last_valid_char_pos = cursor.char_pos;
     }
     elif (vk_code == VK_SHIFT) {
         editor_state.shift_pressed = true;
     }
     elif (vk_code == VK_LEFT) {
+        should_reset_blink = true;
         if (cursor.char_pos > 0) {
             cursor.char_pos--;
-            should_reset_blink = true;
         } else {
             if (cursor.line_pos > 0) {
                cursor.line_pos--;    
-               should_reset_blink = true;
                cursor.char_pos = lines[cursor.line_pos].length;
             }
         }
+        cursor.last_valid_char_pos = cursor.char_pos;
     }
     elif (vk_code == VK_RIGHT) {
+        should_reset_blink = true;
         if (cursor.char_pos < current_line.length) {
             cursor.char_pos++;
-            should_reset_blink = true;
         } else {
             if (cursor.line_pos < max_line_count - 1) {
                 cursor.line_pos++;
-                should_reset_blink = true;    
             }
         }
+        cursor.last_valid_char_pos = cursor.char_pos;
     }
     elif (vk_code == VK_UP) {
+        should_reset_blink = true;
         if (cursor.line_pos > 0) {
             cursor.line_pos--;
         }
     }
     elif (vk_code == VK_DOWN) {
+        should_reset_blink = true;
         if (cursor.line_pos < max_line_count - 1) {
             cursor.line_pos++;
         }
     }
+    elif (vk_code == VK_END) {
+        should_reset_blink = true;
+        cursor.last_valid_char_pos = current_line.length;
+    }
+    elif (vk_code == VK_HOME) {
+        should_reset_blink = true;
+        cursor.last_valid_char_pos = 0;
+    }
     cursor.line_pos = Math::clamp(cursor.line_pos, 0, max_line_count - 1);
-    
+    cursor.char_pos = Math::clamp(cursor.last_valid_char_pos, 0, lines[cursor.line_pos].length);
     if (should_reset_blink) {
         reset_cursor_blink();
     }
@@ -282,11 +375,11 @@ let handle_editor_key_up = fun(vk_code: i32) => void {
 [
 	"compile.output": "edit.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "0",
+ 	"compile.opt"   : "4",
     "compile.debuginfo": "true",
     "compile.ll"    : "false",
     "compile.asm"   : "false",
-    "compile.cpu"   : "native", // "sandybridge",
+    "compile.cpu"   : "haswell", // "sandybridge",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
@@ -301,7 +394,6 @@ let main = fun() => void {
     let buffer_width  = 1920;
     let buffer_height = 1080;
     
-
     var client_rect = RECT { 0, 0, buffer_width, buffer_height };
     AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
 

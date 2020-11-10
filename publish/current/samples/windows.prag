@@ -65,7 +65,13 @@
     let VK_SHIFT = 0x10;
     let VK_CONTROL = 0x11;
     let VK_MENU = 0x12;
+    let VK_END = 0x23;
+    let VK_HOME = 0x24;
+    let VK_DELETE = 0x2E;
+    
+    
     let VK_ALT = VK_MENU;
+    
     
     let ToAscii = extern fun(
       uVirtKey: i32;
