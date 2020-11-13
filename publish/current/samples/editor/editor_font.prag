@@ -21,9 +21,10 @@ let glyph = struct(
 
 let font = struct (
     texture_handle: i32;
-    vbo: i32;
-    ebo: i32;
-    uvbo: i32;
+    v_bo: i32;
+    e_bo: i32;
+    uv_bo: i32;
+    color_bo: i32;
     
     atlas_width: i32;
     atlas_height: i32;
@@ -45,9 +46,10 @@ let load_font = fun() => font {
     var result = font { };
     
     result.texture_handle = load_texture("fonts/atlas.bmp\0", &result.atlas_width, &result.atlas_height);
-    glGenBuffers(1, &result.vbo);
-    glGenBuffers(1, &result.ebo);
-    glGenBuffers(1, &result.uvbo);
+    glGenBuffers(1, &result.v_bo);
+    glGenBuffers(1, &result.e_bo);
+    glGenBuffers(1, &result.uv_bo);
+    glGenBuffers(1, &result.color_bo);
     
     let glyph_count = 256;
     
@@ -136,11 +138,16 @@ let get_kerning_pair = fun(font: font*; first: i8; second: i8) => i32 {
 }
 
 
-let add_character = fun(char: i8; char_next: i8; font: font*;
-                        quads: mesh*; current_quad_count: i32; relative_size: f32; 
-                        p: v2*; client_width: i32; client_height: i32) => i32 {
-    var result = current_quad_count;
-    
+let char_alignment = enum( 
+    left;
+    right;
+);
+
+let add_character = fun(char: i8; char_next: i8; font: font*; relative_size: f32;
+                        color: v3;
+                        alignment: char_alignment;
+                        quads: mesh*; p: v2*;
+                        client_width: i32; client_height: i32) => void {
     var glyph = &font.glyphs[char@i32];
     var w = font.atlas_width@f32 - 1.0;
     var h = font.atlas_height@f32 - 1.0;
@@ -152,47 +159,90 @@ let add_character = fun(char: i8; char_next: i8; font: font*;
     var p_size = v2(relative_size * glyph.width@f32, relative_size * glyph.height@f32);
     var size = v2(2*p_size.x / (client_width - 1)@f32, 2*p_size.y / (client_height - 1)@f32);
 
-    var pos = add(v3(p.x, p.y, 0), v3(relative_size * glyph.x_offset@f32, -relative_size *  glyph.y_offset@f32, 0));
-    pos = map_to_gl(v3(pos.x, pos.y, 0), client_width, client_height);
+    var current_p = *p;
     
-    p.x += relative_size * glyph.x_advance@f32;
-    if (char_next != 0) {
-        var first = char;
-        var second = char_next;
-        var kerning = get_kerning_pair(font, first, second);
-        p.x += relative_size * kerning@f32;
-    }        
-    if (char != ord(" ") && char != ord("\n")) {
-        result = add_quad(quads, pos, size, uv0, uv1, current_quad_count);    
+    var first: i8;
+    var second: i8;
+    var dir: f32;
+    if (alignment == char_alignment::left) {
+        first = char;
+        second = char_next;
+        dir = 1.0;
+    }
+    elif (alignment == char_alignment::right) {
+        first = char_next;
+        second = char;
+        dir = -1.0;
+    }
+    p.x += dir * relative_size * glyph.x_advance@f32;
+    if (alignment == char_alignment::right) {
+        current_p = *p;
     }
     
-    return result;
+    var pos = add(v3(current_p.x, current_p.y, 0), v3(relative_size * glyph.x_offset@f32, -relative_size *  glyph.y_offset@f32, 0));
+    pos = map_to_gl(v3(pos.x, pos.y, 0), client_width, client_height);
+    
+    if (char_next != 0) {
+        var kerning = get_kerning_pair(font, first, second);
+        p.x += dir * relative_size * kerning@f32;
+    }        
+    if (char != ord(" ") && char != ord("\n")) {
+        add_quad(quads, pos, size, uv0, uv1, color);
+    }
 }
 
-let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32; start_pos: v2; client_width: i32; client_height: i32) => void {
+let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) => void {
     var watermark = start_temp(&temp_memory_arena);
     var cursor = &editor_state.cursor;
     var relative_size = font_size / font.base_size@f32;
     
-    var current_quad_count = 0;
     var quads = mesh { };
     let max_chars = max_line_length * max_line_count;
+    
+    let regular_font_color = v3(0.831, 0.831, 0.788);
+    let line_font_color = scaled(regular_font_color, 0.3);
+    let cursor_font_color = regular_font_color;
     
     quads.vertices.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v3))@v3*;
     quads.vertices.length = max_chars * 4;
     quads.uvs.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v2))@v2*;
     quads.uvs.length = max_chars* 4;
+    quads.colors.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v3))@v3*;
+    quads.colors.length = max_chars * 4;
     quads.indices.data = push(&temp_memory_arena, @mm max_chars * 6 * size_of(i32))@i32*;
     quads.indices.length = max_chars * 6;
     
-    // TODO(pragma): why do i have to zero the triangles
+    // TODO(pragma): why do i have to zero the triangle indices??
     memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
     
     var lines = editor_state.lines;
-    
-    // debug_print("render_text", "");
+
+    var start_pos = editor_state.text_render_pos;
     var p = start_pos;
+    var line_number_delta_x = 50 + start_pos.x;
+    p.x = line_number_delta_x;
+    var temp_used = start_temp(&temp_memory_arena);
+    // render line numbers
+    for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
+        var line_number = to_str(line_idx + 1);
+        for (var char_idx = line_number.length - 1; char_idx >= 0; --char_idx) {
+            var char = line_number[char_idx];
+            var char_next: i8 = 0;
+            if (char_idx < line_number.length - 1) {
+                char_next = line_number[char_idx + 1];    
+            }
+            add_character(char, char_next, font, relative_size, line_font_color, char_alignment::right, &quads, &p, editor_state.render_width, editor_state.render_height);
+        }
+        p.y -= relative_size * font.base_size@f32;
+        p.x = line_number_delta_x;
+    }
+    stop_temp(&temp_memory_arena, temp_used);
     
+    p = start_pos;
+    p.x += 100;
+    var start_x = start_pos.x + 100;
+    
+    // render text
     for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
         var current_line = lines[line_idx];
         for (var char_idx = 0; char_idx < current_line.length + 1; ++char_idx) {
@@ -203,30 +253,34 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32; 
                 if (char_idx < current_line.length - 1) {
                     char_next = current_line[char_idx + 1];    
                 }
-                current_quad_count = add_character(char, char_next, font, &quads, current_quad_count, relative_size, &p, client_width, client_height);
+                add_character(char, char_next, font, relative_size, regular_font_color, char_alignment::left, &quads, &p, editor_state.render_width, editor_state.render_height);
             }
             if (cursor.draw_cursor && line_idx == cursor.line_pos && char_idx == cursor.char_pos) {
                 cursor_p.x -= 18.0 * relative_size;
                 cursor_p.y += 24.0 * relative_size;
-                current_quad_count = add_character(ord("|"), 0, font, &quads, current_quad_count, relative_size*1.2, &cursor_p, client_width, client_height);
+                add_character(ord("|"), 0, font, relative_size*1.2, cursor_font_color, char_alignment::left, &quads, &cursor_p, editor_state.render_width, editor_state.render_height);
             }
         }
         p.y -= relative_size * font.base_size@f32;
-        p.x = start_pos.x;
+        p.x = start_x;
     }
     
-    
-    glBindBuffer(GL_ARRAY_BUFFER, font.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, font.v_bo);
     glBufferData(GL_ARRAY_BUFFER, @mm quads.vertices.length * size_of(v3), quads.vertices.data@ptr, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
     glEnableVertexAttribArray(0);
     
-    glBindBuffer(GL_ARRAY_BUFFER, font.uvbo);
+    glBindBuffer(GL_ARRAY_BUFFER, font.uv_bo);
     glBufferData(GL_ARRAY_BUFFER, @mm quads.uvs.length * size_of(v2), quads.uvs.data@ptr, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
     glEnableVertexAttribArray(1);
     
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, font.ebo);
+    glBindBuffer(GL_ARRAY_BUFFER, font.color_bo);
+    glBufferData(GL_ARRAY_BUFFER, @mm quads.colors.length * size_of(v3), quads.colors.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(2);
+    
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, font.e_bo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, @mm quads.indices.length * size_of(i32), quads.indices.data@ptr, GL_DYNAMIC_DRAW);
     
     glActiveTexture(GL_TEXTURE0);

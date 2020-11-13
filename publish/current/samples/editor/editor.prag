@@ -4,9 +4,7 @@ import "../math.prag"
 import "../memory.prag"
 import "../vec.prag"
 
-
 import "editor_opengl.prag"
-
 
 with Windows;
 
@@ -17,7 +15,6 @@ let max_line_length = 1024;
 let max_line_count = 32;
 let key_repeat_delay = 0.5;
 let key_repeat_interval = 0.020;
-
 
 
 let window_state = struct 
@@ -133,15 +130,17 @@ let key_down_state = struct(
 
 let editor_state = struct(
     lines: string[];
-    
     keyboard_state: i8*;
     shift_pressed: bool;
-    
     cursor: cursor;
-    
-    time: f32;
-    
     key_down_state: key_down_state[];
+
+
+    // render state
+    render_width: i32;
+    render_height: i32;
+    time: f32;        
+    text_render_pos: v2;
 );
 
 let create_editor_state = fun() => editor_state  {
@@ -150,7 +149,7 @@ let create_editor_state = fun() => editor_state  {
     result.cursor.char_pos = 0;
     result.cursor.last_valid_char_pos = 0;
     result.lines.data = allocate(size_of(string) * max_line_count@mm)@string*;
-    result.lines.length = max_line_count;
+    result.lines.length = 1;
     result.keyboard_state = allocate(256);
 
     var line_size = size_of(i8) * max_line_length@mm;    
@@ -174,22 +173,6 @@ let is_printable = fun(char: i8) => bool {
     return char >= 32 & char <= 126;
 }
 
-let to_upper = fun(char: i8) => i8 {
-    var result = char;
-    if (char >= ord("a") && char <= ord("z")) {
-        result += ord("A") - ord("a");
-    }
-    return result;
-}
-
-let to_lower = fun(char: i8) => i8 {
-    var result = char;
-    if (char >= ord("A") && char <= ord("Z")) {
-        result -= ord("A") - ord("a");
-    }
-    return result;
-}
-
 let reset_cursor_blink = fun() => void {
     editor_state.cursor.draw_cursor = true;
     editor_state.cursor.cursor_last_blink_time = editor_state.time;
@@ -198,12 +181,16 @@ let reset_cursor_blink = fun() => void {
 let handle_editor_key_down = fun(vk_code: i32) => void {
     var cursor = &editor_state.cursor;
     var lines = editor_state.lines;
+    var lines_ptr = &editor_state.lines;
     
     // TODO(pragma): this is really ugly. there needs to be a better way to do this.
     var current_line = lines[cursor.line_pos];
     var current_line_ptr = &lines[cursor.line_pos];
-    assert(current_line.length >= 0 && current_line.length < max_line_length);
     
+    assert(current_line.length >= 0 && current_line.length < max_line_length);
+    assert(cursor.char_pos <= current_line.length);
+    assert(cursor.line_pos < lines.length);
+    assert(lines.length <= max_line_count);
     
     var char_word: i16 = 0;
     GetKeyboardState(editor_state.keyboard_state);
@@ -242,16 +229,16 @@ let handle_editor_key_down = fun(vk_code: i32) => void {
                 }
                 lines[cursor.line_pos - 1].length += src_line.length;
                 lines[cursor.line_pos].length = 0;
-                assert(lines[cursor.line_pos - 1].length < max_line_length);                
-                
-                for (var line_idx = cursor.line_pos; line_idx < max_line_count - 1; ++line_idx) {
+                assert(lines[cursor.line_pos - 1].length < max_line_length);
+
+                for (var line_idx = cursor.line_pos; line_idx < lines.length; ++line_idx) {
                     var src_line = lines[line_idx + 1];
                     var dest_line = lines[line_idx];
                     memcpy(dest_line.data, src_line.data, src_line.length@mm);
                     lines[line_idx].length = src_line.length;
                 }
-                lines[max_line_count - 1].length = 0;
-
+                lines[lines.length - 1].length = 0;
+                lines_ptr.length--;
                 cursor.line_pos--;
             }
         }
@@ -269,7 +256,7 @@ let handle_editor_key_down = fun(vk_code: i32) => void {
             }
             current_line_ptr.length--;
         } else {
-            if (cursor.line_pos < max_line_count - 1) {
+            if (cursor.line_pos < lines.length - 1) {
                 var next_line = lines[cursor.line_pos + 1];
                 for (var char_idx = 0; char_idx < next_line.length; ++char_idx) {
                     current_line[cursor.char_pos + char_idx] = next_line[char_idx];
@@ -281,31 +268,36 @@ let handle_editor_key_down = fun(vk_code: i32) => void {
                     memcpy(dest_line.data, src_line.data, src_line.length@mm);
                     lines[line_idx].length = src_line.length;
                 }
+                assert(lines_ptr.length > 0);
+                lines_ptr.length--;
             }
         }
     }
     elif (vk_code == VK_RETURN) {
-        should_reset_blink = true;
-        for (var line_idx = max_line_count - 2; line_idx > cursor.line_pos; --line_idx) {
-            var src_line = lines[line_idx];
-            var dest_line = lines[line_idx + 1];
-            memcpy(dest_line.data, src_line.data, src_line.length@mm);
-            lines[line_idx + 1].length = src_line.length;
+        if (lines.length < max_line_count) {
+            should_reset_blink = true;
+            for (var line_idx = max_line_count - 2; line_idx > cursor.line_pos; --line_idx) {
+                var src_line = lines[line_idx];
+                var dest_line = lines[line_idx + 1];
+                memcpy(dest_line.data, src_line.data, src_line.length@mm);
+                lines[line_idx + 1].length = src_line.length;
+            }
+            cursor.line_pos++;
+            lines_ptr.length++;
+            
+            var new_line = lines[cursor.line_pos];
+            memset(new_line.data, 0, max_line_length@mm);
+            var temp_pos = 0;
+            for (var char_idx = cursor.char_pos; char_idx < current_line.length; ++char_idx) {
+                new_line[temp_pos++] = current_line[char_idx];
+                current_line[char_idx] = 0;
+            }
+            current_line_ptr.length = cursor.char_pos;
+            lines[cursor.line_pos].length = temp_pos;
+            
+            cursor.char_pos = 0;
+            cursor.last_valid_char_pos = cursor.char_pos;    
         }
-        cursor.line_pos++;
-        
-        var new_line = lines[cursor.line_pos];
-        memset(new_line.data, 0, max_line_length@mm);
-        var temp_pos = 0;
-        for (var char_idx = cursor.char_pos; char_idx < current_line.length; ++char_idx) {
-            new_line[temp_pos++] = current_line[char_idx];
-            current_line[char_idx] = 0;
-        }
-        current_line_ptr.length = cursor.char_pos;
-        lines[cursor.line_pos].length = temp_pos;
-        
-        cursor.char_pos = 0;
-        cursor.last_valid_char_pos = cursor.char_pos;
     }
     elif (vk_code == VK_SHIFT) {
         editor_state.shift_pressed = true;
@@ -341,7 +333,7 @@ let handle_editor_key_down = fun(vk_code: i32) => void {
     }
     elif (vk_code == VK_DOWN) {
         should_reset_blink = true;
-        if (cursor.line_pos < max_line_count - 1) {
+        if (cursor.line_pos < lines.length - 1) {
             cursor.line_pos++;
         }
     }
@@ -359,6 +351,13 @@ let handle_editor_key_down = fun(vk_code: i32) => void {
         reset_cursor_blink();
     }
     
+    current_line = lines[cursor.line_pos];
+    current_line_ptr = &lines[cursor.line_pos];
+    assert(current_line.length >= 0 && current_line.length < max_line_length);
+    assert(cursor.char_pos <= current_line.length);
+    assert(cursor.line_pos < lines_ptr.length);
+    assert(lines.length <= max_line_count);
+    
     // debug_print("key_down", vk_code);
     // debug_print("new_text", current_line);
     // debug_print("new_text.length", current_line_ptr.length);
@@ -375,11 +374,11 @@ let handle_editor_key_up = fun(vk_code: i32) => void {
 [
 	"compile.output": "edit.exe",
 	"compile.entry" : "true",
- 	"compile.opt"   : "4",
+ 	"compile.opt"   : "0",
     "compile.debuginfo": "true",
     "compile.ll"    : "false",
     "compile.asm"   : "false",
-    "compile.cpu"   : "haswell", // "sandybridge",
+    "compile.cpu"   : "native", // "sandybridge",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
@@ -434,7 +433,7 @@ let main = fun() => void {
         null
     );
     window.dc = GetDC(window.handle);
-    
+
     var gl_t0 = get_perf_counter();
     init_opengl(window.dc);
     init_gl_resources();
