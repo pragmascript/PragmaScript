@@ -212,15 +212,18 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     quads.indices.data = push(&temp_memory_arena, @mm max_chars * 6 * size_of(i32))@i32*;
     quads.indices.length = max_chars * 6;
     
-    // TODO(pragma): why do i have to zero the triangle indices??
     memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
     
+    
     var lines = editor_state.lines;
+    var line_height = relative_size * font.base_size@f32;
+    var half_line_height = 0.5 * line_height;
 
     var start_pos = editor_state.text_render_pos;
     var p = start_pos;
     var line_number_delta_x = 50 + start_pos.x;
     p.x = line_number_delta_x;
+    p = add(p, editor_state.scroll_pos);
     var temp_used = start_temp(&temp_memory_arena);
     // render line numbers
     for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
@@ -233,14 +236,18 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
             }
             add_character(char, char_next, font, relative_size, line_font_color, char_alignment::right, &quads, &p, editor_state.render_width, editor_state.render_height);
         }
-        p.y -= relative_size * font.base_size@f32;
-        p.x = line_number_delta_x;
+        p.y -= line_height;
+        p.x = editor_state.scroll_pos.x + line_number_delta_x;
     }
     stop_temp(&temp_memory_arena, temp_used);
     
+    var left_margin:f32 = start_pos.x + 100;
+    
     p = start_pos;
-    p.x += 100;
-    var start_x = start_pos.x + 100;
+    p.x = left_margin;
+    p = add(p, editor_state.scroll_pos);
+    var start_x = p.x;
+    var cursor_center = v2z;
     
     // render text
     for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
@@ -255,15 +262,37 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                 }
                 add_character(char, char_next, font, relative_size, regular_font_color, char_alignment::left, &quads, &p, editor_state.render_width, editor_state.render_height);
             }
-            if (cursor.draw_cursor && line_idx == cursor.line_pos && char_idx == cursor.char_pos) {
+            if (line_idx == cursor.line_pos && char_idx == cursor.char_pos) {
+                cursor_center.x = cursor_p.x + editor_state.scroll_target.x - editor_state.scroll_pos.x;
+                
                 cursor_p.x -= 18.0 * relative_size;
                 cursor_p.y += 24.0 * relative_size;
-                add_character(ord("|"), 0, font, relative_size*1.2, cursor_font_color, char_alignment::left, &quads, &cursor_p, editor_state.render_width, editor_state.render_height);
+                
+                cursor_center.y = p.y - half_line_height + editor_state.scroll_target.y - editor_state.scroll_pos.y;
+                
+                if (cursor.draw_cursor) {
+                    add_character(ord("|"), 0, font, relative_size*1.2, cursor_font_color, char_alignment::left, &quads, &cursor_p, editor_state.render_width, editor_state.render_height);    
+                }
             }
         }
-        p.y -= relative_size * font.base_size@f32;
+        p.y -= line_height;
         p.x = start_x;
     }
+    
+    var cursor_margin = 1.5 * half_line_height;
+    if (cursor_center.y - cursor_margin < 0) {
+        editor_state.scroll_target.y -= (cursor_center.y - cursor_margin);
+    }
+    if (cursor_center.y + cursor_margin > editor_state.render_height@f32) {
+        editor_state.scroll_target.y += editor_state.render_height@f32 - (cursor_center.y + cursor_margin);
+    }
+    if (cursor_center.x < left_margin) {
+        editor_state.scroll_target.x -= cursor_center.x - left_margin;
+    }
+    if (cursor_center.x + cursor_margin > editor_state.render_width@f32) {
+        editor_state.scroll_target.x += editor_state.render_width@f32 - (cursor_center.x + cursor_margin);
+    }
+    editor_state.scroll_pos = lerp(editor_state.scroll_pos, editor_state.scroll_target, 0.1);
     
     glBindBuffer(GL_ARRAY_BUFFER, font.v_bo);
     glBufferData(GL_ARRAY_BUFFER, @mm quads.vertices.length * size_of(v3), quads.vertices.data@ptr, GL_DYNAMIC_DRAW);

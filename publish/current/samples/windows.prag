@@ -68,6 +68,8 @@
     let VK_END = 0x23;
     let VK_HOME = 0x24;
     let VK_DELETE = 0x2E;
+    let VK_PRIOR = 0x21;
+    let VK_NEXT = 0x22;
     
     
     let VK_ALT = VK_MENU;

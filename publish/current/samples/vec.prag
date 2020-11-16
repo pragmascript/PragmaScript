@@ -172,3 +172,39 @@ let v2 = fun (x: f32; y: f32) => v2 {
     return result;
 }
 var v2z = v2 {0.0, 0.0};
+
+
+let add = fun (a: v2*; b: v2*) => v2 {
+    var result = v2 { a.x + b.x, a.y + b.y};
+    return result;
+}
+let add = fun (a: v2; b: v2) => v2 {
+    var result = v2 { a.x + b.x, a.y + b.y};
+    return result;
+}
+let sub = fun (a: v2*; b: v2*) => v2 {
+    var result = v2 { a.x - b.x, a.y - b.y};
+    return result;
+}
+let sub = fun (a: v2; b: v2) => v2 {
+    var result = v2 { a.x - b.x, a.y - b.y};
+    return result;
+}
+let scaled = fun (a: v2*; s: f32) => v2 {
+    var result = v2 { a.x * s, a.y * s};
+    return result;
+}
+let scaled = fun (a: v2; s: f32) => v2 {
+    var result = v2 { a.x * s, a.y * s};
+    return result;
+}
+let lerp = fun(a: v2*; b: v2*; t: f32) => v2 {
+    var delta = sub(b, a);
+    var scaled_delta = scaled(&delta, t);
+    var result = add(a, &scaled_delta);
+    return result;
+}
+let lerp = fun(a: v2; b: v2; t: f32) => v2 {
+    var result = add(a, scaled(sub(b, a), t));
+    return result;
+}

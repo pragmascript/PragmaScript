@@ -1563,7 +1563,14 @@ namespace PragmaScript
                         {
                             throw new ParserErrorExpected("Pointer type", et.ToString(), node.token);
                         }
-                        resolve(node, pet.elementType);
+                        if (pet.elementType.preResolved)
+                        {
+                            addUnresolved(node, GetTypeRoot(pet.elementType));
+                        } 
+                        else
+                        {
+                            resolve(node, pet.elementType);    
+                        }
                         break;
                     case AST.UnaryOp.UnaryOpType.SizeOf:
                         resolve(node, FrontendType.mm);

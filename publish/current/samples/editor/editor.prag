@@ -140,7 +140,10 @@ let editor_state = struct(
     render_width: i32;
     render_height: i32;
     time: f32;        
+    delta_time: f32;
     text_render_pos: v2;
+    scroll_pos: v2;
+    scroll_target: v2;
 );
 
 let create_editor_state = fun() => editor_state  {
@@ -319,7 +322,7 @@ let handle_editor_key_down = fun(vk_code: i32) => void {
         if (cursor.char_pos < current_line.length) {
             cursor.char_pos++;
         } else {
-            if (cursor.line_pos < max_line_count - 1) {
+            if (cursor.line_pos < lines.length - 1) {
                 cursor.line_pos++;
             }
         }
@@ -344,6 +347,20 @@ let handle_editor_key_down = fun(vk_code: i32) => void {
     elif (vk_code == VK_HOME) {
         should_reset_blink = true;
         cursor.last_valid_char_pos = 0;
+    }
+    elif (vk_code == VK_PRIOR) {
+        should_reset_blink = true;
+        cursor.line_pos -= 16;
+        if (cursor.line_pos < 0) {
+            cursor.line_pos = 0;
+        }
+    }
+    elif (vk_code == VK_NEXT) {
+        should_reset_blink = true;
+        cursor.line_pos += 16;
+        if (cursor.line_pos > lines.length - 1) {
+            cursor.line_pos = lines.length - 1;
+        }
     }
     cursor.line_pos = Math::clamp(cursor.line_pos, 0, max_line_count - 1);
     cursor.char_pos = Math::clamp(cursor.last_valid_char_pos, 0, lines[cursor.line_pos].length);
@@ -378,7 +395,7 @@ let handle_editor_key_up = fun(vk_code: i32) => void {
     "compile.debuginfo": "true",
     "compile.ll"    : "false",
     "compile.asm"   : "false",
-    "compile.cpu"   : "native", // "sandybridge",
+    "compile.cpu"   : "sandybridge", // "sandybridge",
  	"compile.run"   : "true",
  	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
 	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
@@ -449,6 +466,7 @@ let main = fun() => void {
         process_pending_messages();
         var t0 = get_perf_counter();
         var time = get_seconds_elapsed(start_time, t0);
+        editor_state.delta_time = time@f32 - editor_state.time;
         editor_state.time = time@f32;
         render_opengl(window.client_width, window.client_height, &editor_state, window.dc);
         var t1 = get_perf_counter();

@@ -21,7 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
 	let basePath = context.asAbsolutePath("");
 	console.log(`basepath: ${ basePath }`)
 
-	let serverPath = path.join(basePath, "../PragmaLangServer/bin/Debug/netcoreapp3.1/PragmaLangServer")
+	let serverPath = path.join(basePath, "../PragmaLangServer/bin/Debug/net5.0/PragmaLangServer")
 
 	console.log(`serverPath: ${ serverPath }`)
 

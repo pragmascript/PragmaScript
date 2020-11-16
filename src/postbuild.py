@@ -20,9 +20,9 @@ def nj(*paths):
 
 
 if platform.system() == "Windows":
-    binPath = nj(cwd, prefixPath, "netcoreapp3.1/win7-x64")
+    binPath = nj(cwd, prefixPath, "net5.0/win7-x64")
 elif platform.system() == "Linux":
-    binPath = nj(cwd, prefixPath, "netcoreapp3.1/linux-x64")
+    binPath = nj(cwd, prefixPath, "net5.0/linux-x64")
 
 publishPath = nj(cwd, "../publish/current/bin")
 
