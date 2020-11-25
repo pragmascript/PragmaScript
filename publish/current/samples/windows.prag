@@ -654,8 +654,23 @@
     let PFD_STEREO_DONTCARE = 0x80000000;
 
 
+    let CF_TEXT = 1;
+    let OpenClipboard = extern fun(hWndNewOwner: mm) => i32;
+    let GetClipboardData = extern fun(uFormat: i32) => mm;
+    let CloseClipboard  = extern fun() => i32;
+    let EmptyClipboard = extern fun() => i32;
+    let IsClipboardFormatAvailable = extern fun(uFormat: i32) => i32;
+    let SetClipboardData = extern fun(format: i32; hMem: mm) => mm;
 
-        
+    let GHND = 0x0042;
+    let GMEM_FIXED = 0x0000;
+    let GMEM_MOVEABLE = 0x0002;
+    let GMEM_ZEROINIT = 0x0040;
+    let GPTR = 0x0040;
+    let GlobalAlloc = extern fun(flags: i32; bytes: mm) => mm;
+    let GlobalFree = extern fun(hMem: mm) => mm;
+    let GlobalLock = extern fun(hMem: mm) => ptr;
+    let GlobalUnlock = extern fun(hMem: mm) => i32;
 
     // ********************** XINPUT ********************** 
 

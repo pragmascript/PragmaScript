@@ -3,6 +3,8 @@ import "../opengl/opengl.prag"
 import "../vec.prag"
 import "../windows.prag"
 
+import "../png.prag"
+
 import "editor_font.prag"
 
 with Windows;
@@ -30,11 +32,6 @@ let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
 // https://github.com/Chlumsky/msdfgen
 // https://medium.com/@calebfaith/implementing-msdf-font-in-opengl-ea09a9ab7e00
 // https://github.com/soimy/msdf-bmfont-xml
-let bitmap = struct (
-    width: i32;
-    height: i32;
-    pixels: i8*;
-);
 
 ["PACKED"]
 let bmp_file_header = struct(
@@ -65,16 +62,19 @@ let load_bitmap = fun(file: string) => bitmap {
     return result;
 }
 
+
 let mesh = struct (
     vertices: v3[];
     indices: i32[];
     uvs: v2[];
-    colors: v3[];
+    colors: v4[];
+    background_colors: v3[];
     current_quad_count: i32;
 );
 
 let load_texture = fun(file: string; width: i32* = 0@i32*; height: i32* = 0@i32*) => i32 {
     var bmp = load_bitmap(file);
+    // var bmp = load_png(file);
     
     var tex: i32;
     glGenTextures(1, &tex);
@@ -98,7 +98,7 @@ let load_texture = fun(file: string; width: i32* = 0@i32*; height: i32* = 0@i32*
     return tex;
 }
 
-let add_quad = fun(mesh: mesh*; top_left: v3; size: v2; uv0: v2; uv1: v2; c: v3) => void {
+let add_quad = fun(mesh: mesh*; top_left: v3; size: v2; uv0: v2; uv1: v2; color_foreground: v4; color_background: v3) => void {
     var p = top_left;
     
     var current_quad_count = mesh.current_quad_count;
@@ -113,34 +113,35 @@ let add_quad = fun(mesh: mesh*; top_left: v3; size: v2; uv0: v2; uv1: v2; c: v3)
     var vertices = mesh.vertices.data + current_quad_count*4;
     var uvs = mesh.uvs.data + current_quad_count*4;
     var color = mesh.colors.data + current_quad_count*4;
+    var color_backgound_ptr = mesh.background_colors.data + current_quad_count*4;
     var indices = mesh.indices.data + current_quad_count*6;
     
+    *(vertices++) = v3(p.x, p.y, p.z);
+    *(uvs++) = v2(uv0.x, uv0.y);
+    *(vertices++) = v3(p.x + size.x, p.y, p.z);
+    *(uvs++) = v2(uv1.x, uv0.y);
+    *(vertices++) = v3(p.x + size.x, p.y - size.y, p.z);
+    *(uvs++) = v2(uv1.x, uv1.y);
+    *(vertices++) = v3(p.x, p.y - size.y, p.z);
+    *(uvs++) = v2(uv0.x, uv1.y);
     
-    var temp_v = vertices;
-    var temp_uvs = uvs;
-    *(temp_v++) = v3(p.x, p.y, p.z);
-    *(temp_uvs++) = v2(uv0.x, uv0.y);
-    *(temp_v++) = v3(p.x + size.x, p.y, p.z);
-    *(temp_uvs++) = v2(uv1.x, uv0.y);
-    *(temp_v++) = v3(p.x + size.x, p.y - size.y, p.z);
-    *(temp_uvs++) = v2(uv1.x, uv1.y);
-    *(temp_v++) = v3(p.x, p.y - size.y, p.z);
-    *(temp_uvs++) = v2(uv0.x, uv1.y);
+    *(color++) = color_foreground;
+    *(color++) = color_foreground;
+    *(color++) = color_foreground;
+    *(color++) = color_foreground;
     
-    *(color++) = c;
-    *(color++) = c;
-    *(color++) = c;
-    *(color++) = c;
+    *(color_backgound_ptr++) = color_background;
+    *(color_backgound_ptr++) = color_background;
+    *(color_backgound_ptr++) = color_background;
+    *(color_backgound_ptr++) = color_background;
     
+    *(indices++) = current_vertex_count + 0;
+    *(indices++) = current_vertex_count + 1;
+    *(indices++) = current_vertex_count + 2;
     
-    var temp_i = indices;
-    *(temp_i++) = current_vertex_count + 0;
-    *(temp_i++) = current_vertex_count + 1;
-    *(temp_i++) = current_vertex_count + 2;
-    
-    *(temp_i++) = current_vertex_count + 2;
-    *(temp_i++) = current_vertex_count + 3;
-    *(temp_i++) = current_vertex_count + 0;
+    *(indices++) = current_vertex_count + 2;
+    *(indices++) = current_vertex_count + 3;
+    *(indices++) = current_vertex_count + 0;
     
     mesh.current_quad_count++;
 }
@@ -148,8 +149,6 @@ let add_quad = fun(mesh: mesh*; top_left: v3; size: v2; uv0: v2; uv1: v2; c: v3)
 
 let gl_state = struct(
     font_shader: i32;
-    foreground_color_uniform_location: i32;
-    background_color_uniform_location: i32;
     clear_color: v3;
 );
 var gl_state: gl_state;
@@ -475,14 +474,17 @@ let init_gl_resources = fun() => void {
 #version 330 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec2 aUV;
-layout (location = 2) in vec3 aColor;
+layout (location = 2) in vec4 aColor;
+layout (location = 3) in vec3 aBackColor;
 out vec2 UV;
-out vec3 Color;
+out vec4 Color;
+out vec3 BackColor;
 void main()
 {
     gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
     UV = aUV;
     Color = aColor;
+    BackColor = aBackColor;
 }
 "; 
     vs_source[vs_source.length - 1] = 0;
@@ -504,12 +506,11 @@ void main()
     var fs_source = @"
 #version 330 core
 in vec2 UV;
-in vec3 Color;
+in vec4 Color;
+in vec3 BackColor;
 out vec4 FragColor;
 
 uniform sampler2D tex;
-uniform vec4 foreground_color;
-uniform vec4 background_color;
 
 float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
@@ -523,10 +524,10 @@ void main()
     float signed_dist = median(sample.r, sample.g, sample.b) - 0.5;
     signed_dist *= dot(msdf_unit, 0.5/fwidth(UV));
     float opacity = clamp(signed_dist + 0.5, 0.0, 1.0);
-    FragColor = mix(background_color, vec4(Color, 1.0), opacity);
-
-    // vec4 col = texture(tex, UV);
-    // FragColor = col; // vec4(UV.x, UV.y, 0.0, 1.0);
+    if (Color.a >= 1.0) {
+        opacity = 1.0;
+    }
+    FragColor = mix(vec4(BackColor.rgb, 1.0), vec4(Color.rgb, 1.0), opacity);
 }
 ";
    fs_source[fs_source.length - 1] = 0;
@@ -568,12 +569,6 @@ void main()
     font = load_font();
     glUniform1i(glGetUniformLocation(shaderProgram, cstr("tex\0")), 0);
     
-    gl_state.background_color_uniform_location = glGetUniformLocation(shaderProgram, cstr("background_color\0"));
-    gl_state.foreground_color_uniform_location = glGetUniformLocation(shaderProgram, cstr("foreground_color\0"));
-    gl_state.font_shader = shaderProgram;
-    
-    set_font_color(v3(0.831, 0.831, 0.788), v3(0.118, 0.118, 0.118));
-     
     gl_resources_initialized = true;
 }
 
@@ -584,8 +579,10 @@ let render_opengl = fun (client_width: i32; client_height: i32; editor_state: ed
     glClearColor(gl_state.clear_color.x, gl_state.clear_color.y, gl_state.clear_color.z, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
     
-    var time = editor_state.time;
-    var font_size = 64.0;
+
+    var render_state = &editor_state.render_state;
+    var time = render_state.time;
+    render_state.font_size = Math::lerp(render_state.font_size, render_state.target_font_size, 0.1);
     var cursor = &editor_state.cursor;
     
     var flip_cursor = time - cursor.cursor_last_blink_time >= 0.5;
@@ -595,10 +592,10 @@ let render_opengl = fun (client_width: i32; client_height: i32; editor_state: ed
     }
     
     
-    editor_state.text_render_pos =  v2(40, client_height@f32 - 40);
-    editor_state.render_width = client_width;
-    editor_state.render_height = client_height;
-    render_text(editor_state, &font, font_size);
+    render_state.text_render_pos =  v2(40, client_height@f32 - 40);
+    render_state.render_width = client_width;
+    render_state.render_height = client_height;
+    render_text(editor_state, &font, render_state.font_size);
     
     // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
     SwapBuffers(window_dc);

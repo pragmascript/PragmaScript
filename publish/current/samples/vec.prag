@@ -208,3 +208,43 @@ let lerp = fun(a: v2; b: v2; t: f32) => v2 {
     var result = add(a, scaled(sub(b, a), t));
     return result;
 }
+
+let v2i = struct 
+(
+    x: i32;
+    y: i32;
+);
+let v2i = fun (x: i32; y: i32) => v2i {
+    var result = v2i { x, y };
+    return result;
+}
+var v2iz = v2i {0, 0};
+
+let add = fun (a: v2i*; b: v2i*) => v2i {
+    var result = v2i { a.x + b.x, a.y + b.y};
+    return result;
+}
+let add = fun (a: v2i; b: v2i) => v2i {
+    var result = v2i { a.x + b.x, a.y + b.y};
+    return result;
+}
+let sub = fun (a: v2i*; b: v2i*) => v2i {
+    var result = v2i { a.x - b.x, a.y - b.y};
+    return result;
+}
+let sub = fun (a: v2i; b: v2i) => v2i {
+    var result = v2i { a.x - b.x, a.y - b.y};
+    return result;
+}
+let equal = fun(a: v2i; b: v2i) => bool {
+    return a.x == b.x && a.y == b.y;
+}
+
+let v4 = struct 
+(
+    x: f32;
+    y: f32;
+    z: f32;
+    w: f32;
+);
+var v4z = v4 {0.0, 0.0, 0.0, 0.0};

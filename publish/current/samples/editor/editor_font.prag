@@ -25,6 +25,7 @@ let font = struct (
     e_bo: i32;
     uv_bo: i32;
     color_bo: i32;
+    background_color_bo: i32;
     
     atlas_width: i32;
     atlas_height: i32;
@@ -36,20 +37,17 @@ let font = struct (
     kerning_table: i32[];
 );
 
-let set_font_color = fun(foreground_color: v3; background_color: v3) => void {
-    glUniform4f(gl_state.foreground_color_uniform_location, foreground_color.x, foreground_color.y, foreground_color.z, 1.0);
-    glUniform4f(gl_state.background_color_uniform_location, background_color.x, background_color.y, background_color.z, 1.0);
-    gl_state.clear_color = background_color;
-}
+
 
 let load_font = fun() => font {
     var result = font { };
     
-    result.texture_handle = load_texture("fonts/atlas.bmp\0", &result.atlas_width, &result.atlas_height);
+    result.texture_handle = load_texture("fonts/plex_mono.bmp\0", &result.atlas_width, &result.atlas_height);
     glGenBuffers(1, &result.v_bo);
     glGenBuffers(1, &result.e_bo);
     glGenBuffers(1, &result.uv_bo);
     glGenBuffers(1, &result.color_bo);
+    glGenBuffers(1, &result.background_color_bo);
     
     let glyph_count = 256;
     
@@ -59,7 +57,7 @@ let load_font = fun() => font {
     for (var i = 0; i < glyph_count; ++i) {
         result.glyphs[i] = glyph { };
     }
-    var xml = read_xml("fonts/atlas.png.fnt\0");
+    var xml = read_xml("fonts/plex_mono.png.fnt\0");
     var e_font = get_child(&xml, "font");
     assert(e_font@ptr != nullptr);
     from_str(get_attrib_value(get_child(e_font, "info"), "size"), &result.base_size);
@@ -136,18 +134,26 @@ let get_kerning_pair = fun(font: font*; first: i8; second: i8) => i32 {
     var idx = @i32 second * font.glyphs.length + first@i32;
     return font.kerning_table[idx];
 }
-
-
 let char_alignment = enum( 
     left;
     right;
 );
 
-let add_character = fun(char: i8; char_next: i8; font: font*; relative_size: f32;
-                        color: v3;
-                        alignment: char_alignment;
-                        quads: mesh*; p: v2*;
-                        client_width: i32; client_height: i32) => void {
+
+let text_render_context = struct(
+    font: font*;
+    relative_size: f32;
+    foreground_color: v3;
+    background_color: v3;
+    background_color_selected: v3;
+    alignment: char_alignment;
+    quads: mesh*;
+    render_width: i32;
+    render_height: i32;
+);
+
+let add_character = fun(char: i8; char_next: i8; selected: bool; p: v2*;
+                        @text_render_context: text_render_context*) => void {
     var glyph = &font.glyphs[char@i32];
     var w = font.atlas_width@f32 - 1.0;
     var h = font.atlas_height@f32 - 1.0;
@@ -157,7 +163,7 @@ let add_character = fun(char: i8; char_next: i8; font: font*; relative_size: f32
         1.0 - @f32 (glyph.pos_y + glyph.height) / h
     );
     var p_size = v2(relative_size * glyph.width@f32, relative_size * glyph.height@f32);
-    var size = v2(2*p_size.x / (client_width - 1)@f32, 2*p_size.y / (client_height - 1)@f32);
+    var size = v2(2*p_size.x / (render_width - 1)@f32, 2*p_size.y / (render_height - 1)@f32);
 
     var current_p = *p;
     
@@ -180,18 +186,33 @@ let add_character = fun(char: i8; char_next: i8; font: font*; relative_size: f32
     }
     
     var pos = add(v3(current_p.x, current_p.y, 0), v3(relative_size * glyph.x_offset@f32, -relative_size *  glyph.y_offset@f32, 0));
-    pos = map_to_gl(v3(pos.x, pos.y, 0), client_width, client_height);
+    pos = map_to_gl(v3(pos.x, pos.y, 0), render_width, render_height);
     
     if (char_next != 0) {
         var kerning = get_kerning_pair(font, first, second);
         p.x += dir * relative_size * kerning@f32;
-    }        
+    }
+    if (selected) {
+        var start_pos = map_to_gl(v3(current_p.x, current_p.y, 0), render_width, render_height);
+        var end_pos = map_to_gl(v3(p.x, p.y, 0), render_width, render_height);
+        var line_height = (relative_size * font.base_size@f32) / (render_height - 1)@f32;
+        var size = v2(end_pos.x - start_pos.x, 2*line_height); 
+        var c = v4 { background_color_selected.x, background_color_selected.y, background_color_selected.z, 1.0 };
+        add_quad(quads, start_pos, size, uv0, uv1, c, foreground_color);
+    }
     if (char != ord(" ") && char != ord("\n")) {
-        add_quad(quads, pos, size, uv0, uv1, color);
+        var c = v4 { foreground_color.x, foreground_color.y, foreground_color.z, 0.0 };
+        var bc = background_color;
+        if (selected) {
+            bc = background_color_selected;
+        }
+        add_quad(quads, pos, size, uv0, uv1, c, bc);
     }
 }
 
 let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) => void {
+    var render_state = &editor_state.render_state;
+    
     var watermark = start_temp(&temp_memory_arena);
     var cursor = &editor_state.cursor;
     var relative_size = font_size / font.base_size@f32;
@@ -203,30 +224,59 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     let line_font_color = scaled(regular_font_color, 0.3);
     let cursor_font_color = regular_font_color;
     
+    var render_context = text_render_context { };
+    render_context.font = font;
+    render_context.relative_size = relative_size;
+    render_context.foreground_color = regular_font_color;
+    render_context.background_color = v3(0.118, 0.118, 0.118);
+    gl_state.clear_color = render_context.background_color;
+    render_context.background_color_selected = v3(0.118 - 0.05, 0.118 - 0.05, 0.118 - 0.05);
+    render_context.alignment = char_alignment::left;
+    render_context.quads = &quads;
+    render_context.render_width = render_state.render_width;
+    render_context.render_height = render_state.render_height;
+    
+    
     quads.vertices.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v3))@v3*;
     quads.vertices.length = max_chars * 4;
     quads.uvs.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v2))@v2*;
     quads.uvs.length = max_chars* 4;
-    quads.colors.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v3))@v3*;
+    quads.colors.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v4))@v4*;
     quads.colors.length = max_chars * 4;
+    quads.background_colors.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v3))@v3*;
+    quads.background_colors.length = max_chars * 4;
     quads.indices.data = push(&temp_memory_arena, @mm max_chars * 6 * size_of(i32))@i32*;
     quads.indices.length = max_chars * 6;
-    
     memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
-    
     
     var lines = editor_state.lines;
     var line_height = relative_size * font.base_size@f32;
+    
+    var useable_height = render_state.render_height@f32; // render_state.text_render_pos.y;
+    render_state.visible_line_count = Math::ceil(useable_height / line_height)@i32;
+    var first_visible_line_idx = Math::floor(render_state.scroll_pos.y / line_height)@i32 - 1;
+    var last_visible_line_idx = first_visible_line_idx + render_state.visible_line_count;
+    first_visible_line_idx = Math::clamp(first_visible_line_idx, 0, lines.length - 1);
+    last_visible_line_idx = Math::clamp(last_visible_line_idx, 0, lines.length - 1);
+    if (cursor.pos.y > last_visible_line_idx) {
+        last_visible_line_idx = cursor.pos.y;
+    }
+    if (cursor.pos.y < first_visible_line_idx) {
+        first_visible_line_idx = cursor.pos.y;
+    }
     var half_line_height = 0.5 * line_height;
-
-    var start_pos = editor_state.text_render_pos;
+    var start_pos = render_state.text_render_pos;
     var p = start_pos;
     var line_number_delta_x = 50 + start_pos.x;
     p.x = line_number_delta_x;
-    p = add(p, editor_state.scroll_pos);
+    p = add(p, render_state.scroll_pos);
+    p.y -= @f32 first_visible_line_idx * line_height;
+    
+    render_context.foreground_color = line_font_color;
+    render_context.alignment = char_alignment::right;
     var temp_used = start_temp(&temp_memory_arena);
     // render line numbers
-    for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
+    for (var line_idx = first_visible_line_idx; line_idx <= last_visible_line_idx; ++line_idx) {
         var line_number = to_str(line_idx + 1);
         for (var char_idx = line_number.length - 1; char_idx >= 0; --char_idx) {
             var char = line_number[char_idx];
@@ -234,44 +284,58 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
             if (char_idx < line_number.length - 1) {
                 char_next = line_number[char_idx + 1];    
             }
-            add_character(char, char_next, font, relative_size, line_font_color, char_alignment::right, &quads, &p, editor_state.render_width, editor_state.render_height);
+            add_character(char, char_next, false, &p, &render_context);
         }
         p.y -= line_height;
-        p.x = editor_state.scroll_pos.x + line_number_delta_x;
+        p.x = render_state.scroll_pos.x + line_number_delta_x;
     }
     stop_temp(&temp_memory_arena, temp_used);
+    render_context.foreground_color = regular_font_color;
+    render_context.alignment = char_alignment::left;
     
     var left_margin:f32 = start_pos.x + 100;
     
     p = start_pos;
     p.x = left_margin;
-    p = add(p, editor_state.scroll_pos);
+    p = add(p, render_state.scroll_pos);
+    p.y -= @f32 first_visible_line_idx * line_height;
     var start_x = p.x;
     var cursor_center = v2z;
     
+    // debug_print("first_visible_line_idx", first_visible_line_idx);
+    // debug_print("last_visible_line_idx", last_visible_line_idx);
+    
     // render text
-    for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
+    for (var line_idx = first_visible_line_idx; line_idx <= last_visible_line_idx; ++line_idx) {        
         var current_line = lines[line_idx];
         for (var char_idx = 0; char_idx < current_line.length + 1; ++char_idx) {
             var cursor_p = p;
+            var selected = is_in_selection(editor_state, char_idx, line_idx);
             if (char_idx != current_line.length) {
                 var char = current_line[char_idx];
                 var char_next: i8 = 0;
                 if (char_idx < current_line.length - 1) {
                     char_next = current_line[char_idx + 1];    
                 }
-                add_character(char, char_next, font, relative_size, regular_font_color, char_alignment::left, &quads, &p, editor_state.render_width, editor_state.render_height);
+                var color: v3;
+                add_character(char, char_next, selected, &p, &render_context);
+            } else {
+                if (selected && char_idx == 0) {
+                    add_character(ord(" "), 0, selected, &p, &render_context);
+                }
             }
-            if (line_idx == cursor.line_pos && char_idx == cursor.char_pos) {
-                cursor_center.x = cursor_p.x + editor_state.scroll_target.x - editor_state.scroll_pos.x;
+            if (line_idx == cursor.pos.y && char_idx == cursor.pos.x) {
+                cursor_center.x = cursor_p.x + render_state.scroll_target.x - render_state.scroll_pos.x;
                 
                 cursor_p.x -= 18.0 * relative_size;
                 cursor_p.y += 24.0 * relative_size;
                 
-                cursor_center.y = p.y - half_line_height + editor_state.scroll_target.y - editor_state.scroll_pos.y;
+                cursor_center.y = p.y - half_line_height + render_state.scroll_target.y - render_state.scroll_pos.y;
                 
                 if (cursor.draw_cursor) {
-                    add_character(ord("|"), 0, font, relative_size*1.2, cursor_font_color, char_alignment::left, &quads, &cursor_p, editor_state.render_width, editor_state.render_height);    
+                    render_context.relative_size = relative_size * 1.2;
+                    add_character(ord("|"), 0, false, &cursor_p, &render_context);
+                    render_context.relative_size = relative_size;
                 }
             }
         }
@@ -281,18 +345,18 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     
     var cursor_margin = 1.5 * half_line_height;
     if (cursor_center.y - cursor_margin < 0) {
-        editor_state.scroll_target.y -= (cursor_center.y - cursor_margin);
+        render_state.scroll_target.y -= (cursor_center.y - cursor_margin);
     }
-    if (cursor_center.y + cursor_margin > editor_state.render_height@f32) {
-        editor_state.scroll_target.y += editor_state.render_height@f32 - (cursor_center.y + cursor_margin);
+    if (cursor_center.y + cursor_margin > render_state.render_height@f32) {
+        render_state.scroll_target.y += render_state.render_height@f32 - (cursor_center.y + cursor_margin);
     }
     if (cursor_center.x < left_margin) {
-        editor_state.scroll_target.x -= cursor_center.x - left_margin;
+        render_state.scroll_target.x -= cursor_center.x - left_margin;
     }
-    if (cursor_center.x + cursor_margin > editor_state.render_width@f32) {
-        editor_state.scroll_target.x += editor_state.render_width@f32 - (cursor_center.x + cursor_margin);
+    if (cursor_center.x + cursor_margin > render_state.render_width@f32) {
+        render_state.scroll_target.x += render_state.render_width@f32 - (cursor_center.x + cursor_margin);
     }
-    editor_state.scroll_pos = lerp(editor_state.scroll_pos, editor_state.scroll_target, 0.1);
+    render_state.scroll_pos = lerp(render_state.scroll_pos, render_state.scroll_target, 0.1);
     
     glBindBuffer(GL_ARRAY_BUFFER, font.v_bo);
     glBufferData(GL_ARRAY_BUFFER, @mm quads.vertices.length * size_of(v3), quads.vertices.data@ptr, GL_DYNAMIC_DRAW);
@@ -305,9 +369,14 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     glEnableVertexAttribArray(1);
     
     glBindBuffer(GL_ARRAY_BUFFER, font.color_bo);
-    glBufferData(GL_ARRAY_BUFFER, @mm quads.colors.length * size_of(v3), quads.colors.data@ptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
+    glBufferData(GL_ARRAY_BUFFER, @mm quads.colors.length * size_of(v4), quads.colors.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 4 * size_of(f32)@\i32, nullptr);
     glEnableVertexAttribArray(2);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, font.background_color_bo);
+    glBufferData(GL_ARRAY_BUFFER, @mm quads.background_colors.length * size_of(v3), quads.background_colors.data@ptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
+    glEnableVertexAttribArray(3);
     
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, font.e_bo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, @mm quads.indices.length * size_of(i32), quads.indices.data@ptr, GL_DYNAMIC_DRAW);

@@ -8,6 +8,6 @@
     "problems.autoReveal": true,
     "debug.allowBreakpointsEverywhere": true,
     "lldb.displayFormat": "auto",
-    "lldb.showDisassembly": "always",
-    "lldb.dereferencePointers": true
+    "lldb.dereferencePointers": true,
+    "lldb.showDisassembly": "auto"
 }
