@@ -61,7 +61,7 @@ namespace PragmaScript
     public class ParserVariableTypeMismatch : CompilerError
     {
         public ParserVariableTypeMismatch(FrontendType varType, FrontendType otherType, Token t)
-            : base(string.Format("Type of expression does not match variable type: variable type {0} != expression type {1}", varType.ToString(), otherType.ToString()), t)
+            : base(string.Format("Type of expression does not match variable type: variable type \"{0}\" != expression type {1}", varType.ToString(), otherType.ToString()), t)
         {
         }
     }

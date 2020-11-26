@@ -152,9 +152,9 @@ let text_render_context = struct(
     render_height: i32;
 );
 
-let add_character = fun(char: i8; char_next: i8; selected: bool; p: v2*;
+let add_character = fun(char: character; char_next: character; selected: bool; p: v2*;
                         @text_render_context: text_render_context*) => void {
-    var glyph = &font.glyphs[char@i32];
+    var glyph = &font.glyphs[char.value@i32];
     var w = font.atlas_width@f32 - 1.0;
     var h = font.atlas_height@f32 - 1.0;
     var uv0 = v2(glyph.pos_x@f32 / w, 1.0 - glyph.pos_y@f32 / h);
@@ -167,8 +167,8 @@ let add_character = fun(char: i8; char_next: i8; selected: bool; p: v2*;
 
     var current_p = *p;
     
-    var first: i8;
-    var second: i8;
+    var first: character;
+    var second: character;
     var dir: f32;
     if (alignment == char_alignment::left) {
         first = char;
@@ -188,8 +188,8 @@ let add_character = fun(char: i8; char_next: i8; selected: bool; p: v2*;
     var pos = add(v3(current_p.x, current_p.y, 0), v3(relative_size * glyph.x_offset@f32, -relative_size *  glyph.y_offset@f32, 0));
     pos = map_to_gl(v3(pos.x, pos.y, 0), render_width, render_height);
     
-    if (char_next != 0) {
-        var kerning = get_kerning_pair(font, first, second);
+    if (char_next.value != 0) {
+        var kerning = get_kerning_pair(font, first.value, second.value);
         p.x += dir * relative_size * kerning@f32;
     }
     if (selected) {
@@ -200,7 +200,7 @@ let add_character = fun(char: i8; char_next: i8; selected: bool; p: v2*;
         var c = v4 { background_color_selected.x, background_color_selected.y, background_color_selected.z, 1.0 };
         add_quad(quads, start_pos, size, uv0, uv1, c, foreground_color);
     }
-    if (char != ord(" ") && char != ord("\n")) {
+    if (char.value != ord(" ") && char.value != ord("\n")) {
         var c = v4 { foreground_color.x, foreground_color.y, foreground_color.z, 0.0 };
         var bc = background_color;
         if (selected) {
@@ -211,6 +211,8 @@ let add_character = fun(char: i8; char_next: i8; selected: bool; p: v2*;
 }
 
 let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) => void {
+    var current_chunk = editor_state.chunks;
+    assert(current_chunk.lines.length > 0);
     var render_state = &editor_state.render_state;
     
     var watermark = start_temp(&temp_memory_arena);
@@ -249,7 +251,7 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     quads.indices.length = max_chars * 6;
     memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
     
-    var lines = editor_state.lines;
+    var lines = current_chunk.lines;
     var line_height = relative_size * font.base_size@f32;
     
     var useable_height = render_state.render_height@f32; // render_state.text_render_pos.y;
@@ -279,10 +281,10 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     for (var line_idx = first_visible_line_idx; line_idx <= last_visible_line_idx; ++line_idx) {
         var line_number = to_str(line_idx + 1);
         for (var char_idx = line_number.length - 1; char_idx >= 0; --char_idx) {
-            var char = line_number[char_idx];
-            var char_next: i8 = 0;
+            var char = from_ascii(line_number[char_idx]);
+            var char_next = from_ascii(0);
             if (char_idx < line_number.length - 1) {
-                char_next = line_number[char_idx + 1];    
+                char_next = from_ascii(line_number[char_idx + 1]);    
             }
             add_character(char, char_next, false, &p, &render_context);
         }
@@ -312,16 +314,16 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
             var cursor_p = p;
             var selected = is_in_selection(editor_state, char_idx, line_idx);
             if (char_idx != current_line.length) {
-                var char = current_line[char_idx];
-                var char_next: i8 = 0;
+                var char = *(current_line.chars + char_idx);
+                var char_next = from_ascii(0);
                 if (char_idx < current_line.length - 1) {
-                    char_next = current_line[char_idx + 1];    
+                    char_next = *(current_line.chars + (char_idx + 1));    
                 }
                 var color: v3;
                 add_character(char, char_next, selected, &p, &render_context);
             } else {
                 if (selected && char_idx == 0) {
-                    add_character(ord(" "), 0, selected, &p, &render_context);
+                    add_character(from_ascii(ord(" ")), from_ascii(0), selected, &p, &render_context);
                 }
             }
             if (line_idx == cursor.pos.y && char_idx == cursor.pos.x) {
@@ -334,7 +336,7 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                 
                 if (cursor.draw_cursor) {
                     render_context.relative_size = relative_size * 1.2;
-                    add_character(ord("|"), 0, false, &cursor_p, &render_context);
+                    add_character(from_ascii(ord("|")), from_ascii(0), false, &cursor_p, &render_context);
                     render_context.relative_size = relative_size;
                 }
             }
