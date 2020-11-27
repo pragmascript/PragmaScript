@@ -12,7 +12,7 @@ with Windows;
 
 
 let max_line_length = 1024;
-let text_chunk_line_count = 64;
+let text_chunk_line_count = 128;
 let key_repeat_delay = 0.5;
 let key_repeat_interval = 0.020;
 
@@ -57,6 +57,7 @@ let render_state = struct(
     font_size: f32;
     target_font_size: f32;
     visible_line_count: i32;
+    temp_memory: memory_arena;
 );
 let character = struct(
     value: i8;
@@ -215,8 +216,10 @@ let create_editor_state = fun() => editor_state  {
     result.key_down_state.data = @key_down_state* allocate(256 * size_of(key_down_state));
     result.key_down_state.length = 256;
     
-    result.render_state.font_size = 74;
-    result.render_state.target_font_size = 74;
+    result.render_state.font_size = 40;
+    result.render_state.target_font_size = 40;
+    
+    result.render_state.temp_memory = create_arena(megabytes(64));
     
     
     return result;
@@ -950,7 +953,7 @@ let main = fun() => void {
         var t1 = get_perf_counter();
         frames++;
         if (frames == 600) {
-            debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
+            // debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
             frames = 0;
         }
     }

@@ -8,7 +8,7 @@
 import "memory.prag"
 
 // var temp_memory_arena  = memory_arena{};
-var temp_memory_arena: memory_arena = create_arena(megabytes(16));
+var temp_memory_arena: memory_arena = create_arena(megabytes(4));
 
 let kilobytes = fun (bytes: mm) => mm 
 {

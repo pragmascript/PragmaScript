@@ -213,7 +213,7 @@ let add_character = fun(char: character; char_next: character; selected: bool; p
 let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) => void {
     var render_state = &editor_state.render_state;
     
-    var watermark = start_temp(&temp_memory_arena);
+    
     var cursor = &editor_state.cursor;
     var relative_size = font_size / font.base_size@f32;
     
@@ -236,18 +236,21 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     render_context.render_width = render_state.render_width;
     render_context.render_height = render_state.render_height;
     
+    var temp_memory = &render_state.temp_memory;
+    var watermark = start_temp(temp_memory);
     
-    quads.vertices.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v3))@v3*;
+    
+    quads.vertices.data = push(temp_memory, @mm max_chars * 4 * size_of(v3))@v3*;
     quads.vertices.length = max_chars * 4;
-    quads.uvs.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v2))@v2*;
+    quads.uvs.data = push(temp_memory, @mm max_chars * 4 * size_of(v2))@v2*;
     quads.uvs.length = max_chars* 4;
-    quads.colors.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v4))@v4*;
+    quads.colors.data = push(temp_memory, @mm max_chars * 4 * size_of(v4))@v4*;
     quads.colors.length = max_chars * 4;
-    quads.background_colors.data = push(&temp_memory_arena, @mm max_chars * 4 * size_of(v3))@v3*;
+    quads.background_colors.data = push(temp_memory, @mm max_chars * 4 * size_of(v3))@v3*;
     quads.background_colors.length = max_chars * 4;
-    quads.indices.data = push(&temp_memory_arena, @mm max_chars * 6 * size_of(i32))@i32*;
+    quads.indices.data = push(temp_memory, @mm max_chars * 6 * size_of(i32))@i32*;
     quads.indices.length = max_chars * 6;
-    memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
+    // memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
     
     var useable_height = render_state.render_height@f32; // render_state.text_render_pos.y;
     var line_height = relative_size * font.base_size@f32;
@@ -378,34 +381,39 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     }
     render_state.scroll_pos = lerp(render_state.scroll_pos, render_state.scroll_target, 0.1);
     
+    
+    var current_quad_count = quads.current_quad_count;
+    var current_vertex_count = current_quad_count * 4;
+    var current_index_count = current_quad_count * 6;
+    
     glBindBuffer(GL_ARRAY_BUFFER, font.v_bo);
-    glBufferData(GL_ARRAY_BUFFER, @mm quads.vertices.length * size_of(v3), quads.vertices.data@ptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, @mm current_vertex_count * size_of(v3), quads.vertices.data@ptr, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
     glEnableVertexAttribArray(0);
     
     glBindBuffer(GL_ARRAY_BUFFER, font.uv_bo);
-    glBufferData(GL_ARRAY_BUFFER, @mm quads.uvs.length * size_of(v2), quads.uvs.data@ptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, @mm current_vertex_count * size_of(v2), quads.uvs.data@ptr, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * size_of(f32)@\i32, nullptr);
     glEnableVertexAttribArray(1);
     
     glBindBuffer(GL_ARRAY_BUFFER, font.color_bo);
-    glBufferData(GL_ARRAY_BUFFER, @mm quads.colors.length * size_of(v4), quads.colors.data@ptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, @mm current_vertex_count * size_of(v4), quads.colors.data@ptr, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 4 * size_of(f32)@\i32, nullptr);
     glEnableVertexAttribArray(2);
     
     glBindBuffer(GL_ARRAY_BUFFER, font.background_color_bo);
-    glBufferData(GL_ARRAY_BUFFER, @mm quads.background_colors.length * size_of(v3), quads.background_colors.data@ptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, @mm current_vertex_count * size_of(v3), quads.background_colors.data@ptr, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * size_of(f32)@\i32, nullptr);
     glEnableVertexAttribArray(3);
     
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, font.e_bo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, @mm quads.indices.length * size_of(i32), quads.indices.data@ptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, @mm current_index_count * size_of(i32), quads.indices.data@ptr, GL_DYNAMIC_DRAW);
     
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, font.texture_handle);
     
-    glDrawElements(GL_TRIANGLES, quads.indices.length, GL_UNSIGNED_INT, nullptr);
+    glDrawElements(GL_TRIANGLES, current_index_count, GL_UNSIGNED_INT, nullptr);
         
-    stop_temp(&temp_memory_arena, watermark);
+    stop_temp(temp_memory, watermark);
 }
 
