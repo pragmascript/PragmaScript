@@ -97,7 +97,7 @@ let load_font = fun() => font {
                                       CLIP_DEFAULT_PRECIS,
                                       ANTIALIASED_QUALITY,
                                       DEFAULT_PITCH|FF_DONTCARE,
-                                      cstr("Theano Didot\0"));
+                                      cstr("IBM Plex Mono\0"));
         assert(font_handle != Windows::INVALID_HANDLE_VALUE);
         var font_dc = CreateCompatibleDC(GetDC(0));
         SelectObject(font_dc, font_handle);
@@ -211,8 +211,6 @@ let add_character = fun(char: character; char_next: character; selected: bool; p
 }
 
 let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) => void {
-    var current_chunk = editor_state.chunks;
-    assert(current_chunk.lines.length > 0);
     var render_state = &editor_state.render_state;
     
     var watermark = start_temp(&temp_memory_arena);
@@ -220,7 +218,7 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     var relative_size = font_size / font.base_size@f32;
     
     var quads = mesh { };
-    let max_chars = max_line_length * max_line_count;
+    let max_chars = max_line_length * text_chunk_line_count;
     
     let regular_font_color = v3(0.831, 0.831, 0.788);
     let line_font_color = scaled(regular_font_color, 0.3);
@@ -251,100 +249,120 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     quads.indices.length = max_chars * 6;
     memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
     
-    var lines = current_chunk.lines;
-    var line_height = relative_size * font.base_size@f32;
-    
     var useable_height = render_state.render_height@f32; // render_state.text_render_pos.y;
+    var line_height = relative_size * font.base_size@f32;
     render_state.visible_line_count = Math::ceil(useable_height / line_height)@i32;
-    var first_visible_line_idx = Math::floor(render_state.scroll_pos.y / line_height)@i32 - 1;
-    var last_visible_line_idx = first_visible_line_idx + render_state.visible_line_count;
-    first_visible_line_idx = Math::clamp(first_visible_line_idx, 0, lines.length - 1);
-    last_visible_line_idx = Math::clamp(last_visible_line_idx, 0, lines.length - 1);
-    if (cursor.pos.y > last_visible_line_idx) {
-        last_visible_line_idx = cursor.pos.y;
-    }
-    if (cursor.pos.y < first_visible_line_idx) {
-        first_visible_line_idx = cursor.pos.y;
-    }
+    
+    
+    // var first_visible_line_idx = Math::floor(render_state.scroll_pos.y / line_height)@i32 - 1;
+    // var last_visible_line_idx = first_visible_line_idx + render_state.visible_line_count;
+    // first_visible_line_idx = Math::clamp(first_visible_line_idx, 0, lines.length - 1);
+    // last_visible_line_idx = Math::clamp(last_visible_line_idx, 0, lines.length - 1);
+    // TODO !!!
+    // if (cursor.pos.y > last_visible_line_idx) {
+    //     last_visible_line_idx = cursor.pos.y;
+    // }
+    // if (cursor.pos.y < first_visible_line_idx) {
+    //     first_visible_line_idx = cursor.pos.y;
+    // }
+    
     var half_line_height = 0.5 * line_height;
     var start_pos = render_state.text_render_pos;
+    
     var p = start_pos;
-    var line_number_delta_x = 50 + start_pos.x;
-    p.x = line_number_delta_x;
     p = add(p, render_state.scroll_pos);
-    p.y -= @f32 first_visible_line_idx * line_height;
+    var start_x_text = p.x + 100;
+    var start_x_line_numbers = p.x + 50;
     
-    render_context.foreground_color = line_font_color;
-    render_context.alignment = char_alignment::right;
-    var temp_used = start_temp(&temp_memory_arena);
-    // render line numbers
-    for (var line_idx = first_visible_line_idx; line_idx <= last_visible_line_idx; ++line_idx) {
-        var line_number = to_str(line_idx + 1);
-        for (var char_idx = line_number.length - 1; char_idx >= 0; --char_idx) {
-            var char = from_ascii(line_number[char_idx]);
-            var char_next = from_ascii(0);
-            if (char_idx < line_number.length - 1) {
-                char_next = from_ascii(line_number[char_idx + 1]);    
-            }
-            add_character(char, char_next, false, &p, &render_context);
-        }
-        p.y -= line_height;
-        p.x = render_state.scroll_pos.x + line_number_delta_x;
-    }
-    stop_temp(&temp_memory_arena, temp_used);
-    render_context.foreground_color = regular_font_color;
-    render_context.alignment = char_alignment::left;
-    
-    var left_margin:f32 = start_pos.x + 100;
-    
-    p = start_pos;
-    p.x = left_margin;
-    p = add(p, render_state.scroll_pos);
-    p.y -= @f32 first_visible_line_idx * line_height;
-    var start_x = p.x;
     var cursor_center = v2z;
     
-    // debug_print("first_visible_line_idx", first_visible_line_idx);
-    // debug_print("last_visible_line_idx", last_visible_line_idx);
+    var min_safe_y = 0.0;
+    var max_safe_y = render_context.render_height@f32 + line_height@f32; 
     
-    // render text
-    for (var line_idx = first_visible_line_idx; line_idx <= last_visible_line_idx; ++line_idx) {        
-        var current_line = lines[line_idx];
-        for (var char_idx = 0; char_idx < current_line.length + 1; ++char_idx) {
-            var cursor_p = p;
-            var selected = is_in_selection(editor_state, char_idx, line_idx);
-            if (char_idx != current_line.length) {
-                var char = *(current_line.chars + char_idx);
-                var char_next = from_ascii(0);
-                if (char_idx < current_line.length - 1) {
-                    char_next = *(current_line.chars + (char_idx + 1));    
-                }
-                var color: v3;
-                add_character(char, char_next, selected, &p, &render_context);
-            } else {
-                if (selected && char_idx == 0) {
-                    add_character(from_ascii(ord(" ")), from_ascii(0), selected, &p, &render_context);
-                }
-            }
-            if (line_idx == cursor.pos.y && char_idx == cursor.pos.x) {
-                cursor_center.x = cursor_p.x + render_state.scroll_target.x - render_state.scroll_pos.x;
-                
-                cursor_p.x -= 18.0 * relative_size;
-                cursor_p.y += 24.0 * relative_size;
-                
-                cursor_center.y = p.y - half_line_height + render_state.scroll_target.y - render_state.scroll_pos.y;
-                
-                if (cursor.draw_cursor) {
-                    render_context.relative_size = relative_size * 1.2;
-                    add_character(from_ascii(ord("|")), from_ascii(0), false, &cursor_p, &render_context);
-                    render_context.relative_size = relative_size;
+    
+    
+    var total_line_idx = 0;
+    for (var chunk_idx = 0; chunk_idx < editor_state.chunks_count; ++chunk_idx) {
+        p.x = start_x_line_numbers;
+        // p.y -= @f32 first_visible_line_idx * line_height;
+        
+        render_context.foreground_color = line_font_color;
+        render_context.alignment = char_alignment::right;
+        
+        var current_chunk = editor_state.chunks + chunk_idx;
+        var lines = current_chunk.lines;
+        var temp_used = start_temp(&temp_memory_arena);
+        
+        var temp_y = p.y;
+        
+        
+        // render line numbers
+        for (var line_idx = 0; line_idx < current_chunk.lines.length; ++line_idx) {
+            if (p.y > min_safe_y && p.y < max_safe_y) {
+                var line_number = to_str(total_line_idx + line_idx + 1);
+                for (var char_idx = line_number.length - 1; char_idx >= 0; --char_idx) {
+                    var char = from_ascii(line_number[char_idx]);
+                    var char_next = from_ascii(0);
+                    if (char_idx < line_number.length - 1) {
+                        char_next = from_ascii(line_number[char_idx + 1]);    
+                    }
+                    add_character(char, char_next, false, &p, &render_context);
                 }
             }
+            p.y -= line_height;
+            p.x = start_x_line_numbers;
         }
-        p.y -= line_height;
-        p.x = start_x;
+        stop_temp(&temp_memory_arena, temp_used);
+        render_context.foreground_color = regular_font_color;
+        render_context.alignment = char_alignment::left;
+        
+        p.y = temp_y;
+        p.x = start_x_text;
+        // render text
+        for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
+            total_line_idx++;        
+            var current_line = lines[line_idx];
+            for (var char_idx = 0; char_idx < current_line.length + 1; ++char_idx) {
+                var cursor_p = p;
+                var should_draw = p.y > min_safe_y && p.y < max_safe_y;
+                if (should_draw) {
+                    var selected = is_in_selection(editor_state, char_idx, line_idx);
+                    if (char_idx != current_line.length) {
+                        var char = *(current_line.chars + char_idx);
+                        var char_next = from_ascii(0);
+                        if (char_idx < current_line.length - 1) {
+                            char_next = *(current_line.chars + (char_idx + 1));    
+                        }
+                        var color: v3;
+                        add_character(char, char_next, selected, &p, &render_context);
+                    } else {
+                        if (selected && char_idx == 0) {
+                            add_character(from_ascii(ord(" ")), from_ascii(0), selected, &p, &render_context);
+                        }
+                    }
+                }
+                if (line_idx == cursor.pos.y && char_idx == cursor.pos.x && chunk_idx == cursor.current_chunk_idx) {
+                    cursor_center.x = cursor_p.x + render_state.scroll_target.x - render_state.scroll_pos.x;
+                    
+                    cursor_p.x -= 18.0 * relative_size;
+                    cursor_p.y += 24.0 * relative_size;
+                    
+                    cursor_center.y = p.y - half_line_height + render_state.scroll_target.y - render_state.scroll_pos.y;
+                    
+                    if (cursor.draw_cursor && should_draw) {
+                        render_context.relative_size = relative_size * 1.2;
+                        add_character(from_ascii(ord("|")), from_ascii(0), false, &cursor_p, &render_context);
+                        render_context.relative_size = relative_size;
+                    }
+                }
+            }
+            p.y -= line_height;
+            p.x = start_x_text;
+        }
     }
     
+    
+    var left_margin:f32 = start_pos.x + 100;
     var cursor_margin = 1.5 * half_line_height;
     if (cursor_center.y - cursor_margin < 0) {
         render_state.scroll_target.y -= (cursor_center.y - cursor_margin);
