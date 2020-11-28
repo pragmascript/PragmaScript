@@ -224,6 +224,18 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     let line_font_color = scaled(regular_font_color, 0.3);
     let cursor_font_color = regular_font_color;
     
+    
+    // var random_colors = [
+    //   v3(1.0, 0.0, 0.0),
+    //   v3(0.0, 1.0, 0.0),
+    //   v3(0.0, 0.0, 1.0),
+    //   v3(1.0, 1.0, 0.0),
+    //   v3(0.0, 1.0, 1.0),
+    //   v3(1.0, 0.0, 1.0),
+    //   v3(1.0, 1.0, 1.0)
+    // ];
+    
+    
     var render_context = text_render_context { };
     render_context.font = font;
     render_context.relative_size = relative_size;
@@ -250,24 +262,10 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     quads.background_colors.length = max_chars * 4;
     quads.indices.data = push(temp_memory, @mm max_chars * 6 * size_of(i32))@i32*;
     quads.indices.length = max_chars * 6;
-    // memset(quads.indices.data@i8*, 0, @mm quads.indices.length * size_of(i32));
     
-    var useable_height = render_state.render_height@f32; // render_state.text_render_pos.y;
+    var useable_height = render_state.render_height@f32; 
     var line_height = relative_size * font.base_size@f32;
     render_state.visible_line_count = Math::ceil(useable_height / line_height)@i32;
-    
-    
-    // var first_visible_line_idx = Math::floor(render_state.scroll_pos.y / line_height)@i32 - 1;
-    // var last_visible_line_idx = first_visible_line_idx + render_state.visible_line_count;
-    // first_visible_line_idx = Math::clamp(first_visible_line_idx, 0, lines.length - 1);
-    // last_visible_line_idx = Math::clamp(last_visible_line_idx, 0, lines.length - 1);
-    // TODO !!!
-    // if (cursor.pos.y > last_visible_line_idx) {
-    //     last_visible_line_idx = cursor.pos.y;
-    // }
-    // if (cursor.pos.y < first_visible_line_idx) {
-    //     first_visible_line_idx = cursor.pos.y;
-    // }
     
     var half_line_height = 0.5 * line_height;
     var start_pos = render_state.text_render_pos;
@@ -281,8 +279,6 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     
     var min_safe_y = 0.0;
     var max_safe_y = render_context.render_height@f32 + line_height@f32; 
-    
-    
     
     var total_line_idx = 0;
     for (var chunk_idx = 0; chunk_idx < editor_state.chunks_count; ++chunk_idx) {
@@ -329,14 +325,14 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                 var cursor_p = p;
                 var should_draw = p.y > min_safe_y && p.y < max_safe_y;
                 if (should_draw) {
-                    var selected = is_in_selection(editor_state, char_idx, line_idx);
+                    var selected = is_in_selection(editor_state, char_idx, line_idx, chunk_idx);
                     if (char_idx != current_line.length) {
                         var char = *(current_line.chars + char_idx);
                         var char_next = from_ascii(0);
                         if (char_idx < current_line.length - 1) {
                             char_next = *(current_line.chars + (char_idx + 1));    
                         }
-                        var color: v3;
+                        // render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];
                         add_character(char, char_next, selected, &p, &render_context);
                     } else {
                         if (selected && char_idx == 0) {
@@ -344,7 +340,9 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                         }
                     }
                 }
-                if (line_idx == cursor.pos.y && char_idx == cursor.pos.x && chunk_idx == cursor.current_chunk_idx) {
+                
+                // TODO this should be extracted into a function. We can determine the exact cursor position just using the line height and pseudo rendering the single line the cursor is on (without actually drawing it)
+                if (chunk_idx == cursor.pos.z && line_idx == cursor.pos.y && char_idx == cursor.pos.x) {
                     cursor_center.x = cursor_p.x + render_state.scroll_target.x - render_state.scroll_pos.x;
                     
                     cursor_p.x -= 18.0 * relative_size;
