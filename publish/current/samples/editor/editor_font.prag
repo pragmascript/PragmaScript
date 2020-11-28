@@ -225,15 +225,15 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     let cursor_font_color = regular_font_color;
     
     
-    // var random_colors = [
-    //   v3(1.0, 0.0, 0.0),
-    //   v3(0.0, 1.0, 0.0),
-    //   v3(0.0, 0.0, 1.0),
-    //   v3(1.0, 1.0, 0.0),
-    //   v3(0.0, 1.0, 1.0),
-    //   v3(1.0, 0.0, 1.0),
-    //   v3(1.0, 1.0, 1.0)
-    // ];
+    var random_colors = [
+      v3(1.0, 0.0, 0.0),
+      v3(0.0, 1.0, 0.0),
+      v3(0.0, 0.0, 1.0),
+      v3(1.0, 1.0, 0.0),
+      v3(0.0, 1.0, 1.0),
+      v3(1.0, 0.0, 1.0),
+      v3(1.0, 1.0, 1.0)
+    ];
     
     
     var render_context = text_render_context { };
@@ -332,7 +332,7 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                         if (char_idx < current_line.length - 1) {
                             char_next = *(current_line.chars + (char_idx + 1));    
                         }
-                        // render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];
+                        render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];
                         add_character(char, char_next, selected, &p, &render_context);
                     } else {
                         if (selected && char_idx == 0) {

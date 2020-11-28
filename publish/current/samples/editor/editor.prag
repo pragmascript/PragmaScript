@@ -12,7 +12,7 @@ with Windows;
 
 
 let max_line_length = 1024;
-let text_chunk_line_count = 16;
+let text_chunk_line_count = 8;
 let key_repeat_delay = 0.5;
 let key_repeat_interval = 0.020;
 
@@ -256,15 +256,21 @@ let reset_cursor_blink = fun() => void {
 let get_ordered_selection_bounds = fun(editor_state: editor_state*; first: v3i*; last: v3i*) => void {
     *first = editor_state.cursor.selection_start;
     *last = editor_state.cursor.pos;
-    if (first.y > last.y) {
+    if (first.z > last.z) {
         var temp = *first;
         *first = *last;
         *last = temp;
-    }
-    if (first.y == last.y && first.x > last.x) {
-        var temp = *first;
-        *first = *last;
-        *last = temp;
+    } elif (first.z == last.z) {
+        if (first.y > last.y) {
+            var temp = *first;
+            *first = *last;
+            *last = temp;
+        }
+        if (first.y == last.y && first.x > last.x) {
+            var temp = *first;
+            *first = *last;
+            *last = temp;
+        }
     }
 }
 
@@ -276,17 +282,29 @@ let is_in_selection = fun(editor_state: editor_state*; char_idx: i32; line_idx: 
     var last: v3i;
     get_ordered_selection_bounds(editor_state, &first, &last);
     
+    var char_idx_temp = char_idx;
+    var line_idx_temp = line_idx;
+    var chunk_idx_temp = chunk_idx;
     
-    if (line_idx < first.y || line_idx > last.y) {
+    if (chunk_idx > first.z && chunk_idx < last.z) {
+        return true;
+    }
+    if (chunk_idx < first.z || chunk_idx > last.z) {
+        return false;
+    }
+    if (chunk_idx == first.z && line_idx < first.y) {
+        return false;
+    }
+    if (chunk_idx == last.z && line_idx > last.y) {
         return false;
     }
     var result = true;
-    if (line_idx == first.y) {
+    if (chunk_idx == first.z && line_idx == first.y) {
         if (char_idx < first.x) {
             result = false;
         }
     }
-    if (line_idx == last.y) {
+    if (chunk_idx == last.z && line_idx == last.y) {
         if (char_idx >= last.x) {
             result = false;
         }
@@ -360,7 +378,6 @@ let delete_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_i
         }
     }
 }
-
 
 let insert_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_idx: i32; char_ptr: character*; char_count: i32) => void {
     if (chunk_idx >= editor_state.chunks_count) {
@@ -443,7 +460,7 @@ let add_char_to_line = fun(line_ptr: line*; cursor: cursor*; char: character) =>
 
 let copy_to_clipboard = fun(editor_state: editor_state*) => void {
     var cursor = &editor_state.cursor;
-    var current_chunk = editor_state.chunks + cursor.pos.z;
+    
     if (cursor.clipboard.data != nullptr) {
         free(cursor.clipboard.data);
     }
@@ -456,29 +473,39 @@ let copy_to_clipboard = fun(editor_state: editor_state*) => void {
     var char_ptr: i8* = nullptr;
     var char_count = 0;
 
-    for (var y = first.y; y <= last.y; ++y) {
-        var current_line = current_chunk.lines[y];
-        var first_x = 0;
-        var last_x = current_line.length;
-        if (y == first.y) {
-            first_x = first.x;
+    for (var z = first.z; z <= last.z; ++z) {
+        var current_chunk = editor_state.chunks + z;
+        var y_from = 0;
+        var y_to = current_chunk.lines.length - 1;
+        if (z == first.z) {
+            y_from = first.y;
         }
-        if (y == last.y) {
-            last_x = last.x;
+        if (z == last.z) {
+            y_to = last.y;
         }
-        for (var x = first_x; x < last_x; ++x) {
-            char_ptr = push(&temp_memory_arena, 1);
-            var chr = *(current_line.chars + x);
-            *char_ptr = chr.value;
-            char_count++;
-        }
-        if (y != last.y) {
-            char_ptr = push(&temp_memory_arena, 1);
-            *char_ptr = ord("\n");
-            char_count++;
+        for (var y = y_from; y <= y_to; ++y) {
+            var current_line = current_chunk.lines[y];
+            var first_x = 0;
+            var last_x = current_line.length;
+            if (z == first.z && y == first.y) {
+                first_x = first.x;
+            }
+            if (z == last.z && y == last.y) {
+                last_x = last.x;
+            }
+            for (var x = first_x; x < last_x; ++x) {
+                char_ptr = push(&temp_memory_arena, 1);
+                var chr = *(current_line.chars + x);
+                *char_ptr = chr.value;
+                char_count++;
+            }
+            if (y != last.y) {
+                char_ptr = push(&temp_memory_arena, 1);
+                *char_ptr = ord("\n");
+                char_count++;
+            }
         }
     }
-    
     if (char_count > 0) {
         cursor.clipboard.data = allocate(char_count@mm + 1);
         cursor.clipboard.length = char_count;

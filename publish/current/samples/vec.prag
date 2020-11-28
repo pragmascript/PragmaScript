@@ -253,19 +253,19 @@ let v3i = fun (x: i32; y: i32; z: i32) => v3i {
 var v3iz = v3i {0, 0, 0};
 
 let add = fun (a: v3i*; b: v3i*) => v3i {
-    var result = v3i { a.x + b.x, a.y + b.y, a.z + b.z};
+    var result = v3i { a.x + b.x, a.y + b.y, a.z + b.z };
     return result;
 }
 let add = fun (a: v3i; b: v3i) => v3i {
-    var result = v3i { a.x + b.x, a.y + b.y, a.z + b.z};
+    var result = v3i { a.x + b.x, a.y + b.y, a.z + b.z };
     return result;
 }
 let sub = fun (a: v3i*; b: v3i*) => v3i {
-    var result = v3i { a.x - b.x, a.y - b.y, a.z - b.z};
+    var result = v3i { a.x - b.x, a.y - b.y, a.z - b.z };
     return result;
 }
 let sub = fun (a: v3i; b: v3i) => v3i {
-    var result = v3i { a.x - b.x, a.y - b.y, a.z - b.z};
+    var result = v3i { a.x - b.x, a.y - b.y, a.z - b.z };
     return result;
 }
 let equal = fun(a: v3i; b: v3i) => bool {
