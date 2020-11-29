@@ -225,15 +225,15 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     let cursor_font_color = regular_font_color;
     
     
-    var random_colors = [
-      v3(1.0, 0.0, 0.0),
-      v3(0.0, 1.0, 0.0),
-      v3(0.0, 0.0, 1.0),
-      v3(1.0, 1.0, 0.0),
-      v3(0.0, 1.0, 1.0),
-      v3(1.0, 0.0, 1.0),
-      v3(1.0, 1.0, 1.0)
-    ];
+    // var random_colors = [
+    //   v3(1.0, 0.0, 0.0),
+    //   v3(0.0, 1.0, 0.0),
+    //   v3(0.0, 0.0, 1.0),
+    //   v3(1.0, 1.0, 0.0),
+    //   v3(0.0, 1.0, 1.0),
+    //   v3(1.0, 0.0, 1.0),
+    //   v3(1.0, 1.0, 1.0)
+    // ];
     
     
     var render_context = text_render_context { };
@@ -332,7 +332,7 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                         if (char_idx < current_line.length - 1) {
                             char_next = *(current_line.chars + (char_idx + 1));    
                         }
-                        render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];
+                        // render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];
                         add_character(char, char_next, selected, &p, &render_context);
                     } else {
                         if (selected && char_idx == 0) {
@@ -377,7 +377,9 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     if (cursor_center.x + cursor_margin > render_state.render_width@f32) {
         render_state.scroll_target.x += render_state.render_width@f32 - (cursor_center.x + cursor_margin);
     }
-    render_state.scroll_pos = lerp(render_state.scroll_pos, render_state.scroll_target, 0.1);
+    
+    var t = render_state.delta_time * 25.0;
+    render_state.scroll_pos = lerp(render_state.scroll_pos, render_state.scroll_target, t);
     
     
     var current_quad_count = quads.current_quad_count;
