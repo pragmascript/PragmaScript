@@ -10,13 +10,12 @@ let to_upper = fun(str: string) => void {
 
 [
 	"compile.entry", 
-	"compile.run", 
+	"compile.run":"false", 
 	"compile.opt": "0"
 ]
 let main = fun () => void {	
 	print("hello, world!");
 	var content = read_file("../hello_world.prag\0");
 	to_upper(content);
-	// print(content);
 	write_file("hello_world_upper.up\0", content);
 }

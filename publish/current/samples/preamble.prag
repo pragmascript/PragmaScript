@@ -700,7 +700,6 @@ let is_whitespace = fun(char: i8) => bool {
     return result;
 }
 let is_identifier_char = fun(char: i8) => bool {
-    var temp_char = char;
     var result = false;
     result |= char >= ord("a") && char <= ord("z");
     result |= char >= ord("A") && char <= ord("Z");
@@ -708,8 +707,17 @@ let is_identifier_char = fun(char: i8) => bool {
     result |= char == ord("_");
     return result;
 }
-
-
+let is_identifier_start_char = fun(char: i8) => bool {
+    var result = false;
+    result |= char >= ord("a") && char <= ord("z");
+    result |= char >= ord("A") && char <= ord("Z");
+    result |= char == ord("_");
+    return result;
+}
+let is_digit = fun(char: i8) => bool {
+    var result = char >= ord("0") && char <= ord("9");
+    return result;
+}
 
 // let __chkstk = fun() => void 
 // {

@@ -125,7 +125,6 @@ namespace PragmaScript
             keywords.Add("struct", TokenType.Struct);
             keywords.Add("enum", TokenType.Enum);
             keywords.Add("fun", TokenType.Fun);
-            // keywords.Add("alias", TokenType.Alias);
             keywords.Add("return", TokenType.Return);
             keywords.Add("true", TokenType.True);
             keywords.Add("false", TokenType.False);

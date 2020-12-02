@@ -37,8 +37,6 @@ let font = struct (
     kerning_table: i32[];
 );
 
-
-
 let load_font = fun() => font {
     var result = font { };
     
@@ -87,6 +85,8 @@ let load_font = fun() => font {
         
         //TODO(pragma): what does this do?
         // var test = AddFontResourceA(cstr("fonts\\TheanoDidot-Regular.ttf\0"));
+        
+#if false
         var font_handle = CreateFontA(result.base_size, 0, 0, 0,
                                       FW_NORMAL,
                                       0,
@@ -105,17 +105,19 @@ let load_font = fun() => font {
         
         var kerning_pairs = @KERNINGPAIR* allocate(size_of(KERNINGPAIR) * kerning_pair_count@mm);
         GetKerningPairsA(font_dc, kerning_pair_count, kerning_pairs);
-        
+#endif        
         result.kerning_table.data = @i32* push(&temp_memory_arena, @mm (glyph_count*glyph_count) * size_of(i32));
         result.kerning_table.length = glyph_count*glyph_count;
         memset(result.kerning_table.data@ptr, 0, result.kerning_table.length@mm);
+
+#if false      
         for (var kerning_pair_idx = 0; kerning_pair_idx < kerning_pair_count; kerning_pair_idx++) {
             var kp = kerning_pairs + kerning_pair_idx;
             var idx = @i32 kp.wSecond * glyph_count + kp.wFirst@i32;
             result.kerning_table[idx] = kp.iKernAmount;
         }
-        
         free(kerning_pairs@ptr);
+#endif        
     }
     return result;
 }
@@ -225,17 +227,16 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     let cursor_font_color = regular_font_color;
     
     
-    // var random_colors = [
-    //   v3(1.0, 0.0, 0.0),
-    //   v3(0.0, 1.0, 0.0),
-    //   v3(0.0, 0.0, 1.0),
-    //   v3(1.0, 1.0, 0.0),
-    //   v3(0.0, 1.0, 1.0),
-    //   v3(1.0, 0.0, 1.0),
-    //   v3(1.0, 1.0, 1.0)
-    // ];
-    
-    
+    var random_colors = [
+        v3(1.0, 0.0, 0.0),
+        v3(0.0, 1.0, 0.0),
+        v3(0.0, 0.0, 1.0),
+        v3(1.0, 1.0, 0.0),
+        v3(0.0, 1.0, 1.0),
+        v3(1.0, 0.0, 1.0),
+        v3(1.0, 1.0, 1.0)
+    ];    
+
     var render_context = text_render_context { };
     render_context.font = font;
     render_context.relative_size = relative_size;
@@ -332,7 +333,9 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                         if (char_idx < current_line.length - 1) {
                             char_next = *(current_line.chars + (char_idx + 1));    
                         }
-                        // render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];
+                        if (draw_chunk_colors) {
+                            render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];    
+                        }
                         add_character(char, char_next, selected, &p, &render_context);
                     } else {
                         if (selected && char_idx == 0) {

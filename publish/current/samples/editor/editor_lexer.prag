@@ -1,0 +1,157 @@
+import "../preamble.prag"
+import "editor.prag"
+
+
+let token_type = enum(
+    none; keyword; operator; comment; number; constant; string; identifier; 
+);
+let token = struct(
+    token_type: token_type;
+    str: string;
+);
+let lexer_state = struct(
+    keywords: string[];
+);
+
+
+var init_lexer = fun(memory_arena: memory_arena*) => lexer_state {
+    var keywords = 
+    [
+        "let",
+        "var",
+        "struct",
+        "enum",
+        "fun",
+        "return",
+        "true",
+        "false",
+        "if",
+        "elif",
+        "else",
+        "for",
+        "while",
+        "break",
+        "continue",
+        "size_of",
+        "extern",
+        "import",
+        "mod",
+        "with"
+    ];
+    
+    var keyword_count = len(keywords)@i32;
+    var total_length = 0;
+    for (var keyword_idx = 0; keyword_idx < keyword_count; ++keyword_idx) {
+        total_length += keywords[keyword_idx].length;
+    }
+    var data = push(memory_arena, total_length@mm);
+    
+    var result: lexer_state;
+    result.keywords.data = push(memory_arena, size_of(string) * keyword_count@mm)@string*;
+    result.keywords.length = keyword_count;
+    
+    var pos = 0;
+    for (var keyword_idx = 0; keyword_idx < keyword_count; ++keyword_idx) {
+        var length = keywords[keyword_idx].length;
+        result.keywords[keyword_idx].length = length;
+        result.keywords[keyword_idx].data = data + pos;
+        for (var char_idx = 0; char_idx < length; ++char_idx) {
+            *(data + pos++) = keywords[keyword_idx][char_idx];
+        }
+    }
+    
+    return result;
+}
+
+
+let tokenize = fun(lexer_state: lexer_state*; input: string) => void {
+    assert(input[input.length - 1] == 0);
+    if (input.length == 0) {
+        return;
+    }
+    var pos = 0;
+    
+    while (pos < input.length && input[pos] != 0) {
+        while (is_whitespace(input[pos])) { pos++; }
+        var token = token { };
+        
+        if (pos < input.length) {
+            token.str.data = input.data + pos;
+        } else {
+            token.str.data = nullptr;
+            return;
+        }
+        
+        var c = input[pos];
+        if (is_identifier_start_char(c)) {
+            while (is_identifier_char(input[pos])) { pos++; }
+            token.str.length = ((input.data + pos) - token.str.data)@i32;
+            if (is_keyword(lexer_state, token.str)) {
+                token.token_type = token_type::keyword;
+            } else {
+                token.token_type = token_type::identifier;
+            }
+        }
+        elif (is_digit(c)) {
+            // TODO(pragma): handle floats and hex numbers.
+            while (is_digit(input[pos])) { pos++; }
+            token.token_type = token_type::number;
+            token.str.length = ((input.data + pos) - token.str.data)@i32;
+        } 
+        elif (is_operator(c)) {
+            while (is_operator(input[pos])) { pos++; }
+            token.token_type = token_type::operator;
+            token.str.length = ((input.data + pos) - token.str.data)@i32;
+        }
+        debug_print("tok", token);
+    }
+}
+
+// TODO(pragma): this is slow. speed this up.
+let is_keyword = fun(lexer_state: lexer_state*; str: string) => bool {
+    for (var keyword_idx = 0; keyword_idx < lexer_state.keywords.length; ++keyword_idx) {
+        var keyword = lexer_state.keywords[keyword_idx];
+        if (strings_are_equal(str, keyword)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+let test_tokenize = fun() => void {
+    var state = init_lexer(&temp_memory_arena);
+    var test = "for (var i = 0; i < 12; ++i) {\n\0";
+    tokenize(&state, test);
+}
+
+let is_operator = fun(c: i8) => bool {
+    var result = false;
+    result |= (c == ord("=")) || (c == ord("(")) || (c == ord(")")) || (c == ord("["));
+    result |= (c == ord("]")) || (c == ord("{")) || (c == ord("}")) || (c == ord("+"));
+    result |= (c == ord("-")) || (c == ord("*")) || (c == ord("/")) || (c == 92); 
+    result |= (c == ord("%")) || (c == ord(",")) || (c == ord(";")) || (c == ord(":"));
+    result |= (c == ord("<")) || (c == ord(">")) || (c == ord("|")) || (c == ord("&"));
+    result |= (c == ord("=")) || (c == ord("!")) || (c == ord("~")) || (c == ord("@"));
+    return result;
+}
+
+let debug_print = fun(name: string; token: token) => void {
+    print(name);
+    print(": \"");
+    print(token.str);
+    print("\"");
+    if (token.token_type == token_type::identifier) {
+        print(" (identifier)\n");
+    }
+    elif (token.token_type == token_type::keyword) {
+        print(" (keyword)\n");
+    }
+    elif (token.token_type == token_type::operator) {
+        print(" (operator)\n");
+    }
+    elif (token.token_type == token_type::number) {
+        print(" (number)\n");
+    } else {
+        print(" (none)\n");
+    }
+}

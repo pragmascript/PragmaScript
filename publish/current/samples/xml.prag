@@ -115,25 +115,12 @@ let skip_whitespace = fun(s: string; pos: i32) => i32 {
     print("\n");
 }
 
-let is_name_char = fun(char: i8) => bool {
-    if (char >= 48 && char <= 57) {
-        return true;
-    }
-    elif (char >= 65 && char <= 90) {
-        return true;
-    }
-    elif (char >= 97 && char <= 122 ) {
-        return true;
-    }
-    return false;
-}
-
 let read_name = fun(s: string; pos: i32) => string {
     assert(at(s, pos) != 0 && !is_whitespace(at(s, pos)));
     var result: string;
     result.data = s.data + pos;
     result.length = 0;
-    while (is_name_char(at(s, pos + result.length))) { result.length++; }
+    while (is_identifier_char(at(s, pos + result.length))) { result.length++; }
     
     return result;
 }
@@ -143,7 +130,7 @@ let parse_attribs = fun(text: string; pos: i32*; parent: xml_element*; arena: me
 void {
     *pos = skip_whitespace(text, *pos);
     var next_char = at(text, *pos);
-    while (is_name_char(next_char)) {
+    while (is_identifier_char(next_char)) {
         var attrib = xml_attrib { };
         attrib.key = read_name(text, *pos);
         *pos = *pos + attrib.key.length;
