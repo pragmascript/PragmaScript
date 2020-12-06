@@ -113,7 +113,7 @@ let process_pending_messages = fun() => void {
             // debug_print("l_param", l_param);
             
             if (key_down) {
-                handle_editor_key_down(vk_code, true);
+                handle_editor_key_down(vk_code, true, true);
                 editor_state.key_down_state[vk_code].last_key_down_time = editor_state.render_state.time;
             }
             if (key_up) {
@@ -125,7 +125,7 @@ let process_pending_messages = fun() => void {
                 if (time - key_down_state.last_key_down_time > key_repeat_delay) {
                     if (time - key_down_state.last_last_key_repeat_time > key_repeat_interval) {
                         key_down_state.last_last_key_repeat_time = time;
-                        handle_editor_key_down(vk_code, true);
+                        handle_editor_key_down(vk_code, true, true);
                     }
                 }
             }
@@ -394,8 +394,42 @@ let delete_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_i
 }
 
 
+let get_line_indent = fun(line: line*) => i32 {
+    var result = 0;
+    while (result < line.length) {
+        var char = line.chars + result;
+        if (is_whitespace(char.value)) {
+            result++;
+        } else {
+            break;
+        }
+    }
+    return result;
+}
 
-let insert_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_idx: i32; char_ptr: character*; char_count: i32; adjust_indentation: bool) => void {
+
+// TODO(pragma): find first non empty line i guess?
+let get_next_indent = fun(line: line*; char_pos: i32) => i32 {
+    var result = get_line_indent(line);
+    var pos = line.length - 1;
+    
+    while (pos >= 0) {
+        var char = line.chars + pos;
+        if (char.value == ord("{") && char_pos > pos) {
+            result += spaces_to_indent;
+            break;
+        }
+        elif (is_whitespace(char.value)) {
+            pos--;
+        }
+        else {
+            break;
+        }
+    }
+    return result;
+}
+
+let insert_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_idx: i32; src_line: line*; src_char_pos: i32; adjust_indentation: bool) => i32 {
     if (chunk_idx >= editor_state.chunks_count) {
         add_empty_chunk(editor_state);
     }
@@ -403,15 +437,11 @@ let insert_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_i
     var lines = current_chunk.lines;
     var start_line_idx = current_chunk.lines.length - 1;
     if (current_chunk.lines.length == text_chunk_line_count) {
-        insert_line(editor_state, chunk_idx + 1, 0, current_chunk.lines[current_chunk.lines.length - 1].chars, current_chunk.lines[current_chunk.lines.length - 1].length, false);
+        insert_line(editor_state, chunk_idx + 1, 0, &current_chunk.lines[current_chunk.lines.length - 1], 0, false);
         start_line_idx = current_chunk.lines.length - 2;
     } else {
         current_chunk.lines.length++;
     }
-    
-    if (adjust_indentation) {
-        var current_line = lines[line_idx];
-    }    
     
     for (var line_idx = start_line_idx; line_idx >= target_line_idx; --line_idx) {
         var src_line = lines[line_idx];
@@ -420,15 +450,27 @@ let insert_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_i
         lines[line_idx + 1].length = src_line.length;
     }
     var new_line = lines[target_line_idx];
-    if (char_ptr@ptr == nullptr) {
+    
+    var indent = 0;
+    if (adjust_indentation) {
+        indent = get_next_indent(src_line, src_char_pos);
+        var space = from_ascii(ord(" "));
+        for (var char_idx = 0; char_idx < indent; ++char_idx) {
+            *(lines[target_line_idx].chars + char_idx) = space;
+        }
+    }
+    if (src_line@ptr == nullptr || src_line.length == 0) {
         memset(new_line.chars@i8*, 0, (max_line_length@mm) * size_of(character));
         lines[target_line_idx].length = 0;
     } else {
-        memcpy(new_line.chars@i8*, char_ptr@i8*, (char_count@mm) * size_of(character));
-        lines[target_line_idx].length = char_count;
+        var char_count = (src_line.length - src_char_pos);
+        memcpy((new_line.chars + indent)@i8*, (src_line.chars + src_char_pos)@i8*, @mm char_count * size_of(character));
+        assert(indent + char_count < max_line_length);
+        lines[target_line_idx].length = indent + char_count;
     }
     current_chunk.is_dirty = true;
     assert(current_chunk.lines.length > 0);
+    return indent;
 }
 
 // TODO(pragma): implement this like delete_selection()
@@ -469,7 +511,7 @@ let paste_clipboard = fun(editor_state: editor_state*) => void {
                 cursor.last_valid_char_pos = cursor.pos.x;
             }
             elif (char == ord("\n")) {
-                handle_editor_key_down(VK_RETURN, false);
+                handle_editor_key_down(VK_RETURN, false, false);
             }
         }
     }
@@ -757,7 +799,7 @@ let syntax_highlight = fun(editor_state: editor_state*) => void {
     // debug_print("syntax_highlight time [ms]", get_ms_elapsed(t0, t1));
 }
 
-let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool) => void {
+let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; should_auto_indent: bool) => void {
     var cursor = &editor_state.cursor;
     var old_cursor_pos = cursor.pos;
     
@@ -790,6 +832,11 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool) =>
             current_line = lines[cursor.pos.y];
             current_line_ptr = &lines[cursor.pos.y];
         }
+        // if (should_auto_indent && char.value == ord("}")) {
+        //     for (var back_idx = 0; back_idx < spaces_to_indent; ++back_idx) {
+        //         handle_backspace(&editor_state);    
+        //     }
+        // }
         add_char_to_line(current_line_ptr, cursor, char);
         cursor.last_valid_char_pos = cursor.pos.x;
         if (current_line_ptr.length < max_line_length) {
@@ -827,12 +874,11 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool) =>
             cursor.pos.y = 0;
             cursor.pos.z++;
         }
-        
-        insert_line(&editor_state, cursor.pos.z, cursor.pos.y, current_line.chars + cursor.pos.x, current_line.length - cursor.pos.x, true);
+        var next_pos_x = insert_line(&editor_state, cursor.pos.z, cursor.pos.y, current_line_ptr, cursor.pos.x, should_auto_indent);
         
         assert(cursor.pos.z < editor_state.chunks_count);
         current_line_ptr.length = cursor.pos.x;
-        cursor.pos.x = 0;
+        cursor.pos.x = next_pos_x;
         cursor.last_valid_char_pos = cursor.pos.x;
     }
     elif (vk_code == VK_SHIFT) {
@@ -894,7 +940,12 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool) =>
     }
     elif (vk_code == VK_HOME) {
         if (!editor_state.control_pressed) {
-            cursor.last_valid_char_pos = 0;
+            var current_indent = get_line_indent(current_line_ptr);
+            if (cursor.pos.x <= current_indent) {
+                cursor.last_valid_char_pos = 0;    
+            } else {
+                cursor.last_valid_char_pos = current_indent;    
+            }
         } else {
             cursor.pos.z = 0;
             cursor.pos.y =  0;
@@ -1059,7 +1110,7 @@ let handle_editor_key_up = fun(vk_code: i32) => void {
 ]
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
-
+    
     // SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
     SetProcessDPIAware();
 

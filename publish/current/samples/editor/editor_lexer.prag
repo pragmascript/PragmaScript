@@ -163,6 +163,7 @@ let tokenize = fun(line: line*) => void {
             }
             token.str.length = ((input.data + pos) - token.str.data)@i32;
             if (is_keyword(&global_lexer_state.hash_table, bad_string_hash(token.str))) {
+            // if (is_keyword_slow(&global_lexer_state, token.str)) {
                 token.token_type = token_type::keyword;
             } else {
                 token.token_type = token_type::identifier;
