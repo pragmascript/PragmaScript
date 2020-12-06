@@ -1,20 +1,22 @@
 import "../preamble.prag"
 import "editor.prag"
 
-
 let token_type = enum(
-    none; keyword; operator; comment; number; constant; string; identifier; 
+    none; identifier; keyword; number; string; operator; comment;   
 );
 let token = struct(
     token_type: token_type;
-    str: string;
+    str: character[];
 );
-let lexer_state = struct(
+
+let global_lexer_state = struct(
     keywords: string[];
+    hash_table: hash_table;
 );
 
+var global_lexer_state: global_lexer_state;
 
-var init_lexer = fun(memory_arena: memory_arena*) => lexer_state {
+var init_lexer = fun(memory_arena: memory_arena*) => void {
     var keywords = 
     [
         "let",
@@ -46,7 +48,7 @@ var init_lexer = fun(memory_arena: memory_arena*) => lexer_state {
     }
     var data = push(memory_arena, total_length@mm);
     
-    var result: lexer_state;
+    var result: global_lexer_state;
     result.keywords.data = push(memory_arena, size_of(string) * keyword_count@mm)@string*;
     result.keywords.length = keyword_count;
     
@@ -59,56 +61,164 @@ var init_lexer = fun(memory_arena: memory_arena*) => lexer_state {
             *(data + pos++) = keywords[keyword_idx][char_idx];
         }
     }
+    init_keyword_hash(&result, memory_arena);
+    global_lexer_state = result;
+}
+
+let init_keyword_hash = fun(global_lexer_state: global_lexer_state*; memory_arena: memory_arena*) => void {
+    var state = global_lexer_state;
+    var hash_table_size = hashtable_entry_count;
+    var entries = &state.hash_table.entries;
     
+    var watermark = start_temp(memory_arena);
+    var size_in_bytes = size_of(hash_table_entry) * hash_table_size@mm;
+    entries.data = push(memory_arena, size_in_bytes)@hash_table_entry*;
+    entries.length = hash_table_size;
+    
+    memset(entries.data@ptr, 0, size_in_bytes);
+    
+    for (var keyword_idx = 0; keyword_idx < state.keywords.length; ++keyword_idx) {
+        var keyword = state.keywords[keyword_idx];
+        var hash = bad_string_hash(keyword);
+        // debug_print("keyword", keyword);
+        // debug_print("hash", hash, false);
+        var entry = &state.hash_table.entries[hash % hash_table_size];
+        assert(entry.payload == nullptr);
+        entry.hash0 = hash;
+        entry.payload = (state.keywords.data + keyword_idx)@ptr; 
+    }
+    
+    var keyword: string;
+    for (var keyword_idx = 0; keyword_idx < state.keywords.length; ++keyword_idx) {
+        keyword = state.keywords[keyword_idx];
+        var hash = bad_string_hash(keyword);
+        // debug_print("keyword", keyword);
+        // debug_print("hash", hash, false);
+        assert(is_keyword(&state.hash_table, keyword));
+    }
+}
+
+let bad_string_hash = fun(str: character[]) => i32 {
+    var result = 0;
+    for (var char_idx = 0; char_idx < str.length; ++char_idx) {
+        result = 65599 * result + str[char_idx].value@i32;
+    }
     return result;
 }
 
+let bad_string_hash = fun(str: string) => i32 {
+    var result = 0;
+    for (var char_idx = 0; char_idx < str.length; ++char_idx) {
+        result = 65599 * result + str[char_idx]@i32;
+    }
+    return result;
+}
 
-let tokenize = fun(lexer_state: lexer_state*; input: string) => void {
-    assert(input[input.length - 1] == 0);
+let tokenize = fun(line: line*) => void {
+    var input = line.chars[:line.length];
     if (input.length == 0) {
         return;
     }
     var pos = 0;
     
-    while (pos < input.length && input[pos] != 0) {
-        while (is_whitespace(input[pos])) { pos++; }
+    while (pos < input.length && input[pos].value != 0) {
+        while (is_whitespace(input[pos].value)) { pos++; }
         var token = token { };
         
         if (pos < input.length) {
             token.str.data = input.data + pos;
         } else {
-            token.str.data = nullptr;
+            token.str.data = 0@character*;
             return;
         }
         
-        var c = input[pos];
-        if (is_identifier_start_char(c)) {
-            while (is_identifier_char(input[pos])) { pos++; }
+        var c = input[pos].value;
+        
+        if (c == ord("/") && pos + 1 < input.length && input[pos + 1].value == ord("/")) {
+            token.token_type = token_type::comment;
+            token.str.length = input.length - pos;
+            pos += token.str.length;
+        }
+        elif (c == ord("\"")) {
+            token.token_type = token_type::string;
+            var last = c;
+            while (true) {
+                pos++;
+                if (pos >= input.length) {
+                    break;
+                }
+                token.str.length++;
+                last = c;
+                c = input[pos].value;
+                if (c == ord("\"") && last != 92) {
+                    break;
+                } // != "\\"
+            }
+            pos++;
+            token.str.length++;
+        }
+        elif (is_identifier_start_char(c)) {
+            while (is_identifier_char(input[pos].value)) {
+                pos++;
+            }
             token.str.length = ((input.data + pos) - token.str.data)@i32;
-            if (is_keyword(lexer_state, token.str)) {
+            if (is_keyword(&global_lexer_state.hash_table, bad_string_hash(token.str))) {
                 token.token_type = token_type::keyword;
             } else {
                 token.token_type = token_type::identifier;
             }
         }
         elif (is_digit(c)) {
-            // TODO(pragma): handle floats and hex numbers.
-            while (is_digit(input[pos])) { pos++; }
+            var is_hex = false;
+            if (c == ord("0") && pos + 1 < input.length && input[pos + 1].value == ord("x")) {
+                is_hex = true;
+                pos += 2;    
+            }
+            if (is_hex) {
+                while (is_hex_digit(input[pos].value)) { pos++; }    
+            } else {
+                while (is_digit(input[pos].value)) { pos++; }
+                if (input[pos].value == ord(".")) {
+                    pos++;
+                    while (is_digit(input[pos].value)) { pos++; }
+                }
+            }
+            
             token.token_type = token_type::number;
             token.str.length = ((input.data + pos) - token.str.data)@i32;
         } 
         elif (is_operator(c)) {
-            while (is_operator(input[pos])) { pos++; }
+            while (is_operator(input[pos].value)) { pos++; }
             token.token_type = token_type::operator;
             token.str.length = ((input.data + pos) - token.str.data)@i32;
+        } else {
+            pos++;
         }
-        debug_print("tok", token);
+        
+        if (token.token_type != token_type::none) {
+            for (var char_idx = 0; char_idx < token.str.length; ++char_idx) {
+                token.str[char_idx].token_type = token.token_type@i8;
+            }
+        }
+        //debug_print("tok", token);
     }
 }
 
-// TODO(pragma): this is slow. speed this up.
-let is_keyword = fun(lexer_state: lexer_state*; str: string) => bool {
+
+let strings_are_equal = fun(a: character[]; b: string) => bool {
+    if (a.length != b.length) {
+        return false;
+    }
+    for (var idx = 0; idx < a.length; ++idx) {
+        if (a[idx].value != b[idx]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+let is_keyword_slow = fun(lexer_state: global_lexer_state*; str: character[]) => bool {
     for (var keyword_idx = 0; keyword_idx < lexer_state.keywords.length; ++keyword_idx) {
         var keyword = lexer_state.keywords[keyword_idx];
         if (strings_are_equal(str, keyword)) {
@@ -118,10 +228,21 @@ let is_keyword = fun(lexer_state: lexer_state*; str: string) => bool {
     return false;
 }
 
-let test_tokenize = fun() => void {
-    var state = init_lexer(&temp_memory_arena);
-    var test = "for (var i = 0; i < 12; ++i) {\n\0";
-    tokenize(&state, test);
+let is_keyword = fun(hash_table: hash_table*; hash: i32) => bool {
+    var entry = hash_table.entries[hash % hashtable_entry_count];
+    if (entry.payload != nullptr && entry.hash0 == hash) {
+        return true;
+    }
+    return false;
+}
+
+let is_keyword = fun(hash_table: hash_table*; str: string) => bool {
+    var hash = bad_string_hash(str);
+    var entry = hash_table.entries[hash % hashtable_entry_count];
+    if (entry.payload != nullptr && entry.hash0 == hash) {
+        return true;
+    }
+    return false;
 }
 
 let is_operator = fun(c: i8) => bool {
@@ -132,7 +253,18 @@ let is_operator = fun(c: i8) => bool {
     result |= (c == ord("%")) || (c == ord(",")) || (c == ord(";")) || (c == ord(":"));
     result |= (c == ord("<")) || (c == ord(">")) || (c == ord("|")) || (c == ord("&"));
     result |= (c == ord("=")) || (c == ord("!")) || (c == ord("~")) || (c == ord("@"));
+    result |= (c == ord("."));
     return result;
+}
+
+let print = fun(value: character[]; memory_arena: memory_arena* = &temp_memory_arena) => void {
+    var watermark = start_temp(memory_arena);
+    var str = make_string(value.length, memory_arena);
+    for (var char_idx = 0; char_idx < value.length; ++char_idx) {
+        str[char_idx] = value[char_idx].value;
+    }
+    print(str);
+    stop_temp(memory_arena, watermark);
 }
 
 let debug_print = fun(name: string; token: token) => void {
@@ -155,3 +287,14 @@ let debug_print = fun(name: string; token: token) => void {
         print(" (none)\n");
     }
 }
+
+let hashtable_entry_count = 2048;
+let hash_table_entry = struct(
+    hash0: i32;
+    hash1: i32;
+    payload: ptr;
+);
+let hash_table = struct(
+    entries: hash_table_entry[];
+);
+

@@ -1,604 +1,604 @@
-import "../preamble.prag"
-import "../opengl/opengl.prag"
-import "../vec.prag"
-import "../windows.prag"
+    import "../preamble.prag"
+    import "../opengl/opengl.prag"
+    import "../vec.prag"
+    import "../windows.prag"
 
-import "../png.prag"
+    import "../png.prag"
 
-import "editor_font.prag"
+    import "editor_font.prag"
 
-with Windows;
-
-
-var font: font;
-var gl_resources_initialized = false;
+    with Windows;
 
 
-
-let get_perf_counter = fun() => i64 {
-    var result: i64;
-    Windows::QueryPerformanceCounter(&result);
-    return result;
-}
-var perf_count_freq: i64;
-let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
-    return (t1 - t0)@f64 / perf_count_freq@f64;
-}
-let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
-    return get_seconds_elapsed(t0, t1) * 1000; 
-}
-
-// https://hero.handmade.network/episode/code/day368
-// https://github.com/Chlumsky/msdfgen
-// https://medium.com/@calebfaith/implementing-msdf-font-in-opengl-ea09a9ab7e00
-// https://github.com/soimy/msdf-bmfont-xml
-
-["PACKED"]
-let bmp_file_header = struct(
-	magic: i16;
-	size: i32;
-	reserverd: i32;
-	offset: i32;
-);
-
-let load_bitmap = fun(file: string) => bitmap {
-    var result = bitmap { };
-    var bmp = read_file(file);
-    assert(bmp.data != nullptr);
-    var file_header = bmp.data@bmp_file_header*;
-    assert(file_header.magic == 0x4D42);
-    assert(file_header.size <= bmp.length);
-    
-    var bmp_info = (bmp.data + size_of(bmp_file_header))@Windows::BITMAPINFOHEADER*;
-    assert(bmp_info.biPlanes == 1);
-    assert(bmp_info.biCompression == 0);
-    assert(bmp_info.biBitCount == 24);
-    result.width = bmp_info.biWidth;
-    result.height = bmp_info.biHeight;
-    result.pixels = bmp.data + file_header.offset;
-    assert(result.width > 0 && result.width < 4096);
-    assert(result.height > 0 && result.height < 4096);
-    
-    return result;
-}
+    var font: font;
+    var gl_resources_initialized = false;
 
 
-let mesh = struct (
-    vertices: v3[];
-    indices: i32[];
-    uvs: v2[];
-    colors: v4[];
-    background_colors: v3[];
-    current_quad_count: i32;
-);
 
-let load_texture = fun(file: string; width: i32* = 0@i32*; height: i32* = 0@i32*) => i32 {
-    var bmp = load_bitmap(file);
-    // var bmp = load_png(file);
-    
-    var tex: i32;
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, bmp.width, bmp.height, 0, GL_BGR, GL_UNSIGNED_BYTE, bmp.pixels);
-    // glGenerateMipmap(GL_TEXTURE_2D);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    
-    if (width != 0@i32*) {
-        *width = bmp.width;
+    let get_perf_counter = fun() => i64 {
+        var result: i64;
+        Windows::QueryPerformanceCounter(&result);
+        return result;
     }
-    if (height != 0@i32*) {
-        *height = bmp.height;
+    var perf_count_freq: i64;
+    let get_seconds_elapsed = fun(t0: i64; t1: i64) => f64 {
+        return (t1 - t0)@f64 / perf_count_freq@f64;
     }
-    
-    return tex;
-}
+    let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
+        return get_seconds_elapsed(t0, t1) * 1000; 
+    }
 
-let add_quad = fun(mesh: mesh*; top_left: v3; size: v2; uv0: v2; uv1: v2; color_foreground: v4; color_background: v3) => void {
-    var p = top_left;
-    
-    var current_quad_count = mesh.current_quad_count;
+    // https://hero.handmade.network/episode/code/day368
+    // https://github.com/Chlumsky/msdfgen
+    // https://medium.com/@calebfaith/implementing-msdf-font-in-opengl-ea09a9ab7e00
+    // https://github.com/soimy/msdf-bmfont-xml
 
-    var current_vertex_count = current_quad_count * 4;
-    var current_index_count = current_quad_count * 6;
-    
-    assert(mesh.vertices.length >= current_vertex_count + 4);
-    assert(mesh.uvs.length >= current_vertex_count + 4);
-    assert(mesh.indices.length >= current_index_count + 6);
-    
-    var vertices = mesh.vertices.data + current_quad_count*4;
-    var uvs = mesh.uvs.data + current_quad_count*4;
-    var color = mesh.colors.data + current_quad_count*4;
-    var color_backgound_ptr = mesh.background_colors.data + current_quad_count*4;
-    var indices = mesh.indices.data + current_quad_count*6;
-    
-    *(vertices++) = v3(p.x, p.y, p.z);
-    *(uvs++) = v2(uv0.x, uv0.y);
-    *(vertices++) = v3(p.x + size.x, p.y, p.z);
-    *(uvs++) = v2(uv1.x, uv0.y);
-    *(vertices++) = v3(p.x + size.x, p.y - size.y, p.z);
-    *(uvs++) = v2(uv1.x, uv1.y);
-    *(vertices++) = v3(p.x, p.y - size.y, p.z);
-    *(uvs++) = v2(uv0.x, uv1.y);
-    
-    *(color++) = color_foreground;
-    *(color++) = color_foreground;
-    *(color++) = color_foreground;
-    *(color++) = color_foreground;
-    
-    *(color_backgound_ptr++) = color_background;
-    *(color_backgound_ptr++) = color_background;
-    *(color_backgound_ptr++) = color_background;
-    *(color_backgound_ptr++) = color_background;
-    
-    *(indices++) = current_vertex_count + 0;
-    *(indices++) = current_vertex_count + 1;
-    *(indices++) = current_vertex_count + 2;
-    
-    *(indices++) = current_vertex_count + 2;
-    *(indices++) = current_vertex_count + 3;
-    *(indices++) = current_vertex_count + 0;
-    
-    mesh.current_quad_count++;
-}
-
-
-let gl_state = struct(
-    font_shader: i32;
-    clear_color: v3;
-);
-var gl_state: gl_state;
-
-let load_wgl_extensions = fun() => void {
-    var window_class = WNDCLASSEX {};
-    var class_name = cstr("wgl_extension_dummy_window\0");
-    var window_name = cstr("dummy window\0");
-
-    window_class.cbSize = size_of(WNDCLASSEX)@i32;
-    window_class.hInstance = GetModuleHandleA(0);
-    window_class.lpszClassName = class_name;
-    window_class.lpfnWndProc = @ptr DefWindowProcA;
-    RegisterClassExA(&window_class);
-    var dummy_wnd = CreateWindowExA(
-        0,
-        window_class.lpszClassName,
-        window_name,
-        0,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        null,
-        null,
-        window_class.hInstance,
-        null
+    ["PACKED"]
+    let bmp_file_header = struct(
+        magic: i16;
+        size: i32;
+        reserverd: i32;
+        offset: i32;
     );
-    
-    var dummy_dc = GetDC(dummy_wnd);
-    assert(dummy_dc != null);
 
-    var pfd = PIXELFORMATDESCRIPTOR { };
-    pfd.nSize = size_of(PIXELFORMATDESCRIPTOR)@i16;
-    pfd.nVersion = 1;
-    pfd.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
-    pfd.cColorBits = 32;
-    pfd.cAlphaBits = 8;
-    
-    var t0 = get_perf_counter();
-    var pfd_idx = ChoosePixelFormat(dummy_dc, &pfd);
-    var suggested_pfd: PIXELFORMATDESCRIPTOR;
-    DescribePixelFormat(dummy_dc, pfd_idx, size_of(PIXELFORMATDESCRIPTOR)@i32, &suggested_pfd);
-    SetPixelFormat(dummy_dc, pfd_idx, &suggested_pfd);
-    var t1 = get_perf_counter();
-
-    var gl_rc = wglCreateContext(dummy_dc);
-    var success = wglMakeCurrent(dummy_dc, gl_rc);
-    assert(success != 0);
-
-    *(&wglChoosePixelFormatARB@ptr*) = wglGetProcAddress(cstr("wglChoosePixelFormatARB\0"));
-    assert(wglChoosePixelFormatARB@ptr != nullptr);
-
-    *(&wglCreateContextAttribsARB@ptr*) = wglGetProcAddress(cstr("wglCreateContextAttribsARB\0"));
-    assert(wglCreateContextAttribsARB@ptr != nullptr);
-
-    *(&wglSwapIntervalEXT@ptr*) = wglGetProcAddress(cstr("wglSwapIntervalEXT\0"));
-    assert(wglSwapIntervalEXT@ptr != nullptr);
-
-    *(&wglGetExtensionsStringEXT@ptr*) = wglGetProcAddress(cstr("wglGetExtensionsStringEXT\0"));
-    assert(wglGetExtensionsStringEXT@ptr != nullptr);
-
-    wglMakeCurrent(0, 0);
-    wglDeleteContext(gl_rc);
-    ReleaseDC(dummy_wnd, dummy_dc);
-    DestroyWindow(dummy_wnd);
-
-    // debug_print_string("wgl extensions", from_cstr(wglGetExtensionsStringEXT()));
-    debug_print("choose pixel format: ", get_ms_elapsed(t0, t1));
-}
-
-let opengl_info = struct (
-    shading_language_version: string;
-    vendor: string;
-    renderer: string;
-    version: string;
-    extensions: string;
-);
-
-let print_opengl_info = fun(@info: opengl_info*) => void {
-    print("OPENGL INFO:\n");
-    debug_print("shading language verison", shading_language_version);
-    debug_print("vendor", vendor);
-    debug_print("renderer", renderer);
-    debug_print("version", version);
-    // debug_print("extensions", extensions);
-    print("\n");
-}
-
-let get_opengl_info = fun() => opengl_info {
-    var result: opengl_info;
-    
-    result.shading_language_version = from_cstr(glGetString(GL_SHADING_LANGUAGE_VERSION), -1);
-    result.vendor = from_cstr(glGetString(GL_VENDOR), -1);
-    result.renderer = from_cstr(glGetString(GL_RENDERER), -1);
-    result.version = from_cstr(glGetString(GL_VERSION), -1);
-    
-    // TODO(pragma): GL_EXTENSIONS is deprecated use
-    //   glGetStringi with GL_EXTENSIONS, i and
-    //   GL_NUM_EXTENSIONS
-    // result.extensions = from_cstr(glGetString(GL_EXTENSIONS), -1);
-    // print_opengl_info(&result);
-    return result;
-}
-
-// http://mariuszbartosik.com/opengl-4-x-initialization-in-windows-without-a-framework/
-let init_opengl = fun (window_dc: mm) => void {
-    load_wgl_extensions();
-    var dc = window_dc;
-
-
-    var t0 = get_perf_counter();
-    var int_attrib_list = [
-        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
-        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
-        WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
-        WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
-        WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
-        // WGL_SAMPLE_BUFFERS_ARB, 1, // Number of buffers (must be 1 at time of writing)
-        // WGL_SAMPLES_ARB, 0,       
-        0
-    ];
-
-    var suggested_pixel_format_index = 0;
-    var extended_pick = 0;
-    wglChoosePixelFormatARB(dc, &int_attrib_list[0], 0@f32*, 1, 
-        &suggested_pixel_format_index, &extended_pick);
-
-    // debug_print_i32("suggested_pixel_format_index", suggested_pixel_format_index);
-    // debug_print_i32("extended_pick", extended_pick);
-    assert(extended_pick == 1);
-
-    var pfd: PIXELFORMATDESCRIPTOR;
-    DescribePixelFormat(dc, suggested_pixel_format_index, @i32(size_of(PIXELFORMATDESCRIPTOR)), &pfd);
-    SetPixelFormat(dc, suggested_pixel_format_index, &pfd);
-    
-    var t1 = get_perf_counter();
-
-    var opengl_attribs = [
-        WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
-        WGL_CONTEXT_MINOR_VERSION_ARB, 5,
-        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
-        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-        0
-    ];
-
-    var gl_rc = wglCreateContextAttribsARB(dc, null, &opengl_attribs[0]);
-    var result = wglMakeCurrent(dc, gl_rc);
-    assert(result != 0);
-
-    wglSwapIntervalEXT(0);
-    
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
-
-    *(&glDebugMessageCallback@ptr*) = wglGetProcAddress(cstr("glDebugMessageCallback\0"));
-    assert(glDebugMessageCallback@ptr != nullptr);
-    glDebugMessageCallback(@glDebugMessageCallbackType gl_error_callback, nullptr);
-
-    *(&glGenerateMipmap@ptr*) = wglGetProcAddress(cstr("glGenerateMipmap\0"));
-    assert(glGenerateMipmap@ptr != nullptr);
-
-    *(&glGetUniformLocation@ptr*) = wglGetProcAddress(cstr("glGetUniformLocation\0"));
-    assert(glGetUniformLocation@ptr != nullptr);
-
-    *(&glUniform4f@ptr*) = wglGetProcAddress(cstr("glUniform4f\0"));
-    assert(glUniform4f@ptr != nullptr);
-
-    *(&glUniform1i@ptr*) = wglGetProcAddress(cstr("glUniform1i\0"));
-    assert(glUniform1i@ptr != nullptr);
-    
-    *(&glActiveTexture@ptr*) = wglGetProcAddress(cstr("glActiveTexture\0"));
-    assert(glActiveTexture@ptr != nullptr);
-
-    *(&glBindTexture@ptr*) = wglGetProcAddress(cstr("glBindTexture\0"));
-    assert(glBindTexture@ptr != nullptr);
-    
-    *(&glGenTextures@ptr*) = wglGetProcAddress(cstr("glGenTextures\0"));
-    assert(glGenTextures@ptr != nullptr);
-    
-    *(&glGenBuffers@ptr*) = wglGetProcAddress(cstr("glGenBuffers\0"));
-    assert(glGenBuffers@ptr != nullptr);
-
-    *(&glBindBuffer@ptr*) = wglGetProcAddress(cstr("glBindBuffer\0"));
-    assert(glBindBuffer@ptr != nullptr);
-
-    *(&glBufferData@ptr*) = wglGetProcAddress(cstr("glBufferData\0"));
-    assert(glBufferData@ptr != nullptr);
-
-    *(&glEnableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glEnableVertexAttribArray\0"));
-    assert(glEnableVertexAttribArray@ptr != nullptr);
-
-    *(&glDisableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glDisableVertexAttribArray\0"));
-    assert(glDisableVertexAttribArray@ptr != nullptr);
-
-    *(&glVertexAttribPointer@ptr*) = wglGetProcAddress(cstr("glVertexAttribPointer\0"));
-    assert(glVertexAttribPointer@ptr != nullptr);
-
-    *(&glCreateShader@ptr*) = wglGetProcAddress(cstr("glCreateShader\0"));
-    assert(glCreateShader@ptr != nullptr);
-
-    *(&glShaderSource@ptr*) = wglGetProcAddress(cstr("glShaderSource\0"));
-    assert(glShaderSource@ptr != nullptr);
-
-    *(&glCompileShader@ptr*) = wglGetProcAddress(cstr("glCompileShader\0"));
-    assert(glCompileShader@ptr != nullptr);
-    
-    *(&glDeleteShader@ptr*) = wglGetProcAddress(cstr("glDeleteShader\0"));
-    assert(glDeleteShader@ptr != nullptr);
-
-    *(&glCreateProgram@ptr*) = wglGetProcAddress(cstr("glCreateProgram\0"));
-    assert(glCreateProgram@ptr != nullptr);
-
-    *(&glAttachShader@ptr*) = wglGetProcAddress(cstr("glAttachShader\0"));
-    assert(glAttachShader@ptr != nullptr);
-
-    *(&glLinkProgram@ptr*) = wglGetProcAddress(cstr("glLinkProgram\0"));
-    assert(glLinkProgram@ptr != nullptr);
-
-    *(&glUseProgram@ptr*) = wglGetProcAddress(cstr("glUseProgram\0"));
-    assert(glUseProgram@ptr != nullptr);
-
-    *(&glDeleteProgram@ptr*) = wglGetProcAddress(cstr("glDeleteProgram\0"));
-    assert(glDeleteProgram@ptr != nullptr);
-
-    *(&glGetShaderiv@ptr*) = wglGetProcAddress(cstr("glGetShaderiv\0"));
-    assert(glGetShaderiv@ptr != nullptr);
-
-    *(&glGetProgramiv@ptr*) = wglGetProcAddress(cstr("glGetProgramiv\0"));
-    assert(glGetProgramiv@ptr != nullptr);
-
-    *(&glGetShaderInfoLog@ptr*) = wglGetProcAddress(cstr("glGetShaderInfoLog\0"));
-    assert(glGetShaderInfoLog@ptr != nullptr);
-
-    *(&glGetProgramInfoLog@ptr*) = wglGetProcAddress(cstr("glGetProgramInfoLog\0"));
-    assert(glGetProgramInfoLog@ptr != nullptr);
-
-    *(&glGenVertexArrays@ptr*) = wglGetProcAddress(cstr("glGenVertexArrays\0"));
-    assert(glGenVertexArrays@ptr != nullptr);
-
-    *(&glBindVertexArray@ptr*) = wglGetProcAddress(cstr("glBindVertexArray\0"));
-    assert(glBindVertexArray@ptr != nullptr);
-
-    *(&glDrawArrays@ptr*) = wglGetProcAddress(cstr("glDrawArrays\0"));
-    assert(glDrawArrays@ptr != nullptr);
-
-    *(&glDrawElements@ptr*) = wglGetProcAddress(cstr("glDrawElements\0"));
-    assert(glDrawElements@ptr != nullptr);
-
-    var t2 = get_perf_counter();
-    var info = get_opengl_info();
-    var t3 = get_perf_counter();
-
-    print_opengl_info(&info);
-
-    // debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
-    // debug_print_f64("create context: ", get_ms_elapsed(t1, t2));
-    // debug_print_f64("get info: ", get_ms_elapsed(t2, t3));
-}
-
-let gl_error_callback = fun(
-    source: i32;
-    type: i32;
-    id: i32;
-    severity: i32;
-    length: i32;
-    message: ptr;
-    userParam: ptr;
-) => void {
-    if (severity <= GL_DEBUG_SEVERITY_NOTIFICATION) {
-        return;
+    let load_bitmap = fun(file: string) => bitmap {
+        var result = bitmap { };
+        var bmp = read_file(file);
+        assert(bmp.data != nullptr);
+        var file_header = bmp.data@bmp_file_header*;
+        assert(file_header.magic == 0x4D42);
+        assert(file_header.size <= bmp.length);
+        
+        var bmp_info = (bmp.data + size_of(bmp_file_header))@Windows::BITMAPINFOHEADER*;
+        assert(bmp_info.biPlanes == 1);
+        assert(bmp_info.biCompression == 0);
+        assert(bmp_info.biBitCount == 24);
+        result.width = bmp_info.biWidth;
+        result.height = bmp_info.biHeight;
+        result.pixels = bmp.data + file_header.offset;
+        assert(result.width > 0 && result.width < 4096);
+        assert(result.height > 0 && result.height < 4096);
+        
+        return result;
     }
-    print("\n(gl) ");
-    if (type == GL_DEBUG_TYPE_ERROR) {
-        print("error");
-    } elif (type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR) {
-        print("deprecated");
-    } elif (type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR) {
-        print("undefined");
-    } elif (type == GL_DEBUG_TYPE_PORTABILITY) {
-        print("portability");
-    } elif (type == GL_DEBUG_TYPE_PERFORMANCE) {
-        print("performance");
-    } elif (type == GL_DEBUG_TYPE_OTHER) {
-        print("other");
-    } elif (type == GL_DEBUG_TYPE_MARKER) {
-        print("marker");
-    } elif (type == GL_DEBUG_TYPE_PUSH_GROUP) {
-        print("push");
-    } elif (type == GL_DEBUG_TYPE_POP_GROUP) {
-        print("pop");
+
+
+    let mesh = struct (
+        vertices: v3[];
+        indices: i32[];
+        uvs: v2[];
+        colors: v4[];
+        background_colors: v3[];
+        current_quad_count: i32;
+    );
+
+    let load_texture = fun(file: string; width: i32* = 0@i32*; height: i32* = 0@i32*) => i32 {
+        var bmp = load_bitmap(file);
+        // var bmp = load_png(file);
+        
+        var tex: i32;
+        glGenTextures(1, &tex);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, bmp.width, bmp.height, 0, GL_BGR, GL_UNSIGNED_BYTE, bmp.pixels);
+        // glGenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        
+        if (width != 0@i32*) {
+            *width = bmp.width;
+        }
+        if (height != 0@i32*) {
+            *height = bmp.height;
+        }
+        
+        return tex;
+    }
+
+    let add_quad = fun(mesh: mesh*; top_left: v3; size: v2; uv0: v2; uv1: v2; color_foreground: v4; color_background: v3) => void {
+        var p = top_left;
+        
+        var current_quad_count = mesh.current_quad_count;
+
+        var current_vertex_count = current_quad_count * 4;
+        var current_index_count = current_quad_count * 6;
+        
+        assert(mesh.vertices.length >= current_vertex_count + 4);
+        assert(mesh.uvs.length >= current_vertex_count + 4);
+        assert(mesh.indices.length >= current_index_count + 6);
+        
+        var vertices = mesh.vertices.data + current_quad_count*4;
+        var uvs = mesh.uvs.data + current_quad_count*4;
+        var color = mesh.colors.data + current_quad_count*4;
+        var color_backgound_ptr = mesh.background_colors.data + current_quad_count*4;
+        var indices = mesh.indices.data + current_quad_count*6;
+        
+        *(vertices++) = v3(p.x, p.y, p.z);
+        *(uvs++) = v2(uv0.x, uv0.y);
+        *(vertices++) = v3(p.x + size.x, p.y, p.z);
+        *(uvs++) = v2(uv1.x, uv0.y);
+        *(vertices++) = v3(p.x + size.x, p.y - size.y, p.z);
+        *(uvs++) = v2(uv1.x, uv1.y);
+        *(vertices++) = v3(p.x, p.y - size.y, p.z);
+        *(uvs++) = v2(uv0.x, uv1.y);
+        
+        *(color++) = color_foreground;
+        *(color++) = color_foreground;
+        *(color++) = color_foreground;
+        *(color++) = color_foreground;
+        
+        *(color_backgound_ptr++) = color_background;
+        *(color_backgound_ptr++) = color_background;
+        *(color_backgound_ptr++) = color_background;
+        *(color_backgound_ptr++) = color_background;
+        
+        *(indices++) = current_vertex_count + 0;
+        *(indices++) = current_vertex_count + 1;
+        *(indices++) = current_vertex_count + 2;
+        
+        *(indices++) = current_vertex_count + 2;
+        *(indices++) = current_vertex_count + 3;
+        *(indices++) = current_vertex_count + 0;
+        
+        mesh.current_quad_count++;
+    }
+
+
+    let gl_state = struct(
+        font_shader: i32;
+        clear_color: v3;
+    );
+    var gl_state: gl_state;
+
+    let load_wgl_extensions = fun() => void {
+        var window_class = WNDCLASSEX {};
+        var class_name = cstr("wgl_extension_dummy_window\0");
+        var window_name = cstr("dummy window\0");
+
+        window_class.cbSize = size_of(WNDCLASSEX)@i32;
+        window_class.hInstance = GetModuleHandleA(0);
+        window_class.lpszClassName = class_name;
+        window_class.lpfnWndProc = @ptr DefWindowProcA;
+        RegisterClassExA(&window_class);
+        var dummy_wnd = CreateWindowExA(
+            0,
+            window_class.lpszClassName,
+            window_name,
+            0,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            null,
+            null,
+            window_class.hInstance,
+            null
+        );
+        
+        var dummy_dc = GetDC(dummy_wnd);
+        assert(dummy_dc != null);
+
+        var pfd = PIXELFORMATDESCRIPTOR { };
+        pfd.nSize = size_of(PIXELFORMATDESCRIPTOR)@i16;
+        pfd.nVersion = 1;
+        pfd.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
+        pfd.cColorBits = 32;
+        pfd.cAlphaBits = 8;
+        
+        var t0 = get_perf_counter();
+        var pfd_idx = ChoosePixelFormat(dummy_dc, &pfd);
+        var suggested_pfd: PIXELFORMATDESCRIPTOR;
+        DescribePixelFormat(dummy_dc, pfd_idx, size_of(PIXELFORMATDESCRIPTOR)@i32, &suggested_pfd);
+        SetPixelFormat(dummy_dc, pfd_idx, &suggested_pfd);
+        var t1 = get_perf_counter();
+
+        var gl_rc = wglCreateContext(dummy_dc);
+        var success = wglMakeCurrent(dummy_dc, gl_rc);
+        assert(success != 0);
+
+        *(&wglChoosePixelFormatARB@ptr*) = wglGetProcAddress(cstr("wglChoosePixelFormatARB\0"));
+        assert(wglChoosePixelFormatARB@ptr != nullptr);
+
+        *(&wglCreateContextAttribsARB@ptr*) = wglGetProcAddress(cstr("wglCreateContextAttribsARB\0"));
+        assert(wglCreateContextAttribsARB@ptr != nullptr);
+
+        *(&wglSwapIntervalEXT@ptr*) = wglGetProcAddress(cstr("wglSwapIntervalEXT\0"));
+        assert(wglSwapIntervalEXT@ptr != nullptr);
+
+        *(&wglGetExtensionsStringEXT@ptr*) = wglGetProcAddress(cstr("wglGetExtensionsStringEXT\0"));
+        assert(wglGetExtensionsStringEXT@ptr != nullptr);
+
+        wglMakeCurrent(0, 0);
+        wglDeleteContext(gl_rc);
+        ReleaseDC(dummy_wnd, dummy_dc);
+        DestroyWindow(dummy_wnd);
+
+        // debug_print_string("wgl extensions", from_cstr(wglGetExtensionsStringEXT()));
+        debug_print("choose pixel format: ", get_ms_elapsed(t0, t1));
+    }
+
+    let opengl_info = struct (
+        shading_language_version: string;
+        vendor: string;
+        renderer: string;
+        version: string;
+        extensions: string;
+    );
+
+    let print_opengl_info = fun(@info: opengl_info*) => void {
+        print("OPENGL INFO:\n");
+        debug_print("shading language verison", shading_language_version);
+        debug_print("vendor", vendor);
+        debug_print("renderer", renderer);
+        debug_print("version", version);
+        // debug_print("extensions", extensions);
+        print("\n");
+    }
+
+    let get_opengl_info = fun() => opengl_info {
+        var result: opengl_info;
+        
+        result.shading_language_version = from_cstr(glGetString(GL_SHADING_LANGUAGE_VERSION), -1);
+        result.vendor = from_cstr(glGetString(GL_VENDOR), -1);
+        result.renderer = from_cstr(glGetString(GL_RENDERER), -1);
+        result.version = from_cstr(glGetString(GL_VERSION), -1);
+        
+        // TODO(pragma): GL_EXTENSIONS is deprecated use
+        //   glGetStringi with GL_EXTENSIONS, i and
+        //   GL_NUM_EXTENSIONS
+        // result.extensions = from_cstr(glGetString(GL_EXTENSIONS), -1);
+        // print_opengl_info(&result);
+        return result;
+    }
+
+    // http://mariuszbartosik.com/opengl-4-x-initialization-in-windows-without-a-framework/
+    let init_opengl = fun (window_dc: mm) => void {
+        load_wgl_extensions();
+        var dc = window_dc;
+
+
+        var t0 = get_perf_counter();
+        var int_attrib_list = [
+            WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+            WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+            WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+            WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+            WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+            // WGL_SAMPLE_BUFFERS_ARB, 1, // Number of buffers (must be 1 at time of writing)
+            // WGL_SAMPLES_ARB, 0,       
+            0
+        ];
+
+        var suggested_pixel_format_index = 0;
+        var extended_pick = 0;
+        wglChoosePixelFormatARB(dc, &int_attrib_list[0], 0@f32*, 1, 
+            &suggested_pixel_format_index, &extended_pick);
+
+        // debug_print_i32("suggested_pixel_format_index", suggested_pixel_format_index);
+        // debug_print_i32("extended_pick", extended_pick);
+        assert(extended_pick == 1);
+
+        var pfd: PIXELFORMATDESCRIPTOR;
+        DescribePixelFormat(dc, suggested_pixel_format_index, @i32(size_of(PIXELFORMATDESCRIPTOR)), &pfd);
+        SetPixelFormat(dc, suggested_pixel_format_index, &pfd);
+        
+        var t1 = get_perf_counter();
+
+        var opengl_attribs = [
+            WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+            WGL_CONTEXT_MINOR_VERSION_ARB, 5,
+            WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+            WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+            0
+        ];
+
+        var gl_rc = wglCreateContextAttribsARB(dc, null, &opengl_attribs[0]);
+        var result = wglMakeCurrent(dc, gl_rc);
+        assert(result != 0);
+
+        wglSwapIntervalEXT(0);
+        
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+
+        *(&glDebugMessageCallback@ptr*) = wglGetProcAddress(cstr("glDebugMessageCallback\0"));
+        assert(glDebugMessageCallback@ptr != nullptr);
+        glDebugMessageCallback(@glDebugMessageCallbackType gl_error_callback, nullptr);
+
+        *(&glGenerateMipmap@ptr*) = wglGetProcAddress(cstr("glGenerateMipmap\0"));
+        assert(glGenerateMipmap@ptr != nullptr);
+
+        *(&glGetUniformLocation@ptr*) = wglGetProcAddress(cstr("glGetUniformLocation\0"));
+        assert(glGetUniformLocation@ptr != nullptr);
+
+        *(&glUniform4f@ptr*) = wglGetProcAddress(cstr("glUniform4f\0"));
+        assert(glUniform4f@ptr != nullptr);
+
+        *(&glUniform1i@ptr*) = wglGetProcAddress(cstr("glUniform1i\0"));
+        assert(glUniform1i@ptr != nullptr);
+        
+        *(&glActiveTexture@ptr*) = wglGetProcAddress(cstr("glActiveTexture\0"));
+        assert(glActiveTexture@ptr != nullptr);
+
+        *(&glBindTexture@ptr*) = wglGetProcAddress(cstr("glBindTexture\0"));
+        assert(glBindTexture@ptr != nullptr);
+        
+        *(&glGenTextures@ptr*) = wglGetProcAddress(cstr("glGenTextures\0"));
+        assert(glGenTextures@ptr != nullptr);
+        
+        *(&glGenBuffers@ptr*) = wglGetProcAddress(cstr("glGenBuffers\0"));
+        assert(glGenBuffers@ptr != nullptr);
+
+        *(&glBindBuffer@ptr*) = wglGetProcAddress(cstr("glBindBuffer\0"));
+        assert(glBindBuffer@ptr != nullptr);
+
+        *(&glBufferData@ptr*) = wglGetProcAddress(cstr("glBufferData\0"));
+        assert(glBufferData@ptr != nullptr);
+
+        *(&glEnableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glEnableVertexAttribArray\0"));
+        assert(glEnableVertexAttribArray@ptr != nullptr);
+
+        *(&glDisableVertexAttribArray@ptr*) = wglGetProcAddress(cstr("glDisableVertexAttribArray\0"));
+        assert(glDisableVertexAttribArray@ptr != nullptr);
+
+        *(&glVertexAttribPointer@ptr*) = wglGetProcAddress(cstr("glVertexAttribPointer\0"));
+        assert(glVertexAttribPointer@ptr != nullptr);
+
+        *(&glCreateShader@ptr*) = wglGetProcAddress(cstr("glCreateShader\0"));
+        assert(glCreateShader@ptr != nullptr);
+
+        *(&glShaderSource@ptr*) = wglGetProcAddress(cstr("glShaderSource\0"));
+        assert(glShaderSource@ptr != nullptr);
+
+        *(&glCompileShader@ptr*) = wglGetProcAddress(cstr("glCompileShader\0"));
+        assert(glCompileShader@ptr != nullptr);
+        
+        *(&glDeleteShader@ptr*) = wglGetProcAddress(cstr("glDeleteShader\0"));
+        assert(glDeleteShader@ptr != nullptr);
+
+        *(&glCreateProgram@ptr*) = wglGetProcAddress(cstr("glCreateProgram\0"));
+        assert(glCreateProgram@ptr != nullptr);
+
+        *(&glAttachShader@ptr*) = wglGetProcAddress(cstr("glAttachShader\0"));
+        assert(glAttachShader@ptr != nullptr);
+
+        *(&glLinkProgram@ptr*) = wglGetProcAddress(cstr("glLinkProgram\0"));
+        assert(glLinkProgram@ptr != nullptr);
+
+        *(&glUseProgram@ptr*) = wglGetProcAddress(cstr("glUseProgram\0"));
+        assert(glUseProgram@ptr != nullptr);
+
+        *(&glDeleteProgram@ptr*) = wglGetProcAddress(cstr("glDeleteProgram\0"));
+        assert(glDeleteProgram@ptr != nullptr);
+
+        *(&glGetShaderiv@ptr*) = wglGetProcAddress(cstr("glGetShaderiv\0"));
+        assert(glGetShaderiv@ptr != nullptr);
+
+        *(&glGetProgramiv@ptr*) = wglGetProcAddress(cstr("glGetProgramiv\0"));
+        assert(glGetProgramiv@ptr != nullptr);
+
+        *(&glGetShaderInfoLog@ptr*) = wglGetProcAddress(cstr("glGetShaderInfoLog\0"));
+        assert(glGetShaderInfoLog@ptr != nullptr);
+
+        *(&glGetProgramInfoLog@ptr*) = wglGetProcAddress(cstr("glGetProgramInfoLog\0"));
+        assert(glGetProgramInfoLog@ptr != nullptr);
+
+        *(&glGenVertexArrays@ptr*) = wglGetProcAddress(cstr("glGenVertexArrays\0"));
+        assert(glGenVertexArrays@ptr != nullptr);
+
+        *(&glBindVertexArray@ptr*) = wglGetProcAddress(cstr("glBindVertexArray\0"));
+        assert(glBindVertexArray@ptr != nullptr);
+
+        *(&glDrawArrays@ptr*) = wglGetProcAddress(cstr("glDrawArrays\0"));
+        assert(glDrawArrays@ptr != nullptr);
+
+        *(&glDrawElements@ptr*) = wglGetProcAddress(cstr("glDrawElements\0"));
+        assert(glDrawElements@ptr != nullptr);
+
+        var t2 = get_perf_counter();
+        var info = get_opengl_info();
+        var t3 = get_perf_counter();
+
+        print_opengl_info(&info);
+
+        // debug_print_f64("choose pixel format: ", get_ms_elapsed(t0, t1));
+        // debug_print_f64("create context: ", get_ms_elapsed(t1, t2));
+        // debug_print_f64("get info: ", get_ms_elapsed(t2, t3));
+    }
+
+    let gl_error_callback = fun(
+        source: i32;
+        type: i32;
+        id: i32;
+        severity: i32;
+        length: i32;
+        message: ptr;
+        userParam: ptr;
+    ) => void {
+        if (severity <= GL_DEBUG_SEVERITY_NOTIFICATION) {
+            return;
+        }
+        print("\n(gl) ");
+        if (type == GL_DEBUG_TYPE_ERROR) {
+            print("error");
+        } elif (type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR) {
+            print("deprecated");
+        } elif (type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR) {
+            print("undefined");
+        } elif (type == GL_DEBUG_TYPE_PORTABILITY) {
+            print("portability");
+        } elif (type == GL_DEBUG_TYPE_PERFORMANCE) {
+            print("performance");
+        } elif (type == GL_DEBUG_TYPE_OTHER) {
+            print("other");
+        } elif (type == GL_DEBUG_TYPE_MARKER) {
+            print("marker");
+        } elif (type == GL_DEBUG_TYPE_PUSH_GROUP) {
+            print("push");
+        } elif (type == GL_DEBUG_TYPE_POP_GROUP) {
+            print("pop");
+        } 
+        if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+            print("(note): ");
+        } elif (severity == GL_DEBUG_SEVERITY_LOW) {
+            print("(low): ");
+        } elif (severity == GL_DEBUG_SEVERITY_MEDIUM) {
+            print("(medium): ");
+        } elif (severity == GL_DEBUG_SEVERITY_HIGH) {
+            print("(high): ");
+        }
+        print(from_cstr(message));
+        print("\n");
+
+        if (type == GL_DEBUG_TYPE_ERROR) {
+            assert(false);
+        }
+    }
+
+
+    let init_gl_resources = fun() => void {
+        
+        var viewport: i32[4];
+
+        glGetIntegerv(GL_VIEWPORT, &viewport[0]);
+
+        // make a dummy VAO
+        // https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
+        var DummyVAO: i32;
+        glGenVertexArrays(1, &DummyVAO);
+        glBindVertexArray(DummyVAO);  
+
+        var vs_source = @"
+    #version 330 core
+    layout (location = 0) in vec3 aPos;
+    layout (location = 1) in vec2 aUV;
+    layout (location = 2) in vec4 aColor;
+    layout (location = 3) in vec3 aBackColor;
+    out vec2 UV;
+    out vec4 Color;
+    out vec3 BackColor;
+    void main()
+    {
+        gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+        UV = aUV;
+        Color = aColor;
+        BackColor = aBackColor;
+    }
+    "; 
+        vs_source[vs_source.length - 1] = 0;
+        
+        assert(vs_source.data != nullptr);
+        var vertexShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vertexShader, 1, &vs_source.data, 0@i32*);
+        glCompileShader(vertexShader); 
+        {
+            var success: i32;
+            var infoLog: i8[512];
+            glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+            if (success == 0) {
+                glGetShaderInfoLog(vertexShader, len(infoLog)@\i32, 0@i32*, &infoLog);
+                debug_print("vs.glsl", from_cstr(&infoLog[0]));
+            }
+        }
+        
+        var fs_source = @"
+    #version 330 core
+    in vec2 UV;
+    in vec4 Color;
+    in vec3 BackColor;
+    out vec4 FragColor;
+
+    uniform sampler2D tex;
+
+    float median(float r, float g, float b) {
+        return max(min(r, g), min(max(r, g), b));
+    }
+
+    void main()
+    {
+        float px_range = 8.0;
+        vec2 msdf_unit = px_range / vec2(textureSize(tex, 0));
+        vec3 sample = texture(tex, UV).rgb;
+        float signed_dist = median(sample.r, sample.g, sample.b) - 0.5;
+        signed_dist *= dot(msdf_unit, 0.5/fwidth(UV));
+        float opacity = clamp(signed_dist + 0.5, 0.0, 1.0);
+        if (Color.a >= 1.0) {
+            opacity = 1.0;
+        }
+        FragColor = mix(vec4(BackColor.rgb, 1.0), vec4(Color.rgb, 1.0), opacity);
+    }
+    ";
+    fs_source[fs_source.length - 1] = 0;
+
+        assert(fs_source.data != nullptr);
+        var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragmentShader, 1, &fs_source.data, 0@i32*);
+        glCompileShader(fragmentShader);
+        {
+            var success: i32;
+            var infoLog: i8[512];
+            glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+            if (success == 0) {
+                glGetShaderInfoLog(fragmentShader, len(infoLog)@\i32, 0@i32*, &infoLog);
+                debug_print("fs.glsl", from_cstr(&infoLog[0]));
+            }
+        }
+
+        var shaderProgram = glCreateProgram();
+        glAttachShader(shaderProgram, vertexShader);
+        glAttachShader(shaderProgram, fragmentShader);
+        glLinkProgram(shaderProgram);
+        {
+            var success: i32;
+            var infoLog: i8[512];
+            glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+            if (success == 0) {
+                glGetProgramInfoLog(shaderProgram, len(infoLog)@\i32, 0@i32*, &infoLog);
+                debug_print("program", from_cstr(&infoLog[0]));
+            }
+        }
+        
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+
+
+        glUseProgram(shaderProgram);
+        
+        font = load_font();
+        glUniform1i(glGetUniformLocation(shaderProgram, cstr("tex\0")), 0);
+        
+        gl_resources_initialized = true;
+    }
+
+
+
+    let render_opengl = fun (client_width: i32; client_height: i32; editor_state: editor_state*; window_dc: mm) => void {
+        glViewport(0, 0, client_width, client_height);
+        glClearColor(gl_state.clear_color.x, gl_state.clear_color.y, gl_state.clear_color.z, 0.0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        
+
+        var render_state = &editor_state.render_state;
+        var time = render_state.time;
+        var t = render_state.delta_time * 25.0;
+        render_state.font_size = Math::lerp(render_state.font_size, render_state.target_font_size, t);
+        var cursor = &editor_state.cursor;
+        
+        var flip_cursor = time - cursor.cursor_last_blink_time >= 0.5;
+        if (flip_cursor) {
+            cursor.cursor_last_blink_time = time;
+            cursor.draw_cursor = !cursor.draw_cursor;
+        }
+        
+        
+        render_state.text_render_pos =  v2(40, client_height@f32 - 40);
+        render_state.render_width = client_width;
+        render_state.render_height = client_height;
+        render_text(editor_state, &font, render_state.font_size);
+        
+        // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
+        SwapBuffers(window_dc);
     } 
-    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
-        print("(note): ");
-    } elif (severity == GL_DEBUG_SEVERITY_LOW) {
-        print("(low): ");
-    } elif (severity == GL_DEBUG_SEVERITY_MEDIUM) {
-        print("(medium): ");
-    } elif (severity == GL_DEBUG_SEVERITY_HIGH) {
-        print("(high): ");
-    }
-    print(from_cstr(message));
-    print("\n");
-
-    if (type == GL_DEBUG_TYPE_ERROR) {
-        assert(false);
-    }
-}
-
-
-let init_gl_resources = fun() => void {
-    
-    var viewport: i32[4];
-
-    glGetIntegerv(GL_VIEWPORT, &viewport[0]);
-
-    // make a dummy VAO
-    // https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
-    var DummyVAO: i32;
-    glGenVertexArrays(1, &DummyVAO);
-    glBindVertexArray(DummyVAO);  
-
-    var vs_source = @"
-#version 330 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec2 aUV;
-layout (location = 2) in vec4 aColor;
-layout (location = 3) in vec3 aBackColor;
-out vec2 UV;
-out vec4 Color;
-out vec3 BackColor;
-void main()
-{
-    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-    UV = aUV;
-    Color = aColor;
-    BackColor = aBackColor;
-}
-"; 
-    vs_source[vs_source.length - 1] = 0;
-    
-    assert(vs_source.data != nullptr);
-    var vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vs_source.data, 0@i32*);
-    glCompileShader(vertexShader); 
-    {
-        var success: i32;
-        var infoLog: i8[512];
-        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-        if (success == 0) {
-            glGetShaderInfoLog(vertexShader, len(infoLog)@\i32, 0@i32*, &infoLog);
-            debug_print("vs.glsl", from_cstr(&infoLog[0]));
-        }
-    }
-    
-    var fs_source = @"
-#version 330 core
-in vec2 UV;
-in vec4 Color;
-in vec3 BackColor;
-out vec4 FragColor;
-
-uniform sampler2D tex;
-
-float median(float r, float g, float b) {
-    return max(min(r, g), min(max(r, g), b));
-}
-
-void main()
-{
-    float px_range = 8.0;
-    vec2 msdf_unit = px_range / vec2(textureSize(tex, 0));
-    vec3 sample = texture(tex, UV).rgb;
-    float signed_dist = median(sample.r, sample.g, sample.b) - 0.5;
-    signed_dist *= dot(msdf_unit, 0.5/fwidth(UV));
-    float opacity = clamp(signed_dist + 0.5, 0.0, 1.0);
-    if (Color.a >= 1.0) {
-        opacity = 1.0;
-    }
-    FragColor = mix(vec4(BackColor.rgb, 1.0), vec4(Color.rgb, 1.0), opacity);
-}
-";
-   fs_source[fs_source.length - 1] = 0;
-
-    assert(fs_source.data != nullptr);
-    var fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fs_source.data, 0@i32*);
-    glCompileShader(fragmentShader);
-    {
-        var success: i32;
-        var infoLog: i8[512];
-        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-        if (success == 0) {
-            glGetShaderInfoLog(fragmentShader, len(infoLog)@\i32, 0@i32*, &infoLog);
-            debug_print("fs.glsl", from_cstr(&infoLog[0]));
-        }
-    }
-
-    var shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    {
-        var success: i32;
-        var infoLog: i8[512];
-        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-        if (success == 0) {
-            glGetProgramInfoLog(shaderProgram, len(infoLog)@\i32, 0@i32*, &infoLog);
-            debug_print("program", from_cstr(&infoLog[0]));
-        }
-    }
-    
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-
-    glUseProgram(shaderProgram);
-    
-    font = load_font();
-    glUniform1i(glGetUniformLocation(shaderProgram, cstr("tex\0")), 0);
-    
-    gl_resources_initialized = true;
-}
-
-
-
-let render_opengl = fun (client_width: i32; client_height: i32; editor_state: editor_state*; window_dc: mm) => void {
-    glViewport(0, 0, client_width, client_height);
-    glClearColor(gl_state.clear_color.x, gl_state.clear_color.y, gl_state.clear_color.z, 0.0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    
-
-    var render_state = &editor_state.render_state;
-    var time = render_state.time;
-    var t = render_state.delta_time * 25.0;
-    render_state.font_size = Math::lerp(render_state.font_size, render_state.target_font_size, t);
-    var cursor = &editor_state.cursor;
-    
-    var flip_cursor = time - cursor.cursor_last_blink_time >= 0.5;
-    if (flip_cursor) {
-        cursor.cursor_last_blink_time = time;
-        cursor.draw_cursor = !cursor.draw_cursor;
-    }
-    
-    
-    render_state.text_render_pos =  v2(40, client_height@f32 - 40);
-    render_state.render_width = client_width;
-    render_state.render_height = client_height;
-    render_text(editor_state, &font, render_state.font_size);
-    
-    // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
-    SwapBuffers(window_dc);
-} 
 

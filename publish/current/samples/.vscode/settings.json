@@ -9,5 +9,5 @@
     "debug.allowBreakpointsEverywhere": true,
     "lldb.displayFormat": "auto",
     "lldb.dereferencePointers": true,
-    "lldb.showDisassembly": "auto"
+    "lldb.showDisassembly": "always"
 }

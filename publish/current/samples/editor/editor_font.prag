@@ -226,6 +226,15 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     let line_font_color = scaled(regular_font_color, 0.3);
     let cursor_font_color = regular_font_color;
     
+    var theme_colors = [
+        regular_font_color, // none
+        regular_font_color, // identifier
+        v3(255/255.0, 167/255.0, 89/255.0), // keyword
+        v3(255/255.0, 204/255.0, 102/255.0), // number
+        v3(186/255.0, 230/255.0, 126/255.0), // string
+        v3(242/255.0, 158/255.0, 116/255.0), // operator
+        v3(92/255.0, 103/255.0, 115/255.0) // comment
+    ];
     
     var random_colors = [
         v3(1.0, 0.0, 0.0),
@@ -336,6 +345,7 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                         if (draw_chunk_colors) {
                             render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];    
                         }
+                        render_context.foreground_color = theme_colors[char.token_type@i32];
                         add_character(char, char_next, selected, &p, &render_context);
                     } else {
                         if (selected && char_idx == 0) {
@@ -354,6 +364,7 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                     cursor_center.y = p.y - half_line_height + render_state.scroll_target.y - render_state.scroll_pos.y;
                     
                     if (cursor.draw_cursor && should_draw) {
+                        render_context.foreground_color = cursor_font_color;
                         render_context.relative_size = relative_size * 1.2;
                         add_character(from_ascii(ord("|")), from_ascii(0), false, &cursor_p, &render_context);
                         render_context.relative_size = relative_size;

@@ -8,7 +8,7 @@
 import "memory.prag"
 
 // var temp_memory_arena  = memory_arena{};
-var temp_memory_arena: memory_arena = create_arena(megabytes(4));
+var temp_memory_arena: memory_arena = create_arena(megabytes(32));
 
 let kilobytes = fun (bytes: mm) => mm 
 {
@@ -716,6 +716,11 @@ let is_identifier_start_char = fun(char: i8) => bool {
 }
 let is_digit = fun(char: i8) => bool {
     var result = char >= ord("0") && char <= ord("9");
+    return result;
+}
+let is_hex_digit = fun(char: i8) => bool {
+    var result = char >= ord("0") && char <= ord("9");
+    result |= char >= ord("A") && char <= ord("F");
     return result;
 }
 

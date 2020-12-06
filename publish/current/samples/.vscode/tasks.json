@@ -17,8 +17,8 @@
                 "isDefault": true
             },
             "args": [
-                // "-v", 
-                "-D",
+                "-v", 
+                //"-D",
                 "${file}"
             ],
             "problemMatcher": [
