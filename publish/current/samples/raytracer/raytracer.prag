@@ -700,7 +700,7 @@ let main = fun () => void {
 	
 	let nx = 1280;
 	let ny = 720;
-	let sub_sample_count = 256;
+	let sub_sample_count = 512;
 	
 	var world = world { };
 	init_world(&world, &temp_arena, nx@f32/ny@f32);

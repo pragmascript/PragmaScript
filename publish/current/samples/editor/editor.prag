@@ -261,6 +261,7 @@ let create_document = fun() => document {
 
 let create_tab = fun(document: document*) => panel_tab {
     var result = panel_tab { };
+    result.document = document;
     return result;
 }
 
@@ -270,27 +271,25 @@ let create_panel = fun(document: document*) => editor_panel {
     result.tabs.length = 32;
     result.tabs.data = allocate(size_of(panel_tab) * result.tabs.length@mm)@panel_tab*;
     result.tabs[0] = create_tab(document);
-    result.active_tab = &result.tabs[0];
+    result.active_tab = result.tabs.data;
     return result;
 }
 
-let create_editor_state = fun() => editor_state  {
-    var result = editor_state { };
-    result.document = create_document();
-    result.panel = create_panel(&result.document);
-    var global_render_state = &result.global_render_state;
-    result.keyboard_state = allocate(256);
+let create_editor_state = fun(editor_state: editor_state*) => void  {
+    *editor_state = editor_state { };
+    editor_state.document = create_document();
+    editor_state.panel = create_panel(&editor_state.document);
+    var global_render_state = &editor_state.global_render_state;
+    editor_state.keyboard_state = allocate(256);
     
-    result.key_down_state.data = @key_down_state* allocate(256 * size_of(key_down_state));
-    result.key_down_state.length = 256;
+    editor_state.key_down_state.data = @key_down_state* allocate(256 * size_of(key_down_state));
+    editor_state.key_down_state.length = 256;
 
-    result.global_render_state.font_size = 32;
-    result.global_render_state.target_font_size = 32;
-    result.global_render_state.color_scale = 1.0;
-    result.global_render_state.target_color_scale = 1.0;
-    result.global_render_state.temp_memory = create_arena(megabytes(128));
-    
-    return result;
+    editor_state.global_render_state.font_size = 32;
+    editor_state.global_render_state.target_font_size = 32;
+    editor_state.global_render_state.color_scale = 1.0;
+    editor_state.global_render_state.target_color_scale = 1.0;
+    editor_state.global_render_state.temp_memory = create_arena(megabytes(128));
 }
 var editor_state: editor_state;
 
@@ -1413,7 +1412,9 @@ let main = fun() => void {
 
     
     var gl_t0 = get_perf_counter();
-    editor_state = create_editor_state();
+    create_editor_state(&editor_state);
+    debug_print("editor_state", editor_state.panel.active_tab.document.chunks_count);
+    var temp_editor_state = &editor_state;
     var render_state = &editor_state.global_render_state;
     init_opengl(window.dc);
     init_gl_resources(render_state);
