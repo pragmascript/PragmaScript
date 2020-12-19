@@ -8,7 +8,9 @@
             "request": "launch",
             // "preLaunchTask": "build",
             "program": "${workspaceRoot}/editor/bin/edit.exe",
-            "args": [],
+            "args": [
+                "test.txt"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}/editor/bin/",
             "environment": [],

@@ -6,7 +6,7 @@
         {
             "label": "build",
             "type": "shell",
-            "windows":{
+            "windows": {
                 "command": "..\\bin\\pragma.exe"
             },
             "linux": {
@@ -17,8 +17,8 @@
                 "isDefault": true
             },
             "args": [
-                "-v", 
-                //"-D",
+                // "-v",
+                "-D",
                 "${file}"
             ],
             "problemMatcher": [

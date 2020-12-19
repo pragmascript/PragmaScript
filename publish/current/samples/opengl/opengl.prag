@@ -250,6 +250,7 @@ var glGetProgramInfoLog: fun(
     infoLog: i8*) => void;
     
 var glUniform1i: fun(location: i32; v0: i32) => void;
+var glUniform1f: fun(location: i32; v0: f32) => void;
 var glUniform4f: fun(location: i32; v0: f32; v1: f32; v2: f32; v3: f32) => void;
 var glGetUniformLocation: fun(program: i32; name: i8*) => i32;
 

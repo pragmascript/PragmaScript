@@ -15,7 +15,7 @@ let key_repeat_delay = 0.5;
 let key_repeat_interval = 0.020;
 let draw_chunk_colors = false;
 let spaces_to_indent = 4;
-
+    
 
 let window_state = struct 
 (
@@ -44,26 +44,42 @@ let key_down_state = struct(
     last_key_down_time: f32;
     last_last_key_repeat_time: f32;
 );
-let render_state = struct(
+
+let document = struct(
+    file_name: string;
+    chunks: text_chunk*;
+    chunks_count: i32;
+    chunks_capacity: i32;
+);
+let panel_tab = struct(
+    scroll_pos: v2;
+    scroll_target: v2;
+    document: document*;
+    cursor: cursor;
+);
+let global_render_state = struct(
+    font: font;
+    font_size: f32;
+    target_font_size: f32;
+    
+    color_scale: f32;
+    target_color_scale: f32;
+    color_scale_uniform_location: i32;
     render_width: i32;
     render_height: i32;
     time: f32;        
     delta_time: f32;
-    text_render_pos: v2;
-    scroll_pos: v2;
-    scroll_target: v2;
-    font_size: f32;
-    target_font_size: f32;
-    visible_line_count: i32;
     temp_memory: memory_arena;
+);
+let editor_panel = struct(
+    visible_line_count: i32;
+    tabs: panel_tab[];
+    active_tab: panel_tab*;
 );
 let character = struct(
     value: i8;
     token_type: i8;
 );
-let from_ascii = fun(value: i8) => character {
-    return character { value };
-}
 let line = struct(
     length: i32;
     capacity: i32;
@@ -73,18 +89,23 @@ let text_chunk = struct(
     lines: line[];
     is_dirty: bool;
 );
+
 let editor_state = struct(
-    chunks: text_chunk*;
-    chunks_count: i32;
-    chunks_capacity: i32;
+    start_time_ticks: i64;
     
     keyboard_state: i8*;
     shift_pressed: bool;
     control_pressed: bool;
-    cursor: cursor;
+    
     key_down_state: key_down_state[];
-    render_state: render_state;
+    
+    panel: editor_panel;
+    document: document;
+    global_render_state: global_render_state;
 );
+let from_ascii = fun(value: i8) => character {
+    return character { value };
+}
 
 let process_pending_messages = fun() => void {
     var msg: MSG;
@@ -114,13 +135,13 @@ let process_pending_messages = fun() => void {
             
             if (key_down) {
                 handle_editor_key_down(vk_code, true, true);
-                editor_state.key_down_state[vk_code].last_key_down_time = editor_state.render_state.time;
+                editor_state.key_down_state[vk_code].last_key_down_time = editor_state.global_render_state.time;
             }
             if (key_up) {
                 handle_editor_key_up(vk_code);
             }
             if (is_down) {
-                var time = editor_state.render_state.time;
+                var time = editor_state.global_render_state.time;
                 var key_down_state = &editor_state.key_down_state[vk_code];
                 if (time - key_down_state.last_key_down_time > key_repeat_delay) {
                     if (time - key_down_state.last_last_key_repeat_time > key_repeat_interval) {
@@ -146,6 +167,13 @@ let SetProcessDpiAwareness = extern fun(
 let SetProcessDPIAware = extern fun(
 ) => i32;
 
+let LOWORD = fun(p: mm) => i16 {
+    return (p & 0xFFFF)@i16;
+}
+let HIWORD = fun(p: mm) => i16 {
+    return ((p >>\ 16) & 0xFFFF)@i16;
+}
+
 let main_window_callback = fun
 (
     window_handle: mm;
@@ -155,6 +183,12 @@ let main_window_callback = fun
 ) => mm {
     var result = null;
     if (message == WM_SIZE || message == WM_SIZING) {
+        if (message == WM_SIZE) {
+            var dx = LOWORD(l_param);
+            var dy = HIWORD(l_param);
+            window.client_width = dx@i32;
+            window.client_height = dy@i32;
+        }
     }
     elif (message == WM_CLOSE) {
         window.wants_to_quit = true;
@@ -165,6 +199,10 @@ let main_window_callback = fun
     elif (message == WM_PAINT) {
         var paint: PAINTSTRUCT;
         var context = BeginPaint(window_handle, &paint);
+        
+        render_opengl(window.client_width, window.client_height, &editor_state, window.dc);
+        
+        // print("WM_PAINT\n");
         // blit_to_screen(window.dc, &window.backbuffer);
         EndPaint(window_handle, &paint);
     } 
@@ -198,50 +236,70 @@ let create_text_chunk = fun() => text_chunk {
     return result;
 }
 
-let recycle_chunk = fun(editor_state: editor_state*; chunk_idx: i32) => void {
-    if (editor_state.chunks_count == 0) {
+let recycle_chunk = fun(document_state: document*; chunk_idx: i32) => void {
+    if (document_state.chunks_count == 0) {
         return;
     }
-    assert(chunk_idx >= 0 && chunk_idx < editor_state.chunks_count);
-    var chunk = editor_state.chunks + chunk_idx;
+    assert(chunk_idx >= 0 && chunk_idx < document_state.chunks_count);
+    var chunk = document_state.chunks + chunk_idx;
     free(chunk.lines.data@ptr);
-    for (var src_chunk_idx = chunk_idx + 1; src_chunk_idx < editor_state.chunks_count; ++src_chunk_idx) {
-        *(editor_state.chunks + (src_chunk_idx - 1)) = *(editor_state.chunks + src_chunk_idx);
+    for (var src_chunk_idx = chunk_idx + 1; src_chunk_idx < document_state.chunks_count; ++src_chunk_idx) {
+        *(document_state.chunks + (src_chunk_idx - 1)) = *(document_state.chunks + src_chunk_idx);
     }
-    editor_state.chunks_count--;
+    document_state.chunks_count--;
+}
+
+let create_document = fun() => document {
+    var result = document { };
+    result.chunks_count = 0;
+    result.chunks_capacity = 1024;
+    result.chunks = allocate((result.chunks_capacity@mm) * size_of(text_chunk))@text_chunk*;
+    add_empty_chunk(&result);
+    result.chunks.lines.length = 1;
+    return result;
+}
+
+let create_tab = fun(document: document*) => panel_tab {
+    var result = panel_tab { };
+    return result;
+}
+
+let create_panel = fun(document: document*) => editor_panel {
+    var result = editor_panel { };
+    result.visible_line_count = 0;
+    result.tabs.length = 32;
+    result.tabs.data = allocate(size_of(panel_tab) * result.tabs.length@mm)@panel_tab*;
+    result.tabs[0] = create_tab(document);
+    result.active_tab = &result.tabs[0];
+    return result;
 }
 
 let create_editor_state = fun() => editor_state  {
     var result = editor_state { };
-    result.cursor.pos = v3iz;
-    result.cursor.last_valid_char_pos = 0;
+    result.document = create_document();
+    result.panel = create_panel(&result.document);
+    var global_render_state = &result.global_render_state;
     result.keyboard_state = allocate(256);
-    
-    result.chunks_count = 0;
-    result.chunks_capacity = 1024;
-    result.chunks = allocate((result.chunks_capacity@mm) * size_of(text_chunk))@text_chunk*;
-    
-    add_empty_chunk(&result);
-    result.chunks.lines.length = 1;
     
     result.key_down_state.data = @key_down_state* allocate(256 * size_of(key_down_state));
     result.key_down_state.length = 256;
-    
-    result.render_state.font_size = 36;
-    result.render_state.target_font_size = 36;
-    
-    result.render_state.temp_memory = create_arena(megabytes(128));
+
+    result.global_render_state.font_size = 32;
+    result.global_render_state.target_font_size = 32;
+    result.global_render_state.color_scale = 1.0;
+    result.global_render_state.target_color_scale = 1.0;
+    result.global_render_state.temp_memory = create_arena(megabytes(128));
     
     return result;
 }
 var editor_state: editor_state;
 
 
-let add_empty_chunk = fun(editor_state: editor_state*) => text_chunk* {
-    assert(editor_state.chunks_count + 1 <= editor_state.chunks_capacity);
-    var chunk_ptr = editor_state.chunks + editor_state.chunks_count;
+let add_empty_chunk = fun(document: document*) => text_chunk* {
+    assert(document.chunks_count + 1 <= document.chunks_capacity);
+    var chunk_ptr = document.chunks + document.chunks_count;
     *chunk_ptr = create_text_chunk();
-    editor_state.chunks_count++;
+    document.chunks_count++;
     return chunk_ptr;
 }
 
@@ -250,13 +308,14 @@ let is_printable = fun(char: i8) => bool {
 }
 
 let reset_cursor_blink = fun() => void {
-    editor_state.cursor.draw_cursor = true;
-    editor_state.cursor.cursor_last_blink_time = editor_state.render_state.time;
+    var cursor = &editor_state.panel.active_tab.cursor;
+    cursor.draw_cursor = true;
+    cursor.cursor_last_blink_time = editor_state.global_render_state.time;
 }
 
-let get_ordered_selection_bounds = fun(editor_state: editor_state*; first: v3i*; last: v3i*) => void {
-    *first = editor_state.cursor.selection_start;
-    *last = editor_state.cursor.pos;
+let get_ordered_selection_bounds = fun(cursor: cursor*; first: v3i*; last: v3i*) => void {
+    *first = cursor.selection_start;
+    *last = cursor.pos;
     if (first.z > last.z) {
         var temp = *first;
         *first = *last;
@@ -275,13 +334,13 @@ let get_ordered_selection_bounds = fun(editor_state: editor_state*; first: v3i*;
     }
 }
 
-let is_in_selection = fun(editor_state: editor_state*; char_idx: i32; line_idx: i32; chunk_idx: i32) => bool {
-    if (!editor_state.cursor.selection_active) {
+let is_in_selection = fun(cursor: cursor*; char_idx: i32; line_idx: i32; chunk_idx: i32) => bool {
+    if (!cursor.selection_active) {
         return false;
     }
     var first: v3i;
     var last: v3i;
-    get_ordered_selection_bounds(editor_state, &first, &last);
+    get_ordered_selection_bounds(cursor, &first, &last);
     
     var char_idx_temp = char_idx;
     var line_idx_temp = line_idx;
@@ -313,26 +372,27 @@ let is_in_selection = fun(editor_state: editor_state*; char_idx: i32; line_idx: 
     return result;
 }
 
-let delete_selection = fun(editor_state: editor_state*) => void {
-    var cursor = &editor_state.cursor;
+let delete_selection = fun(tab: panel_tab*) => void {
+    var document = tab.document;
+    var cursor = &tab.cursor;
     assert(cursor.selection_active);
     
     var first: v3i;
     var last: v3i;
-    get_ordered_selection_bounds(editor_state, &first, &last);
+    get_ordered_selection_bounds(cursor, &first, &last);
     
-    assert(editor_state.cursor.pos.z < editor_state.chunks_count);
+    assert(cursor.pos.z < document.chunks_count);
     
     var chunks_to_delete = Math::max(0, last.z - first.z - 1);
     for (var d_idx = 0; d_idx < chunks_to_delete; ++d_idx) {
         var chunk_idx = last.z - d_idx - 1;
         assert(chunk_idx > first.z && chunk_idx < last.z);
-        recycle_chunk(editor_state, chunk_idx);
+        recycle_chunk(document, chunk_idx);
     }
     last.z -= chunks_to_delete;
     
-    var c0 = editor_state.chunks + first.z;
-    var c1 = editor_state.chunks + last.z;
+    var c0 = document.chunks + first.z;
+    var c1 = document.chunks + last.z;
 
     var dest_line = c0.lines[first.y];
     var dest_line_ptr = &c0.lines[first.y];
@@ -346,36 +406,34 @@ let delete_selection = fun(editor_state: editor_state*) => void {
     
     if (first.z == last.z) {
         for (var line_idx = last.y; line_idx >= first.y + 1; --line_idx) {
-            delete_line(editor_state, first.z, line_idx, false);
+            delete_line(document, first.z, line_idx, false);
         }
         c0.lines.length -= (last.y - first.y);
     } else {
         for (var line_idx = c0.lines.length - 1; line_idx >= first.y + 1; --line_idx) {
-            delete_line(editor_state, first.z, line_idx, false);
+            delete_line(document, first.z, line_idx, false);
         }
         c0.lines.length -= (c0.lines.length - first.y - 1);
         
         for (var line_idx = last.y; line_idx >= 0; --line_idx) {
-            delete_line(editor_state, last.z, line_idx, false);
+            delete_line(document, last.z, line_idx, false);
         }
         c1.lines.length -= (last.y + 1);
     }
 
     if (c0.lines.length == 0) {
-        recycle_chunk(editor_state, first.z);
+        recycle_chunk(document, first.z);
     }
     if (c1.lines.length == 0) {
-        recycle_chunk(editor_state, last.z);
+        recycle_chunk(document, last.z);
     }
     
     cursor.pos = first;
-    editor_state.cursor.selection_active = false;
+    cursor.selection_active = false;
 }
 
-let delete_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_idx: i32; decrement_line_count: bool = true) => void {
-    var temp_editor_state = editor_state;
-    var temp_chunk_idx = chunk_idx;
-    var current_chunk = editor_state.chunks + chunk_idx;
+let delete_line = fun(document: document*; chunk_idx: i32; target_line_idx: i32; decrement_line_count: bool = true) => void {
+    var current_chunk = document.chunks + chunk_idx;
     for (var line_idx = target_line_idx; line_idx < current_chunk.lines.length - 1; ++line_idx) {
         var dest_line = current_chunk.lines[line_idx];
         var src_line = current_chunk.lines[line_idx + 1];
@@ -387,12 +445,56 @@ let delete_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_i
         current_chunk.lines.length--;
         if (current_chunk.lines.length <= 0) {
             assert(current_chunk.lines.length == 0);
-            recycle_chunk(editor_state, chunk_idx);
+            recycle_chunk(document, chunk_idx);
         }
     }
     current_chunk.is_dirty = true;
 }
 
+let indent_line = fun(line_ptr: line*; char_offset: i32) => void {
+    var space = from_ascii(ord(" "));
+    var char_x = char_offset;
+    for (var indent_idx = 0; indent_idx < spaces_to_indent; ++indent_idx) {
+        add_char_to_line(line_ptr, char_x++, space);
+    }
+}
+
+let dedent_line = fun(line_ptr: line*) => void {
+    var indent = get_line_indent(line_ptr);
+    if (indent >= spaces_to_indent) {
+        assert(line_ptr.length >= spaces_to_indent);
+        for (var char_idx = spaces_to_indent; char_idx < line_ptr.length; ++char_idx) {
+            *(line_ptr.chars + char_idx - spaces_to_indent) = *(line_ptr.chars + char_idx);
+        }
+        line_ptr.length -= spaces_to_indent;
+    }
+}
+
+let change_indent_selection = fun(tab: panel_tab*; dedent: bool) => void {
+    var document = tab.document;
+    var first: v3i;
+    var last: v3i;
+    get_ordered_selection_bounds(&tab.cursor, &first, &last);
+    for (var z_idx = first.z; z_idx <= last.z; ++z_idx) {
+        var chunk = document.chunks + z_idx;
+        var from_line = 0;
+        var to_line = chunk.lines.length - 1;
+        if (z_idx == first.z) {
+            from_line = first.y;
+        }
+        if (z_idx == last.z) {
+            to_line = last.y;
+        }
+        for (var y_idx = from_line; y_idx <= to_line; ++y_idx) {
+            var line_ptr = &chunk.lines[y_idx];
+            if (dedent) {
+                dedent_line(line_ptr);
+            } else {
+                indent_line(line_ptr, 0);
+            }
+        }
+    }
+}
 
 let get_line_indent = fun(line: line*) => i32 {
     var result = 0;
@@ -429,15 +531,28 @@ let get_next_indent = fun(line: line*; char_pos: i32) => i32 {
     return result;
 }
 
-let insert_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_idx: i32; src_line: line*; src_char_pos: i32; adjust_indentation: bool) => i32 {
-    if (chunk_idx >= editor_state.chunks_count) {
-        add_empty_chunk(editor_state);
+let left_is_whitespace = fun(line: line*; char_pos: i32) => bool {
+    var result = true;
+    assert(char_pos <= line.length);
+    for (var char_idx = 0; char_idx < char_pos; ++char_idx) {
+        var char = line.chars + char_idx;
+        if (!is_whitespace(char.value)) {
+            return false;
+        }
     }
-    var current_chunk = editor_state.chunks + chunk_idx;
+    return true;
+}
+
+
+let insert_line = fun(document: document*; chunk_idx: i32; target_line_idx: i32; src_line: line*; src_char_pos: i32; adjust_indentation: bool) => i32 {
+    if (chunk_idx >= document.chunks_count) {
+        add_empty_chunk(document);
+    }
+    var current_chunk = document.chunks + chunk_idx;
     var lines = current_chunk.lines;
     var start_line_idx = current_chunk.lines.length - 1;
     if (current_chunk.lines.length == text_chunk_line_count) {
-        insert_line(editor_state, chunk_idx + 1, 0, &current_chunk.lines[current_chunk.lines.length - 1], 0, false);
+        insert_line(document, chunk_idx + 1, 0, &current_chunk.lines[current_chunk.lines.length - 1], 0, false);
         start_line_idx = current_chunk.lines.length - 2;
     } else {
         current_chunk.lines.length++;
@@ -473,11 +588,38 @@ let insert_line = fun(editor_state: editor_state*; chunk_idx: i32; target_line_i
     return indent;
 }
 
+let paste_string = fun(tab: panel_tab*; str: string) => void {
+    var document = tab.document;
+    var cursor = &tab.cursor;
+    var current_chunk = document.chunks + cursor.pos.z;
+    for (var idx = 0; idx < str.length; ++idx) {
+        var char = str[idx];
+        if (char == 13) {
+            continue;
+        }
+        var chunk = document.chunks + cursor.pos.z;
+        if (char != ord("\n") && char != ord("\t")) {
+            add_char_to_line(&chunk.lines[cursor.pos.y], cursor.pos.x++, from_ascii(char));
+            cursor.last_valid_char_pos = cursor.pos.x;
+            chunk.is_dirty = true;
+        } 
+        elif (char == ord("\t")) {
+            var space = from_ascii(ord(" "));
+            for (var space_idx = 0; space_idx < spaces_to_indent; ++space_idx) {
+                add_char_to_line(&chunk.lines[cursor.pos.y], cursor.pos.x++, space);
+            }
+            cursor.last_valid_char_pos = cursor.pos.x;
+        }
+        elif (char == ord("\n")) {
+            handle_editor_key_down(VK_RETURN, false, false);     
+        }
+    }
+}
+
+
 // TODO(pragma): implement this like delete_selection()
-let paste_clipboard = fun(editor_state: editor_state*) => void {
+let paste_clipboard = fun(tab: panel_tab*) => void {
     var watermark = start_temp(&temp_memory_arena);
-    var cursor = &editor_state.cursor;
-    var current_chunk = editor_state.chunks + cursor.pos.z;
     
     var open_clipboard_result = Windows::OpenClipboard(window.handle);
     assert(open_clipboard_result != 0);
@@ -492,62 +634,43 @@ let paste_clipboard = fun(editor_state: editor_state*) => void {
         memcpy(clipboard.data, global_memory_ptr, clipboard.length@mm);
         Windows::GlobalUnlock(global_memory_handle);
         
-        for (var idx = 0; idx < clipboard.length; ++idx) {
-            var char = clipboard[idx];
-            if (char == 13) {
-                continue;
-            }
-            var chunk = editor_state.chunks + cursor.pos.z;
-            if (char != ord("\n") && char != ord("\t")) {
-                add_char_to_line(&chunk.lines[cursor.pos.y], cursor, from_ascii(char));
-                cursor.last_valid_char_pos = cursor.pos.x;
-                chunk.is_dirty = true;
-            } 
-            elif (char == ord("\t")) {
-                var space = from_ascii(ord(" "));
-                for (var space_idx = 0; space_idx < spaces_to_indent; ++space_idx) {
-                    add_char_to_line(&chunk.lines[cursor.pos.y], cursor, space);
-                }
-                cursor.last_valid_char_pos = cursor.pos.x;
-            }
-            elif (char == ord("\n")) {
-                handle_editor_key_down(VK_RETURN, false, false);
-            }
-        }
+        paste_string(tab, clipboard);
+        
     }
     Windows::CloseClipboard();
     stop_temp(&temp_memory_arena, watermark);
 }
 
-let add_char_to_line = fun(line_ptr: line*; cursor: cursor*; char: character) => void {
+let add_char_to_line = fun(line_ptr: line*; char_pos: i32; char: character) => void {
     if (line_ptr.length + 1 < line_ptr.capacity) {
-        for (var char_idx = line_ptr.length - 1; char_idx >= cursor.pos.x; --char_idx) {
+        for (var char_idx = line_ptr.length - 1; char_idx >= char_pos; --char_idx) {
             *(line_ptr.chars + (char_idx + 1)) = *(line_ptr.chars + char_idx);
         }
         line_ptr.length++;
-        var temp_cursor = cursor;
-        var temp_line = line_ptr;
-        *(line_ptr.chars + cursor.pos.x++) = char;
+        *(line_ptr.chars + char_pos) = char;
     }
 }
+let copy_to_clipboard = fun(tab: panel_tab*; copy_to_os_clipboard: bool) => void {
+    var first: v3i;
+    var last: v3i;
+    get_ordered_selection_bounds(&tab.cursor, &first, &last);
+    copy_to_clipboard(tab, first, last, copy_to_os_clipboard);
+}
 
-let copy_to_clipboard = fun(editor_state: editor_state*) => void {
-    var cursor = &editor_state.cursor;
+let copy_to_clipboard = fun(tab: panel_tab*; first: v3i; last: v3i; copy_to_os_clipboard: bool) => void {
+    var document = tab.document;
+    var cursor = &tab.cursor;
     
     if (cursor.clipboard.data != nullptr) {
         free(cursor.clipboard.data);
     }
     var watermark = start_temp(&temp_memory_arena);
     
-    var first: v3i;
-    var last: v3i;
-    get_ordered_selection_bounds(editor_state, &first, &last);
-    
     var char_ptr: i8* = nullptr;
     var char_count = 0;
 
     for (var z = first.z; z <= last.z; ++z) {
-        var current_chunk = editor_state.chunks + z;
+        var current_chunk = document.chunks + z;
         var y_from = 0;
         var y_to = current_chunk.lines.length - 1;
         if (z == first.z) {
@@ -591,59 +714,65 @@ let copy_to_clipboard = fun(editor_state: editor_state*) => void {
     } else {
         return;
     }
-    var error_code = Windows::OpenClipboard(window.handle);
-    assert(error_code != 0);
-    error_code = Windows::EmptyClipboard();
-    assert(error_code != 0);
     
-    var global_mem_handle = Windows::GlobalAlloc(Windows::GMEM_MOVEABLE, (char_count + 1)@mm);
-    assert(global_mem_handle != 0);    
-    
-    var global_mem_ptr = Windows::GlobalLock(global_mem_handle);
-    assert(global_mem_ptr != nullptr);
-    memcpy(global_mem_ptr, cursor.clipboard.data, (char_count + 1)@mm);
-    Windows::GlobalUnlock(global_mem_handle);
-    
-    var clipboard_data_result = Windows::SetClipboardData(Windows::CF_TEXT, global_mem_handle);
-    assert(clipboard_data_result != 0);
-    
-    error_code = Windows::CloseClipboard();
-    assert(error_code != 0);
+    if (copy_to_os_clipboard) {
+        var error_code = Windows::OpenClipboard(window.handle);
+        assert(error_code != 0);
+        error_code = Windows::EmptyClipboard();
+        assert(error_code != 0);
+        
+        var global_mem_handle = Windows::GlobalAlloc(Windows::GMEM_MOVEABLE, (char_count + 1)@mm);
+        assert(global_mem_handle != 0);    
+        
+        var global_mem_ptr = Windows::GlobalLock(global_mem_handle);
+        assert(global_mem_ptr != nullptr);
+        memcpy(global_mem_ptr, cursor.clipboard.data, (char_count + 1)@mm);
+        Windows::GlobalUnlock(global_mem_handle);
+        
+        var clipboard_data_result = Windows::SetClipboardData(Windows::CF_TEXT, global_mem_handle);
+        assert(clipboard_data_result != 0);
+        
+        error_code = Windows::CloseClipboard();
+        assert(error_code != 0);
+    }
     
     stop_temp(&temp_memory_arena, watermark);
 }
 
-let cursor_up = fun(editor_state: editor_state*; cursor: cursor*) => void {
+let cursor_up = fun(tab: panel_tab*; cursor: cursor*) => void {
+    var document = tab.document;
     if (cursor.pos.y > 0) {
         cursor.pos.y--;
     } else {
         if (cursor.pos.z > 0) {
             // TODO what happens when we have a chunk that is completely empty?
             cursor.pos.z--;
-            var chunk = editor_state.chunks + cursor.pos.z;
+            var chunk = document.chunks + cursor.pos.z;
             cursor.pos.y = chunk.lines.length - 1;
         }
     }
 }
 
-let cursor_down = fun(editor_state: editor_state*; cursor: cursor*) => void {
-    var chunk = editor_state.chunks + cursor.pos.z;
+let cursor_down = fun(tab: panel_tab*; cursor: cursor*) => void {
+    var document = tab.document;
+    var chunk = document.chunks + cursor.pos.z;
     if (cursor.pos.y < chunk.lines.length - 1) {
         cursor.pos.y++;
     } else {
-        if (cursor.pos.z < editor_state.chunks_count - 1) {
+        if (cursor.pos.z < document.chunks_count - 1) {
             // TODO what happens when we have a chunk that is completely empty?
             cursor.pos.z++;
-            var chunk = editor_state.chunks + cursor.pos.z;
+            var chunk = document.chunks + cursor.pos.z;
             cursor.pos.y = 0;
         }
     }
 }
 
-let handle_next_word = fun(editor_state: editor_state*) => void { 
-    var cursor = &editor_state.cursor;
-    var current_chunk = editor_state.chunks + cursor.pos.z;
-    var line = current_chunk.lines[editor_state.cursor.pos.y];
+let handle_next_word = fun(tab: panel_tab*) => void { 
+    var document = tab.document;
+    var cursor = &tab.cursor;
+    var current_chunk = document.chunks + cursor.pos.z;
+    var line = current_chunk.lines[cursor.pos.y];
     
     if (cursor.pos.x >= line.length) {
         return;
@@ -662,10 +791,11 @@ let handle_next_word = fun(editor_state: editor_state*) => void {
     }
 }
 
-let handle_prev_word = fun(editor_state: editor_state*) => void { 
-    var cursor = &editor_state.cursor;
-    var current_chunk = editor_state.chunks + cursor.pos.z;
-    var line = current_chunk.lines[editor_state.cursor.pos.y];
+let handle_prev_word = fun(tab: panel_tab*) => void { 
+    var document = tab.document;
+    var cursor = &tab.cursor;
+    var current_chunk = document.chunks + cursor.pos.z;
+    var line = current_chunk.lines[cursor.pos.y];
     
     if (cursor.pos.x == 0) {
         return;
@@ -686,13 +816,14 @@ let handle_prev_word = fun(editor_state: editor_state*) => void {
     }
 }
 
-let handle_delete = fun(editor_state: editor_state*) => void {
-    var cursor = &editor_state.cursor;
-    var current_chunk = editor_state.chunks + cursor.pos.z;
+let handle_delete = fun(tab: panel_tab*) => void {
+    var document = tab.document;
+    var cursor = &tab.cursor;
+    var current_chunk = document.chunks + cursor.pos.z;
     var lines = current_chunk.lines;
     var lines_ptr = &current_chunk.lines;
-    var current_line = current_chunk.lines[editor_state.cursor.pos.y];
-    var current_line_ptr = &current_chunk.lines[editor_state.cursor.pos.y];
+    var current_line = current_chunk.lines[cursor.pos.y];
+    var current_line_ptr = &current_chunk.lines[cursor.pos.y];
     
     if (cursor.pos.x < current_line.length) {
         for (var char_idx = cursor.pos.x; char_idx < current_line.length; ++char_idx) {
@@ -709,11 +840,11 @@ let handle_delete = fun(editor_state: editor_state*) => void {
         var next_line_chunk_idx: i32;
         var next_line_idx: i32;
         if (cursor.pos.y == lines.length - 1) {
-            if (cursor.pos.z + 1 == editor_state.chunks_count) {
+            if (cursor.pos.z + 1 == document.chunks_count) {
                 return;
             }
             next_line_chunk_idx = cursor.pos.z + 1;
-            var chunk = editor_state.chunks + (cursor.pos.z + 1);
+            var chunk = document.chunks + (cursor.pos.z + 1);
             assert(chunk.lines.length > 0);
             next_line_idx = 0;
             next_line = chunk.lines[0];
@@ -728,17 +859,18 @@ let handle_delete = fun(editor_state: editor_state*) => void {
         }
         current_line_ptr.length += next_line.length;
         current_chunk.is_dirty = true;
-        delete_line(editor_state, next_line_chunk_idx, next_line_idx);
+        delete_line(document, next_line_chunk_idx, next_line_idx);
     }
 }
 
-let handle_backspace = fun(editor_state: editor_state*) => void {
-    var cursor = &editor_state.cursor;
-    var current_chunk = editor_state.chunks + cursor.pos.z;
+let handle_backspace = fun(tab: panel_tab*) => void {
+    var document = tab.document;
+    var cursor = &tab.cursor;
+    var current_chunk = document.chunks + cursor.pos.z;
     var lines = current_chunk.lines;
     var lines_ptr = &current_chunk.lines;
-    var current_line = current_chunk.lines[editor_state.cursor.pos.y];
-    var current_line_ptr = &current_chunk.lines[editor_state.cursor.pos.y];
+    var current_line = current_chunk.lines[cursor.pos.y];
+    var current_line_ptr = &current_chunk.lines[cursor.pos.y];
     
     if (cursor.pos.x > 0) {
         current_line_ptr.length--;
@@ -759,7 +891,7 @@ let handle_backspace = fun(editor_state: editor_state*) => void {
         } else {
             assert(cursor.pos.y == 0);
             assert(cursor.pos.z > 0);
-            var prev_chunk = editor_state.chunks + (cursor.pos.z - 1);
+            var prev_chunk = document.chunks + (cursor.pos.z - 1);
             assert(prev_chunk.lines.length > 0);
             dest_line = prev_chunk.lines[prev_chunk.lines.length - 1];
             dest_line_ptr = &prev_chunk.lines[prev_chunk.lines.length - 1];
@@ -776,18 +908,18 @@ let handle_backspace = fun(editor_state: editor_state*) => void {
         assert(dest_line_ptr.length < max_line_length);
         
         var delete_line_idx = cursor.pos.y;
-        delete_line(editor_state, cursor.pos.z, delete_line_idx, true);
-        cursor_up(editor_state, cursor);
+        delete_line(document, cursor.pos.z, delete_line_idx, true);
+        cursor_up(tab, cursor);
         
     }
     cursor.last_valid_char_pos = cursor.pos.x;
     current_chunk.is_dirty = true;
 }
 
-let syntax_highlight = fun(editor_state: editor_state*) => void {
+let syntax_highlight = fun(document: document*) => void {
     var t0 = get_perf_counter();
-    for (var chunk_idx = 0; chunk_idx < editor_state.chunks_count; ++chunk_idx) {
-        var chunk = editor_state.chunks + chunk_idx;
+    for (var chunk_idx = 0; chunk_idx < document.chunks_count; ++chunk_idx) {
+        var chunk = document.chunks + chunk_idx;
         if (chunk.is_dirty) {
             for (var line_idx = 0; line_idx < chunk.lines.length; ++line_idx) {
                 tokenize(chunk.lines.data + line_idx);
@@ -800,10 +932,14 @@ let syntax_highlight = fun(editor_state: editor_state*) => void {
 }
 
 let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; should_auto_indent: bool) => void {
-    var cursor = &editor_state.cursor;
+    var temp_vk_code = vk_code;
+    var active_panel = &editor_state.panel;
+    var active_tab = active_panel.active_tab;
+    var document = active_tab.document;
+    var cursor = &active_tab.cursor;
     var old_cursor_pos = cursor.pos;
     
-    var current_chunk = editor_state.chunks + cursor.pos.z;
+    var current_chunk = document.chunks + cursor.pos.z;
     var lines = current_chunk.lines;
     var lines_ptr = &current_chunk.lines;
     var current_line = lines[cursor.pos.y];
@@ -824,46 +960,81 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
     var should_clear_selection = true;
     
     if (is_printable(char.value@i8)) {
-        if (editor_state.cursor.selection_active) {
-            delete_selection(&editor_state);
-            current_chunk = editor_state.chunks + cursor.pos.z;
+        if (cursor.selection_active) {
+            delete_selection(active_tab);
+            current_chunk = document.chunks + cursor.pos.z;
             lines = current_chunk.lines;
             lines_ptr = &current_chunk.lines;
             current_line = lines[cursor.pos.y];
             current_line_ptr = &lines[cursor.pos.y];
         }
-        // if (should_auto_indent && char.value == ord("}")) {
-        //     for (var back_idx = 0; back_idx < spaces_to_indent; ++back_idx) {
-        //         handle_backspace(&editor_state);    
-        //     }
-        // }
-        add_char_to_line(current_line_ptr, cursor, char);
+        if (should_auto_indent && char.value == ord("}")) {
+            if (left_is_whitespace(current_line_ptr, cursor.pos.x)) {
+                for (var back_idx = 0; back_idx < spaces_to_indent; ++back_idx) {
+                    handle_backspace(active_tab);
+                }    
+            }
+        }
+        add_char_to_line(current_line_ptr, cursor.pos.x++, char);
         cursor.last_valid_char_pos = cursor.pos.x;
         if (current_line_ptr.length < max_line_length) {
             *(current_line.chars + current_line_ptr.length) = character { 0 };
-            current_chunk.is_dirty = true; 
         }
+        current_chunk.is_dirty = true; 
     }
     elif (vk_code == VK_BACK) {
         if (cursor.selection_active) {
-            delete_selection(&editor_state);
+            delete_selection(active_tab);
             cursor.last_valid_char_pos = cursor.pos.x;
         } else {
-            handle_backspace(&editor_state);
+            
+            if (left_is_whitespace(current_line_ptr, cursor.pos.x) && cursor.pos.x >= spaces_to_indent) {
+                // TODO(pragma): this is not quite correct we want to snap to multiples of spaces_to_indent
+                for (var indent_idx = 0; indent_idx < spaces_to_indent; ++indent_idx) {
+                    handle_backspace(active_tab);
+                }
+            } else {
+                handle_backspace(active_tab);
+            }
+        }
+    }
+    elif (vk_code == VK_TAB) {
+        
+        // TODO(pragma): fix selection start not moving with indent/dedent
+        if (cursor.selection_active) {
+            var dedent = editor_state.shift_pressed;
+            var temp_line_length = current_line_ptr.length;
+            change_indent_selection(active_tab, dedent);
+            var delta = current_line_ptr.length - temp_line_length;
+            cursor.pos.x = Math::max(0, cursor.pos.x + delta);
+            cursor.last_valid_char_pos = cursor.pos.x;
+            should_clear_selection = false;
+        } else {
+            if (!editor_state.shift_pressed) {
+                indent_line(current_line_ptr, cursor.pos.x);
+                cursor.pos.x += spaces_to_indent;
+                cursor.last_valid_char_pos = cursor.pos.x;
+                current_chunk.is_dirty = true;
+            } else {
+                dedent_line(current_line_ptr);
+                cursor.pos.x = Math::max(0, cursor.pos.x - spaces_to_indent);
+                cursor.last_valid_char_pos = cursor.pos.x;
+                current_chunk.is_dirty = true; 
+            }
         }
     }
     elif (vk_code == VK_DELETE) {
         if (cursor.selection_active) {
-            delete_selection(&editor_state);
+            delete_selection(active_tab);
             cursor.last_valid_char_pos = cursor.pos.x;
         } else {
-            handle_delete(&editor_state);
+            handle_delete(active_tab);
         }
     }
     elif (vk_code == VK_RETURN) {
         if (cursor.selection_active) {
-            delete_selection(&editor_state);
-            current_chunk = editor_state.chunks + cursor.pos.z;
+            delete_selection(active_tab);
+            current_chunk = document.chunks + cursor.pos.z;
             lines = current_chunk.lines;
             lines_ptr = &current_chunk.lines;
             current_line = lines[cursor.pos.y];
@@ -874,9 +1045,9 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
             cursor.pos.y = 0;
             cursor.pos.z++;
         }
-        var next_pos_x = insert_line(&editor_state, cursor.pos.z, cursor.pos.y, current_line_ptr, cursor.pos.x, should_auto_indent);
+        var next_pos_x = insert_line(document, cursor.pos.z, cursor.pos.y, current_line_ptr, cursor.pos.x, should_auto_indent);
         
-        assert(cursor.pos.z < editor_state.chunks_count);
+        assert(cursor.pos.z < document.chunks_count);
         current_line_ptr.length = cursor.pos.x;
         cursor.pos.x = next_pos_x;
         cursor.last_valid_char_pos = cursor.pos.x;
@@ -892,13 +1063,13 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
     elif (vk_code == VK_LEFT) {
         if (cursor.pos.x > 0) {
             if (editor_state.control_pressed) {
-                handle_prev_word(&editor_state);
+                handle_prev_word(active_tab);
             } else {
                 cursor.pos.x--;    
             }
         } else {
-            cursor_up(&editor_state, cursor);
-            var chunk = editor_state.chunks + cursor.pos.z;
+            cursor_up(active_tab, cursor);
+            var chunk = document.chunks + cursor.pos.z;
             cursor.pos.x = chunk.lines.length - 1;
         }
         cursor.last_valid_char_pos = cursor.pos.x;
@@ -906,24 +1077,24 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
     elif (vk_code == VK_RIGHT) {
         if (cursor.pos.x < current_line.length) {
             if (editor_state.control_pressed) {
-                handle_next_word(&editor_state);
+                handle_next_word(active_tab);
             } else {
                 cursor.pos.x++;    
             }
         } else {
-            cursor_down(&editor_state, cursor);
+            cursor_down(active_tab, cursor);
             cursor.pos.x = 0;
         }
         cursor.last_valid_char_pos = cursor.pos.x;
     }
     elif (vk_code == VK_UP) {
-        cursor_up(&editor_state, cursor);
+        cursor_up(active_tab, cursor);
         if (!cursor.selection_active && editor_state.shift_pressed) {
             cursor.last_valid_char_pos = cursor.pos.x;
         }
     }
     elif (vk_code == VK_DOWN) {
-        cursor_down(&editor_state, cursor);
+        cursor_down(active_tab, cursor);
         if (!cursor.selection_active && editor_state.shift_pressed) {
             cursor.last_valid_char_pos = cursor.pos.x;
         }
@@ -932,8 +1103,8 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
         if (!editor_state.control_pressed) {
             cursor.last_valid_char_pos = current_line.length;
         } else {
-            cursor.pos.z = editor_state.chunks_count - 1;
-            var chunk = editor_state.chunks + (editor_state.chunks_count - 1);
+            cursor.pos.z = document.chunks_count - 1;
+            var chunk = document.chunks + (document.chunks_count - 1);
             cursor.pos.y =  chunk.lines.length - 1;
             cursor.last_valid_char_pos = chunk.lines[cursor.pos.z].length;
         }
@@ -953,7 +1124,7 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
         }
     }
     elif (vk_code == VK_PRIOR) {
-        var delta = editor_state.render_state.visible_line_count - 2;
+        var delta = active_panel.visible_line_count - 2;
         if (delta <= 0) {
             delta = 1;
         }
@@ -964,7 +1135,7 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
             while (true) {
                 if (cursor.pos.z > 0) {
                     cursor.pos.z--;
-                    var chunk = editor_state.chunks + cursor.pos.z;
+                    var chunk = document.chunks + cursor.pos.z;
                     var py = chunk.lines.length - 1;
                     if (py - delta >= 0) {
                         cursor.pos.y = py - delta;
@@ -980,7 +1151,7 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
         }
     }
     elif (vk_code == VK_NEXT) {
-        var delta = editor_state.render_state.visible_line_count - 2;
+        var delta = active_panel.visible_line_count - 2;
         if (delta <= 0) {
             delta = 1;
         }
@@ -989,9 +1160,9 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
         } else {
             delta -= (lines.length - 1) - cursor.pos.y;
             while (true) {
-                if (cursor.pos.z < editor_state.chunks_count - 1) {
+                if (cursor.pos.z < document.chunks_count - 1) {
                     cursor.pos.z++;
-                    var chunk = editor_state.chunks + cursor.pos.z;
+                    var chunk = document.chunks + cursor.pos.z;
                     var ll = chunk.lines.length;
                     if (delta <= ll - 1) {
                         cursor.pos.y = delta;
@@ -1000,7 +1171,7 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
                         delta -= (ll - 1);
                     }
                 } else {
-                    var chunk = editor_state.chunks + cursor.pos.z;
+                    var chunk = document.chunks + cursor.pos.z;
                     var ll = chunk.lines.length;
                     cursor.pos.y = ll - 1;
                     break;
@@ -1009,70 +1180,74 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
         }
     }
     elif (editor_state.control_pressed && vk_code == ord("C")@i32) {
-        copy_to_clipboard(&editor_state);
+        copy_to_clipboard(active_tab, true);
         should_clear_selection = false;
     }
     elif (editor_state.control_pressed &&  vk_code == ord("V")@i32) {
         if (cursor.selection_active) {
-            delete_selection(&editor_state);
+            delete_selection(active_tab);
         }
-        paste_clipboard(&editor_state);
+        paste_clipboard(active_tab);
         cursor.last_valid_char_pos = cursor.pos.x;
         
     }
     elif (editor_state.control_pressed && vk_code == 107) {
-        editor_state.render_state.target_font_size *= 1.2;
+        editor_state.global_render_state.target_font_size *= 1.2;
     }
     elif (editor_state.control_pressed && vk_code == 109) {
-        editor_state.render_state.target_font_size /= 1.2;
+        editor_state.global_render_state.target_font_size /= 1.2;
     }
     elif (editor_state.control_pressed && vk_code == ord("X")@i32) {
         var line_idx = cursor.pos.y;
-        var should_decrement_line_count = !(cursor.pos.z == 0 && editor_state.chunks_count == 1 && current_chunk.lines.length == 1);
+        var should_decrement_line_count = !(cursor.pos.z == 0 && document.chunks_count == 1 && current_chunk.lines.length == 1);
         
-        delete_line(&editor_state, cursor.pos.z, line_idx, should_decrement_line_count);
+        delete_line(document, cursor.pos.z, line_idx, should_decrement_line_count);
         
-        if (cursor.pos.z >= editor_state.chunks_count) {
+        if (cursor.pos.z >= document.chunks_count) {
             assert(cursor.pos.y == 0);
-            cursor_up(&editor_state, &editor_state.cursor);
+            cursor_up(active_tab, &active_tab.cursor);
         }
-        if (cursor.pos.y >= current_chunk.lines.length && cursor.pos.z + 1 < editor_state.chunks_count) {
-            cursor_down(&editor_state, &editor_state.cursor);
+        if (cursor.pos.y >= current_chunk.lines.length && cursor.pos.z + 1 < document.chunks_count) {
+            cursor_down(active_tab, &active_tab.cursor);
         }
     }
     elif (editor_state.control_pressed && vk_code == ord("A")@i32) {
-        editor_state.cursor.selection_start = v3iz;
-        cursor.pos.z = editor_state.chunks_count - 1;
-        var chunk = editor_state.chunks + (editor_state.chunks_count - 1);
+        active_tab.cursor.selection_start = v3iz;
+        cursor.pos.z = document.chunks_count - 1;
+        var chunk = document.chunks + (document.chunks_count - 1);
         cursor.pos.y =  chunk.lines.length - 1;
-        cursor.last_valid_char_pos = chunk.lines[cursor.pos.z].length;
-        editor_state.cursor.selection_active = true;
+        cursor.last_valid_char_pos = chunk.lines[cursor.pos.y].length;
+        active_tab.cursor.selection_active = true;
         should_clear_selection = false;
+    }
+    elif (editor_state.control_pressed && vk_code == ord("S")@i32) {
+        save_text_file(active_tab);
+        editor_state.global_render_state.color_scale = 2.0;
     }
     else {
         should_clear_selection = false;
     }
     
     if (should_syntax_highlight) {
-        syntax_highlight(&editor_state);
+        syntax_highlight(document);
     }
     
-    current_chunk = editor_state.chunks + cursor.pos.z;
+    current_chunk = document.chunks + cursor.pos.z;
     lines = current_chunk.lines;
     cursor.pos.y = Math::clamp(cursor.pos.y, 0, current_chunk.lines.length - 1);
     cursor.pos.x = Math::clamp(cursor.last_valid_char_pos, 0, lines[cursor.pos.y].length);
     
-    var has_cursor_moved = !equal(editor_state.cursor.pos, old_cursor_pos);
+    var has_cursor_moved = !equal(active_tab.cursor.pos, old_cursor_pos);
     if (has_cursor_moved) {
         reset_cursor_blink();
     }
     var old_cursor_pos_valid = old_cursor_pos.y < lines.length && old_cursor_pos.x <= lines[old_cursor_pos.y].length;
-    if (!is_printable(char.value@i8) && editor_state.shift_pressed && !cursor.selection_active && has_cursor_moved && old_cursor_pos_valid) {
+    if (!is_printable(char.value@i8) && editor_state.shift_pressed && !cursor.selection_active && has_cursor_moved && old_cursor_pos_valid && vk_code != Windows::VK_TAB) {
         cursor.selection_active = true;
         cursor.selection_start = old_cursor_pos;
     }
     if (!editor_state.shift_pressed && should_clear_selection) {
-        editor_state.cursor.selection_active = false;
+        active_tab.cursor.selection_active = false;
     }
 
 #if DEBUG
@@ -1095,11 +1270,81 @@ let handle_editor_key_up = fun(vk_code: i32) => void {
     }
 }
 
+let parse_command_line = fun(cmd_line: string) => string {
+    var result = string { };
+    if (cmd_line.length == 0) {
+        return result;
+    }
+    var pos = 0;
+    var in_quotes = false;
+    while (pos < cmd_line.length) {
+        if (cmd_line[pos] == ord("\"")) {
+            in_quotes = !in_quotes;
+        }
+        elif (!in_quotes && is_whitespace(cmd_line[pos])) {
+            pos++;
+            break;
+        }
+        pos++;
+    }
+    if (pos < cmd_line.length) {
+        while (is_whitespace(cmd_line[pos])) { pos++; }
+        result.data = cmd_line.data + pos;
+        result.length = cmd_line.length - pos;    
+    }
+    return result;
+}
+
+
+let load_text_file = fun(tab: panel_tab*; file_name: string) => void {
+    var document = tab.document;
+    var watermark = start_temp(&temp_memory_arena);
+    var txt = read_file(file_name);
+    if (txt.length > 0) {
+        paste_string(tab, txt);
+        document.file_name = file_name;
+    } else {
+        debug_print("could not load text file with argument", file_name);
+    }
+    stop_temp(&temp_memory_arena, watermark);
+    syntax_highlight(document);
+    tab.cursor.pos = v3iz;
+}
+
+let save_text_file = fun(tab: panel_tab*) => void {
+    var document = tab.document;
+    if (document.file_name.length > 0) {
+        var first = v3iz;
+        var last: v3i;
+        last.z = document.chunks_count - 1;
+        var chunk = document.chunks + (document.chunks_count - 1);
+        last.y =  chunk.lines.length - 1;
+        last.x = chunk.lines[last.y].length;
+        copy_to_clipboard(tab, first, last, false);
+        write_file(document.file_name, tab.cursor.clipboard);
+        // editor_state.render_state.color_scale = 2.0;
+    }
+}
+
+let render = fun(editor_state: editor_state*; window_state: window_state*) => void {
+    var t0 = get_perf_counter();
+    var time = get_seconds_elapsed(editor_state.start_time_ticks, t0);
+    var render_state = &editor_state.global_render_state;
+    render_state.delta_time = time@f32 - render_state.time;
+    render_state.time = time@f32;
+    render_opengl(window.client_width, window.client_height, editor_state, window.dc);
+    var t1 = get_perf_counter();
+    // frames++;
+    // if (frames == 600) {
+    //     // debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
+    //     frames = 0;
+    // }
+}
 
 [
     "compile.output": "edit.exe",
     "compile.entry" : "true",
-    "compile.opt"   : "4",
+    "compile.opt"   : "0",
     "compile.debuginfo": "true",
     "compile.ll"    : "false",
     "compile.asm"   : "false",
@@ -1111,13 +1356,19 @@ let handle_editor_key_up = fun(vk_code: i32) => void {
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
     
+    var cmd_line_ptr = Windows::GetCommandLineA();
+    var cmd_line_str: string;
+    cmd_line_str.data = cmd_line_ptr;
+    cmd_line_str.length = strlen(cmd_line_ptr)@i32;
+    var argument = parse_command_line(cmd_line_str);
+    
     // SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
     SetProcessDPIAware();
 
     var t0 = get_perf_counter();
     
-    let buffer_width  = 1920;
-    let buffer_height = 1080;
+    let buffer_width  = 1280;
+    let buffer_height = 720;
     
     var client_rect = RECT { 0, 0, buffer_width, buffer_height };
     AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
@@ -1141,7 +1392,7 @@ let main = fun() => void {
     window_class.hCursor = LoadCursorA(null, IDC_ARROW);
     RegisterClassExA(&window_class);
     
-    let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
+    let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE | WS_THICKFRAME | WS_MAXIMIZEBOX;
     let dw_ex_style = 0 & WS_EX_TOPMOST;
 
     window.handle = CreateWindowExA(
@@ -1160,33 +1411,24 @@ let main = fun() => void {
     );
     window.dc = GetDC(window.handle);
 
+    
     var gl_t0 = get_perf_counter();
-    init_opengl(window.dc);
-    init_gl_resources();
-    var gl_t1 = get_perf_counter();
-
-    // debug_print_f64("init opengl time: ", get_seconds_elapsed(gl_t0, gl_t1));
-    var frames = 0;
-    
     editor_state = create_editor_state();
+    var render_state = &editor_state.global_render_state;
+    init_opengl(window.dc);
+    init_gl_resources(render_state);
     init_lexer(&temp_memory_arena);
+    var gl_t1 = get_perf_counter();
     
-    var render_state = &editor_state.render_state;
-
-    var start_time = get_perf_counter();
+    if (argument.length > 0) {
+        load_text_file(editor_state.panel.active_tab, argument);
+    }
+    
+    editor_state.start_time_ticks = get_perf_counter();
     while (!window.wants_to_quit) {
         process_pending_messages();
-        var t0 = get_perf_counter();
-        var time = get_seconds_elapsed(start_time, t0);
-        render_state.delta_time = time@f32 - render_state.time;
-        render_state.time = time@f32;
-        render_opengl(window.client_width, window.client_height, &editor_state, window.dc);
-        var t1 = get_perf_counter();
-        frames++;
-        if (frames == 600) {
-            // debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
-            frames = 0;
-        }
+        render(&editor_state, &window);
     }
     ExitProcess(0);
 }
+

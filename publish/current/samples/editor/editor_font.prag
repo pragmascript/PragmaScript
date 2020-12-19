@@ -212,11 +212,14 @@ let add_character = fun(char: character; char_next: character; selected: bool; p
     }
 }
 
-let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) => void {
-    var render_state = &editor_state.render_state;
+let render_panel = fun(panel: editor_panel*; global_render_state: global_render_state*) => void {
+    var font_size = global_render_state.font_size;
+    var font = &global_render_state.font;
     
+    var active_tab = panel.active_tab;
+    var document = active_tab.document;
     
-    var cursor = &editor_state.cursor;
+    var cursor = &active_tab.cursor;
     var relative_size = font_size / font.base_size@f32;
     
     var quads = mesh { };
@@ -245,6 +248,9 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
         v3(1.0, 0.0, 1.0),
         v3(1.0, 1.0, 1.0)
     ];    
+    
+    global_render_state.color_scale = Math::lerp(global_render_state.color_scale, global_render_state.target_color_scale, global_render_state.delta_time * 30.0);
+    glUniform1f(global_render_state.color_scale_uniform_location, global_render_state.color_scale);
 
     var render_context = text_render_context { };
     render_context.font = font;
@@ -255,10 +261,10 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     render_context.background_color_selected = v3(0.118 - 0.05, 0.118 - 0.05, 0.118 - 0.05);
     render_context.alignment = char_alignment::left;
     render_context.quads = &quads;
-    render_context.render_width = render_state.render_width;
-    render_context.render_height = render_state.render_height;
+    render_context.render_width = global_render_state.render_width;
+    render_context.render_height = global_render_state.render_height;
     
-    var temp_memory = &render_state.temp_memory;
+    var temp_memory = &global_render_state.temp_memory;
     var watermark = start_temp(temp_memory);
     
     
@@ -273,15 +279,15 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     quads.indices.data = push(temp_memory, @mm max_chars * 6 * size_of(i32))@i32*;
     quads.indices.length = max_chars * 6;
     
-    var useable_height = render_state.render_height@f32; 
+    var useable_height = global_render_state.render_height@f32; 
     var line_height = relative_size * font.base_size@f32;
-    render_state.visible_line_count = Math::ceil(useable_height / line_height)@i32;
+    panel.visible_line_count = Math::ceil(useable_height / line_height)@i32;
     
     var half_line_height = 0.5 * line_height;
-    var start_pos = render_state.text_render_pos;
+    var start_pos = v2z; // render_state.text_render_pos;
     
     var p = start_pos;
-    p = add(p, render_state.scroll_pos);
+    p = add(p, active_tab.scroll_pos);
     var start_x_text = p.x + 100;
     var start_x_line_numbers = p.x + 50;
     
@@ -291,17 +297,16 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     var max_safe_y = render_context.render_height@f32 + line_height@f32; 
     
     var total_line_idx = 0;
-    for (var chunk_idx = 0; chunk_idx < editor_state.chunks_count; ++chunk_idx) {
+    for (var chunk_idx = 0; chunk_idx < document.chunks_count; ++chunk_idx) {
         p.x = start_x_line_numbers;
         // p.y -= @f32 first_visible_line_idx * line_height;
         
         render_context.foreground_color = line_font_color;
         render_context.alignment = char_alignment::right;
         
-        var current_chunk = editor_state.chunks + chunk_idx;
+        var current_chunk = document.chunks + chunk_idx;
         var lines = current_chunk.lines;
         var temp_used = start_temp(&temp_memory_arena);
-        
         var temp_y = p.y;
         
         
@@ -335,17 +340,17 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                 var cursor_p = p;
                 var should_draw = p.y > min_safe_y && p.y < max_safe_y;
                 if (should_draw) {
-                    var selected = is_in_selection(editor_state, char_idx, line_idx, chunk_idx);
+                    var selected = is_in_selection(&active_tab.cursor, char_idx, line_idx, chunk_idx);
                     if (char_idx != current_line.length) {
                         var char = *(current_line.chars + char_idx);
                         var char_next = from_ascii(0);
                         if (char_idx < current_line.length - 1) {
                             char_next = *(current_line.chars + (char_idx + 1));    
                         }
+                        render_context.foreground_color = theme_colors[char.token_type@i32];
                         if (draw_chunk_colors) {
                             render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];    
                         }
-                        render_context.foreground_color = theme_colors[char.token_type@i32];
                         add_character(char, char_next, selected, &p, &render_context);
                     } else {
                         if (selected && char_idx == 0) {
@@ -356,12 +361,12 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
                 
                 // TODO this should be extracted into a function. We can determine the exact cursor position just using the line height and pseudo rendering the single line the cursor is on (without actually drawing it)
                 if (chunk_idx == cursor.pos.z && line_idx == cursor.pos.y && char_idx == cursor.pos.x) {
-                    cursor_center.x = cursor_p.x + render_state.scroll_target.x - render_state.scroll_pos.x;
+                    cursor_center.x = cursor_p.x + active_tab.scroll_target.x - active_tab.scroll_pos.x;
                     
                     cursor_p.x -= 18.0 * relative_size;
                     cursor_p.y += 24.0 * relative_size;
                     
-                    cursor_center.y = p.y - half_line_height + render_state.scroll_target.y - render_state.scroll_pos.y;
+                    cursor_center.y = p.y - half_line_height + active_tab.scroll_target.y - active_tab.scroll_pos.y;
                     
                     if (cursor.draw_cursor && should_draw) {
                         render_context.foreground_color = cursor_font_color;
@@ -380,20 +385,19 @@ let render_text = fun(editor_state: editor_state*; font: font*; font_size: f32) 
     var left_margin:f32 = start_pos.x + 100;
     var cursor_margin = 1.5 * half_line_height;
     if (cursor_center.y - cursor_margin < 0) {
-        render_state.scroll_target.y -= (cursor_center.y - cursor_margin);
+        active_tab.scroll_target.y -= (cursor_center.y - cursor_margin);
     }
-    if (cursor_center.y + cursor_margin > render_state.render_height@f32) {
-        render_state.scroll_target.y += render_state.render_height@f32 - (cursor_center.y + cursor_margin);
+    if (cursor_center.y + cursor_margin > global_render_state.render_height@f32) {
+        active_tab.scroll_target.y += global_render_state.render_height@f32 - (cursor_center.y + cursor_margin);
     }
     if (cursor_center.x < left_margin) {
-        render_state.scroll_target.x -= cursor_center.x - left_margin;
+        active_tab.scroll_target.x -= cursor_center.x - left_margin;
     }
-    if (cursor_center.x + cursor_margin > render_state.render_width@f32) {
-        render_state.scroll_target.x += render_state.render_width@f32 - (cursor_center.x + cursor_margin);
+    if (cursor_center.x + cursor_margin > global_render_state.render_width@f32) {
+        active_tab.scroll_target.x += global_render_state.render_width@f32 - (cursor_center.x + cursor_margin);
     }
     
-    var t = render_state.delta_time * 25.0;
-    render_state.scroll_pos = lerp(render_state.scroll_pos, render_state.scroll_target, t);
+    active_tab.scroll_pos = lerp(active_tab.scroll_pos, active_tab.scroll_target, global_render_state.delta_time * 25.0);
     
     
     var current_quad_count = quads.current_quad_count;
