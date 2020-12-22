@@ -16,7 +16,7 @@ let key_repeat_interval = 0.020;
 let draw_chunk_colors = false;
 let spaces_to_indent = 4;
     
-
+    
 let window_state = struct 
 (
     handle: mm;
@@ -72,6 +72,7 @@ let global_render_state = struct(
     temp_memory: memory_arena;
 );
 let editor_panel = struct(
+    render_region: rect;
     visible_line_count: i32;
     tabs: panel_tab[];
     active_tab: panel_tab*;

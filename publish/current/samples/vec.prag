@@ -240,6 +240,20 @@ let equal = fun(a: v2i; b: v2i) => bool {
     return a.x == b.x && a.y == b.y;
 }
 
+let rect = struct
+(
+    min: v2i;
+    max: v2i;
+);
+let width = fun(@rect: rect*) => i32 
+{
+    return max.x - min.x;
+}
+let height = fun(@rect: rect*) => i32 
+{
+    return max.y - min.y;
+}
+
 let v3i = struct 
 (
     x: i32;

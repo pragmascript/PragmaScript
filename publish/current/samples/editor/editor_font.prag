@@ -261,8 +261,8 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     render_context.background_color_selected = v3(0.118 - 0.05, 0.118 - 0.05, 0.118 - 0.05);
     render_context.alignment = char_alignment::left;
     render_context.quads = &quads;
-    render_context.render_width = global_render_state.render_width;
-    render_context.render_height = global_render_state.render_height;
+    render_context.render_width = width(&panel.render_region);
+    render_context.render_height = height(&panel.render_region);
     
     var temp_memory = &global_render_state.temp_memory;
     var watermark = start_temp(temp_memory);
@@ -284,7 +284,7 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     panel.visible_line_count = Math::ceil(useable_height / line_height)@i32;
     
     var half_line_height = 0.5 * line_height;
-    var start_pos = v2z; // render_state.text_render_pos;
+    var start_pos = v2(panel.render_region.min.x@f32, panel.render_region.min.y@f32);
     
     var p = start_pos;
     p = add(p, active_tab.scroll_pos);
@@ -382,19 +382,23 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     }
     
     
-    var left_margin:f32 = start_pos.x + 100;
+    
+    
+    var cursor_bounds = panel.render_region;
     var cursor_margin = 1.5 * half_line_height;
+    cursor_bounds.min.x += 100;
+    
     if (cursor_center.y - cursor_margin < 0) {
         active_tab.scroll_target.y -= (cursor_center.y - cursor_margin);
     }
-    if (cursor_center.y + cursor_margin > global_render_state.render_height@f32) {
-        active_tab.scroll_target.y += global_render_state.render_height@f32 - (cursor_center.y + cursor_margin);
+    if (cursor_center.y + cursor_margin > render_context.render_height@f32) {
+        active_tab.scroll_target.y += render_context.render_height@f32 - (cursor_center.y + cursor_margin);
     }
     if (cursor_center.x < left_margin) {
         active_tab.scroll_target.x -= cursor_center.x - left_margin;
     }
-    if (cursor_center.x + cursor_margin > global_render_state.render_width@f32) {
-        active_tab.scroll_target.x += global_render_state.render_width@f32 - (cursor_center.x + cursor_margin);
+    if (cursor_center.x + cursor_margin > render_context.render_width@f32) {
+        active_tab.scroll_target.x += render_context.render_width@f32 - (cursor_center.x + cursor_margin);
     }
     
     active_tab.scroll_pos = lerp(active_tab.scroll_pos, active_tab.scroll_target, global_render_state.delta_time * 25.0);
