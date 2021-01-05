@@ -523,7 +523,6 @@ let get_line_indent = fun(line: line*) => i32 {
     return result;
 }
 
-
 // TODO(pragma): find first non empty line i guess?
 let get_next_indent = fun(line: line*; char_pos: i32) => i32 {
     var result = get_line_indent(line);
@@ -710,9 +709,12 @@ let copy_to_clipboard = fun(tab: panel_tab*; first: v3i; last: v3i; copy_to_os_c
                 *char_ptr = chr.value;
                 char_count++;
             }
-            if (y != last.y) {
+            if (z != last.z || y != last.y) {
                 char_ptr = push(&temp_memory_arena, 1);
-                *char_ptr = ord("\n");
+                *char_ptr = 10;
+                char_count++;
+                char_ptr = push(&temp_memory_arena, 1);
+                *char_ptr = 13;
                 char_count++;
             }
         }
@@ -1390,12 +1392,13 @@ let load_text_file = fun(tab: panel_tab*; file_name: string) => void {
     stop_temp(&temp_memory_arena, watermark);
 }
 
-let load_all_files_in_directory = fun(editor_state: editor_state*) => void {
+let load_all_files_in_directory = fun(editor_state: editor_state*; dir: string) => void {
     var data = WIN32_FIND_DATA {};
-    var handle = Windows::FindFirstFileA(cstr("*.prag\0"), &data);
+    var wc = concat(dir[:-1], "*.prag\0");
+    var handle = Windows::FindFirstFileA(cstr(wc), &data);
     if (handle != Windows::INVALID_HANDLE_VALUE) {
         while (true) {
-            var file_name = clone_string(from_cstr(&data.FileName[0], 260));
+            var file_name = clone_string(concat(dir[:-1], from_cstr(&data.FileName[0], 260)));
             debug_print("filename", file_name);
             var doc = add_document(editor_state);
             var left_tab = add_tab(&editor_state.left_panel, doc);
@@ -1428,7 +1431,6 @@ let save_text_file = fun(tab: panel_tab*) => bool {
     return false;
 }
 
-
 var frames = 0;
 let render = fun(editor_state: editor_state*; window_state: window_state*) => void {
     var t0 = get_perf_counter();
@@ -1448,7 +1450,7 @@ let render = fun(editor_state: editor_state*; window_state: window_state*) => vo
 [
     "compile.output": "edit.exe",
     "compile.entry" : "true",
-    "compile.opt"   : "0",
+    "compile.opt"   : "4",
     "compile.debuginfo": "true",
     "compile.ll"    : "false",
     "compile.asm"   : "false",
@@ -1527,14 +1529,18 @@ let main = fun() => void {
     var gl_t1 = get_perf_counter();
     
     if (argument.length > 0) {
-        if (strings_are_equal(argument, ".")) {
-            load_all_files_in_directory(&editor_state);
+        if (argument[argument.length - 1] == ord(".")) {
+            load_all_files_in_directory(&editor_state, argument);
         } else {
             var doc = add_document(&editor_state);
             var left_tab = add_tab(&editor_state.left_panel, doc);
             load_text_file(left_tab, argument);
             var right_tab = add_tab(&editor_state.right_panel, doc);
         }
+    } else {
+        var doc = add_document(&editor_state);
+        var left_tab = add_tab(&editor_state.left_panel, doc);
+        var right_tab = add_tab(&editor_state.right_panel, doc);
     }
     
     editor_state.start_time_ticks = get_perf_counter();
