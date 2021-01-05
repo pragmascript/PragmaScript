@@ -301,6 +301,14 @@ let make_string = fun(length: i32; arena: memory_arena* = &temp_memory_arena) =>
     return result;
 }
 
+let clone_string = fun(s: string; arena: memory_arena* = &temp_memory_arena) => string {
+    var result = make_string(s.length + 1, arena);
+    result[result.length - 1] = 0;
+    result.length--;
+    memcpy(result.data, s.data, result.length@mm);
+    return result;
+}
+
 let concat = fun(a: string; b: string; arena: memory_arena* = &temp_memory_arena) => string {
     var result = make_string(a.length + b.length, arena);
     memcpy(result.data, a.data, @mm a.length);

@@ -16,7 +16,7 @@ let global_lexer_state = struct(
 
 var global_lexer_state: global_lexer_state;
 
-var init_lexer = fun(memory_arena: memory_arena*) => void {
+let init_lexer = fun(memory_arena: memory_arena*) => void {
     var keywords = 
     [
         "let",

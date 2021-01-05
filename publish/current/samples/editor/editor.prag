@@ -1375,6 +1375,7 @@ let add_tab = fun(panel: editor_panel*; document: document*) => panel_tab* {
 }
 
 let load_text_file = fun(tab: panel_tab*; file_name: string) => void {
+    var temp_file_name = file_name;
     var document = tab.document;
     var watermark = start_temp(&temp_memory_arena);
     var txt = read_file(file_name);
@@ -1384,9 +1385,9 @@ let load_text_file = fun(tab: panel_tab*; file_name: string) => void {
     } else {
         debug_print("could not load text file with argument", file_name);
     }
-    stop_temp(&temp_memory_arena, watermark);
     syntax_highlight(document);
     tab.cursor.pos = v3iz;
+    stop_temp(&temp_memory_arena, watermark);
 }
 
 let load_all_files_in_directory = fun(editor_state: editor_state*) => void {
@@ -1394,7 +1395,15 @@ let load_all_files_in_directory = fun(editor_state: editor_state*) => void {
     var handle = Windows::FindFirstFileA(cstr("*.prag\0"), &data);
     if (handle != Windows::INVALID_HANDLE_VALUE) {
         while (true) {
-            var filename = from_cstr(&data.FileName[0], 260);
+            var file_name = clone_string(from_cstr(&data.FileName[0], 260));
+            debug_print("filename", file_name);
+            var doc = add_document(editor_state);
+            var left_tab = add_tab(&editor_state.left_panel, doc);
+            load_text_file(left_tab, file_name);
+            var right_tab = add_tab(&editor_state.right_panel, doc);
+            left_tab.cursor.pos = v3iz;
+            right_tab.cursor.pos = v3iz;
+            syntax_highlight(doc);
             if (Windows::FindNextFileA(handle, &data) == 0) {
                 break;
             }
@@ -1522,8 +1531,9 @@ let main = fun() => void {
             load_all_files_in_directory(&editor_state);
         } else {
             var doc = add_document(&editor_state);
-            var tab = add_tab(editor_state.active_panel, doc);
-            load_text_file(tab, argument);
+            var left_tab = add_tab(&editor_state.left_panel, doc);
+            load_text_file(left_tab, argument);
+            var right_tab = add_tab(&editor_state.right_panel, doc);
         }
     }
     
