@@ -8,6 +8,7 @@ let wglGetProcAddress = extern fun(str: ptr) => ptr;
 let glClearColor = extern fun(r: f32; g: f32; b: f32; a: f32) => void;
 let glClear = extern fun(flags: i32) => void;
 let glViewport = extern fun(x: i32; y: i32; width: i32; height: i32) => void;
+let glScissor = extern fun(x: i32; y: i32; width: i32; height: i32) => void;
 
 let glBegin = extern fun(flags: i32) => void;
 let glColor3f = extern fun(r: f32; g: f32; b: f32) => void;
@@ -177,6 +178,7 @@ let GL_DEBUG_SEVERITY_HIGH            = 0x9146;
 let GL_DEBUG_SEVERITY_MEDIUM          = 0x9147;
 let GL_DEBUG_SEVERITY_LOW             = 0x9148;
 let GL_DEBUG_SEVERITY_NOTIFICATION    = 0x826B;
+let GL_SCISSOR_TEST                   = 0x0C11;
 
 var wglCreateContextAttribsARB: fun(
     hdc: mm;

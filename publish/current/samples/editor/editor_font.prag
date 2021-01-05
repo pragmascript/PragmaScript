@@ -88,16 +88,16 @@ let load_font = fun() => font {
         
 #if false
         var font_handle = CreateFontA(result.base_size, 0, 0, 0,
-                                      FW_NORMAL,
-                                      0,
-                                      0,
-                                      0,
-                                      DEFAULT_CHARSET,
-                                      OUT_DEFAULT_PRECIS,
-                                      CLIP_DEFAULT_PRECIS,
-                                      ANTIALIASED_QUALITY,
-                                      DEFAULT_PITCH|FF_DONTCARE,
-                                      cstr("IBM Plex Mono\0"));
+                                    FW_NORMAL,
+                                    0,
+                                    0,
+                                    0,
+                                    DEFAULT_CHARSET,
+                                    OUT_DEFAULT_PRECIS,
+                                    CLIP_DEFAULT_PRECIS,
+                                    ANTIALIASED_QUALITY,
+                                    DEFAULT_PITCH|FF_DONTCARE,
+                                    cstr("IBM Plex Mono\0"));
         assert(font_handle != Windows::INVALID_HANDLE_VALUE);
         var font_dc = CreateCompatibleDC(GetDC(0));
         SelectObject(font_dc, font_handle);
@@ -141,7 +141,6 @@ let char_alignment = enum(
     right;
 );
 
-
 let text_render_context = struct(
     font: font*;
     relative_size: f32;
@@ -153,6 +152,15 @@ let text_render_context = struct(
     render_width: i32;
     render_height: i32;
 );
+
+let add_line_highlight = fun(p: v2*; @text_render_context: text_render_context*) => void {
+    var current_p = *p;
+    var start_pos = map_to_gl(v3(current_p.x, current_p.y, 0), render_width, render_height);
+    var line_height = (relative_size * font.base_size@f32) / (render_height - 1)@f32;
+    var size = v2(render_width@f32, 2*line_height); 
+    var c = v4 { background_color.x, background_color.y, background_color.z, 1.0 };
+    add_quad(quads, start_pos, size, v2z, v2z, c, background_color);
+}
 
 let add_character = fun(char: character; char_next: character; selected: bool; p: v2*;
                         @text_render_context: text_render_context*) => void {
@@ -212,12 +220,12 @@ let add_character = fun(char: character; char_next: character; selected: bool; p
     }
 }
 
-let render_panel = fun(panel: editor_panel*; global_render_state: global_render_state*) => void {
+let render_panel = fun(panel: editor_panel*; global_render_state: global_render_state*; is_active_panel: bool) => void {
     var font_size = global_render_state.font_size;
     var font = &global_render_state.font;
     
     var active_tab = panel.active_tab;
-    var document = active_tab.document;
+    
     
     var cursor = &active_tab.cursor;
     var relative_size = font_size / font.base_size@f32;
@@ -225,20 +233,25 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     var quads = mesh { };
     let max_chars = max_line_length * text_chunk_line_count;
     
+    let tab_title_bar_color = v3(0.118 + 0.05, 0.118 + 0.05, 0.118 + 0.05);
+    let active_tab_font_color = v3(0.9, 0.9, 0.9);
+    let inactive_tab_font_color = v3(0.5, 0.5, 0.5);
     let regular_font_color = v3(0.831, 0.831, 0.788);
     let line_font_color = scaled(regular_font_color, 0.3);
     let cursor_font_color = regular_font_color;
+    let background_color_regular = v3(0.118, 0.118, 0.118);
+    let background_color_selection = v3(0.118 - 0.05, 0.118 - 0.05, 0.118 - 0.05);
+    let background_color_highlight = v3(0.118 + 0.03, 0.118 + 0.03, 0.118 + 0.03);
     
     var theme_colors = [
-        regular_font_color, // none
-        regular_font_color, // identifier
-        v3(255/255.0, 167/255.0, 89/255.0), // keyword
-        v3(255/255.0, 204/255.0, 102/255.0), // number
-        v3(186/255.0, 230/255.0, 126/255.0), // string
-        v3(242/255.0, 158/255.0, 116/255.0), // operator
-        v3(92/255.0, 103/255.0, 115/255.0) // comment
+        regular_font_color,                     // none
+        regular_font_color,                     // identifier
+        v3(255/255.0, 167/255.0, 89/255.0),     // keyword
+        v3(255/255.0, 204/255.0, 102/255.0),    // number
+        v3(186/255.0, 230/255.0, 126/255.0),    // string
+        v3(242/255.0, 158/255.0, 116/255.0),    // operator
+        v3(92/255.0, 103/255.0, 115/255.0)      // comment
     ];
-    
     var random_colors = [
         v3(1.0, 0.0, 0.0),
         v3(0.0, 1.0, 0.0),
@@ -256,9 +269,9 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     render_context.font = font;
     render_context.relative_size = relative_size;
     render_context.foreground_color = regular_font_color;
-    render_context.background_color = v3(0.118, 0.118, 0.118);
+    render_context.background_color = background_color_regular;
     gl_state.clear_color = render_context.background_color;
-    render_context.background_color_selected = v3(0.118 - 0.05, 0.118 - 0.05, 0.118 - 0.05);
+    render_context.background_color_selected = background_color_selection;
     render_context.alignment = char_alignment::left;
     render_context.quads = &quads;
     render_context.render_width = width(&panel.render_region);
@@ -266,7 +279,6 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     
     var temp_memory = &global_render_state.temp_memory;
     var watermark = start_temp(temp_memory);
-    
     
     quads.vertices.data = push(temp_memory, @mm max_chars * 4 * size_of(v3))@v3*;
     quads.vertices.length = max_chars * 4;
@@ -279,130 +291,187 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     quads.indices.data = push(temp_memory, @mm max_chars * 6 * size_of(i32))@i32*;
     quads.indices.length = max_chars * 6;
     
-    var useable_height = global_render_state.render_height@f32; 
     var line_height = relative_size * font.base_size@f32;
+    var title_bar_height = line_height;
+    var half_line_height = 0.5 * line_height;
+    var useable_height = render_context.render_height@f32 - title_bar_height; 
     panel.visible_line_count = Math::ceil(useable_height / line_height)@i32;
     
-    var half_line_height = 0.5 * line_height;
-    var start_pos = v2(panel.render_region.min.x@f32, panel.render_region.min.y@f32);
+    var p = v2z;
     
-    var p = start_pos;
-    p = add(p, active_tab.scroll_pos);
-    var start_x_text = p.x + 100;
-    var start_x_line_numbers = p.x + 50;
-    
-    var cursor_center = v2z;
-    
-    var min_safe_y = 0.0;
-    var max_safe_y = render_context.render_height@f32 + line_height@f32; 
-    
-    var total_line_idx = 0;
-    for (var chunk_idx = 0; chunk_idx < document.chunks_count; ++chunk_idx) {
-        p.x = start_x_line_numbers;
-        // p.y -= @f32 first_visible_line_idx * line_height;
+    if (active_tab@ptr != nullptr) {
+        var document = active_tab.document;
+        p = add(p, active_tab.scroll_pos);
+        var start_x_text = p.x + 100;
+        var start_x_line_numbers = p.x + 75;
+        var cursor_center = v2z;
+        var min_safe_y = 0.0;
+        var max_safe_y = render_context.render_height@f32 + line_height@f32 - title_bar_height; 
         
-        render_context.foreground_color = line_font_color;
-        render_context.alignment = char_alignment::right;
-        
-        var current_chunk = document.chunks + chunk_idx;
-        var lines = current_chunk.lines;
-        var temp_used = start_temp(&temp_memory_arena);
-        var temp_y = p.y;
-        
-        
-        // render line numbers
-        for (var line_idx = 0; line_idx < current_chunk.lines.length; ++line_idx) {
-            if (p.y > min_safe_y && p.y < max_safe_y) {
-                var line_number = to_str(total_line_idx + line_idx + 1);
-                for (var char_idx = line_number.length - 1; char_idx >= 0; --char_idx) {
-                    var char = from_ascii(line_number[char_idx]);
-                    var char_next = from_ascii(0);
-                    if (char_idx < line_number.length - 1) {
-                        char_next = from_ascii(line_number[char_idx + 1]);    
-                    }
-                    add_character(char, char_next, false, &p, &render_context);
-                }
-            }
-            p.y -= line_height;
+        var total_line_idx = 0;
+        for (var chunk_idx = 0; chunk_idx < document.chunks_count; ++chunk_idx) {
             p.x = start_x_line_numbers;
-        }
-        stop_temp(&temp_memory_arena, temp_used);
-        render_context.foreground_color = regular_font_color;
-        render_context.alignment = char_alignment::left;
-        
-        p.y = temp_y;
-        p.x = start_x_text;
-        // render text
-        for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
-            total_line_idx++;        
-            var current_line = lines[line_idx];
-            for (var char_idx = 0; char_idx < current_line.length + 1; ++char_idx) {
-                var cursor_p = p;
-                var should_draw = p.y > min_safe_y && p.y < max_safe_y;
-                if (should_draw) {
-                    var selected = is_in_selection(&active_tab.cursor, char_idx, line_idx, chunk_idx);
-                    if (char_idx != current_line.length) {
-                        var char = *(current_line.chars + char_idx);
+            var temp_y = p.y;
+            
+            render_context.foreground_color = line_font_color;
+            render_context.alignment = char_alignment::right;
+            
+            var current_chunk = document.chunks + chunk_idx;
+            var lines = current_chunk.lines;
+            var temp_used = start_temp(&temp_memory_arena);
+            // render line numbers
+            for (var line_idx = 0; line_idx < current_chunk.lines.length; ++line_idx) {
+                if (p.y > min_safe_y && p.y < max_safe_y) {
+                    var line_number = to_str(total_line_idx + line_idx + 1);
+                    for (var char_idx = line_number.length - 1; char_idx >= 0; --char_idx) {
+                        var char = from_ascii(line_number[char_idx]);
                         var char_next = from_ascii(0);
-                        if (char_idx < current_line.length - 1) {
-                            char_next = *(current_line.chars + (char_idx + 1));    
+                        if (char_idx < line_number.length - 1) {
+                            char_next = from_ascii(line_number[char_idx + 1]);    
                         }
-                        render_context.foreground_color = theme_colors[char.token_type@i32];
-                        if (draw_chunk_colors) {
-                            render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];    
-                        }
-                        add_character(char, char_next, selected, &p, &render_context);
-                    } else {
-                        if (selected && char_idx == 0) {
-                            add_character(from_ascii(ord(" ")), from_ascii(0), selected, &p, &render_context);
-                        }
+                        add_character(char, char_next, false, &p, &render_context);
                     }
+                }
+                p.y -= line_height;
+                p.x = start_x_line_numbers;
+            }
+            stop_temp(&temp_memory_arena, temp_used);
+            render_context.foreground_color = regular_font_color;
+            render_context.alignment = char_alignment::left;
+            
+            p.y = temp_y;
+            p.x = start_x_text;
+            // render text
+            for (var line_idx = 0; line_idx < lines.length; ++line_idx) {
+                total_line_idx++;        
+                var current_line = lines[line_idx];
+                
+                var cursor_in_this_line = chunk_idx == cursor.pos.z && line_idx == cursor.pos.y;
+                if (is_active_panel && cursor_in_this_line) {
+                    render_context.background_color = background_color_highlight;
+                    add_line_highlight(&p, &render_context);
+                } else {
+                    render_context.background_color = background_color_regular;
                 }
                 
-                // TODO this should be extracted into a function. We can determine the exact cursor position just using the line height and pseudo rendering the single line the cursor is on (without actually drawing it)
-                if (chunk_idx == cursor.pos.z && line_idx == cursor.pos.y && char_idx == cursor.pos.x) {
-                    cursor_center.x = cursor_p.x + active_tab.scroll_target.x - active_tab.scroll_pos.x;
+                for (var char_idx = 0; char_idx < current_line.length + 1; ++char_idx) {
+                    var cursor_p = p;
                     
-                    cursor_p.x -= 18.0 * relative_size;
-                    cursor_p.y += 24.0 * relative_size;
+                    // TODO(pragma): we can also include x here:
+                    var should_draw = p.y > min_safe_y && p.y < max_safe_y;
+                    if (should_draw) {
+                        var selected = is_in_selection(&active_tab.cursor, char_idx, line_idx, chunk_idx);
+                        if (char_idx != current_line.length) {
+                            var char = *(current_line.chars + char_idx);
+                            var char_next = from_ascii(0);
+                            if (char_idx < current_line.length - 1) {
+                                char_next = *(current_line.chars + (char_idx + 1));    
+                            }
+                            render_context.foreground_color = theme_colors[char.token_type@i32];
+                            if (draw_chunk_colors) {
+                                render_context.foreground_color = random_colors[chunk_idx % len(random_colors)@i32];    
+                            }
+                            add_character(char, char_next, selected, &p, &render_context);
+                        } else {
+                            if (selected && char_idx == 0) {
+                                add_character(from_ascii(ord(" ")), from_ascii(0), selected, &p, &render_context);
+                            }
+                        }
+                    }
                     
-                    cursor_center.y = p.y - half_line_height + active_tab.scroll_target.y - active_tab.scroll_pos.y;
                     
-                    if (cursor.draw_cursor && should_draw) {
-                        render_context.foreground_color = cursor_font_color;
-                        render_context.relative_size = relative_size * 1.2;
-                        add_character(from_ascii(ord("|")), from_ascii(0), false, &cursor_p, &render_context);
-                        render_context.relative_size = relative_size;
+                    if (is_active_panel) {
+                        // TODO this should be extracted into a function. We can determine the exact cursor position just using the line height and pseudo rendering the single line the cursor is on (without actually drawing it)
+                        if (cursor_in_this_line && char_idx == cursor.pos.x) {
+                            cursor_center.x = cursor_p.x + active_tab.scroll_target.x - active_tab.scroll_pos.x;
+                            
+                            cursor_p.x -= 18.0 * relative_size;
+                            cursor_p.y += 1 * relative_size;
+                            cursor_center.y = p.y - half_line_height + active_tab.scroll_target.y - active_tab.scroll_pos.y;
+                            
+                            if (cursor.draw_cursor && should_draw) {
+                                render_context.foreground_color = cursor_font_color;
+                                render_context.relative_size = relative_size * 1.2;
+                                add_character(from_ascii(ord("|")), from_ascii(0), false, &cursor_p, &render_context);
+                                // add_character(from_ascii(219), from_ascii(0), false, &cursor_p, &render_context);
+                                render_context.relative_size = relative_size;
+                            }
+                        }
                     }
                 }
+                p.y -= line_height;
+                p.x = start_x_text;
             }
-            p.y -= line_height;
-            p.x = start_x_text;
+        }
+
+        if (active_tab.scroll_pos.y < useable_height - half_line_height) {
+            active_tab.scroll_pos.y = useable_height - half_line_height;
+            active_tab.scroll_target.y = useable_height - half_line_height;
+        }
+        
+        if (is_active_panel) {
+            var cursor_margin = 1.5 * half_line_height;
+            var left_margin:f32 = 100;
+            if (cursor_center.y - cursor_margin < 0) {
+                active_tab.scroll_target.y -= (cursor_center.y - cursor_margin);
+            }
+            if (cursor_center.y + cursor_margin > useable_height@f32) {
+                active_tab.scroll_target.y += useable_height@f32 - (cursor_center.y + cursor_margin);
+            }
+            if (cursor_center.x < left_margin) {
+                active_tab.scroll_target.x -= cursor_center.x - left_margin;
+            }
+            if (cursor_center.x + cursor_margin > render_context.render_width@f32) {
+                active_tab.scroll_target.x += render_context.render_width@f32 - (cursor_center.x + cursor_margin);
+            }
+        }
+        active_tab.scroll_pos = lerp(active_tab.scroll_pos, active_tab.scroll_target, global_render_state.delta_time * 25.0);
+    }
+    
+    
+    var start_x_title = 25;
+    var start_y_title = render_context.render_height;
+    
+    // render title bar
+    p = v2(0, start_y_title@f32);
+    render_context.background_color = tab_title_bar_color;
+    add_line_highlight(&p, &render_context);
+    p.x += start_x_title@f32;
+    p.y -= 4;
+    
+    for (var tab_idx = 0; tab_idx < panel.tabs.length; ++tab_idx) {
+        var tab = &panel.tabs[tab_idx];
+        var is_active_tab = tab == active_tab;
+        if (is_active_tab) {
+            render_context.foreground_color = active_tab_font_color;    
+        } else {
+            render_context.foreground_color = inactive_tab_font_color;    
+        }
+        var tab_doc = tab.document;
+        var tab_title: string;
+        if (tab_doc.file_name.length > 0) {
+            tab_title = tab_doc.file_name;
+        } else {
+            tab_title = concat("Untitled-", to_str(tab_doc.idx, false, temp_memory), temp_memory);
+        }
+        for (var char_idx = 0; char_idx < tab_title.length; ++char_idx) {
+            var char = from_ascii(tab_title[char_idx]);
+            var char_next = from_ascii(0);
+            if (char_idx < tab_title.length - 1) {
+                char_next = from_ascii(tab_title[char_idx + 1]);
+            }
+            add_character(char, char_next, false, &p, &render_context);
+        }
+        if (tab_idx != panel.tabs.length - 1) {
+            render_context.foreground_color = inactive_tab_font_color;
+            add_character(from_ascii(ord(" ")), from_ascii(0), false, &p, &render_context);
+            var p_offset = p;
+            p_offset.y += 0.5 * half_line_height;
+            add_character(from_ascii(ord(".")), from_ascii(0), false, &p_offset, &render_context);
+            p.x = p_offset.x;
+            add_character(from_ascii(ord(" ")), from_ascii(0), false, &p, &render_context);
         }
     }
-    
-    
-    
-    
-    var cursor_bounds = panel.render_region;
-    var cursor_margin = 1.5 * half_line_height;
-    cursor_bounds.min.x += 100;
-    
-    if (cursor_center.y - cursor_margin < 0) {
-        active_tab.scroll_target.y -= (cursor_center.y - cursor_margin);
-    }
-    if (cursor_center.y + cursor_margin > render_context.render_height@f32) {
-        active_tab.scroll_target.y += render_context.render_height@f32 - (cursor_center.y + cursor_margin);
-    }
-    if (cursor_center.x < left_margin) {
-        active_tab.scroll_target.x -= cursor_center.x - left_margin;
-    }
-    if (cursor_center.x + cursor_margin > render_context.render_width@f32) {
-        active_tab.scroll_target.x += render_context.render_width@f32 - (cursor_center.x + cursor_margin);
-    }
-    
-    active_tab.scroll_pos = lerp(active_tab.scroll_pos, active_tab.scroll_target, global_render_state.delta_time * 25.0);
-    
     
     var current_quad_count = quads.current_quad_count;
     var current_vertex_count = current_quad_count * 4;

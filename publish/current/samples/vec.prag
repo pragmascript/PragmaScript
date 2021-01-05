@@ -239,6 +239,15 @@ let sub = fun (a: v2i; b: v2i) => v2i {
 let equal = fun(a: v2i; b: v2i) => bool {
     return a.x == b.x && a.y == b.y;
 }
+let debug_print = fun(name: string; value: v2i) => void {
+    print(name);
+    print(": (");
+    print(value.x);
+    print(", ");
+    print(value.y);
+    print(")\n");
+}
+
 
 let rect = struct
 (

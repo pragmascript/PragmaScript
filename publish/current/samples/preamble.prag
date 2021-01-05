@@ -308,6 +308,30 @@ let concat = fun(a: string; b: string; arena: memory_arena* = &temp_memory_arena
     return result;
 }
 
+let trim_left = fun(s: string) => string {
+    var result = s;
+    while (result.length > 0 && is_whitespace(result[0])) {
+        result.data++;
+        result.length--;
+    }
+    return result;
+}
+
+let trim_right = fun(s: string) => string {
+    var result = s;
+    while (result.length > 0 && is_whitespace(result[result.length - 1])) {
+        result.length--;
+    }
+    return result;
+}
+
+let trim = fun(s: string) => string {
+    var result = s;
+    result = trim_left(result);
+    result = trim_right(result);
+    return result;
+}
+
 let from_str = fun(str: string; value: i32*) => bool {
     var result = 0;
     var sign = 1;

@@ -42,7 +42,7 @@ let cursor = struct(
 );
 let key_down_state = struct(
     last_key_down_time: f32;
-    last_last_key_repeat_time: f32;
+    last_key_repeat_time: f32;
 );
 
 let document = struct(
@@ -50,12 +50,14 @@ let document = struct(
     chunks: text_chunk*;
     chunks_count: i32;
     chunks_capacity: i32;
+    idx: i32;
 );
 let panel_tab = struct(
     scroll_pos: v2;
     scroll_target: v2;
     document: document*;
     cursor: cursor;
+    idx: i32;
 );
 let global_render_state = struct(
     font: font;
@@ -65,8 +67,6 @@ let global_render_state = struct(
     color_scale: f32;
     target_color_scale: f32;
     color_scale_uniform_location: i32;
-    render_width: i32;
-    render_height: i32;
     time: f32;        
     delta_time: f32;
     temp_memory: memory_arena;
@@ -75,6 +75,7 @@ let editor_panel = struct(
     render_region: rect;
     visible_line_count: i32;
     tabs: panel_tab[];
+    tabs_capacity: i32;
     active_tab: panel_tab*;
 );
 let character = struct(
@@ -100,8 +101,13 @@ let editor_state = struct(
     
     key_down_state: key_down_state[];
     
-    panel: editor_panel;
-    document: document;
+    left_panel: editor_panel;
+    right_panel: editor_panel;
+    active_panel: editor_panel*;
+    
+    documents: document[];
+    documents_capacity: i32;
+    
     global_render_state: global_render_state;
 );
 let from_ascii = fun(value: i8) => character {
@@ -145,8 +151,8 @@ let process_pending_messages = fun() => void {
                 var time = editor_state.global_render_state.time;
                 var key_down_state = &editor_state.key_down_state[vk_code];
                 if (time - key_down_state.last_key_down_time > key_repeat_delay) {
-                    if (time - key_down_state.last_last_key_repeat_time > key_repeat_interval) {
-                        key_down_state.last_last_key_repeat_time = time;
+                    if (time - key_down_state.last_key_repeat_time > key_repeat_interval) {
+                        key_down_state.last_key_repeat_time = time;
                         handle_editor_key_down(vk_code, true, true);
                     }
                 }
@@ -250,36 +256,45 @@ let recycle_chunk = fun(document_state: document*; chunk_idx: i32) => void {
     document_state.chunks_count--;
 }
 
-let create_document = fun() => document {
+let create_document = fun(idx: i32) => document {
     var result = document { };
     result.chunks_count = 0;
     result.chunks_capacity = 1024;
     result.chunks = allocate((result.chunks_capacity@mm) * size_of(text_chunk))@text_chunk*;
     add_empty_chunk(&result);
     result.chunks.lines.length = 1;
+    result.idx = idx;
     return result;
 }
 
-let create_tab = fun(document: document*) => panel_tab {
+let create_tab = fun(idx: i32; document: document*) => panel_tab {
     var result = panel_tab { };
     result.document = document;
+    result.idx = idx;
     return result;
 }
 
-let create_panel = fun(document: document*) => editor_panel {
+let create_panel = fun() => editor_panel {
     var result = editor_panel { };
     result.visible_line_count = 0;
-    result.tabs.length = 32;
-    result.tabs.data = allocate(size_of(panel_tab) * result.tabs.length@mm)@panel_tab*;
-    result.tabs[0] = create_tab(document);
-    result.active_tab = result.tabs.data;
+    result.tabs_capacity = 1024;
+    result.tabs.data = allocate(size_of(panel_tab) * result.tabs_capacity@mm)@panel_tab*;
+    result.tabs.length = 0;
+    result.active_tab = nullptr@panel_tab*;
     return result;
 }
 
 let create_editor_state = fun(editor_state: editor_state*) => void  {
     *editor_state = editor_state { };
-    editor_state.document = create_document();
-    editor_state.panel = create_panel(&editor_state.document);
+    
+    editor_state.documents_capacity = 1024;
+    editor_state.documents.data = @document* allocate(@mm editor_state.documents_capacity * size_of(document));
+    editor_state.documents.length = 0;
+    
+    editor_state.left_panel = create_panel();
+    editor_state.right_panel = create_panel();
+    editor_state.active_panel = &editor_state.left_panel;
+    
     var global_render_state = &editor_state.global_render_state;
     editor_state.keyboard_state = allocate(256);
     
@@ -294,7 +309,6 @@ let create_editor_state = fun(editor_state: editor_state*) => void  {
 }
 var editor_state: editor_state;
 
-
 let add_empty_chunk = fun(document: document*) => text_chunk* {
     assert(document.chunks_count + 1 <= document.chunks_capacity);
     var chunk_ptr = document.chunks + document.chunks_count;
@@ -308,7 +322,7 @@ let is_printable = fun(char: i8) => bool {
 }
 
 let reset_cursor_blink = fun() => void {
-    var cursor = &editor_state.panel.active_tab.cursor;
+    var cursor = &editor_state.active_panel.active_tab.cursor;
     cursor.draw_cursor = true;
     cursor.cursor_last_blink_time = editor_state.global_render_state.time;
 }
@@ -589,6 +603,7 @@ let insert_line = fun(document: document*; chunk_idx: i32; target_line_idx: i32;
 }
 
 let paste_string = fun(tab: panel_tab*; str: string) => void {
+    var temp_tab = tab;
     var document = tab.document;
     var cursor = &tab.cursor;
     var current_chunk = document.chunks + cursor.pos.z;
@@ -931,10 +946,23 @@ let syntax_highlight = fun(document: document*) => void {
     // debug_print("syntax_highlight time [ms]", get_ms_elapsed(t0, t1));
 }
 
+let clamp_cursor = fun(tab: panel_tab*) => void {
+    var document = tab.document;
+    var cursor = &tab.cursor;
+    cursor.pos.z = Math::clamp(cursor.pos.z, 0, document.chunks_count - 1);
+    var current_chunk = document.chunks + cursor.pos.z;
+    var lines = current_chunk.lines;
+    cursor.pos.y = Math::clamp(cursor.pos.y, 0, current_chunk.lines.length - 1);
+    cursor.pos.x = Math::clamp(cursor.pos.x, 0, lines[cursor.pos.y].length);
+}
+
+
 let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; should_auto_indent: bool) => void {
-    var temp_vk_code = vk_code;
-    var active_panel = &editor_state.panel;
+    var active_panel = editor_state.active_panel;
     var active_tab = active_panel.active_tab;
+    if (active_tab@ptr == nullptr) {
+        return;
+    }
     var document = active_tab.document;
     var cursor = &active_tab.cursor;
     var old_cursor_pos = cursor.pos;
@@ -998,7 +1026,7 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
             }
         }
     }
-    elif (vk_code == VK_TAB) {
+    elif (vk_code == VK_TAB && !editor_state.control_pressed) {
         
         // TODO(pragma): fix selection start not moving with indent/dedent
         if (cursor.selection_active) {
@@ -1221,8 +1249,37 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
         should_clear_selection = false;
     }
     elif (editor_state.control_pressed && vk_code == ord("S")@i32) {
-        save_text_file(active_tab);
-        editor_state.global_render_state.color_scale = 2.0;
+        if (save_text_file(active_tab)) {
+            editor_state.global_render_state.color_scale = 2.0;    
+        }
+    }
+    elif (editor_state.control_pressed && vk_code == ord("1")@i32) {
+        editor_state.active_panel = &editor_state.left_panel;
+        if (editor_state.active_panel.active_tab@ptr != nullptr) {
+            clamp_cursor(editor_state.active_panel.active_tab);
+        }
+    }
+    elif (editor_state.control_pressed && vk_code == ord("2")@i32) {
+        editor_state.active_panel = &editor_state.right_panel;
+        if (editor_state.active_panel.active_tab@ptr != nullptr) {
+            clamp_cursor(editor_state.active_panel.active_tab);    
+        }
+    }
+    elif (editor_state.control_pressed && vk_code == ord("N")@i32){
+        if (active_panel.tabs.length < active_panel.tabs_capacity) {
+            if (editor_state.documents.length < editor_state.documents_capacity) {
+                var doc_idx = editor_state.documents.length++;
+                editor_state.documents[doc_idx] = create_document(doc_idx);
+                var tab_idx = active_panel.tabs.length++;
+                active_panel.tabs[tab_idx] = create_tab(tab_idx, &editor_state.documents[editor_state.documents.length - 1]);
+                active_panel.active_tab = &active_panel.tabs[active_panel.tabs.length - 1];
+            }
+        }
+    }
+    elif (vk_code == VK_TAB && editor_state.control_pressed) {
+        if (active_panel.tabs.length > 0) {
+            active_panel.active_tab = &active_panel.tabs[(active_tab.idx + 1) % active_panel.tabs.length];
+        }
     }
     else {
         should_clear_selection = false;
@@ -1295,6 +1352,27 @@ let parse_command_line = fun(cmd_line: string) => string {
     return result;
 }
 
+let add_document = fun(editor_state: editor_state*) => document* {
+    var result: document* = nullptr@document*;
+    if (editor_state.documents.length < editor_state.documents_capacity) {
+        var idx = editor_state.documents.length++;
+        result = &editor_state.documents[idx];
+        *result = create_document(idx);
+    }
+    return result;
+}
+
+
+let add_tab = fun(panel: editor_panel*; document: document*) => panel_tab* {
+    var result: panel_tab* = nullptr@panel_tab*;
+    if (panel.tabs.length < panel.tabs_capacity) {
+        var idx = panel.tabs.length++;
+        result = &panel.tabs[idx];
+        *result = create_tab(idx, document);
+        panel.active_tab = result;
+    }
+    return result;
+}
 
 let load_text_file = fun(tab: panel_tab*; file_name: string) => void {
     var document = tab.document;
@@ -1311,7 +1389,20 @@ let load_text_file = fun(tab: panel_tab*; file_name: string) => void {
     tab.cursor.pos = v3iz;
 }
 
-let save_text_file = fun(tab: panel_tab*) => void {
+let load_all_files_in_directory = fun(editor_state: editor_state*) => void {
+    var data = WIN32_FIND_DATA {};
+    var handle = Windows::FindFirstFileA(cstr("*.prag\0"), &data);
+    if (handle != Windows::INVALID_HANDLE_VALUE) {
+        while (true) {
+            var filename = from_cstr(&data.FileName[0], 260);
+            if (Windows::FindNextFileA(handle, &data) == 0) {
+                break;
+            }
+        }
+    }
+}
+
+let save_text_file = fun(tab: panel_tab*) => bool {
     var document = tab.document;
     if (document.file_name.length > 0) {
         var first = v3iz;
@@ -1323,9 +1414,13 @@ let save_text_file = fun(tab: panel_tab*) => void {
         copy_to_clipboard(tab, first, last, false);
         write_file(document.file_name, tab.cursor.clipboard);
         // editor_state.render_state.color_scale = 2.0;
+        return true;
     }
+    return false;
 }
 
+
+var frames = 0;
 let render = fun(editor_state: editor_state*; window_state: window_state*) => void {
     var t0 = get_perf_counter();
     var time = get_seconds_elapsed(editor_state.start_time_ticks, t0);
@@ -1336,7 +1431,7 @@ let render = fun(editor_state: editor_state*; window_state: window_state*) => vo
     var t1 = get_perf_counter();
     // frames++;
     // if (frames == 600) {
-    //     // debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
+    //     debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
     //     frames = 0;
     // }
 }
@@ -1360,15 +1455,18 @@ let main = fun() => void {
     var cmd_line_str: string;
     cmd_line_str.data = cmd_line_ptr;
     cmd_line_str.length = strlen(cmd_line_ptr)@i32;
-    var argument = parse_command_line(cmd_line_str);
+    var argument = trim(parse_command_line(cmd_line_str));
     
     // SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
     SetProcessDPIAware();
 
     var t0 = get_perf_counter();
     
-    let buffer_width  = 1280;
-    let buffer_height = 720;
+    // let buffer_width  = 1280;
+    // let buffer_height = 720;
+    let buffer_width  = 1920;
+    let buffer_height = 1080;
+    
     
     var client_rect = RECT { 0, 0, buffer_width, buffer_height };
     AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
@@ -1410,12 +1508,9 @@ let main = fun() => void {
         null
     );
     window.dc = GetDC(window.handle);
-
     
     var gl_t0 = get_perf_counter();
     create_editor_state(&editor_state);
-    debug_print("editor_state", editor_state.panel.active_tab.document.chunks_count);
-    var temp_editor_state = &editor_state;
     var render_state = &editor_state.global_render_state;
     init_opengl(window.dc);
     init_gl_resources(render_state);
@@ -1423,7 +1518,13 @@ let main = fun() => void {
     var gl_t1 = get_perf_counter();
     
     if (argument.length > 0) {
-        load_text_file(editor_state.panel.active_tab, argument);
+        if (strings_are_equal(argument, ".")) {
+            load_all_files_in_directory(&editor_state);
+        } else {
+            var doc = add_document(&editor_state);
+            var tab = add_tab(editor_state.active_panel, doc);
+            load_text_file(tab, argument);
+        }
     }
     
     editor_state.start_time_ticks = get_perf_counter();

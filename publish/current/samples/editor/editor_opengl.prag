@@ -300,6 +300,7 @@ let init_opengl = fun (window_dc: mm) => void {
     wglSwapIntervalEXT(0);
     
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+    glEnable(GL_SCISSOR_TEST);
 
     *(&glDebugMessageCallback@ptr*) = wglGetProcAddress(cstr("glDebugMessageCallback\0"));
     assert(glDebugMessageCallback@ptr != nullptr);
@@ -580,36 +581,50 @@ fs_source[fs_source.length - 1] = 0;
 
 
 let render_opengl = fun (client_width: i32; client_height: i32; editor_state: editor_state*; window_dc: mm) => void {
-    
     var render_state = &editor_state.global_render_state;
-    render_state.render_width = client_width;
-    render_state.render_height = client_height;
     var time = render_state.time;
     var t = render_state.delta_time * 25.0;
     render_state.font_size = Math::lerp(render_state.font_size, render_state.target_font_size, t);
-    
 
-    var panel = &editor_state.panel;
-    var active_tab = panel.active_tab;
-    var cursor = active_tab.cursor;
-    var flip_cursor = time - cursor.cursor_last_blink_time >= 0.5;
-    if (flip_cursor) {
-        cursor.cursor_last_blink_time = time;
-        cursor.draw_cursor = !cursor.draw_cursor;
-    }
-    
-    var view_rect = rect { 
-        v2i(100, 0), 
-        v2i(client_width, client_height) 
-    };
-    glViewport(view_rect.min.x, view_rect.min.y, view_rect.max.x, view_rect.max.y);
+    glScissor(0, 0, client_width, client_height);
     glClearColor(gl_state.clear_color.x, gl_state.clear_color.y, gl_state.clear_color.z, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
-
-    panel.render_region = view_rect;
-    render_panel(panel, render_state);
     
+    var panels = [&editor_state.left_panel, &editor_state.right_panel];
+    for (var panel_idx = 0; panel_idx < len(panels)@i32; ++panel_idx) {
+        var panel = panels[panel_idx];
+        if (panel != nullptr@editor_panel*) {
+            var active_tab = panel.active_tab;
+            if (active_tab@ptr != nullptr) {
+                var cursor = &active_tab.cursor;
+                if (panel == editor_state.active_panel) {
+                    var flip_cursor = time - cursor.cursor_last_blink_time >= 0.5;
+                    if (flip_cursor) {
+                        cursor.cursor_last_blink_time = time;
+                        cursor.draw_cursor = !cursor.draw_cursor;
+                    }
+                } else {
+                    cursor.draw_cursor = false;
+                }
+            }
+            var view_rect: rect;
+            if (panel_idx == 0) {
+                view_rect = rect { 
+                    v2i(0, 0), 
+                    v2i(client_width/2, client_height) 
+                };
+            } else {
+                view_rect = rect { 
+                    v2i(client_width/2, 0), 
+                    v2i(client_width, client_height) 
+                };
+            }
+            
+            glViewport(view_rect.min.x, view_rect.min.y, width(&view_rect), height(&view_rect));
+            panel.render_region = view_rect;
+            render_panel(panel, render_state, panel == editor_state.active_panel);
+        }
+    }
     // TODO(pragma): autocomplete SwapBuffers is not working. (modules...)
     SwapBuffers(window_dc);
-} 
-
+}

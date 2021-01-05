@@ -263,6 +263,10 @@
         FileName: i8*;
         FindData: WIN32_FIND_DATA*;
       ) => mm;
+      let FindNextFileA = extern fun(
+        handle: mm;
+        FindData: WIN32_FIND_DATA*;
+      ) => i32;
 
       let FindClose = extern fun 
       (
