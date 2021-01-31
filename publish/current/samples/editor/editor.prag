@@ -40,12 +40,13 @@ let cursor = struct(
     selection_start: v3i;
     
     clipboard: string;
+    
+    should_scroll_to_cursor: bool;
 );
 let key_down_state = struct(
     last_key_down_time: f32;
     last_key_repeat_time: f32;
 );
-
 let document = struct(
     file_name: string;
     chunks: text_chunk*;
@@ -104,7 +105,6 @@ let text_chunk = struct(
     needs_syntax_highlight: bool;
     is_dirty_for_undo: bool;
 );
-
 let editor_state = struct(
     start_time_ticks: i64;
     last_keypress_time: f32;
@@ -118,6 +118,7 @@ let editor_state = struct(
     
     left_panel: editor_panel;
     right_panel: editor_panel;
+    console_panel: editor_panel;
     active_panel: editor_panel*;
     
     documents: document[];
@@ -127,7 +128,25 @@ let editor_state = struct(
     
     undo_points: undo_point[];
     undo_pos: i32;
+    
+    text_panel_commands: editor_commmand[];
 );
+
+let command_context = struct(
+    foo: i32;
+);
+let key_combo = struct(
+    vk_code: i32;
+    shift: bool;
+    control: bool;
+    alt: bool;
+);
+let editor_commmand = struct(
+    key_combo: key_combo;
+    command: fun(cmd: command_context*) => bool;
+);
+
+
 let from_ascii = fun(value: i8) => character {
     return character { value };
 }
@@ -1116,9 +1135,16 @@ let handle_search_key_down = fun(vk_code: i32) => void {
     }
 }
 
-let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; should_auto_indent: bool) => void {
-    editor_state.last_keypress_time = editor_state.global_render_state.time;
-    var active_panel = editor_state.active_panel;
+let handle_console_key_down = fun(vk_code: i32; console: editor_panel*) => void {
+}
+
+
+let register_text_panel_commands = fun() => void {
+    
+}
+
+let handle_text_panel_key_down = fun(vk_code: i32; active_panel: editor_panel*; should_syntax_highlight: bool; 
+                                     should_auto_indent: bool) => void {
     var active_tab = active_panel.active_tab;
     if (active_tab@ptr == nullptr) {
         return;
@@ -1126,7 +1152,6 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
     var document = active_tab.document;
     var cursor = &active_tab.cursor;
     var old_cursor_pos = cursor.pos;
-    
     var current_chunk = document.chunks + cursor.pos.z;
     var lines = current_chunk.lines;
     var lines_ptr = &current_chunk.lines;
@@ -1140,9 +1165,9 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
     assert(lines.length > 0);
     
     var old_editor_dirty_for_undo = editor_state.dirty_for_undo;
+    
     // TODO(pragma): this could be more finegrain
     editor_state.dirty_for_undo = true;
-    
     
     var char_word: i16 = 0;
     GetKeyboardState(editor_state.keyboard_state);
@@ -1181,7 +1206,6 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
             delete_selection(active_tab);
             cursor.last_valid_char_pos = cursor.pos.x;
         } else {
-            
             if (left_is_whitespace(current_line_ptr, cursor.pos.x) && cursor.pos.x >= spaces_to_indent) {
                 // TODO(pragma): this is not quite correct we want to snap to multiples of spaces_to_indent
                 for (var indent_idx = 0; indent_idx < spaces_to_indent; ++indent_idx) {
@@ -1282,15 +1306,25 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
         cursor.last_valid_char_pos = cursor.pos.x;
     }
     elif (vk_code == VK_UP) {
-        cursor_up(active_tab, cursor);
-        if (!cursor.selection_active && editor_state.shift_pressed) {
-            cursor.last_valid_char_pos = cursor.pos.x;
+        if (editor_state.control_pressed) {
+            scroll_lines(active_panel, &editor_state.global_render_state, -1);
+            should_clear_selection = false;
+        } else {
+            cursor_up(active_tab, cursor);
+            if (!cursor.selection_active && editor_state.shift_pressed) {
+                cursor.last_valid_char_pos = cursor.pos.x;
+            }
         }
     }
     elif (vk_code == VK_DOWN) {
-        cursor_down(active_tab, cursor);
-        if (!cursor.selection_active && editor_state.shift_pressed) {
-            cursor.last_valid_char_pos = cursor.pos.x;
+        if (editor_state.control_pressed) {
+            scroll_lines(active_panel, &editor_state.global_render_state, +1);
+            should_clear_selection = false;
+        } else {
+            cursor_down(active_tab, cursor);
+            if (!cursor.selection_active && editor_state.shift_pressed) {
+                cursor.last_valid_char_pos = cursor.pos.x;
+            }
         }
     }
     elif (vk_code == VK_END) {
@@ -1470,13 +1504,14 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
     if (should_syntax_highlight) {
         syntax_highlight(document);
     }
-    
+        
     current_chunk = document.chunks + cursor.pos.z;
     lines = current_chunk.lines;
     cursor.pos.y = Math::clamp(cursor.pos.y, 0, current_chunk.lines.length - 1);
     cursor.pos.x = Math::clamp(cursor.last_valid_char_pos, 0, lines[cursor.pos.y].length);
     
     var has_cursor_moved = !equal(active_tab.cursor.pos, old_cursor_pos);
+    active_tab.cursor.should_scroll_to_cursor = has_cursor_moved;
     if (has_cursor_moved) {
         reset_cursor_blink();
     }
@@ -1491,7 +1526,6 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
     if (!editor_state.shift_pressed && should_clear_selection) {
         active_tab.cursor.selection_active = false;
     }
-
 #if DEBUG
     lines_ptr = &current_chunk.lines;
     current_line_ptr = &lines[cursor.pos.y];
@@ -1500,6 +1534,17 @@ let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; sh
     assert(cursor.pos.y < lines_ptr.length);
     assert(lines_ptr.length <= text_chunk_line_count);
 #endif
+}
+
+let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; should_auto_indent: bool) => void {
+    editor_state.last_keypress_time = editor_state.global_render_state.time;
+    var active_panel = editor_state.active_panel;
+    if (active_panel == &editor_state.console_panel) {
+        handle_console_key_down(vk_code, active_panel);
+        return;
+    } else {
+        handle_text_panel_key_down(vk_code, active_panel, should_syntax_highlight, should_auto_indent);
+    }
 }
 
 let handle_editor_key_up = fun(vk_code: i32) => void {
@@ -1615,6 +1660,7 @@ let save_text_file = fun(tab: panel_tab*) => bool {
 }
 
 var frames = 0;
+
 let render = fun(editor_state: editor_state*; window_state: window_state*) => void {
     var t0 = get_perf_counter();
     var time = get_seconds_elapsed(editor_state.start_time_ticks, t0);
@@ -1638,7 +1684,7 @@ let render = fun(editor_state: editor_state*; window_state: window_state*) => vo
     "compile.entry" : "true",
     "compile.opt"   : "4",
     "compile.debuginfo": "true",
-    "compile.ll"    : "false",
+    "compile.ll"    : "true",
     "compile.asm"   : "false",
     "compile.cpu"   : "native", // "sandybridge",
     "compile.run"   : "true",
@@ -1647,6 +1693,7 @@ let render = fun(editor_state: editor_state*; window_state: window_state*) => vo
 ]
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
+    
     
     var cmd_line_ptr = Windows::GetCommandLineA();
     var cmd_line_str: string;

@@ -220,13 +220,19 @@ let add_character = fun(char: character; char_next: character; selected: bool; p
     }
 }
 
-let render_panel = fun(panel: editor_panel*; global_render_state: global_render_state*; is_active_panel: bool) => void {
+let scroll_lines = fun(panel: editor_panel*; global_render_state: global_render_state*; lines_delta: i32) => void {
+    var font_size = global_render_state.font_size;
+    var line_height = font_size;
+    var active_tab = panel.active_tab;
+    var cursor = &active_tab.cursor;
+    active_tab.scroll_target.y += @f32 lines_delta * line_height;
+}
+
+let render_panel = fun(panel: editor_panel*; global_render_state: global_render_state*; is_active_panel: bool;) => void {
     var font_size = global_render_state.font_size;
     var font = &global_render_state.font;
     
     var active_tab = panel.active_tab;
-    
-    
     var cursor = &active_tab.cursor;
     var relative_size = font_size / font.base_size@f32;
     
@@ -409,7 +415,7 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
             active_tab.scroll_target.y = useable_height - half_line_height;
         }
         
-        if (is_active_panel) {
+        if (is_active_panel && cursor.should_scroll_to_cursor) {
             var cursor_margin = 1.5 * half_line_height;
             var left_margin:f32 = 100;
             if (cursor_center.y - cursor_margin < 0) {
@@ -424,6 +430,7 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
             if (cursor_center.x + cursor_margin > render_context.render_width@f32) {
                 active_tab.scroll_target.x += render_context.render_width@f32 - (cursor_center.x + cursor_margin);
             }
+            cursor.should_scroll_to_cursor = false;
         }
         active_tab.scroll_pos = lerp(active_tab.scroll_pos, active_tab.scroll_target, global_render_state.delta_time * 25.0);
     }

@@ -60,7 +60,6 @@ let load_bitmap = fun(file: string) => bitmap {
     return result;
 }
 
-
 let mesh = struct (
     vertices: v3[];
     indices: i32[];
@@ -577,8 +576,6 @@ fs_source[fs_source.length - 1] = 0;
     
     gl_resources_initialized = true;
 }
-
-
 
 let render_opengl = fun (client_width: i32; client_height: i32; editor_state: editor_state*; window_dc: mm) => void {
     var render_state = &editor_state.global_render_state;

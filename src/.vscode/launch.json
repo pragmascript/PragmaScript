@@ -11,7 +11,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceRoot}/bin/Debug/netcoreapp3.1/win7-x64/pragma.dll",
+            "program": "${workspaceRoot}/bin/Debug/net5.0/win7-x64/pragma.dll",
             "args": [],
             "cwd": "${workspaceRoot}",
             "justMyCode": false,

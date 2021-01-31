@@ -355,11 +355,11 @@ namespace PragmaScript
                                 }
                             }
                             var ns = scope.AddModule(path, root: true);
-                            
+
                             // TODO(pragma): DO I need to speed this up?
                             if (!scope.importedModules.Contains(ns))
                             {
-                                scope.importedModules.Add(ns);    
+                                scope.importedModules.Add(ns);
                             }
                             foundWith = true;
                             ps.ExpectNextToken(Token.TokenType.Semicolon);
@@ -1596,6 +1596,11 @@ namespace PragmaScript
             else
             {
                 throw new System.NotImplementedException();
+            }
+
+            if (result.fields.Count == 0)
+            {
+                throw new CompilerError("Empty structs are not supported.", result.token);
             }
 
             return result;

@@ -42,12 +42,12 @@ namespace PragmaScript
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "test", "array.prag");
-            
-            
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
-            
 
-            
+
+            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+
+
+
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
             CompilerOptions._i.inputFilename = Path.Combine(programDir, "editor", "editor.prag");
@@ -71,7 +71,7 @@ namespace PragmaScript
             }
             catch (Exception e)
             {
-                if (e is CompilerError || e is LexerError) 
+                if (e is CompilerError || e is LexerError)
                 {
                     CompilerMessage(e.Message, CompilerMessageType.Error);
                 }
@@ -80,7 +80,7 @@ namespace PragmaScript
                     throw e;
                 }
             }
-            
+
         }
 
 
@@ -110,7 +110,7 @@ namespace PragmaScript
             var name = Console.ReadLine();
         }
 
-        
+
         public static void CompilerMessage(string message, CompilerMessageType type)
         {
             bool shouldPrint = CompilerOptions._i.verbose;
@@ -121,7 +121,8 @@ namespace PragmaScript
                     shouldPrint = true;
                     break;
             }
-            if (shouldPrint) {
+            if (shouldPrint)
+            {
                 Console.WriteLine(message);
             }
         }
