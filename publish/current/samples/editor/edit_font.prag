@@ -4,8 +4,8 @@ import "../opengl/opengl.prag"
 import "../xml.prag"
 
 
-import "editor.prag"
-import "editor_opengl.prag"
+import "edit.prag"
+import "edit_opengl.prag"
 
 let glyph = struct(
     id: i8;

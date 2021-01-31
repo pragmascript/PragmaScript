@@ -1,5 +1,5 @@
 import "../preamble.prag"
-import "editor.prag"
+import "edit.prag"
 
 let token_type = enum(
     none; identifier; keyword; number; string; operator; comment;   

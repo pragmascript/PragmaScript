@@ -692,7 +692,6 @@ let strlen = fun(str: ptr) => mm {
     return result;
 }
 
-
 let from_cstr = fun(cstr: ptr; maxLength: i32 = 1024) => string {
     var result: string;
     result.data = cstr;
@@ -706,7 +705,9 @@ let from_cstr = fun(cstr: ptr; maxLength: i32 = 1024) => string {
 
 let ord = fun(value: string) => i8
 {
+#if SLOW
     assert(value.length == 1);
+#endif
     return value[0];
 }
 

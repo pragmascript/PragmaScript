@@ -5,7 +5,7 @@ import "../windows.prag"
 
 import "../png.prag"
 
-import "editor_font.prag"
+import "edit_font.prag"
 
 with Windows;
 

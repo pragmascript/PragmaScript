@@ -1,0 +1,267 @@
+import "../preamble.prag"
+import "../windows.prag"
+import "edit.prag"
+
+with Windows;
+
+let key_repeat_delay = 0.5;
+let key_repeat_interval = 0.020;
+
+let key_down_state = struct(
+    last_key_down_time: f32;
+    last_key_repeat_time: f32;
+);
+let window_state = struct 
+(
+    handle: mm;
+    dc: mm;
+    client_width: i32;
+    client_height: i32;
+    wants_to_quit: bool;
+    
+    key_down_state: key_down_state[];
+);
+var window: window_state;
+
+let process_pending_messages = fun() => void {
+    var msg: MSG;
+    while (PeekMessageA(&msg, null, 0, 0, PM_REMOVE|PM_NOYIELD) != 0) {
+        var message = msg.message;
+        if (message == WM_QUIT) {
+            window.wants_to_quit = true;
+        } 
+        elif (message == WM_SYSKEYDOWN
+            || message == WM_SYSKEYUP
+            || message == WM_KEYDOWN
+            || message == WM_KEYUP) {
+
+            // TODO(pragma): read this https://blog.molecular-matters.com/2011/09/05/properly-handling-keyboard-input/
+
+            var w_param = @i32 (msg.wParam >> 32@mm);
+            var l_param = @i32 (msg.lParam >> 32@mm);
+            var vk_code = w_param;
+
+            var was_down = (l_param & (1 << 30)) != 0;
+            var is_down = (l_param & (1 << 31)) == 0;
+            var key_up = was_down && !is_down;
+            var key_down = !was_down && is_down; 
+            
+            // debug_print("w_param", w_param);
+            // debug_print("l_param", l_param);
+            
+            if (key_down) {
+                handle_editor_key_down(vk_code, true, true);
+                window.key_down_state[vk_code].last_key_down_time = editor_state.global_render_state.time;
+            }
+            if (key_up) {
+                handle_editor_key_up(vk_code);
+            }
+            if (is_down) {
+                var time = editor_state.global_render_state.time;
+                var key_down_state = &window.key_down_state[vk_code];
+                if (time - key_down_state.last_key_down_time > key_repeat_delay) {
+                    if (time - key_down_state.last_key_repeat_time > key_repeat_interval) {
+                        key_down_state.last_key_repeat_time = time;
+                        handle_editor_key_down(vk_code, true, true);
+                    }
+                }
+            }
+            if(vk_code == VK_ESCAPE) {
+                window.wants_to_quit = true;
+            }
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+        }
+    }
+}
+
+let main_window_callback = fun
+(
+    window_handle: mm;
+    message: i32;
+    w_param: mm;
+    l_param: mm;
+) => mm {
+    var result = null;
+    if (message == WM_SIZE || message == WM_SIZING) {
+        if (message == WM_SIZE) {
+            var dx = LOWORD(l_param);
+            var dy = HIWORD(l_param);
+            window.client_width = dx@i32;
+            window.client_height = dy@i32;
+        }
+    }
+    elif (message == WM_CLOSE) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_DESTROY) {
+        window.wants_to_quit = true;
+    }
+    elif (message == WM_PAINT) {
+        var paint: PAINTSTRUCT;
+        var context = BeginPaint(window_handle, &paint);
+        
+        render_opengl(window.client_width, window.client_height, &editor_state, window.dc);
+        
+        // print("WM_PAINT\n");
+        // blit_to_screen(window.dc, &window.backbuffer);
+        EndPaint(window_handle, &paint);
+    } 
+    else {
+        result = DefWindowProcA(window_handle, message, w_param, l_param);
+    }
+    return result;
+}
+
+let parse_command_line = fun(cmd_line: string) => string {
+    var result = string { };
+    if (cmd_line.length == 0) {
+        return result;
+    }
+    var pos = 0;
+    var in_quotes = false;
+    while (pos < cmd_line.length) {
+        if (cmd_line[pos] == ord("\"")) {
+            in_quotes = !in_quotes;
+        }
+        elif (!in_quotes && is_whitespace(cmd_line[pos])) {
+            pos++;
+            break;
+        }
+        pos++;
+    }
+    if (pos < cmd_line.length) {
+        while (is_whitespace(cmd_line[pos])) { pos++; }
+        result.data = cmd_line.data + pos;
+        result.length = cmd_line.length - pos;    
+    }
+    return result;
+}
+
+
+let PROCESS_SYSTEM_DPI_AWARE = 1;
+
+let SetProcessDpiAwareness = extern fun(
+    value: i32;
+) => i32;
+
+let SetProcessDPIAware = extern fun(
+) => i32;
+
+let LOWORD = fun(p: mm) => i16 {
+    return (p & 0xFFFF)@i16;
+}
+
+let HIWORD = fun(p: mm) => i16 {
+    return ((p >>\ 16) & 0xFFFF)@i16;
+}
+
+[
+    "compile.output": "edit.exe",
+    "compile.entry" : "true",
+    "compile.opt"   : "4",
+    "compile.debuginfo": "true",
+    "compile.ll"    : "true",
+    "compile.asm"   : "false",
+    "compile.cpu"   : "native", // "sandybridge",
+    "compile.run"   : "true",
+    "compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
+    "compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun() => void {
+    QueryPerformanceFrequency(&perf_count_freq);
+    
+    var cmd_line_ptr = Windows::GetCommandLineA();
+    var cmd_line_str: string;
+    cmd_line_str.data = cmd_line_ptr;
+    cmd_line_str.length = strlen(cmd_line_ptr)@i32;
+    var argument = trim(parse_command_line(cmd_line_str));
+    
+    // SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
+    SetProcessDPIAware();
+
+    var t0 = get_perf_counter();
+    
+    // let buffer_width  = 1280;
+    // let buffer_height = 720;
+    let buffer_width  = 1920;
+    let buffer_height = 1080;
+    
+    
+    var client_rect = RECT { 0, 0, buffer_width, buffer_height };
+    AdjustWindowRectEx(&client_rect, dw_style, 0, dw_ex_style);
+
+    var window_width = client_rect.right - client_rect.left;
+    assert(window_width > 0);
+    var window_height = client_rect.bottom - client_rect.top;
+    assert(window_height > 0);
+    window.client_width = buffer_width;
+    window.client_height = buffer_height;
+    
+    window.key_down_state.data = @key_down_state* allocate(256 * size_of(key_down_state));
+    window.key_down_state.length = 256;
+    
+    var class_name  = cstr("editor_window_class\0");
+    var window_name = cstr("edit\0");
+    var module_handle = GetModuleHandleA(null);
+    var window_class = WNDCLASSEX {};
+    window_class.cbSize = size_of(WNDCLASSEX)@i32;
+    window_class.style = CS_HREDRAW|CS_VREDRAW;
+    window_class.lpfnWndProc = @ptr main_window_callback;
+    window_class.hInstance = module_handle;
+    window_class.lpszClassName = class_name;
+    window_class.hCursor = LoadCursorA(null, IDC_ARROW);
+    RegisterClassExA(&window_class);
+    
+    let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE | WS_THICKFRAME | WS_MAXIMIZEBOX;
+    let dw_ex_style = 0 & WS_EX_TOPMOST;
+
+    window.handle = CreateWindowExA(
+        dw_ex_style,
+        class_name,
+        window_name,
+        dw_style,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        window_width,
+        window_height,
+        null,
+        null,
+        module_handle,
+        null
+    );
+    window.dc = GetDC(window.handle);
+    
+    var gl_t0 = get_perf_counter();
+    create_editor_state(&editor_state);
+    var render_state = &editor_state.global_render_state;
+    init_opengl(window.dc);
+    init_gl_resources(render_state);
+    init_lexer(&temp_memory_arena);
+    var gl_t1 = get_perf_counter();
+    
+    if (argument.length > 0) {
+        if (argument[argument.length - 1] == ord(".")) {
+            load_all_files_in_directory(&editor_state, argument);
+        } else {
+            var doc = add_document(&editor_state);
+            var left_tab = add_tab(&editor_state.left_panel, doc);
+            load_text_file(left_tab, argument);
+            var right_tab = add_tab(&editor_state.right_panel, doc);
+        }
+    } else {
+        var doc = add_document(&editor_state);
+        var left_tab = add_tab(&editor_state.left_panel, doc);
+        var right_tab = add_tab(&editor_state.right_panel, doc);
+    }
+    
+    add_undo_point(&editor_state, editor_state.active_panel.active_tab);
+    
+    editor_state.start_time_ticks = get_perf_counter();
+    while (!window.wants_to_quit) {
+        process_pending_messages();
+        render(&editor_state, &window);
+    }
+    ExitProcess(0);
+}
