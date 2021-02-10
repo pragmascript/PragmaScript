@@ -97,6 +97,7 @@ let editor_state = struct(
     keyboard_state: i8*;
     shift_pressed: bool;
     control_pressed: bool;
+    alt_pressed: bool;
     
     left_panel: editor_panel;
     right_panel: editor_panel;
@@ -231,6 +232,8 @@ let create_editor_state = fun(editor_state: editor_state*) => void  {
     
     editor_state.commands_capacity = 1024;
     editor_state.commands.data = @editor_command_mapping* allocate(@mm editor_state.commands_capacity * size_of(editor_command_mapping));
+    
+    register_text_panel_commands(editor_state);
 }
 var editor_state: editor_state;
 
@@ -1027,13 +1030,24 @@ let handle_text_panel_key_down = fun(vk_code: i32; active_panel: editor_panel*; 
     var current_line = lines[cursor.pos.y];
     var current_line_ptr = &lines[cursor.pos.y];
     
+    var cmd_ctx = command_context { };
+    cmd_ctx.active_panel = active_panel;
+    cmd_ctx.active_tab = active_tab;
+    cmd_ctx.document = document;
+    cmd_ctx.cursor = cursor;
+    cmd_ctx.current_chunk = current_chunk;
+    cmd_ctx.lines = lines;
+    cmd_ctx.current_line = current_line_ptr;
+    cmd_ctx.should_clear_selection = true;
+    cmd_ctx.suppress_new_selection = false;
+    cmd_ctx.should_auto_indent = should_auto_indent;
+    cmd_ctx.old_editor_dirty_for_undo = editor_state.dirty_for_undo;
+    
     assert(current_line.length >= 0 && current_line.length < max_line_length);
     assert(cursor.pos.x <= current_line.length);
     assert(cursor.pos.y < lines.length);
     assert(lines.length <= text_chunk_line_count);
     assert(lines.length > 0);
-    
-    var old_editor_dirty_for_undo = editor_state.dirty_for_undo;
     
     // TODO(pragma): this could be more finegrain
     editor_state.dirty_for_undo = true;
@@ -1043,9 +1057,6 @@ let handle_text_panel_key_down = fun(vk_code: i32; active_panel: editor_panel*; 
     ToAscii(vk_code, vk_code, editor_state.keyboard_state, &char_word, 0);
     char_word = 0xFF & char_word;
     var char = from_ascii(char_word@i8);
-    
-    var should_clear_selection = true;
-    var supress_new_selection = false;
     
     if (is_printable(char.value@i8)) {
         if (cursor.selection_active) {
@@ -1070,304 +1081,33 @@ let handle_text_panel_key_down = fun(vk_code: i32; active_panel: editor_panel*; 
         }
         mark_dirty(current_chunk);
     }
-    elif (vk_code == VK_BACK) {
-        if (cursor.selection_active) {
-            delete_selection(active_tab);
-            cursor.last_valid_char_pos = cursor.pos.x;
-        } else {
-            if (left_is_whitespace(current_line_ptr, cursor.pos.x) && cursor.pos.x >= spaces_to_indent) {
-                // TODO(pragma): this is not quite correct we want to snap to multiples of spaces_to_indent
-                for (var indent_idx = 0; indent_idx < spaces_to_indent; ++indent_idx) {
-                    handle_backspace(active_tab);
-                }
-            } else {
-                handle_backspace(active_tab);
-            }
-        }
-    }
-    elif (vk_code == VK_TAB && !editor_state.control_pressed) {
-        supress_new_selection = true;
-        // TODO(pragma): fix selection start not moving with indent/dedent
-        if (cursor.selection_active) {
-            var dedent = editor_state.shift_pressed;
-            var temp_line_length = current_line_ptr.length;
-            change_indent_selection(active_tab, dedent);
-            var delta = current_line_ptr.length - temp_line_length;
-            cursor.pos.x = Math::max(0, cursor.pos.x + delta);
-            cursor.last_valid_char_pos = cursor.pos.x;
-            should_clear_selection = false;
-        } else {
-            if (!editor_state.shift_pressed) {
-                indent_line(current_line_ptr, cursor.pos.x);
-                cursor.pos.x += spaces_to_indent;
-                cursor.last_valid_char_pos = cursor.pos.x;
-                mark_dirty(current_chunk);
-            } else {
-                dedent_line(current_line_ptr);
-                cursor.pos.x = Math::max(0, cursor.pos.x - spaces_to_indent);
-                cursor.last_valid_char_pos = cursor.pos.x;
-                mark_dirty(current_chunk);
-            }
-        }
-    }
-    elif (vk_code == VK_DELETE) {
-        if (cursor.selection_active) {
-            delete_selection(active_tab);
-            cursor.last_valid_char_pos = cursor.pos.x;
-        } else {
-            handle_delete(active_tab);
-        }
-    }
-    elif (vk_code == VK_RETURN) {
-        if (cursor.selection_active) {
-            delete_selection(active_tab);
-            current_chunk = document.chunks + cursor.pos.z;
-            lines = current_chunk.lines;
-            lines_ptr = &current_chunk.lines;
-            current_line = lines[cursor.pos.y];
-            current_line_ptr = &lines[cursor.pos.y];
-        }
-        cursor.pos.y++;
-        if (cursor.pos.y >= text_chunk_line_count) {
-            cursor.pos.y = 0;
-            cursor.pos.z++;
-        }
-        var next_pos_x = insert_line(document, cursor.pos.z, cursor.pos.y, current_line_ptr, cursor.pos.x, should_auto_indent);
-        
-        assert(cursor.pos.z < document.chunks_count);
-        current_line_ptr.length = cursor.pos.x;
-        cursor.pos.x = next_pos_x;
-        cursor.last_valid_char_pos = cursor.pos.x;
-    }
     elif (vk_code == VK_SHIFT) {
         editor_state.shift_pressed = true;
-        should_clear_selection = false;
+        cmd_ctx.should_clear_selection = false;
     }
     elif (vk_code == VK_CONTROL) {
         editor_state.control_pressed = true;
-        should_clear_selection = false;
+        cmd_ctx.should_clear_selection = false;
     }
-    elif (vk_code == VK_LEFT) {
-        if (cursor.pos.x > 0) {
-            if (editor_state.control_pressed) {
-                handle_prev_word(active_tab);
-            } else {
-                cursor.pos.x--;    
-            }
-        } else {
-            cursor_up(active_tab, cursor);
-            var chunk = document.chunks + cursor.pos.z;
-            cursor.pos.x = chunk.lines.length - 1;
-        }
-        cursor.last_valid_char_pos = cursor.pos.x;
-    }
-    elif (vk_code == VK_RIGHT) {
-        if (cursor.pos.x < current_line.length) {
-            if (editor_state.control_pressed) {
-                handle_next_word(active_tab);
-            } else {
-                cursor.pos.x++;    
-            }
-        } else {
-            cursor_down(active_tab, cursor);
-            cursor.pos.x = 0;
-        }
-        cursor.last_valid_char_pos = cursor.pos.x;
-    }
-    elif (vk_code == VK_UP) {
-        if (editor_state.control_pressed) {
-            scroll_lines(active_panel, &editor_state.global_render_state, -1);
-            should_clear_selection = false;
-        } else {
-            cursor_up(active_tab, cursor);
-            if (!cursor.selection_active && editor_state.shift_pressed) {
-                cursor.last_valid_char_pos = cursor.pos.x;
-            }
-        }
-    }
-    elif (vk_code == VK_DOWN) {
-        if (editor_state.control_pressed) {
-            scroll_lines(active_panel, &editor_state.global_render_state, +1);
-            should_clear_selection = false;
-        } else {
-            cursor_down(active_tab, cursor);
-            if (!cursor.selection_active && editor_state.shift_pressed) {
-                cursor.last_valid_char_pos = cursor.pos.x;
-            }
-        }
-    }
-    elif (vk_code == VK_END) {
-        if (!editor_state.control_pressed) {
-            cursor.last_valid_char_pos = current_line.length;
-        } else {
-            cursor.pos.z = document.chunks_count - 1;
-            var chunk = document.chunks + (document.chunks_count - 1);
-            cursor.pos.y =  chunk.lines.length - 1;
-            cursor.last_valid_char_pos = chunk.lines[cursor.pos.z].length;
-        }
-    }
-    elif (vk_code == VK_HOME) {
-        if (!editor_state.control_pressed) {
-            var current_indent = get_line_indent(current_line_ptr);
-            if (cursor.pos.x <= current_indent) {
-                cursor.last_valid_char_pos = 0;    
-            } else {
-                cursor.last_valid_char_pos = current_indent;    
-            }
-        } else {
-            cursor.pos.z = 0;
-            cursor.pos.y =  0;
-            cursor.last_valid_char_pos = 0;
-        }
-    }
-    elif (vk_code == VK_PRIOR) {
-        var delta = active_panel.visible_line_count - 2;
-        if (delta <= 0) {
-            delta = 1;
-        }
-        if (cursor.pos.y - delta >= 0) {
-            cursor.pos.y -= delta;
-        } else {
-            delta -= cursor.pos.y;
-            while (true) {
-                if (cursor.pos.z > 0) {
-                    cursor.pos.z--;
-                    var chunk = document.chunks + cursor.pos.z;
-                    var py = chunk.lines.length - 1;
-                    if (py - delta >= 0) {
-                        cursor.pos.y = py - delta;
-                        break;
-                    } else {
-                        delta -= py;
-                    }
-                } else {
-                    cursor.pos.y = 0;
-                    break;
-                }
-            }
-        }
-    }
-    elif (vk_code == VK_NEXT) {
-        var delta = active_panel.visible_line_count - 2;
-        if (delta <= 0) {
-            delta = 1;
-        }
-        if (cursor.pos.y + delta <= lines.length - 1) {
-            cursor.pos.y += delta;
-        } else {
-            delta -= (lines.length - 1) - cursor.pos.y;
-            while (true) {
-                if (cursor.pos.z < document.chunks_count - 1) {
-                    cursor.pos.z++;
-                    var chunk = document.chunks + cursor.pos.z;
-                    var ll = chunk.lines.length;
-                    if (delta <= ll - 1) {
-                        cursor.pos.y = delta;
-                        break;
-                    } else {
-                        delta -= (ll - 1);
-                    }
-                } else {
-                    var chunk = document.chunks + cursor.pos.z;
-                    var ll = chunk.lines.length;
-                    cursor.pos.y = ll - 1;
-                    break;
-                }
-            }
-        }
-    }
-    elif (editor_state.control_pressed && vk_code == ord("C")@i32) {
-        copy_to_clipboard(active_tab, true);
-        should_clear_selection = false;
-    }
-    elif (editor_state.control_pressed &&  vk_code == ord("V")@i32) {
-        if (cursor.selection_active) {
-            delete_selection(active_tab);
-        }
-        paste_clipboard(active_tab);
-        cursor.last_valid_char_pos = cursor.pos.x;
-        
-    }
-    elif (editor_state.control_pressed && vk_code == 107) {
-        editor_state.global_render_state.target_font_size *= 1.2;
-    }
-    elif (editor_state.control_pressed && vk_code == 109) {
-        editor_state.global_render_state.target_font_size /= 1.2;
-    }
-    elif (editor_state.control_pressed && vk_code == ord("X")@i32) {
-        var line_idx = cursor.pos.y;
-        var should_decrement_line_count = !(cursor.pos.z == 0 && document.chunks_count == 1 && current_chunk.lines.length == 1);
-        
-        delete_line(document, cursor.pos.z, line_idx, should_decrement_line_count);
-        
-        if (cursor.pos.z >= document.chunks_count) {
-            assert(cursor.pos.y == 0);
-            cursor_up(active_tab, &active_tab.cursor);
-        }
-        if (cursor.pos.y >= current_chunk.lines.length && cursor.pos.z + 1 < document.chunks_count) {
-            cursor_down(active_tab, &active_tab.cursor);
-        }
-    }
-    elif (editor_state.control_pressed && vk_code == ord("A")@i32) {
-        active_tab.cursor.selection_start = v3iz;
-        cursor.pos.z = document.chunks_count - 1;
-        var chunk = document.chunks + (document.chunks_count - 1);
-        cursor.pos.y =  chunk.lines.length - 1;
-        cursor.last_valid_char_pos = chunk.lines[cursor.pos.y].length;
-        active_tab.cursor.selection_active = true;
-        should_clear_selection = false;
-    }
-    elif (editor_state.control_pressed && vk_code == ord("S")@i32) {
-        if (save_text_file(active_tab)) {
-            editor_state.global_render_state.color_scale = 2.0;    
-        }
-    }
-    elif (editor_state.control_pressed && vk_code == ord("1")@i32) {
-        add_undo_point(&editor_state, active_tab);
-        editor_state.active_panel = &editor_state.left_panel;
-        if (editor_state.active_panel.active_tab@ptr != nullptr) {
-            clamp_cursor(editor_state.active_panel.active_tab);
-        }
-    }
-    elif (editor_state.control_pressed && vk_code == ord("2")@i32) {
-        add_undo_point(&editor_state, active_tab);
-        editor_state.active_panel = &editor_state.right_panel;
-        if (editor_state.active_panel.active_tab@ptr != nullptr) {
-            clamp_cursor(editor_state.active_panel.active_tab);    
-        }
-    }
-    elif (editor_state.control_pressed && vk_code == ord("N")@i32){
-        add_undo_point(&editor_state, active_tab);
-        if (active_panel.tabs.length < active_panel.tabs_capacity) {
-            if (editor_state.documents.length < editor_state.documents_capacity) {
-                var doc_idx = editor_state.documents.length++;
-                editor_state.documents[doc_idx] = create_document(doc_idx);
-                var tab_idx = active_panel.tabs.length++;
-                active_panel.tabs[tab_idx] = create_tab(tab_idx, &editor_state.documents[editor_state.documents.length - 1]);
-                active_panel.active_tab = &active_panel.tabs[active_panel.tabs.length - 1];
-            }
-        }
-    }
-    elif (editor_state.control_pressed && vk_code == VK_TAB) {
-        add_undo_point(&editor_state, active_tab);
-        if (active_panel.tabs.length > 0) {
-            active_panel.active_tab = &active_panel.tabs[(active_tab.idx + 1) % active_panel.tabs.length];
-        }
-    }
-    elif (editor_state.control_pressed && vk_code == ord("Z")@i32) {
-        if (editor_state.shift_pressed) {
-            redo(&editor_state);
-            supress_new_selection = true;
-        } else {
-            if (old_editor_dirty_for_undo) {
-                add_undo_point(&editor_state, active_tab);
-            }
-            undo(&editor_state);
-            supress_new_selection = true;
-        }
+    elif (vk_code == VK_ALT) {
+        editor_state.alt_pressed = true;
+        cmd_ctx.should_clear_selection = false;
     }
     else {
-        should_clear_selection = false;
+        var handled = false;
+        for (var cmd_idx = 0; cmd_idx < editor_state.commands.length; ++cmd_idx) {
+            var cmd_map = editor_state.commands[cmd_idx];
+            var kc = cmd_map.key_combo;
+            if (kc.vk_code == vk_code
+                && kc.shift == editor_state.shift_pressed
+                && kc.control == editor_state.control_pressed
+                && kc.alt == editor_state.alt_pressed) {
+                handled |= cmd_map.command(&cmd_ctx);
+            }
+            if (handled) {
+                break;
+            }
+        }
     }
     
     if (should_syntax_highlight) {
@@ -1385,14 +1125,14 @@ let handle_text_panel_key_down = fun(vk_code: i32; active_panel: editor_panel*; 
         reset_cursor_blink();
     }
     var old_cursor_pos_valid = old_cursor_pos.y < lines.length && old_cursor_pos.x <= lines[old_cursor_pos.y].length;
-    if (!supress_new_selection)
+    if (!cmd_ctx.suppress_new_selection)
     {
         if (!is_printable(char.value@i8) && editor_state.shift_pressed && !cursor.selection_active && has_cursor_moved && old_cursor_pos_valid) {
             cursor.selection_active = true;
             cursor.selection_start = old_cursor_pos;
         }    
     }
-    if (!editor_state.shift_pressed && should_clear_selection) {
+    if (!editor_state.shift_pressed && cmd_ctx.should_clear_selection) {
         active_tab.cursor.selection_active = false;
     }
 #if DEBUG

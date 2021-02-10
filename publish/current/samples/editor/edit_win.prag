@@ -160,9 +160,9 @@ let HIWORD = fun(p: mm) => i16 {
 [
     "compile.output": "edit.exe",
     "compile.entry" : "true",
-    "compile.opt"   : "4",
+    "compile.opt"   : "0",
     "compile.debuginfo": "true",
-    "compile.ll"    : "true",
+    "compile.ll"    : "false",
     "compile.asm"   : "false",
     "compile.cpu"   : "native", // "sandybridge",
     "compile.run"   : "true",
