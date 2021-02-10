@@ -256,7 +256,6 @@ let init_opengl = fun (window_dc: mm) => void {
     load_wgl_extensions();
     var dc = window_dc;
 
-
     var t0 = get_perf_counter();
     var int_attrib_list = [
         WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,

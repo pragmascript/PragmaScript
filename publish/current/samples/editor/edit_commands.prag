@@ -1,0 +1,445 @@
+import "../preamble.prag"
+import "edit.prag"
+
+let command_context = struct(
+    active_panel: editor_panel*;
+    active_tab: panel_tab*;
+    document: document*;
+    cursor: cursor*;
+    current_chunk: text_chunk*;
+    lines: line[];
+    current_line: line*;
+    
+    should_clear_selection: bool;
+    suppress_new_selection: bool;
+    should_auto_indent: bool;
+    old_editor_dirty_for_undo: bool;
+);
+let key_combo = struct(
+    vk_code: i32;
+    shift: bool;
+    control: bool;
+    alt: bool;
+);
+
+let editor_command_callback = fun(@cmd: command_context*) => bool; 
+let editor_command_mapping = struct(
+    key_combo: key_combo;
+    command: editor_command_callback;
+);
+
+let MOD_NONE = 0;
+let MOD_SHIFT = 1;
+let MOD_CTRL = 2;
+let MOD_ALT = 4;
+let create_key_combo = fun(vk_code: i32; mod_flags: i32 = MOD_NONE) => key_combo {
+    var result = key_combo { };
+    result.vk_code = vk_code;
+    result.shift = (mod_flags & MOD_SHIFT) != 0;
+    result.control = (mod_flags & MOD_CTRL) != 0;
+    result.alt = (mod_flags & MOD_ALT) != 0;
+    return result;        
+}
+
+let register_text_panel_commands = fun(editor_state: editor_state*) => void {
+    var cmd = editor_command_mapping { };
+    var es = editor_state;
+    register_editor_command(es, create_key_combo(VK_BACK), cmd_delete_left@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_TAB), cmd_increase_indent@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_TAB, MOD_CTRL), cmd_decrease_indent@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_DELETE), cmd_delete_right@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_RETURN), cmd_insert_line@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_LEFT), cmd_cursor_left@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_LEFT, MOD_CTRL), cmd_word_left@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_RIGHT), cmd_cursor_right@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_RIGHT, MOD_CTRL), cmd_word_right@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_UP), cmd_cursor_up@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_UP, MOD_CTRL), cmd_scroll_lines_up@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_DOWN), cmd_cursor_down@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_DOWN, MOD_CTRL), cmd_scroll_lines_down@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_END), cmd_cursor_end_of_line@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_END, MOD_CTRL), cmd_cursor_to_end_of_document@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_HOME), cmd_cursor_to_start_of_line@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_HOME, MOD_CTRL), cmd_cursor_to_start_of_document@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_PRIOR), cmd_page_up@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_NEXT), cmd_page_down@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("C")@i32, MOD_CTRL), cmd_copy_selection@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("V")@i32, MOD_CTRL), cmd_paste_selection@editor_command_callback);
+    register_editor_command(es, create_key_combo(107, MOD_CTRL), cmd_increase_font_size@editor_command_callback);
+    register_editor_command(es, create_key_combo(109, MOD_CTRL), cmd_decrease_font_size@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("X")@i32, MOD_CTRL), cmd_delete_line@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("A")@i32, MOD_CTRL), cmd_select_all@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("S")@i32, MOD_CTRL), cmd_save_document@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("1")@i32, MOD_CTRL), cmd_go_to_left_panel@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("2")@i32, MOD_CTRL), cmd_go_to_right_panel@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("N")@i32, MOD_CTRL), cmd_new_document@editor_command_callback);
+    register_editor_command(es, create_key_combo(VK_TAB, MOD_CTRL), cmd_cycle_tab@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_CTRL), cmd_undo@editor_command_callback);
+    register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_SHIFT|MOD_CTRL), cmd_redo@editor_command_callback);
+}
+
+// todo make this work:
+// let cmd_delete_left: editor_command = fun(@ctx: command_context*) => bool {
+let cmd_delete_left = fun(@ctx: command_context*) => bool {
+    if (cursor.selection_active) {
+        delete_selection(active_tab);
+        cursor.last_valid_char_pos = cursor.pos.x;
+    } else {
+        if (left_is_whitespace(current_line, cursor.pos.x) && cursor.pos.x >= spaces_to_indent) {
+            for (var indent_idx = 0; indent_idx < spaces_to_indent; ++indent_idx) {
+                handle_backspace(active_tab);
+            }
+        } else {
+            handle_backspace(active_tab);
+        }
+    }
+    return true;
+}
+
+
+let cmd_increase_indent = fun(@ctx: command_context*) => bool {
+    if (cursor.selection_active) {
+        var temp_line_length = current_line.length;
+        let dedent = false;
+        change_indent_selection(active_tab, dedent);
+        var delta = current_line.length - temp_line_length;
+        cursor.pos.x = Math::max(0, cursor.pos.x + delta);
+        cursor.last_valid_char_pos = cursor.pos.x;
+        should_clear_selection = false;
+    } else {
+        indent_line(current_line, cursor.pos.x);
+        cursor.pos.x += spaces_to_indent;
+        cursor.last_valid_char_pos = cursor.pos.x;
+        mark_dirty(current_chunk);        
+    }
+    return true;
+}
+
+let cmd_decrease_indent = fun(@ctx: command_context*) => bool {
+    if (cursor.selection_active) {
+        var temp_line_length = current_line.length;
+        let dedent = true;
+        change_indent_selection(active_tab, dedent);
+        var delta = current_line.length - temp_line_length;
+        cursor.pos.x = Math::max(0, cursor.pos.x + delta);
+        cursor.last_valid_char_pos = cursor.pos.x;
+        should_clear_selection = false;
+    } else {
+        dedent_line(current_line);
+        cursor.pos.x = Math::max(0, cursor.pos.x - spaces_to_indent);
+        cursor.last_valid_char_pos = cursor.pos.x;
+        mark_dirty(current_chunk);        
+    }
+    return true;
+}
+
+
+let cmd_delete_right = fun(@ctx: command_context*) => bool {
+    if (cursor.selection_active) {
+        delete_selection(active_tab);
+        cursor.last_valid_char_pos = cursor.pos.x;
+    } else {
+        handle_delete(active_tab);
+    }
+    return true;
+}
+
+let cmd_insert_line = fun(@ctx: command_context*) => bool {
+    if (cursor.selection_active) {
+        delete_selection(active_tab);
+        current_chunk = document.chunks + cursor.pos.z;
+        lines = current_chunk.lines;
+        current_line = &lines[cursor.pos.y];
+    }
+    cursor.pos.y++;
+    if (cursor.pos.y >= text_chunk_line_count) {
+        cursor.pos.y = 0;
+        cursor.pos.z++;
+    }
+    var next_pos_x = insert_line(document, cursor.pos.z, cursor.pos.y, current_line, cursor.pos.x, should_auto_indent);
+    assert(cursor.pos.z < document.chunks_count);
+    current_line.length = cursor.pos.x;
+    cursor.pos.x = next_pos_x;
+    cursor.last_valid_char_pos = cursor.pos.x;
+    
+    return true;
+}
+
+let cmd_cursor_left = fun(@ctx: command_context*) => bool {
+    if (cursor.pos.x > 0) {
+        cursor.pos.x--;
+    } else {
+        cursor_up(active_tab, cursor);
+        var chunk = document.chunks + cursor.pos.z;
+        cursor.pos.x = chunk.lines.length - 1;
+    }
+    cursor.last_valid_char_pos = cursor.pos.x;
+    return true;
+}
+
+let cmd_word_left = fun(@ctx: command_context*) => bool {
+    if (cursor.pos.x > 0) {
+        handle_prev_word(active_tab);
+    } else {
+        cursor_up(active_tab, cursor);
+        var chunk = document.chunks + cursor.pos.z;
+        cursor.pos.x = chunk.lines.length - 1;
+    }
+    cursor.last_valid_char_pos = cursor.pos.x;
+    return true;
+}
+
+let cmd_cursor_right = fun(@ctx: command_context*) => bool {
+    if (cursor.pos.x < current_line.length) {
+        cursor.pos.x++;
+    } else {
+        cursor_down(active_tab, cursor);
+        cursor.pos.x = 0;
+    }
+    cursor.last_valid_char_pos = cursor.pos.x;
+    return true;
+}
+
+let cmd_word_right = fun(@ctx: command_context*) => bool {
+    if (cursor.pos.x < current_line.length) {
+        handle_next_word(active_tab);
+    } else {
+        cursor_down(active_tab, cursor);
+        cursor.pos.x = 0;
+    }
+    cursor.last_valid_char_pos = cursor.pos.x;
+    return true;
+}
+
+let cmd_cursor_up = fun(@ctx: command_context*) => bool {
+    cursor_up(active_tab, cursor);
+    if (!cursor.selection_active && editor_state.shift_pressed) {
+        cursor.last_valid_char_pos = cursor.pos.x;
+    }
+    return true;
+}
+
+let cmd_scroll_lines_up = fun(@ctx: command_context*) => bool {
+    scroll_lines(active_panel, &editor_state.global_render_state, -1);
+    should_clear_selection = false;
+    return true;
+}
+
+let cmd_cursor_down = fun(@ctx: command_context*) => bool {
+    cursor_down(active_tab, cursor);
+    if (!cursor.selection_active && editor_state.shift_pressed) {
+        cursor.last_valid_char_pos = cursor.pos.x;
+    }
+    return true;
+}
+
+let cmd_scroll_lines_down = fun(@ctx: command_context*) => bool {
+    scroll_lines(active_panel, &editor_state.global_render_state, +1);
+    should_clear_selection = false;
+    return true;
+}
+
+let cmd_cursor_end_of_line = fun(@ctx: command_context*) => bool {
+    cursor.last_valid_char_pos = current_line.length;
+    return true;
+}
+
+let cmd_cursor_to_end_of_document = fun(@ctx: command_context*) => bool {
+    cursor.pos.z = document.chunks_count - 1;
+    var chunk = document.chunks + cursor.pos.z;
+    cursor.pos.y = chunk.lines.length - 1;
+    cursor.last_valid_char_pos = chunk.lines[cursor.pos.z].length;
+    return true;
+}
+
+let cmd_cursor_to_start_of_line = fun(@ctx: command_context*) => bool {
+    var current_indent = get_line_indent(current_line);
+    if (cursor.pos.x <= current_indent) {
+        cursor.last_valid_char_pos = 0;
+    } else {
+        cursor.last_valid_char_pos = current_indent;
+    }
+    return true;
+}
+
+let cmd_cursor_to_start_of_document = fun(@ctx: command_context*) => bool {
+    cursor.last_valid_char_pos = 0;
+    cursor.pos.y = 0;
+    cursor.pos.z = 0;
+    return true;
+}
+
+let cmd_page_up = fun(@ctx: command_context*) => bool {
+    var delta = active_panel.visible_line_count - 2;
+    if (delta <= 0) {
+        delta = 1;
+    }
+    if (cursor.pos.y - delta >= 0) {
+        cursor.pos.y -= delta;
+    } else {
+        delta -= cursor.pos.y;
+        while (true) {
+            if (cursor.pos.z > 0) {
+                cursor.pos.z--;
+                var chunk = document.chunks + cursor.pos.z;
+                var py = chunk.lines.length - 1;
+                if (py - delta >= 0) {
+                    cursor.pos.y = py - delta;
+                    break;
+                } else {
+                    delta -= py;
+                }
+            } else {
+                cursor.pos.y = 0;
+            }
+        }
+    }
+    return true;
+}
+
+let cmd_page_down = fun(@ctx: command_context*) => bool {
+    var delta = active_panel.visible_line_count - 2;
+    if (delta <= 0) {
+        delta = 1;
+    }
+    if (cursor.pos.y + delta <= lines.length - 1) {
+        cursor.pos.y += delta;
+    } else {
+        delta -= (lines.length - 1) - cursor.pos.y;
+        while (true) {
+            if (cursor.pos.z < document.chunks_count - 1) {
+                cursor.pos.z++;
+                var chunk = document.chunks + cursor.pos.z;
+                var ll = chunk.lines.length;
+                if (delta <= ll - 1) {
+                    cursor.pos.y = delta;
+                    break;
+                } else {
+                    delta -= (ll - 1);
+                }
+            } else {
+                var chunk = document.chunks + cursor.pos.z;
+                var ll = chunk.lines.length;
+                cursor.pos.y = ll - 1;
+                break;
+            }
+        }
+    }
+    return true;
+}
+
+let cmd_copy_selection = fun(@ctx: command_context*) => bool {
+    copy_to_clipboard(active_tab, true);
+    should_clear_selection = true;
+    return true;
+}
+
+let cmd_paste_selection = fun(@ctx: command_context*) => bool {
+    if (cursor.selection_active) {
+        delete_selection(active_tab);
+    }
+    paste_clipboard(active_tab);
+    cursor.last_valid_char_pos = cursor.pos.x;
+    return true;
+}
+
+let cmd_increase_font_size = fun(@ctx: command_context*) => bool {
+    editor_state.global_render_state.target_font_size *= 1.2;
+    return true;
+}
+
+let cmd_decrease_font_size = fun(@ctx: command_context*) => bool {
+    editor_state.global_render_state.target_font_size /= 1.2;
+    return true;
+}
+
+let cmd_delete_line = fun(@ctx: command_context*) => bool {
+    var line_idx = cursor.pos.y;
+    var should_decrement_line_count = !(cursor.pos.z == 0 && document.chunks_count == 1 && current_chunk.lines.length == 1);
+    
+    delete_line(document, cursor.pos.z, line_idx, should_decrement_line_count);
+    
+    if (cursor.pos.z >= document.chunks_count) {
+        assert(cursor.pos.y == 0);
+        cursor_up(active_tab, &active_tab.cursor);
+    }
+    if (cursor.pos.y >= current_chunk.lines.length && cursor.pos.z + 1 < document.chunks_count) {
+        cursor_down(active_tab, &active_tab.cursor);
+    }
+    return true;
+}
+
+let cmd_select_all = fun(@ctx: command_context*) => bool {
+    active_tab.cursor.selection_start = v3iz;
+    cursor.pos.z = document.chunks_count - 1;
+    var chunk = document.chunks + (document.chunks_count - 1);
+    cursor.pos.y =  chunk.lines.length - 1;
+    cursor.last_valid_char_pos = chunk.lines[cursor.pos.y].length;
+    active_tab.cursor.selection_active = true;
+    should_clear_selection = false;
+    return true;
+}
+
+let cmd_save_document = fun(@ctx: command_context*) => bool {
+    if (save_text_file(active_tab)) {
+        // TODO(pragma): hack
+        editor_state.global_render_state.color_scale = 2.0;    
+    }
+    return true;
+}
+
+let cmd_go_to_left_panel = fun(@ctx: command_context*) => bool {
+    add_undo_point(&editor_state, active_tab);
+    editor_state.active_panel = &editor_state.left_panel;
+    if (editor_state.active_panel.active_tab@ptr != nullptr) {
+        clamp_cursor(editor_state.active_panel.active_tab);
+    }
+    return true;
+}
+
+let cmd_go_to_right_panel = fun(@ctx: command_context*) => bool {
+    add_undo_point(&editor_state, active_tab);
+    editor_state.active_panel = &editor_state.right_panel;
+    if (editor_state.active_panel.active_tab@ptr != nullptr) {
+        clamp_cursor(editor_state.active_panel.active_tab);
+    }
+    return true;
+}
+
+let cmd_new_document = fun(@ctx: command_context*) => bool {
+    add_undo_point(&editor_state, active_tab);
+    if (active_panel.tabs.length < active_panel.tabs_capacity
+        && editor_state.documents.length < editor_state.documents_capacity) {
+        var doc_idx = editor_state.documents.length++;
+        editor_state.documents[doc_idx] = create_document(doc_idx);
+        var tab_idx = active_panel.tabs.length++;
+        active_panel.tabs[tab_idx] = create_tab(tab_idx, &editor_state.documents[editor_state.documents.length - 1]);
+        active_panel.active_tab = &active_panel.tabs[active_panel.tabs.length - 1];
+    }
+    return true;
+}
+
+let cmd_cycle_tab = fun(@ctx: command_context*) => bool {
+    add_undo_point(&editor_state, active_tab);
+    if (active_panel.tabs.length > 0) {
+        active_panel.active_tab = &active_panel.tabs[(active_tab.idx + 1) % active_panel.tabs.length];
+    }
+    return true;
+}
+
+let cmd_undo = fun(@ctx: command_context*) => bool {
+    if (old_editor_dirty_for_undo) {
+        add_undo_point(&editor_state, active_tab);
+    }
+    undo(&editor_state);
+    suppress_new_selection = true;
+    return true;
+}
+
+let cmd_redo = fun(@ctx: command_context*) => bool {
+    redo(&editor_state);
+    suppress_new_selection = true;
+    return true;
+}
+
+

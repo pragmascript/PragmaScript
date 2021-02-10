@@ -7,7 +7,7 @@ import "../vec.prag"
 import "edit_win.prag"
 import "edit_opengl.prag"
 import "edit_lexer.prag"
-
+import "edit_commands.prag"
 
 let max_line_length = 1024;
 let max_undo_points = 1024;
@@ -111,22 +111,10 @@ let editor_state = struct(
     undo_points: undo_point[];
     undo_pos: i32;
     
-    text_panel_commands: editor_commmand[];
+    commands: editor_command_mapping[];
+    commands_capacity: i32;
 );
 
-let command_context = struct(
-    foo: i32;
-);
-let key_combo = struct(
-    vk_code: i32;
-    shift: bool;
-    control: bool;
-    alt: bool;
-);
-let editor_commmand = struct(
-    key_combo: key_combo;
-    command: fun(cmd: command_context*) => bool;
-);
 
 let from_ascii = fun(value: i8) => character {
     return character { value };
@@ -240,6 +228,9 @@ let create_editor_state = fun(editor_state: editor_state*) => void  {
     editor_state.undo_points.data = @undo_point* allocate(@mm max_undo_points * size_of(undo_point));
     editor_state.undo_points.length = 0;
     editor_state.undo_pos = 0;
+    
+    editor_state.commands_capacity = 1024;
+    editor_state.commands.data = @editor_command_mapping* allocate(@mm editor_state.commands_capacity * size_of(editor_command_mapping));
 }
 var editor_state: editor_state;
 
@@ -368,7 +359,6 @@ let delete_selection = fun(tab: panel_tab*) => void {
         }
         c1.lines.length -= (last.y + 1);
     }
-
     if (c0.lines.length == 0) {
         recycle_chunk(document, first.z);
     }
@@ -1009,10 +999,17 @@ let handle_search_key_down = fun(vk_code: i32) => void {
 let handle_console_key_down = fun(vk_code: i32; console: editor_panel*) => void {
 }
 
-
-let register_text_panel_commands = fun() => void {
-    
+let register_editor_command = fun(editor_state: editor_state*; key: key_combo; cmd: editor_command_callback) => void {
+    var cmd_map = editor_command_mapping { };
+    cmd_map.key_combo = key;
+    cmd_map.command = cmd;
+    if (editor_state.commands.length >= editor_state.commands_capacity) {
+        assert(false);
+        return;
+    }
+    editor_state.commands[editor_state.commands.length++] = cmd_map;
 }
+
 
 let handle_text_panel_key_down = fun(vk_code: i32; active_panel: editor_panel*; should_syntax_highlight: bool; 
                                      should_auto_indent: bool) => void {
@@ -1020,6 +1017,7 @@ let handle_text_panel_key_down = fun(vk_code: i32; active_panel: editor_panel*; 
     if (active_tab@ptr == nullptr) {
         return;
     }
+    
     var document = active_tab.document;
     var cursor = &active_tab.cursor;
     var old_cursor_pos = cursor.pos;
