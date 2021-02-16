@@ -122,7 +122,6 @@ let load_font = fun() => font {
     return result;
 }
 
-
 let map_to_gl = fun(p: v3; width: i32; height: i32) => v3 {
     var result = v3(
         2.0 * (p.x / (width@f32 - 1.0)) - 1.0,
@@ -228,6 +227,20 @@ let scroll_lines = fun(panel: editor_panel*; global_render_state: global_render_
     active_tab.scroll_target.y += @f32 lines_delta * line_height;
 }
 
+let trim_title = fun(title: string) => string {
+    var result = string { };
+    for (var idx = title.length - 1; idx >= 0; --idx) {
+        var char = title[idx];
+        if (char == 92) { // backslash
+            break;
+        }
+        result.length++;
+    }
+    assert(result.length <= title.length);
+    result.data = title.data + (title.length - result.length);
+    return result;
+}
+
 let render_panel = fun(panel: editor_panel*; global_render_state: global_render_state*; is_active_panel: bool;) => void {
     var font_size = global_render_state.font_size;
     var font = &global_render_state.font;
@@ -285,7 +298,6 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     
     var temp_memory = &global_render_state.temp_memory;
     var watermark = start_temp(temp_memory);
-    
     quads.vertices.data = push(temp_memory, @mm max_chars * 4 * size_of(v3))@v3*;
     quads.vertices.length = max_chars * 4;
     quads.uvs.data = push(temp_memory, @mm max_chars * 4 * size_of(v2))@v2*;
@@ -457,7 +469,7 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
         var tab_doc = tab.document;
         var tab_title: string;
         if (tab_doc.file_name.length > 0) {
-            tab_title = tab_doc.file_name;
+            tab_title = trim_title(tab_doc.file_name);
         } else {
             tab_title = concat("Untitled-", to_str(tab_doc.idx, false, temp_memory), temp_memory);
         }

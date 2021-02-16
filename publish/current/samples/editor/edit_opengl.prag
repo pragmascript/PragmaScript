@@ -586,6 +586,7 @@ let render_opengl = fun (client_width: i32; client_height: i32; editor_state: ed
     glClearColor(gl_state.clear_color.x, gl_state.clear_color.y, gl_state.clear_color.z, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
     
+    // var panels = [&editor_state.left_panel, &editor_state.right_panel, &editor_state.console_panel];
     var panels = [&editor_state.left_panel, &editor_state.right_panel];
     for (var panel_idx = 0; panel_idx < len(panels)@i32; ++panel_idx) {
         var panel = panels[panel_idx];

@@ -1032,6 +1032,20 @@ let debug_print = fun (name: string; value: mm; signed: bool = true) => void
 {
     debug_print(name, value@i64, signed);
 }
+
+let debug_print = fun (name: string; value: i8; signed: bool = true) => void
+{
+    print(name);
+    print(": ");
+    if (signed) {
+        print(value@i32, true);    
+    } else {
+        print(value@\i32, false);
+    }
+    
+    print("\n");
+}
+
 let debug_print = fun (name: string; value: i32; signed: bool = true) => void
 {
     print(name);

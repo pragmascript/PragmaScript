@@ -23,15 +23,22 @@ let key_combo = struct(
 );
 
 let editor_command_callback = fun(@cmd: command_context*) => bool; 
+
+let CTX_NONE = 0;
+let CTX_TEXT = 1;
+let CTX_COMMAND = 2;
 let editor_command_mapping = struct(
     key_combo: key_combo;
     command: editor_command_callback;
+    ctx_flags: i32;
 );
 
 let MOD_NONE = 0;
 let MOD_SHIFT = 1;
 let MOD_CTRL = 2;
 let MOD_ALT = 4;
+
+
 let create_key_combo = fun(vk_code: i32; mod_flags: i32 = MOD_NONE) => key_combo {
     var result = key_combo { };
     result.vk_code = vk_code;
@@ -41,49 +48,72 @@ let create_key_combo = fun(vk_code: i32; mod_flags: i32 = MOD_NONE) => key_combo
     return result;        
 }
 
+let register_editor_command = fun(editor_state: editor_state*; key: key_combo; cmd: editor_command_callback; ctx_flags: i32) => void {
+    var cmd_map = editor_command_mapping { };
+    cmd_map.key_combo = key;
+    cmd_map.command = cmd;
+    cmd_map.ctx_flags = ctx_flags;
+    if (editor_state.commands.length >= editor_state.commands_capacity) {
+        assert(false);
+        return;
+    }
+    editor_state.commands[editor_state.commands.length++] = cmd_map;
+}
+
 let register_text_panel_commands = fun(editor_state: editor_state*) => void {
     var cmd = editor_command_mapping { };
     var es = editor_state;
-    register_editor_command(es, create_key_combo(VK_BACK), cmd_delete_left@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_TAB), cmd_increase_indent@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_TAB, MOD_SHIFT), cmd_decrease_indent@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_DELETE), cmd_delete_right@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_RETURN), cmd_insert_line@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_LEFT), cmd_cursor_left@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_LEFT, MOD_SHIFT), cmd_cursor_left@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_LEFT, MOD_CTRL), cmd_word_left@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_RIGHT), cmd_cursor_right@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_RIGHT, MOD_SHIFT), cmd_cursor_right@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_RIGHT, MOD_CTRL), cmd_word_right@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_UP), cmd_cursor_up@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_UP, MOD_SHIFT), cmd_cursor_up@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_UP, MOD_CTRL), cmd_scroll_lines_up@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_DOWN), cmd_cursor_down@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_DOWN, MOD_SHIFT), cmd_cursor_down@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_DOWN, MOD_CTRL), cmd_scroll_lines_down@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_END), cmd_cursor_end_of_line@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_END, MOD_SHIFT), cmd_cursor_end_of_line@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_END, MOD_CTRL), cmd_cursor_to_end_of_document@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_HOME), cmd_cursor_to_start_of_line@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_HOME, MOD_SHIFT), cmd_cursor_to_start_of_line@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_HOME, MOD_CTRL), cmd_cursor_to_start_of_document@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_PRIOR), cmd_page_up@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_PRIOR, MOD_SHIFT), cmd_page_up@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_NEXT), cmd_page_down@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_NEXT, MOD_SHIFT), cmd_page_down@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("C")@i32, MOD_CTRL), cmd_copy_selection@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("V")@i32, MOD_CTRL), cmd_paste_selection@editor_command_callback);
-    register_editor_command(es, create_key_combo(107, MOD_CTRL), cmd_increase_font_size@editor_command_callback);
-    register_editor_command(es, create_key_combo(109, MOD_CTRL), cmd_decrease_font_size@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("X")@i32, MOD_CTRL), cmd_delete_line@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("A")@i32, MOD_CTRL), cmd_select_all@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("S")@i32, MOD_CTRL), cmd_save_document@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("1")@i32, MOD_CTRL), cmd_go_to_left_panel@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("2")@i32, MOD_CTRL), cmd_go_to_right_panel@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("N")@i32, MOD_CTRL), cmd_new_document@editor_command_callback);
-    register_editor_command(es, create_key_combo(VK_TAB, MOD_CTRL), cmd_cycle_tab@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_CTRL), cmd_undo@editor_command_callback);
-    register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_SHIFT|MOD_CTRL), cmd_redo@editor_command_callback);
+    
+    register_editor_command(es, create_key_combo(VK_BACK), cmd_delete_left@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_TAB), cmd_increase_indent@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_TAB, MOD_SHIFT), cmd_decrease_indent@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_DELETE), cmd_delete_right@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_RETURN), cmd_insert_line@editor_command_callback, CTX_TEXT);
+    
+    // TODO(pragma): this is for paste string and should be done differently
+    // paste string is activated using ctr+v so during the paste operation 
+    // the ctrl key is pressed, and when it calls VK_RETURN handling
+    // it would not execute the insert_line command unless we register it here with MOD_CTRL here:
+    register_editor_command(es, create_key_combo(VK_RETURN, MOD_SHIFT), cmd_insert_line@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_RETURN, MOD_CTRL), cmd_insert_line@editor_command_callback, CTX_TEXT);
+    
+    register_editor_command(es, create_key_combo(VK_LEFT), cmd_cursor_left@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_LEFT, MOD_SHIFT), cmd_cursor_left@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_LEFT, MOD_CTRL), cmd_word_left@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_LEFT, MOD_SHIFT|MOD_CTRL), cmd_word_left@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_RIGHT), cmd_cursor_right@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_RIGHT, MOD_SHIFT), cmd_cursor_right@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_RIGHT, MOD_CTRL), cmd_word_right@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_RIGHT, MOD_SHIFT|MOD_CTRL), cmd_word_right@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_UP), cmd_cursor_up@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_UP, MOD_SHIFT), cmd_cursor_up@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_UP, MOD_CTRL), cmd_scroll_lines_up@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_DOWN), cmd_cursor_down@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_DOWN, MOD_SHIFT), cmd_cursor_down@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_DOWN, MOD_CTRL), cmd_scroll_lines_down@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_END), cmd_cursor_end_of_line@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_END, MOD_SHIFT), cmd_cursor_end_of_line@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_END, MOD_CTRL), cmd_cursor_to_end_of_document@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_HOME), cmd_cursor_to_start_of_line@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_HOME, MOD_SHIFT), cmd_cursor_to_start_of_line@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(VK_HOME, MOD_CTRL), cmd_cursor_to_start_of_document@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_PRIOR), cmd_page_up@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_PRIOR, MOD_SHIFT), cmd_page_up@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_NEXT), cmd_page_down@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_NEXT, MOD_SHIFT), cmd_page_down@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("C")@i32, MOD_CTRL), cmd_copy_selection@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(ord("V")@i32, MOD_CTRL), cmd_paste_selection@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(107, MOD_CTRL), cmd_increase_font_size@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(109, MOD_CTRL), cmd_decrease_font_size@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("X")@i32, MOD_CTRL), cmd_delete_line@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("A")@i32, MOD_CTRL), cmd_select_all@editor_command_callback, CTX_TEXT|CTX_COMMAND);
+    register_editor_command(es, create_key_combo(ord("S")@i32, MOD_CTRL), cmd_save_document@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("1")@i32, MOD_CTRL), cmd_go_to_left_panel@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("2")@i32, MOD_CTRL), cmd_go_to_right_panel@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("N")@i32, MOD_CTRL), cmd_new_document@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_TAB, MOD_CTRL), cmd_cycle_tab@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_CTRL), cmd_undo@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_SHIFT|MOD_CTRL), cmd_redo@editor_command_callback, CTX_TEXT);
 }
 
 // todo make this work:
@@ -339,7 +369,7 @@ let cmd_page_down = fun(@ctx: command_context*) => bool {
 
 let cmd_copy_selection = fun(@ctx: command_context*) => bool {
     copy_to_clipboard(active_tab, true);
-    should_clear_selection = true;
+    should_clear_selection = false;
     return true;
 }
 
@@ -450,5 +480,3 @@ let cmd_redo = fun(@ctx: command_context*) => bool {
     suppress_new_selection = true;
     return true;
 }
-
-
