@@ -40,7 +40,6 @@ let init_lexer = fun(memory_arena: memory_arena*) => void {
         "mod",
         "with"
     ];
-    
     var keyword_count = len(keywords)@i32;
     var total_length = 0;
     for (var keyword_idx = 0; keyword_idx < keyword_count; ++keyword_idx) {
