@@ -7,7 +7,7 @@ import "../math.prag"
 	"compile.output": "bugs.exe",
     "compile.debuginfo" : "true",
 	"compile.entry" : "true",
-    "compile.ll"    : "true",
+    "compile.ll"    : "false",
 	"compile.asm"   : "false",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
@@ -16,7 +16,13 @@ import "../math.prag"
 ]
 let main = fun () => void 
 {   
-    array_ref_bug();
+    
+    var arr = [1, 2, 3, 4];
+    var s = arr[1:];
+    debug_print("capacity", s.capacity);
+    
+    
+    // array_ref_bug();
     // ptr_bug();
     // foo();
     // enum_test();
@@ -24,11 +30,12 @@ let main = fun () => void
 }
 
 
-
+#if FALSE
 
 let struct_with_array = struct(
     // arr: i32[512]; this works!
     arr: i32[30000];
+    x: i32;
 );
 
 let array_ref_llvm_bug = fun() => void {
@@ -38,7 +45,7 @@ let array_ref_llvm_bug = fun() => void {
     debug_print("arr[0]", arr[0]);
 }
 
-#if FALSE
+
 let ptr_bug = fun() => void
 {
     var ptr_w_1 = 0@ptr;

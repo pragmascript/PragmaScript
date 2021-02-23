@@ -352,6 +352,7 @@ namespace PragmaScript
         {
             this.elementType = elementType;
             AddField("length", FrontendType.i32);
+            AddField("capacity", FrontendType.i32);
             AddField("data", new FrontendPointerType(elementType));
             if (string.IsNullOrEmpty(structName))
             {

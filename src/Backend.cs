@@ -35,7 +35,7 @@ namespace PragmaScript
             this.platform = platform;
         }
 
-        
+
         public void AOT()
         {
             var timer = new Stopwatch();
@@ -92,12 +92,12 @@ namespace PragmaScript
                 {
                     case Platform.WindowsX64:
                         optProcess.StartInfo.FileName = RelDir(@"external/opt.exe");
-                    break;
+                        break;
                     case Platform.LinuxX64:
                         optProcess.StartInfo.FileName = RelDir(@"external/opt");
-                    break;
+                        break;
                 }
-                
+
 
                 var fast_flags = "";
                 if (use_fast_flags)
@@ -178,10 +178,10 @@ namespace PragmaScript
                 {
                     case Platform.WindowsX64:
                         llcProcess.StartInfo.FileName = RelDir("external/llc.exe");
-                    break;
+                        break;
                     case Platform.LinuxX64:
                         llcProcess.StartInfo.FileName = RelDir("external/llc");
-                    break;
+                        break;
                 }
 
                 if (CompilerOptions._i.ll)
@@ -237,10 +237,10 @@ namespace PragmaScript
                 {
                     case Platform.WindowsX64:
                         llcProcess.StartInfo.FileName = RelDir("external/llc.exe");
-                    break;
+                        break;
                     case Platform.LinuxX64:
                         llcProcess.StartInfo.FileName = RelDir("external/llc");
-                    break;
+                        break;
                 }
 
                 if (CompilerOptions._i.ll)
@@ -267,7 +267,7 @@ namespace PragmaScript
                     Program.CompilerMessage($"arg: {llcProcess.StartInfo.Arguments}", CompilerMessageType.Info);
                     Program.CompilerMessage("***************************************", CompilerMessageType.Info);
 
-                    
+
                     llcProcess.Start();
                     var writer = llcProcess.StandardInput;
                     if (optLevel > 0)
@@ -296,28 +296,29 @@ namespace PragmaScript
 
                 switch (platform)
                 {
-                    case Platform.WindowsX64: 
-                    {
-                        lldProcess.StartInfo.FileName = RelDir("external/lld-link.exe");
-                        var flags = "/entry:__init";
-                        if (CompilerOptions._i.dll)
+                    case Platform.WindowsX64:
                         {
-                            flags += $" /NODEFAULTLIB /dll /out:{ox(".dll")}";
+                            lldProcess.StartInfo.FileName = RelDir("external/lld-link.exe");
+                            var flags = "/entry:__init";
+                            if (CompilerOptions._i.dll)
+                            {
+                                flags += $" /NODEFAULTLIB /dll /out:{ox(".dll")}";
+                            }
+                            else
+                            {
+                                flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
+                            }
+                            if (CompilerOptions._i.debug)
+                            {
+                                flags += " /DEBUG";
+                            }
+                            lldProcess.StartInfo.Arguments = $"{libs} {oxt(".o")} {flags} /libpath:{lib_path}";
                         }
-                        else
-                        {
-                            flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
-                        }
-                        if (CompilerOptions._i.debug)
-                        {
-                            flags += " /DEBUG";
-                        }
-                        lldProcess.StartInfo.Arguments = $"{libs} {oxt(".o")} {flags} /libpath:{lib_path}";
-                    } break;
+                        break;
                     case Platform.LinuxX64:
                         lldProcess.StartInfo.FileName = RelDir("external/ld.lld");// "/usr/bin/ld"; // RelDir("external/ld.lld");
                         lldProcess.StartInfo.Arguments = $"-o {ox("")} {oxt(".o")} -e__init";
-                    break;
+                        break;
                 }
 
 
@@ -676,15 +677,20 @@ namespace PragmaScript
 
             if (!stringTable.TryGetValue(str, out str_ptr))
             {
+
                 str_ptr = builder.BuildGlobalStringPtr(str, node, "str");
+
                 stringTable.Add(str, str_ptr);
             }
+
 
             var type = FrontendType.string_;
             var arr_struct_type = GetTypeRef(type);
             var insert = builder.GetInsertBlock();
 
+
             builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
+            builder.BuildComment("ConstString [VARS] START", node);
 
             var arr_struct_ptr = builder.BuildAlloca(arr_struct_type, node, "arr_struct_alloca", 16);
             var str_length = (uint)str.Length;
@@ -713,12 +719,14 @@ namespace PragmaScript
             builder.BuildStore(new ConstInt(i32_t, str_length), gep_arr_length, node);
 
             // set array elem pointer in struct
-            var gep_arr_elem_ptr = builder.BuildGEP(arr_struct_ptr, node, "gep_arr_elem_ptr", false, zero_i32_v, one_i32_v);
+            // NOTE(pragma): slice .data field is index 2 in struct, that's why we have "two_i32_v" here.
+            var gep_arr_elem_ptr = builder.BuildGEP(arr_struct_ptr, node, "gep_arr_elem_ptr", false, zero_i32_v, two_i32_v);
             builder.BuildStore(arr_elem_ptr, gep_arr_elem_ptr, node);
 
             var arr_struct = builder.BuildLoad(arr_struct_ptr, node, "arr_struct_load");
             valueStack.Push(arr_struct);
 
+            builder.BuildComment("ConstString [VARS] END", node);
             builder.PositionAtEnd(insert);
         }
 
@@ -1647,11 +1655,14 @@ namespace PragmaScript
             var structType = (StructType)GetTypeRef(s_ft);
             var insert = builder.GetInsertBlock();
             builder.PositionAtEnd(builder.context.currentFunctionContext.vars);
+            builder.BuildComment("AST.SliceOp [VARS] BEGIN", node);
             var align = GetMinimumAlignmentForBackend(structType);
             var struct_ptr = builder.BuildAlloca(structType, node, "slice_alloca", align);
+            builder.BuildComment("AST.SliceOp [VARS] END", node);
             builder.PositionAtEnd(insert);
+            builder.BuildComment("AST.SliceOp [INSERT] BEGIN", node);
 
-            ptr = builder.BuildBitCast(ptr, structType.elementTypes[1], node, "slice_hack_cast");
+            ptr = builder.BuildBitCast(ptr, structType.elementTypes[2], node, "slice_hack_cast");
 
             Visit(node.capacity);
             Value capacity = valueStack.Pop();
@@ -1696,14 +1707,19 @@ namespace PragmaScript
             builder.PositionAtEnd(slice_to_neg_end);
             var to_phi = builder.BuildPhi(Const.i32_t, node, "to_phi", (to, slice_from_neg_end), (to_neg, slice_to_neg));
 
+
+
             Value length = builder.BuildSub(to_phi, from_phi, node, "slice_length");
+            Value slice_capacity = builder.BuildSub(capacity, from_phi, node, "slice_capacity");
             Value data = builder.BuildGEP(ptr, node, "slice_ptr_offset", false, from_phi);
 
             var length_ptr = builder.BuildStructGEP(struct_ptr, 0, node, "slice_arg_length");
             builder.BuildStore(length, length_ptr, node);
 
-            var data_ptr = (Value)builder.BuildStructGEP(struct_ptr, 1, node, "slice_arg_data");
+            var capacity_ptr = builder.BuildStructGEP(struct_ptr, 1, node, "slice_arg_capacity");
+            builder.BuildStore(slice_capacity, capacity_ptr, node);
 
+            var data_ptr = (Value)builder.BuildStructGEP(struct_ptr, 2, node, "slice_arg_data");
             builder.BuildStore(data, data_ptr, node);
 
             if (node.returnPointer || returnPointer)
@@ -1715,6 +1731,7 @@ namespace PragmaScript
                 var load = builder.BuildLoad(struct_ptr, node, "slice_load");
                 valueStack.Push(load);
             }
+            builder.BuildComment("AST.SliceOp [INSERT] END", node);
         }
 
         public void Visit(AST.ArrayConstructor node, bool isConst = false, bool returnPointer = false)
@@ -2744,24 +2761,28 @@ namespace PragmaScript
             }
             else if (lt is FrontendSliceType st)
             {
+                builder.BuildComment("IndexedElementAccess::FrontendSliceType BEGIN", node);
                 Debug.Assert(indices.Count == 1);
                 var idx = indices[0];
                 // is not function argument?
                 if (arr.type.kind == TypeKind.Pointer)
                 {
-                    var gep_arr_elem_ptr = builder.BuildGEP(arr, node, "gep_arr_elem_ptr", false, zero_i32_v, one_i32_v);
+                    // .data is struct member with idx 2
+                    var gep_arr_elem_ptr = builder.BuildGEP(arr, node, "gep_arr_elem_ptr", false, zero_i32_v, two_i32_v);
                     arr_elem_ptr = builder.BuildLoad(gep_arr_elem_ptr, node, "arr_elem_ptr");
                 }
                 else
                 {
                     Debug.Assert(arr.type.kind == TypeKind.Struct);
-                    arr_elem_ptr = builder.BuildExtractValue(arr, node, "gep_arr_elem_ptr", one_i32_v);
+                    // .data is struct member with idx 2
+                    arr_elem_ptr = builder.BuildExtractValue(arr, node, "gep_arr_elem_ptr", two_i32_v);
                 }
                 var ptr_type = new PointerType(GetTypeRef(st.elementType));
                 arr_elem_ptr = builder.BuildBitCast(arr_elem_ptr, ptr_type, node, "arr_elem_ptr_cast");
                 var gep_arr_elem = builder.BuildGEP(arr_elem_ptr, node, "gep_arr_elem", false, idx);
 
                 result = gep_arr_elem;
+                builder.BuildComment("IndexedElementAccess::FrontendSliceType END", node);
             }
             else if (lt is FrontendVectorType vt)
             {

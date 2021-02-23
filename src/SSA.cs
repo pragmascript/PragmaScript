@@ -472,7 +472,7 @@ namespace PragmaScript
         {
             nounwind = 1, readnone = 2, argmemonly = 4, lvvm = 8
         }
-        
+
         public class Function : Value
         {
             public List<Block> blocks;
@@ -852,6 +852,7 @@ namespace PragmaScript
             public static readonly Value false_v = new ConstInt(bool_t, 0);
             public static readonly Value zero_i32_v = new ConstInt(i32_t, 0);
             public static readonly Value one_i32_v = new ConstInt(i32_t, 1);
+            public static readonly Value two_i32_v = new ConstInt(i32_t, 2);
             public static readonly Value neg_1_i32_v = new ConstInt(i32_t, unchecked((ulong)-1));
             public static readonly Value zero_i64_v = new ConstInt(i32_t, 0);
             public static readonly Value null_ptr_v = new ConstPtr(ptr_t, 0);
@@ -924,7 +925,7 @@ namespace PragmaScript
                 }
                 if (t.Equals(FrontendType.string_))
                 {
-                    return getTypeRef(t as FrontendSliceType, depth);
+                    return getTypeRef(t as FrontendStructType, depth);
                 }
                 switch (t)
                 {
@@ -963,14 +964,15 @@ namespace PragmaScript
                 var result = new ArrayType(getTypeRef(t.elementType, depth), (uint)length);
                 return result;
             }
-            static SSAType getTypeRef(FrontendSliceType t, int depth)
-            {
-                var result = new StructType(false);
-                result.elementTypes.Add(Const.i32_t);
-                result.elementTypes.Add(new PointerType(getTypeRef(t.elementType, depth)));
+            // static SSAType getTypeRef(FrontendSliceType t, int depth)
+            // {
+            //     var result = new StructType(false);
+            //     result.elementTypes.Add(Const.i32_t);
+            //     result.elementTypes.Add(Const.i32_t);
+            //     result.elementTypes.Add(new PointerType(getTypeRef(t.elementType, depth)));
 
-                return result;
-            }
+            //     return result;
+            // }
             static SSAType getTypeRef(FrontendPointerType t, int depth)
             {
                 if (depth > 0 && t.elementType is FrontendStructType)

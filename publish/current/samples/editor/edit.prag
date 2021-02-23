@@ -72,7 +72,6 @@ let editor_panel = struct(
     render_region: rect;
     visible_line_count: i32;
     tabs: panel_tab[];
-    tabs_capacity: i32;
     active_tab: panel_tab*;
 );
 let character = struct(
@@ -105,7 +104,6 @@ let editor_state = struct(
     active_panel: editor_panel*;
     
     documents: document[];
-    documents_capacity: i32;
     
     global_render_state: global_render_state;
     
@@ -113,7 +111,6 @@ let editor_state = struct(
     undo_pos: i32;
     
     commands: editor_command_mapping[];
-    commands_capacity: i32;
 );
 
 
@@ -199,8 +196,8 @@ let create_tab = fun(idx: i32; document: document*) => panel_tab {
 let create_panel = fun() => editor_panel {
     var result = editor_panel { };
     result.visible_line_count = 0;
-    result.tabs_capacity = 1024;
-    result.tabs.data = allocate(size_of(panel_tab) * result.tabs_capacity@mm)@panel_tab*;
+    result.tabs.capacity = 1024;
+    result.tabs.data = allocate(size_of(panel_tab) * result.tabs.capacity@mm)@panel_tab*;
     result.tabs.length = 0;
     result.active_tab = nullptr@panel_tab*;
     return result;
@@ -209,8 +206,8 @@ let create_panel = fun() => editor_panel {
 let create_editor_state = fun(editor_state: editor_state*) => void  {
     *editor_state = editor_state { };
     
-    editor_state.documents_capacity = 1024;
-    editor_state.documents.data = @document* allocate(@mm editor_state.documents_capacity * size_of(document));
+    editor_state.documents.capacity = 1024;
+    editor_state.documents.data = @document* allocate(@mm editor_state.documents.capacity * size_of(document));
     editor_state.documents.length = 0;
     
     editor_state.left_panel = create_panel();
@@ -231,8 +228,8 @@ let create_editor_state = fun(editor_state: editor_state*) => void  {
     editor_state.undo_points.length = 0;
     editor_state.undo_pos = 0;
     
-    editor_state.commands_capacity = 1024;
-    editor_state.commands.data = @editor_command_mapping* allocate(@mm editor_state.commands_capacity * size_of(editor_command_mapping));
+    editor_state.commands.capacity = 1024;
+    editor_state.commands.data = @editor_command_mapping* allocate(@mm editor_state.commands.capacity * size_of(editor_command_mapping));
     
     register_text_panel_commands(editor_state);
 }
@@ -651,7 +648,7 @@ let handle_editor_key_up = fun(vk_code: i32) => void {
 
 let add_document = fun(editor_state: editor_state*) => document* {
     var result: document* = nullptr@document*;
-    if (editor_state.documents.length < editor_state.documents_capacity) {
+    if (editor_state.documents.length < editor_state.documents.capacity) {
         var idx = editor_state.documents.length++;
         result = &editor_state.documents[idx];
         *result = create_document(idx);
@@ -662,7 +659,7 @@ let add_document = fun(editor_state: editor_state*) => document* {
 
 let add_tab = fun(panel: editor_panel*; document: document*) => panel_tab* {
     var result: panel_tab* = nullptr@panel_tab*;
-    if (panel.tabs.length < panel.tabs_capacity) {
+    if (panel.tabs.length < panel.tabs.capacity) {
         var idx = panel.tabs.length++;
         result = &panel.tabs[idx];
         *result = create_tab(idx, document);

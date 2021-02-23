@@ -24,15 +24,16 @@ namespace PragmaScript
                 public Block entry;
                 public Block @return;
                 public List<(Value, Block)> returnEdges = new List<(Value, Block)>();
-                
-                public void RegisterReturnEdge(Value returnValue, Block from) {
+
+                public void RegisterReturnEdge(Value returnValue, Block from)
+                {
                     returnEdges.Add((returnValue, from));
                 }
             }
-            
+
             public Dictionary<Function, FunctionContext> fcs = new Dictionary<Function, FunctionContext>();
             public AST.Node callsite;
-            
+
             FunctionContext globalContext = new FunctionContext();
             System.Collections.Generic.Stack<(Block next, Block end)> loopStack = new System.Collections.Generic.Stack<(Block next, Block end)>();
 
@@ -72,7 +73,7 @@ namespace PragmaScript
                 currentBlock = block;
                 Debug.Assert(fcs.ContainsKey(currentBlock.function));
             }
-            
+
             public void SetFunctionBlocks(Function f, Block vars, Block entry, Block @return)
             {
                 var ctx = fcs[f];
@@ -80,7 +81,7 @@ namespace PragmaScript
                 ctx.entry = entry;
                 ctx.@return = @return;
             }
-            
+
             public void SetCallsite(AST.Node callsite)
             {
                 this.callsite = callsite;
@@ -185,7 +186,7 @@ namespace PragmaScript
                 var result = f.AppendBasicBlock(name);
                 return result;
             }
-            public void RemoveBasicBlock(Block block) 
+            public void RemoveBasicBlock(Block block)
             {
                 var f = context.currentFunction;
                 f.blocks.Remove(block);
@@ -600,8 +601,8 @@ namespace PragmaScript
                 AddOp(result, name, contextNode: contextNode);
                 return result;
             }
-            
-            
+
+
             public Value BuildSExt(Value v, SSAType targetType, AST.Node contextNode, string name = null)
             {
                 var result = new Value(Op.SExt, targetType, v);
@@ -657,6 +658,14 @@ namespace PragmaScript
                 result.isConst = v.isConst;
                 AddOp(result, name, contextNode: contextNode);
                 return result;
+            }
+            public void BuildComment(string comment, AST.Node contextNode, string name = null)
+            {
+                if (CompilerOptions._i.debug && CompilerOptions._i.ll)
+                {
+                    var result = new Emit($"; {comment}");
+                    AddOp(result, name, contextNode: contextNode);
+                }
             }
             public Value BuildEmit(string instr, AST.Node contextNode, string name = null)
             {

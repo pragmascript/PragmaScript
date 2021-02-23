@@ -53,7 +53,7 @@ let register_editor_command = fun(editor_state: editor_state*; key: key_combo; c
     cmd_map.key_combo = key;
     cmd_map.command = cmd;
     cmd_map.ctx_flags = ctx_flags;
-    if (editor_state.commands.length >= editor_state.commands_capacity) {
+    if (editor_state.commands.length >= editor_state.commands.capacity) {
         assert(false);
         return;
     }
@@ -447,8 +447,8 @@ let cmd_go_to_right_panel = fun(@ctx: command_context*) => bool {
 
 let cmd_new_document = fun(@ctx: command_context*) => bool {
     add_undo_point(&editor_state, active_tab);
-    if (active_panel.tabs.length < active_panel.tabs_capacity
-        && editor_state.documents.length < editor_state.documents_capacity) {
+    if (active_panel.tabs.length < active_panel.tabs.capacity
+        && editor_state.documents.length < editor_state.documents.capacity) {
         var doc_idx = editor_state.documents.length++;
         editor_state.documents[doc_idx] = create_document(doc_idx);
         var tab_idx = active_panel.tabs.length++;

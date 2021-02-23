@@ -50,7 +50,7 @@ namespace PragmaScript
 
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
-            CompilerOptions._i.inputFilename = Path.Combine(programDir, "editor", "editor.prag");
+            CompilerOptions._i.inputFilename = Path.Combine(programDir, "editor", "edit.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "ld46", "ld.prag");
             // CompilerOptions._i.inputFilename = Path.Combine("test", "bugs.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "wasapi", "wasapi.prag");
