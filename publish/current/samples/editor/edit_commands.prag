@@ -137,10 +137,10 @@ let cmd_delete_left = fun(@ctx: command_context*) => bool {
 
 let cmd_increase_indent = fun(@ctx: command_context*) => bool {
     if (cursor.selection_active) {
-        var temp_line_length = current_line.length;
+        var temp_line_length = current_line.chars.length;
         let dedent = false;
         change_indent_selection(active_tab, dedent);
-        var delta = current_line.length - temp_line_length;
+        var delta = current_line.chars.length - temp_line_length;
         cursor.pos.x = Math::max(0, cursor.pos.x + delta);
         cursor.last_valid_char_pos = cursor.pos.x;
         should_clear_selection = false;
@@ -155,10 +155,10 @@ let cmd_increase_indent = fun(@ctx: command_context*) => bool {
 
 let cmd_decrease_indent = fun(@ctx: command_context*) => bool {
     if (cursor.selection_active) {
-        var temp_line_length = current_line.length;
+        var temp_line_length = current_line.chars.length;
         let dedent = true;
         change_indent_selection(active_tab, dedent);
-        var delta = current_line.length - temp_line_length;
+        var delta = current_line.chars.length - temp_line_length;
         cursor.pos.x = Math::max(0, cursor.pos.x + delta);
         cursor.last_valid_char_pos = cursor.pos.x;
         should_clear_selection = false;
@@ -196,7 +196,7 @@ let cmd_insert_line = fun(@ctx: command_context*) => bool {
     }
     var next_pos_x = insert_line(document, cursor.pos.z, cursor.pos.y, current_line, cursor.pos.x, should_auto_indent);
     assert(cursor.pos.z < document.chunks_count);
-    current_line.length = cursor.pos.x;
+    current_line.chars.length = cursor.pos.x;
     cursor.pos.x = next_pos_x;
     cursor.last_valid_char_pos = cursor.pos.x;
     
@@ -228,7 +228,7 @@ let cmd_word_left = fun(@ctx: command_context*) => bool {
 }
 
 let cmd_cursor_right = fun(@ctx: command_context*) => bool {
-    if (cursor.pos.x < current_line.length) {
+    if (cursor.pos.x < current_line.chars.length) {
         cursor.pos.x++;
     } else {
         cursor_down(active_tab, cursor);
@@ -239,7 +239,7 @@ let cmd_cursor_right = fun(@ctx: command_context*) => bool {
 }
 
 let cmd_word_right = fun(@ctx: command_context*) => bool {
-    if (cursor.pos.x < current_line.length) {
+    if (cursor.pos.x < current_line.chars.length) {
         handle_next_word(active_tab);
     } else {
         cursor_down(active_tab, cursor);
@@ -278,7 +278,7 @@ let cmd_scroll_lines_down = fun(@ctx: command_context*) => bool {
 }
 
 let cmd_cursor_end_of_line = fun(@ctx: command_context*) => bool {
-    cursor.last_valid_char_pos = current_line.length;
+    cursor.last_valid_char_pos = current_line.chars.length;
     return true;
 }
 
@@ -286,7 +286,7 @@ let cmd_cursor_to_end_of_document = fun(@ctx: command_context*) => bool {
     cursor.pos.z = document.chunks_count - 1;
     var chunk = document.chunks + cursor.pos.z;
     cursor.pos.y = chunk.lines.length - 1;
-    cursor.last_valid_char_pos = chunk.lines[cursor.pos.z].length;
+    cursor.last_valid_char_pos = chunk.lines[cursor.pos.z].chars.length;
     return true;
 }
 
@@ -413,7 +413,7 @@ let cmd_select_all = fun(@ctx: command_context*) => bool {
     cursor.pos.z = document.chunks_count - 1;
     var chunk = document.chunks + (document.chunks_count - 1);
     cursor.pos.y =  chunk.lines.length - 1;
-    cursor.last_valid_char_pos = chunk.lines[cursor.pos.y].length;
+    cursor.last_valid_char_pos = chunk.lines[cursor.pos.y].chars.length;
     active_tab.cursor.selection_active = true;
     should_clear_selection = false;
     return true;

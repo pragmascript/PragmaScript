@@ -114,7 +114,7 @@ let bad_string_hash = fun(str: string) => i32 {
 }
 
 let tokenize = fun(line: line*) => void {
-    var input = line.chars[:line.length];
+    var input = line.chars[:line.chars.length];
     if (input.length == 0) {
         return;
     }

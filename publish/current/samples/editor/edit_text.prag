@@ -89,11 +89,11 @@ let delete_selection = fun(tab: panel_tab*) => void {
     var dest_line = c0.lines[first.y];
     var dest_line_ptr = &c0.lines[first.y];
     var src_line = c1.lines[last.y];
-    dest_line_ptr.length -= (dest_line.length - first.x);
+    dest_line_ptr.chars.length -= (dest_line.chars.length - first.x);
     
     
-    for (var char_idx = last.x; char_idx < src_line.length; ++char_idx) {
-        *(dest_line.chars + (dest_line_ptr.length++)) = *(src_line.chars + char_idx);
+    for (var char_idx = last.x; char_idx < src_line.chars.length; ++char_idx) {
+        dest_line.chars[dest_line_ptr.chars.length++] = src_line.chars[char_idx];
     }
     
     if (first.z == last.z) {
@@ -128,10 +128,10 @@ let delete_line = fun(document: document*; chunk_idx: i32; target_line_idx: i32;
     for (var line_idx = target_line_idx; line_idx < current_chunk.lines.length - 1; ++line_idx) {
         var dest_line = current_chunk.lines[line_idx];
         var src_line = current_chunk.lines[line_idx + 1];
-        memcpy(dest_line.chars@i8*, src_line.chars@i8*, (src_line.length@mm) * size_of(character));
-        current_chunk.lines[line_idx].length = src_line.length;
+        memcpy(dest_line.chars.data@i8*, src_line.chars.data@i8*, (src_line.chars.length@mm) * size_of(character));
+        current_chunk.lines[line_idx].chars.length = src_line.chars.length;
     }
-    current_chunk.lines[current_chunk.lines.length - 1].length = 0;
+    current_chunk.lines[current_chunk.lines.length - 1].chars.length = 0;
     if (decrement_line_count) {
         current_chunk.lines.length--;
         if (current_chunk.lines.length <= 0) {
@@ -153,11 +153,11 @@ let indent_line = fun(line_ptr: line*; char_offset: i32) => void {
 let dedent_line = fun(line_ptr: line*) => void {
     var indent = get_line_indent(line_ptr);
     if (indent >= spaces_to_indent) {
-        assert(line_ptr.length >= spaces_to_indent);
-        for (var char_idx = spaces_to_indent; char_idx < line_ptr.length; ++char_idx) {
-            *(line_ptr.chars + char_idx - spaces_to_indent) = *(line_ptr.chars + char_idx);
+        assert(line_ptr.chars.length >= spaces_to_indent);
+        for (var char_idx = spaces_to_indent; char_idx < line_ptr.chars.length; ++char_idx) {
+            *(line_ptr.chars.data + char_idx - spaces_to_indent) = line_ptr.chars[char_idx];
         }
-        line_ptr.length -= spaces_to_indent;
+        line_ptr.chars.length -= spaces_to_indent;
     }
 }
 
@@ -189,8 +189,8 @@ let change_indent_selection = fun(tab: panel_tab*; dedent: bool) => void {
 
 let get_line_indent = fun(line: line*) => i32 {
     var result = 0;
-    while (result < line.length) {
-        var char = line.chars + result;
+    while (result < line.chars.length) {
+        var char = &line.chars[result];
         if (is_whitespace(char.value)) {
             result++;
         } else {
@@ -203,10 +203,10 @@ let get_line_indent = fun(line: line*) => i32 {
 // TODO(pragma): find first non empty line i guess?
 let get_next_indent = fun(line: line*; char_pos: i32) => i32 {
     var result = get_line_indent(line);
-    var pos = line.length - 1;
+    var pos = line.chars.length - 1;
     
     while (pos >= 0) {
-        var char = line.chars + pos;
+        var char = line.chars[pos];
         if (char.value == ord("{") && char_pos > pos) {
             result += spaces_to_indent;
             break;
@@ -223,9 +223,9 @@ let get_next_indent = fun(line: line*; char_pos: i32) => i32 {
 
 let left_is_whitespace = fun(line: line*; char_pos: i32) => bool {
     var result = true;
-    assert(char_pos <= line.length);
+    assert(char_pos <= line.chars.length);
     for (var char_idx = 0; char_idx < char_pos; ++char_idx) {
-        var char = line.chars + char_idx;
+        var char = line.chars[char_idx];
         if (!is_whitespace(char.value)) {
             return false;
         }
@@ -250,8 +250,8 @@ let insert_line = fun(document: document*; chunk_idx: i32; target_line_idx: i32;
     for (var line_idx = start_line_idx; line_idx >= target_line_idx; --line_idx) {
         var src_line = lines[line_idx];
         var dest_line = lines[line_idx + 1];
-        memcpy(dest_line.chars@i8*, src_line.chars@i8*, (src_line.length@mm) * size_of(character));
-        lines[line_idx + 1].length = src_line.length;
+        memcpy(dest_line.chars.data@i8*, src_line.chars.data@i8*, (src_line.chars.length@mm) * size_of(character));
+        lines[line_idx + 1].chars.length = src_line.chars.length;
     }
     var new_line = lines[target_line_idx];
     
@@ -260,17 +260,17 @@ let insert_line = fun(document: document*; chunk_idx: i32; target_line_idx: i32;
         indent = get_next_indent(src_line, src_char_pos);
         var space = from_ascii(ord(" "));
         for (var char_idx = 0; char_idx < indent; ++char_idx) {
-            *(lines[target_line_idx].chars + char_idx) = space;
+            lines[target_line_idx].chars[char_idx] = space;
         }
     }
-    if (src_line@ptr == nullptr || src_line.length == 0) {
-        memset(new_line.chars@i8*, 0, (max_line_length@mm) * size_of(character));
-        lines[target_line_idx].length = 0;
+    if (src_line@ptr == nullptr || src_line.chars.length == 0) {
+        memset(new_line.chars.data@i8*, 0, (max_line_length@mm) * size_of(character));
+        lines[target_line_idx].chars.length = 0;
     } else {
-        var char_count = (src_line.length - src_char_pos);
-        memcpy((new_line.chars + indent)@i8*, (src_line.chars + src_char_pos)@i8*, @mm char_count * size_of(character));
+        var char_count = (src_line.chars.length - src_char_pos);
+        memcpy((new_line.chars.data + indent)@i8*, (src_line.chars.data + src_char_pos)@i8*, @mm char_count * size_of(character));
         assert(indent + char_count < max_line_length);
-        lines[target_line_idx].length = indent + char_count;
+        lines[target_line_idx].chars.length = indent + char_count;
     }
     mark_dirty(current_chunk);
     assert(current_chunk.lines.length > 0);
@@ -307,12 +307,12 @@ let paste_string = fun(tab: panel_tab*; str: string) => void {
 }
 
 let add_char_to_line = fun(line_ptr: line*; char_pos: i32; char: character) => void {
-    if (line_ptr.length + 1 < line_ptr.capacity) {
-        for (var char_idx = line_ptr.length - 1; char_idx >= char_pos; --char_idx) {
-            *(line_ptr.chars + (char_idx + 1)) = *(line_ptr.chars + char_idx);
+    if (line_ptr.chars.length + 1 < line_ptr.chars.capacity) {
+        for (var char_idx = line_ptr.chars.length - 1; char_idx >= char_pos; --char_idx) {
+            line_ptr.chars[char_idx + 1] = line_ptr.chars[char_idx];
         }
-        line_ptr.length++;
-        *(line_ptr.chars + char_pos) = char;
+        line_ptr.chars.length++;
+        line_ptr.chars[char_pos] = char;
     }
 }
 
@@ -350,17 +350,17 @@ let handle_next_word = fun(tab: panel_tab*) => void {
     var current_chunk = document.chunks + cursor.pos.z;
     var line = current_chunk.lines[cursor.pos.y];
     
-    if (cursor.pos.x >= line.length) {
+    if (cursor.pos.x >= line.chars.length) {
         return;
     }
     
-    for (var char = *(line.chars + cursor.pos.x); cursor.pos.x < line.length && is_whitespace(char.value); cursor.pos.x++) { 
-        char = *(line.chars + cursor.pos.x);
+    for (var char = line.chars[cursor.pos.x]; cursor.pos.x < line.chars.length && is_whitespace(char.value); cursor.pos.x++) { 
+        char = line.chars[cursor.pos.x];
     }
     cursor.pos.x++;
     
-    for (var char = *(line.chars + cursor.pos.x); cursor.pos.x < line.length; cursor.pos.x++) {
-        char = *(line.chars + cursor.pos.x);
+    for (var char = line.chars[cursor.pos.x]; cursor.pos.x < line.chars.length; cursor.pos.x++) {
+        char = line.chars[cursor.pos.x];
         if (!is_identifier_char(char.value)) {
             break;
         }
@@ -377,13 +377,13 @@ let handle_prev_word = fun(tab: panel_tab*) => void {
         return;
     }
     cursor.pos.x--;
-    for (var char = *(line.chars + cursor.pos.x); cursor.pos.x > 0 && is_whitespace(char.value); cursor.pos.x--) { 
-        char = *(line.chars + cursor.pos.x);
+    for (var char = line.chars[cursor.pos.x]; cursor.pos.x > 0 && is_whitespace(char.value); cursor.pos.x--) { 
+        char = line.chars[cursor.pos.x];
     }
-    var chr = *(line.chars + cursor.pos.x);
+    var chr = line.chars[cursor.pos.x];
     if (is_identifier_char(chr.value)) {
-        for (var char = *(line.chars + cursor.pos.x); cursor.pos.x > 0; cursor.pos.x--) {
-            char = *(line.chars + cursor.pos.x);
+        for (var char = line.chars[cursor.pos.x]; cursor.pos.x > 0; cursor.pos.x--) {
+            char = line.chars[cursor.pos.x];
             if (!is_identifier_char(char.value)) {
                 cursor.pos.x++;
                 break;
@@ -401,16 +401,16 @@ let handle_delete = fun(tab: panel_tab*) => void {
     var current_line = current_chunk.lines[cursor.pos.y];
     var current_line_ptr = &current_chunk.lines[cursor.pos.y];
     
-    if (cursor.pos.x < current_line.length) {
-        for (var char_idx = cursor.pos.x; char_idx < current_line.length; ++char_idx) {
-            if (char_idx == current_line.length - 1) {
-                *(current_line.chars + char_idx) = from_ascii(0);
+    if (cursor.pos.x < current_line.chars.length) {
+        for (var char_idx = cursor.pos.x; char_idx < current_line.chars.length; ++char_idx) {
+            if (char_idx == current_line.chars.length - 1) {
+                current_line.chars[char_idx] = from_ascii(0);
             } else {
-                *(current_line.chars + char_idx) = *(current_line.chars + (char_idx + 1));
+                current_line.chars[char_idx] = current_line.chars[char_idx + 1];
             }
         }
         mark_dirty(current_chunk);
-        current_line_ptr.length--;
+        current_line_ptr.chars.length--;
     } else {
         var next_line: line;
         var next_line_chunk_idx: i32;
@@ -430,10 +430,10 @@ let handle_delete = fun(tab: panel_tab*) => void {
             next_line_idx = cursor.pos.y + 1;
             next_line = lines[cursor.pos.y + 1];
         }
-        for (var char_idx = 0; char_idx < next_line.length; ++char_idx) {
-            *(current_line.chars + (cursor.pos.x + char_idx)) = *(next_line.chars + char_idx);
+        for (var char_idx = 0; char_idx < next_line.chars.length; ++char_idx) {
+            current_line.chars[cursor.pos.x + char_idx] = next_line.chars[char_idx];
         }
-        current_line_ptr.length += next_line.length;
+        current_line_ptr.chars.length += next_line.chars.length;
         mark_dirty(current_chunk);
         delete_line(document, next_line_chunk_idx, next_line_idx);
     }
@@ -449,11 +449,11 @@ let handle_backspace = fun(tab: panel_tab*) => void {
     var current_line_ptr = &current_chunk.lines[cursor.pos.y];
     
     if (cursor.pos.x > 0) {
-        current_line_ptr.length--;
-        for (var char_idx = cursor.pos.x - 1; char_idx < current_line.length - 1; ++char_idx) {
-            *(current_line.chars + char_idx) = *(current_line.chars + (char_idx + 1));
+        current_line_ptr.chars.length--;
+        for (var char_idx = cursor.pos.x - 1; char_idx < current_line.chars.length - 1; ++char_idx) {
+            current_line.chars[char_idx] = current_line.chars[char_idx + 1];
         }
-        *(current_line.chars + current_line_ptr.length) = from_ascii(0);
+        current_line.chars[current_line_ptr.chars.length] = from_ascii(0);
         cursor.pos.x--;
     } else {
         var dest_line: line;
@@ -473,15 +473,15 @@ let handle_backspace = fun(tab: panel_tab*) => void {
             dest_line_ptr = &prev_chunk.lines[prev_chunk.lines.length - 1];
             mark_dirty(prev_chunk);
         }
-        cursor.pos.x = dest_line.length;
+        cursor.pos.x = dest_line.chars.length;
         var src_line = lines[cursor.pos.y];
-        for (var char_idx = 0; char_idx < src_line.length; ++char_idx) {
-            *(dest_line.chars + (dest_line.length + char_idx)) = *(src_line.chars + char_idx);
-            *(src_line.chars + char_idx) = from_ascii(0);
+        for (var char_idx = 0; char_idx < src_line.chars.length; ++char_idx) {
+            *(dest_line.chars.data + (dest_line.chars.length + char_idx)) = *(src_line.chars.data + char_idx);
+            *(src_line.chars.data + char_idx) = from_ascii(0);
         }
-        cursor.pos.x = dest_line_ptr.length;
-        dest_line_ptr.length += src_line.length;
-        assert(dest_line_ptr.length < max_line_length);
+        cursor.pos.x = dest_line_ptr.chars.length;
+        dest_line_ptr.chars.length += src_line.chars.length;
+        assert(dest_line_ptr.chars.length < max_line_length);
         
         var delete_line_idx = cursor.pos.y;
         delete_line(document, cursor.pos.z, delete_line_idx, true);
@@ -499,6 +499,6 @@ let clamp_cursor = fun(tab: panel_tab*) => void {
     var current_chunk = document.chunks + cursor.pos.z;
     var lines = current_chunk.lines;
     cursor.pos.y = Math::clamp(cursor.pos.y, 0, current_chunk.lines.length - 1);
-    cursor.pos.x = Math::clamp(cursor.pos.x, 0, lines[cursor.pos.y].length);
+    cursor.pos.x = Math::clamp(cursor.pos.x, 0, lines[cursor.pos.y].chars.length);
 }
 

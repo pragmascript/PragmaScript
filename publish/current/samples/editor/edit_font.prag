@@ -372,18 +372,18 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
                     render_context.background_color = background_color_regular;
                 }
                 
-                for (var char_idx = 0; char_idx < current_line.length + 1; ++char_idx) {
+                for (var char_idx = 0; char_idx < current_line.chars.length + 1; ++char_idx) {
                     var cursor_p = p;
                     
                     // TODO(pragma): we can also include x here:
                     var should_draw = p.y > min_safe_y && p.y < max_safe_y;
                     if (should_draw) {
                         var selected = is_in_selection(&active_tab.cursor, char_idx, line_idx, chunk_idx);
-                        if (char_idx != current_line.length) {
-                            var char = *(current_line.chars + char_idx);
+                        if (char_idx != current_line.chars.length) {
+                            var char = current_line.chars[char_idx];
                             var char_next = from_ascii(0);
-                            if (char_idx < current_line.length - 1) {
-                                char_next = *(current_line.chars + (char_idx + 1));    
+                            if (char_idx < current_line.chars.length - 1) {
+                                char_next = current_line.chars[char_idx + 1];    
                             }
                             render_context.foreground_color = theme_colors[char.token_type@i32];
                             if (draw_chunk_colors) {
