@@ -2710,6 +2710,7 @@ namespace PragmaScript
             var lt = typeChecker.GetNodeType(node.left);
             if (lt is FrontendArrayType at)
             {
+                builder.BuildComment("IndexedElementAccess::FrontendArrayType BEGIN", node);
                 Value idx = null;
                 if (indices.Count == 1)
                 {
@@ -2758,6 +2759,7 @@ namespace PragmaScript
                     isValue = true;
                     Debug.Assert(!node.returnPointer);
                 }
+                builder.BuildComment("IndexedElementAccess::FrontendArrayType END", node);
             }
             else if (lt is FrontendSliceType st)
             {
@@ -2798,6 +2800,22 @@ namespace PragmaScript
                 var idx = indices[0];
                 result = builder.BuildExtractElement(vec, idx, node, "vec_extract");
                 isValue = true;
+            }
+            else if (lt is FrontendPointerType pt)
+            {
+                builder.BuildComment("IndexedElementAccess::FrontendPointerType START", node);
+                Debug.Assert(indices.Count == 1);
+                var idx = indices[0];
+                if (arr.op != Op.FunctionArgument && !arr.isConst)
+                {
+                    arr_elem_ptr = builder.BuildLoad(arr_elem_ptr, node, "arr_elem_ptr");
+                    result = builder.BuildGEP(arr_elem_ptr, node, "gep_arr_elem", inBounds: true, idx);
+                }
+                else
+                {
+                    result = builder.BuildGEP(arr_elem_ptr, node, "gep_arr_elem", inBounds: true, idx);
+                }
+                builder.BuildComment("IndexedElementAccess::FrontendPointerType END", node);
             }
             else
             {

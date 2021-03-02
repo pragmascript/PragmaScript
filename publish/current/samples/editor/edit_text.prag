@@ -155,7 +155,7 @@ let dedent_line = fun(line_ptr: line*) => void {
     if (indent >= spaces_to_indent) {
         assert(line_ptr.chars.length >= spaces_to_indent);
         for (var char_idx = spaces_to_indent; char_idx < line_ptr.chars.length; ++char_idx) {
-            *(line_ptr.chars.data + char_idx - spaces_to_indent) = line_ptr.chars[char_idx];
+            line_ptr.chars[char_idx - spaces_to_indent] = line_ptr.chars[char_idx];
         }
         line_ptr.chars.length -= spaces_to_indent;
     }
@@ -476,8 +476,8 @@ let handle_backspace = fun(tab: panel_tab*) => void {
         cursor.pos.x = dest_line.chars.length;
         var src_line = lines[cursor.pos.y];
         for (var char_idx = 0; char_idx < src_line.chars.length; ++char_idx) {
-            *(dest_line.chars.data + (dest_line.chars.length + char_idx)) = *(src_line.chars.data + char_idx);
-            *(src_line.chars.data + char_idx) = from_ascii(0);
+            dest_line.chars[dest_line.chars.length + char_idx] = src_line.chars[char_idx];
+            src_line.chars[char_idx] = from_ascii(0);
         }
         cursor.pos.x = dest_line_ptr.chars.length;
         dest_line_ptr.chars.length += src_line.chars.length;

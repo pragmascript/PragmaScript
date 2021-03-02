@@ -8,7 +8,7 @@
             "args": [
                 "build",
                 "-c",
-                "Debug"
+                "Release"
             ],
             "problemMatcher": "$msCompile"
         },

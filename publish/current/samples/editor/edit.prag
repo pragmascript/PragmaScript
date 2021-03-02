@@ -38,13 +38,7 @@ let document = struct(
     chunks_capacity: i32;
     idx: i32;
 );
-let panel_tab = struct(
-    scroll_pos: v2;
-    scroll_target: v2;
-    document: document*;
-    cursor: cursor;
-    idx: i32;
-);
+
 let undo_chunk = struct(
     idx: i32;
     data: text_chunk;
@@ -67,6 +61,13 @@ let global_render_state = struct(
     time: f32;        
     delta_time: f32;
     temp_memory: memory_arena;
+);
+let panel_tab = struct(
+    scroll_pos: v2;
+    scroll_target: v2;
+    document: document*;
+    cursor: cursor;
+    idx: i32;
 );
 let editor_panel = struct(
     render_region: rect;
@@ -654,7 +655,6 @@ let add_document = fun(editor_state: editor_state*) => document* {
     return result;
 }
 
-
 let add_tab = fun(panel: editor_panel*; document: document*) => panel_tab* {
     var result: panel_tab* = nullptr@panel_tab*;
     if (panel.tabs.length < panel.tabs.capacity) {
@@ -732,7 +732,7 @@ let render = fun(editor_state: editor_state*; window_state: window_state*) => vo
     if (editor_state.dirty_for_undo && render_state.time - editor_state.last_keypress_time > 0.1) {
         add_undo_point(editor_state, editor_state.active_panel.active_tab);
     }
-    // frames++;
+    frames++;
     // if (frames == 600) {
     //     debug_print("ms elapsed: ", get_seconds_elapsed(t0, t1) * 1000.0);
     //     frames = 0;

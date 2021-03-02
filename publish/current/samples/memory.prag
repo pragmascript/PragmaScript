@@ -56,6 +56,3 @@ let get_slice = fun(@arena: memory_arena*) => i8[] {
 	var result = base[:used@i32];
 	return result;
 }
-
-
-

@@ -85,6 +85,7 @@ let load_font = fun() => font {
         
         //TODO(pragma): what does this do?
         // var test = AddFontResourceA(cstr("fonts\\TheanoDidot-Regular.ttf\0"));
+
         
 #if false
         var font_handle = CreateFontA(result.base_size, 0, 0, 0,
@@ -105,7 +106,8 @@ let load_font = fun() => font {
         
         var kerning_pairs = @KERNINGPAIR* allocate(size_of(KERNINGPAIR) * kerning_pair_count@mm);
         GetKerningPairsA(font_dc, kerning_pair_count, kerning_pairs);
-#endif        
+#endif
+
         result.kerning_table.data = @i32* push(&temp_memory_arena, @mm (glyph_count*glyph_count) * size_of(i32));
         result.kerning_table.length = glyph_count*glyph_count;
         memset(result.kerning_table.data@ptr, 0, result.kerning_table.length@mm);

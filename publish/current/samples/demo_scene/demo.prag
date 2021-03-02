@@ -353,9 +353,7 @@ let get_opengl_info = fun() => opengl_info {
     result.renderer = from_cstr(glGetString(GL_RENDERER), -1);
     result.version = from_cstr(glGetString(GL_VERSION), -1);
     
-    // TODO(pragma): GL_EXTENSIONS is deprecated use
-    //   glGetStringi with GL_EXTENSIONS, i and
-    //   GL_NUM_EXTENSIONS
+    
     // result.extensions = from_cstr(glGetString(GL_EXTENSIONS), -1);
     // print_opengl_info(&result);
     return result;

@@ -446,7 +446,7 @@ let dyn_huffman_block = fun(stream: zlib_stream*; length_lookup: decode_lookup_t
     }
     assert(cl_ptr == literal_len_code_length + hlit + hdist);
     
-    var lit_length_huff = build_huffman(literal_len_code_length[:hlit]); // TODO(pragma): kills the compiler
+    var lit_length_huff = build_huffman(literal_len_code_length[:hlit]);
     
     var dist_huff = build_huffman(dist_code_length[:hdist]);
     

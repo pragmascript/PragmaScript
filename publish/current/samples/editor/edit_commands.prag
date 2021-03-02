@@ -118,6 +118,8 @@ let register_text_panel_commands = fun(editor_state: editor_state*) => void {
 
 // todo make this work:
 // let cmd_delete_left: editor_command = fun(@ctx: command_context*) => bool {
+// this works but then you can't see the method signature:
+// let cmd_delete_left: editor_command_callback =  {
 let cmd_delete_left = fun(@ctx: command_context*) => bool {
     if (cursor.selection_active) {
         delete_selection(active_tab);

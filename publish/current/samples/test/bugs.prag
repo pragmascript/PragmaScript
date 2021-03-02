@@ -3,11 +3,16 @@
 import "../math.prag"
 
 
+let bar = struct (
+    value: f32;  
+);
+
+
 [
 	"compile.output": "bugs.exe",
     "compile.debuginfo" : "true",
 	"compile.entry" : "true",
-    "compile.ll"    : "false",
+    "compile.ll"    : "true",
 	"compile.asm"   : "false",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
@@ -16,11 +21,21 @@ import "../math.prag"
 ]
 let main = fun () => void 
 {   
+    var bar_ptr: bar*;
     
-    var arr = [1, 2, 3, 4];
-    var s = arr[1:];
-    debug_print("capacity", s.capacity);
+    var x = (bar_ptr + 1).value;
     
+    
+    // var arr = [0, 1, 2, 3, 4];
+    // var s = arr[:];
+    // debug_print("capacity", s.capacity);
+    // debug_print("arr", arr[2]);
+    // debug_print("slice", s[2]);
+    // debug_print("ptr", s.data[2]);
+    
+    // s.data[4] = 7;
+    // foo_0(s.data);
+    // debug_print("d0", s[0]);
     
     // array_ref_bug();
     // ptr_bug();
@@ -28,6 +43,23 @@ let main = fun () => void
     // enum_test();
     //slice_test();
 }
+
+// let foo_0 = fun(data: i32*) => void
+// {
+//     debug_print("data_ptr", data@i64);
+//     debug_print("data_4", data[4]);
+//     data[0] = -12;
+// }
+
+// let foo_1 = fun() => void {
+//     var data: i32* = nullptr@i32*;
+//     debug_print("data", data[5]);
+// }
+
+// let bar = fun() => void {
+//     var data: i32[];
+//     debug_print("data", data[5]);
+// }
 
 
 #if FALSE

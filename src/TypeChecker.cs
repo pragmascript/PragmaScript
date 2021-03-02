@@ -1159,6 +1159,13 @@ namespace PragmaScript
                             throw new CompilerError("When indexing into a vector you can only have one index", node.token);
                         }
                         break;
+                    case FrontendPointerType pt:
+                        et = pt.elementType;
+                        if (node.indices.Count != 1)
+                        {
+                            throw new CompilerError("When indexing into a pointer you can only have one index", node.token);
+                        }
+                        break;
                     default:
                         throw new CompilerError("left side is not an array, vector or slice type", node.token);
                 }
@@ -1566,10 +1573,10 @@ namespace PragmaScript
                         if (pet.elementType.preResolved)
                         {
                             addUnresolved(node, GetTypeRoot(pet.elementType));
-                        } 
+                        }
                         else
                         {
-                            resolve(node, pet.elementType);    
+                            resolve(node, pet.elementType);
                         }
                         break;
                     case AST.UnaryOp.UnaryOpType.SizeOf:
