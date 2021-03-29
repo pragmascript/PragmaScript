@@ -7,12 +7,12 @@
             //"type": "cppdbg",
             "request": "launch",
             // "preLaunchTask": "build",
-            "program": "${workspaceRoot}/editor/bin/edit.exe",
+            "program": "${workspaceRoot}/bootstrap/bin/prag.exe",
             "args": [
                 "..\\."
             ],
             "stopAtEntry": false,
-            "cwd": "${workspaceRoot}/editor/bin/",
+            "cwd": "${workspaceRoot}/bootstrap/bin/",
             "environment": [],
             "externalConsole": true
         }

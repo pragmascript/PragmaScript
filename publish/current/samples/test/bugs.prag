@@ -1,18 +1,32 @@
 ﻿import "../preamble.prag"
 // import "../vec.prag"
-import "../math.prag"
+// import "../math.prag"
 
 
-let bar = struct (
-    value: f32;  
-);
+// let bar = struct (
+//     value: f32;  
+// );
 
 
+let push_buf = fun(buf: i32[]*; val: i32) => void {
+    if (buf.capacity <= buf.length) {
+        var old_data = buf.data;
+        var new_capacity = buf.capacity * 2;
+        if (buf.capacity == 0) {
+            new_capacity = 1024;
+        }
+        buf.capacity = new_capacity;
+        buf.data = allocate((buf.capacity * 2)@mm)@i32*;
+        memcpy(buf.data@ptr, old_data@ptr, @mm buf.length * size_of(i32));
+    }
+    assert(buf.length + 1 < buf.capacity);
+    buf.data[buf.length++] = val;
+}
 [
 	"compile.output": "bugs.exe",
     "compile.debuginfo" : "true",
 	"compile.entry" : "true",
-    "compile.ll"    : "true",
+    "compile.ll"    : "false",
 	"compile.asm"   : "false",
  	"compile.opt"   : "0",
  	"compile.run"   : "true",
@@ -21,9 +35,11 @@ let bar = struct (
 ]
 let main = fun () => void 
 {   
-    var bar_ptr: bar*;
+    print("foo");
+    var x: i32[]*;
     
-    var x = (bar_ptr + 1).value;
+    // var bar_ptr: bar*;
+    // var x = (bar_ptr + 1).value;
     
     
     // var arr = [0, 1, 2, 3, 4];

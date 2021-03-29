@@ -732,6 +732,12 @@ let is_whitespace = fun(char: i8) => bool {
     var result = char == 32 || char == 09 || char == 11 || char == 12 || is_end_of_line(char);
     return result;
 }
+let is_letter_char = fun(char: i8) => bool {
+    var result = false;
+    result |= char >= ord("a") && char <= ord("z");
+    result |= char >= ord("A") && char <= ord("Z");
+    return result;
+}
 let is_identifier_char = fun(char: i8) => bool {
     var result = false;
     result |= char >= ord("a") && char <= ord("z");
@@ -1016,9 +1022,9 @@ let print = fun (value: f32_4x; precision: i32 = 4) => void
 
 let debug_print = fun(name: string; value: string) => void {
     print(name);
-    print(": ");
+    print(": \"");
     print(value);
-    print("\n");
+    print("\"\n");
 }	
 
 let debug_print = fun (name: string; value: i64; signed: bool = true) => void

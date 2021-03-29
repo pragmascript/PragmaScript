@@ -36,7 +36,7 @@ namespace PragmaScript
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"../publish/current/samples"));
             System.IO.Directory.SetCurrentDirectory(programDir);
 
-            // CompilerOptions._i.buildExecuteable = false;
+            // CompilerOptions._i.buildExecuteable  = false;
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "preamble.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
@@ -50,9 +50,9 @@ namespace PragmaScript
 
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
-            CompilerOptions._i.inputFilename = Path.Combine(programDir, "editor", "edit.prag");
+            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "editor", "edit.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "ld46", "ld.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine("test", "bugs.prag");
+            CompilerOptions._i.inputFilename = Path.Combine("test", "bugs.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "wasapi", "wasapi.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "raytracer", "raytracer.prag");
             // CompilerOptions._i.inputFilename = Path.Combine(programDir,  "work_queue.prag");

@@ -29,12 +29,35 @@ let push = fun(@arena: memory_arena*; push_size: mm) => ptr {
 	return result;
 }
 
-var start_temp = fun(@arena: memory_arena*;) => mm {
+let start_temp = fun(@arena: memory_arena*;) => mm {
 	return used;
 }
 
-var stop_temp = fun(@arena: memory_arena*; temp_used: mm) => void {
+let stop_temp = fun(@arena: memory_arena*; temp_used: mm) => void {
 	used = temp_used;
+}
+mod _INTERNAL {
+// TODO(pragma): this stuff should be thread local?
+	var temp_memory_stack_pos: i32;
+	var temp_memory_stack: mm[32];	
+}
+
+
+// TODO(pragma): make this threadsafe
+let push_temp = fun(@arena: memory_arena* = &temp_memory_arena) => void {
+	_INTERNAL::temp_memory_stack[_INTERNAL::temp_memory_stack_pos++] = start_temp(arena);
+	if (_INTERNAL::temp_memory_stack_pos@mm >= len(_INTERNAL::temp_memory_stack)) {
+		assert(false, "Exceeded max temp memory stack size!");
+	}
+}
+
+// TODO(pragma): make this threadsafe
+let pop_temp = fun(@arena: memory_arena* = &temp_memory_arena) => void {
+	_INTERNAL::temp_memory_stack_pos--;
+	if (_INTERNAL::temp_memory_stack_pos < 0) {
+		assert(false, "Inbalanced push_temp pop_temp operations. Stack pos below 0!");
+	}
+	stop_temp(arena, _INTERNAL::temp_memory_stack[_INTERNAL::temp_memory_stack_pos]);
 }
 
 let create_arena = fun(size: mm) => memory_arena {

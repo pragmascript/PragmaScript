@@ -1048,11 +1048,11 @@ namespace PragmaScript
 
             }
         }
-        private static Node ParseBinOp(ref ParseState ps, Scope scope)
+        static Node ParseBinOp(ref ParseState ps, Scope scope)
         {
             return ParseBinOp(ref ps, scope, 13);
         }
-        private static Node ParseBinOp(ref ParseState ps, Scope scope, int precedence)
+        static Node ParseBinOp(ref ParseState ps, Scope scope, int precedence)
         {
             if (precedence == 13)
             {
@@ -1084,7 +1084,7 @@ namespace PragmaScript
             return left;
         }
 
-        private static Node ParseTypeOperator(ref ParseState ps, Scope scope)
+        static Node ParseTypeOperator(ref ParseState ps, Scope scope)
         {
 
             var left = ParseUnary(ref ps, scope);
@@ -1104,8 +1104,9 @@ namespace PragmaScript
             return left;
         }
 
+
         // operator precedence 1
-        private static Node ParseUnary(ref ParseState ps, Scope scope)
+        static Node ParseUnary(ref ParseState ps, Scope scope)
         {
             var current = ps.CurrentToken();
 
@@ -1152,8 +1153,23 @@ namespace PragmaScript
             return ParsePrimary(ref ps, scope);
         }
 
+        static ulong ExtractIntNumber(string text)
+        {
+            ulong result;
+            bool isHex = text.Length > 1 && text[1] == 'x';
+            if (isHex)
+            {
+                result = ulong.Parse(text.Substring(2), NumberStyles.AllowHexSpecifier);
+            }
+            else
+            {
+                result = (ulong)decimal.Parse(text);
+            }
+            return result;
+        }
+
         // operator precedence 0
-        private static Node ParsePrimary(ref ParseState ps, Scope scope)
+        static Node ParsePrimary(ref ParseState ps, Scope scope)
         {
             var current = ps.CurrentToken();
 
@@ -1162,16 +1178,7 @@ namespace PragmaScript
                 case Token.TokenType.IntNumber:
                     {
                         var result = new ConstInt(current, scope);
-                        bool isHex = current.text.Length > 1 && current.text[1] == 'x';
-                        if (isHex)
-                        {
-                            result.number = ulong.Parse(current.text.Substring(2), NumberStyles.AllowHexSpecifier);
-                        }
-                        else
-                        {
-                            result.number = (ulong)decimal.Parse(current.text);
-                        }
-
+                        result.number = ExtractIntNumber(current.text);
                         return result;
                     }
                 case Token.TokenType.FloatNumber:
@@ -1627,10 +1634,17 @@ namespace PragmaScript
             ps.ExpectNextToken(Token.TokenType.OpenBracket);
 
             var next = ps.PeekToken();
+            ulong value = 0;
             while (next.type != Token.TokenType.CloseBracket)
             {
                 var fieldName = ps.ExpectNextToken(Token.TokenType.Identifier);
-                result.entries.Add(new FrontendEnumType.Entry { name = fieldName.text, value = (ulong)entries.Count });
+                if (ps.PeekToken().type == Token.TokenType.Assignment)
+                {
+                    ps.ExpectNextToken(Token.TokenType.Assignment);
+                    var valueToken = ps.ExpectNextToken(Token.TokenType.IntNumber);
+                    value = ExtractIntNumber(valueToken.text);
+                }
+                result.entries.Add(new FrontendEnumType.Entry { name = fieldName.text, value = value++ });
                 enumModule.scope.AddVar(fieldName.text, result, fieldName, isConst: true);
                 if (ps.PeekToken().type != Token.TokenType.CloseBracket)
                 {
@@ -1697,7 +1711,7 @@ namespace PragmaScript
                     while (true)
                     {
                         var length = ps.ExpectNextToken(Token.TokenType.IntNumber);
-                        result.arrayDims.Add(int.Parse(length.text));
+                        result.arrayDims.Add((int)ExtractIntNumber(length.text));
                         if (ps.PeekToken().type == Token.TokenType.CloseSquareBracket)
                         {
                             break;
@@ -1710,7 +1724,7 @@ namespace PragmaScript
                     ps.ExpectNextToken(Token.TokenType.CloseSquareBracket);
 
                 }
-                else if (next.type == Token.TokenType.Multiply)
+                if (ps.PeekToken().type == Token.TokenType.Multiply)
                 {
                     result.isPointerType = true;
                     while (ps.PeekToken().type == Token.TokenType.Multiply)
@@ -1718,17 +1732,6 @@ namespace PragmaScript
                         result.pointerLevel++;
                         ps.NextToken();
                     }
-                    // if (ps.PeekToken().type != Token.TokenType.CloseBracket
-                    //     && ps.PeekToken().type != Token.TokenType.Semicolon
-                    //     && ps.PeekToken().type != Token.TokenType.OpenCurly
-                    //     && ps.PeekToken().type != Token.TokenType.Assignment) {
-                    //     ps.NextToken();
-                    //     int alloc = 0;
-                    //     if (ps.CurrentToken().type == Token.TokenType.IntNumber) {
-                    //         alloc = int.Parse(ps.CurrentToken().text);
-                    //     }
-                    //     result.allocationCount = alloc;
-                    // }
                 }
                 return result;
             }

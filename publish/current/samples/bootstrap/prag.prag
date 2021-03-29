@@ -1,0 +1,323 @@
+import "../preamble.prag"
+import "../memory.prag"
+
+
+// let push = fun::T(buf: T[]*; val: T) => void {
+let buf_push = fun(buf: string[]*; val: string) => void {
+    if (buf.capacity <= buf.length) {
+        var old_data = buf.data;
+        
+        var new_capacity: i32;
+        if (buf.capacity == 0) {
+            new_capacity = 1024;
+        } else {
+            new_capacity = buf.capacity * 2;    
+        }
+        
+        buf.capacity = new_capacity;
+        buf.data = allocate(size_of(string) * (buf.capacity * 2)@mm)@string*;
+        memcpy(buf.data@ptr, old_data@ptr, @mm buf.length * size_of(string));
+    }
+    assert(buf.length + 1 < buf.capacity);
+    buf.data[buf.length++] = val;
+}
+
+let buf_free = fun(buf: i32[]*) => void {
+    free(buf.data@ptr);
+    buf.capacity = 0;
+    buf.length = 0;
+}
+
+let debug_print = fun(name: string; value: string[]) => void {
+    print(name);
+    print(": [");
+    for (var idx = 0; idx < value.length; ++idx) {
+        print("\"");
+        print(value[idx]);
+        print("\"");
+        if (idx != value.length - 1) {
+            print(", ");
+        }
+    }
+    print("]\n");
+}
+
+
+let token_kind = enum(
+    null = 0;
+    int_literal = 128;
+    identifier;
+);
+
+let token = struct (
+    kind: token_kind;
+    value: i64;
+    text: string;
+    name: string;
+);
+var token: token;
+var stream: i8*;
+
+var keyword_if: string;
+var keyword_for: string;
+var keyword_while: string;
+
+
+let init_keywords = fun() => void {
+    keyword_if = str_intern("if");
+    keyword_for = str_intern("for");
+    keyword_while = str_intern("while");
+}
+
+let next_token = fun() => void {
+    token.text.data = stream;
+    var current = *stream;
+    if (is_digit(current)) {
+        var val: i64 = 0;
+        while (is_digit(*stream)) {
+            val *= 10;
+            val += *stream@i64 - ord("0")@i64;
+            stream++;
+        }
+        token.value = val;
+        token.kind = token_kind::int_literal;
+    }
+    elif (is_identifier_start_char(current)) {
+        var name: string;
+        name.data = stream;
+        name.length = 0;
+        while (is_identifier_char(*stream)) {
+            name.length++;
+            stream++;
+        }
+        token.name = str_intern(name);
+        token.kind = token_kind::identifier;
+    }
+    else {
+        token.kind = *stream@token_kind;
+        stream++;
+    }
+    token.text.length = (stream - token.text.data)@i32;
+}
+
+
+let tk = fun(k: string) => token_kind {
+    assert(k.length == 1);
+    return k[0]@token_kind;
+}
+let is_token = fun(kind: token_kind) => bool {
+    return token.kind == kind;
+}
+let is_token = fun(kind: string) => bool {
+    return is_token(tk(kind));
+}
+let is_token_identifier = fun(name: string) => bool {
+    return token.kind == token_kind::identifier && token.name.data == name.data;
+}
+let match_token = fun(kind: token_kind) => bool {
+    if (is_token(kind)) {
+        next_token();
+        return true;
+    } else {
+        return false;
+    }
+}
+let match_token = fun(kind: string) => bool {
+    return match_token(tk(kind));
+}
+
+let expect_token = fun(kind: token_kind) => bool {
+    if (is_token(kind)) {
+        next_token();
+        return true;
+    } else {
+        var str = "expected token: ";
+        str = concat(str, friendly_name(kind));
+        str = concat(str, ", got: ");
+        str = concat(str, friendly_name(token.kind));
+        fatal(str);
+        return false;
+    }
+}
+let expect_token = fun(kind: string) => bool {
+    return expect_token(tk(kind));
+}
+
+let fatal = fun(msg: string) => void {
+    assert(false, msg);
+}
+
+let friendly_name = fun(kind: token_kind) => string {
+    if (kind == token_kind::null) {
+        return clone_string("null");
+    }
+    elif (kind@i32 < 128) {
+        var result = make_string(3);
+        result[0] = ord("\"");
+        result[1] = kind@i8;
+        result[2] = ord("\"");
+        return result;
+    }
+    elif (kind == token_kind::int_literal) {
+        return clone_string("int_literal");
+    }
+    elif (kind == token_kind::identifier) {
+        return clone_string("identifier");
+    }
+    else {
+        return string { };
+    }
+}
+
+
+let parse_expr3 = fun() => void {
+    if (is_token(token_kind::int_literal)) {
+        next_token();
+    }
+    elif (match_token("(")) {
+        parse_expr();
+        expect_token(")");
+    }
+    else {
+        fatal(concat("expected int_literal or (, got ", friendly_name(token.kind)));
+    }
+}
+
+let parse_expr2 = fun() => void {
+    if (is_token(tk("-"))) {
+        next_token();
+        parse_expr3();
+    } else {
+        parse_expr3();
+    }
+}
+
+let parse_expr1 = fun() => void {
+    parse_expr2();
+    while (is_token(tk("*")) || is_token(tk("/"))) {
+        var op = token.kind;
+        next_token();
+        parse_expr1();
+    }
+}
+
+let parse_expr0 = fun() => void {
+    parse_expr1();
+    while (is_token(tk("+")) || is_token(tk("-"))) {
+        var op = token.kind;
+        next_token();
+        parse_expr1();
+    }
+}
+
+// expr3 = INT | '(' expr ')'
+// expr2 = expr3 ([-] expr3)*
+// expr1 = expr2 ([*/] expr2)*
+// expr0 = expr1 ([+-] expr1)*
+// expr = expr0
+let parse_expr = fun() => void {
+    parse_expr0();
+}
+
+let init_stream = fun(s: string) => void {
+    stream = &s[0];
+    next_token();
+}
+let parse_test_exp = fun(exp: string) => void {
+    init_stream(exp);
+    parse_expr();
+}
+let parse_test = fun() => void {
+    parse_test_exp("1");
+    parse_test_exp("(1)");
+    parse_test_exp("1+2*3");
+}
+
+let lex_test = fun() => void {
+    init_keywords();
+    var source = "xy+(xy)3_hello_pupsul1234+123\0";
+    stream = &source[0];
+    next_token();
+    while (token.kind != token_kind::null) {
+        print(token);
+        next_token();
+    }
+    debug_print("str_intern_buf", str_intern_buf);
+}
+
+let buf_test = fun() => void {
+    var buf = string[]{ };
+    buf_push(&buf, "foo");
+    buf_push(&buf, "bar");
+    buf_push(&buf, "poop");
+    debug_print("buf", buf);
+    print("\n");
+}
+
+let print = fun(token: token) => void {
+    debug_print("TOKEN", @i32 token.kind);
+    if (token.kind == token_kind::identifier) {
+        debug_print("__name", token.name);
+    }
+    elif (token.kind == token_kind::int_literal) {
+        debug_print("__int", token.value);
+    }
+    elif (token.kind@i32 < 128) {
+        var str: string;
+        var char:i8 = token.kind@i8;
+        str.data = &char;
+        str.length = 1;
+        debug_print("__char", str);
+    }
+}
+
+var str_intern_buf: string[];
+let str_intern = fun(str: string) => string {
+    for (var str_idx = 0; str_idx < str_intern_buf.length; ++str_idx) {
+        if (strings_are_equal(str, str_intern_buf[str_idx])) {
+            return str_intern_buf[str_idx];
+        }
+    }
+    var new_str = clone_string(str);
+    buf_push(&str_intern_buf, new_str);
+    return new_str;
+}
+
+let str_intern_test = fun() => void {
+    var s0 = "hello";
+    var s1 = "hello";
+    assert(s0.data != s1.data);
+    
+    s0 = str_intern(s0);
+    s1 = str_intern(s1);
+    assert(s0.data == s1.data);
+    
+    var s2 = str_intern("foo");
+    var s3 = str_intern("hello!");
+    assert(s2.data != s3.data);
+    assert(s0.data != s2.data);
+    assert(s1.data != s2.data);
+    assert(s0.data != s3.data);
+    assert(s1.data != s3.data);
+    
+    str_intern_buf.length = 0;
+}
+
+[
+	"compile.output": "prag.exe",
+    "compile.debuginfo" : "true",
+	"compile.entry" : "true",
+    "compile.ll"    : "false",
+	"compile.asm"   : "false",
+ 	"compile.opt"   : "0",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib",
+	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+]
+let main = fun () => void {
+    buf_test();
+    str_intern_test();
+    lex_test();
+    parse_test();
+}
+

@@ -1655,28 +1655,23 @@ namespace PragmaScript
                             FrontendType result = base_t;
                             if (node.isArrayType)
                             {
-                                Debug.Assert(!node.isPointerType);
                                 Debug.Assert(!node.isSliceType);
                                 result = new FrontendArrayType(base_t, node.arrayDims);
                             }
-                            else
-                            if (node.isSliceType)
+                            else if (node.isSliceType)
                             {
-                                Debug.Assert(!node.isPointerType);
                                 Debug.Assert(!node.isArrayType);
                                 result = new FrontendSliceType(base_t);
                             }
-                            else
+
                             if (node.isPointerType)
                             {
-                                Debug.Assert(!node.isSliceType);
-                                Debug.Assert(!node.isArrayType);
-                                result = base_t;
                                 for (int i = 0; i < node.pointerLevel; ++i)
                                 {
                                     result = new FrontendPointerType(result);
                                 }
                             }
+
                             resolve(node, result);
                         }
                     }
