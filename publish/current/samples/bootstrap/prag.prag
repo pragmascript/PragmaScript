@@ -2,6 +2,12 @@ import "../preamble.prag"
 import "../memory.prag"
 
 
+let compile_error = fun(s: string; filepos: string = __file_pos__()) => void {
+    print(concat("Compiler error: ", concat(s, "\n")));
+    
+    assert(false, s, filepos);
+}
+
 // let push = fun::T(buf: T[]*; val: T) => void {
 let buf_push = fun(buf: string[]*; val: string) => void {
     if (buf.capacity <= buf.length) {
@@ -11,6 +17,7 @@ let buf_push = fun(buf: string[]*; val: string) => void {
         if (buf.capacity == 0) {
             new_capacity = 1024;
         } else {
+            assert(buf.capacity <= MAX_SIGNED_I32 / 2);
             new_capacity = buf.capacity * 2;    
         }
         
@@ -44,14 +51,16 @@ let debug_print = fun(name: string; value: string[]) => void {
 
 
 let token_kind = enum(
-    null = 0;
+    eof = 0;
     int_literal = 128;
+    float_literal;
     identifier;
 );
 
 let token = struct (
     kind: token_kind;
-    value: i64;
+    int_value: i64;
+    float_value: f64;
     text: string;
     name: string;
 );
@@ -62,25 +71,108 @@ var keyword_if: string;
 var keyword_for: string;
 var keyword_while: string;
 
-
 let init_keywords = fun() => void {
     keyword_if = str_intern("if");
     keyword_for = str_intern("for");
     keyword_while = str_intern("while");
 }
+var char_to_digit_plus_one: i8[256];
+let init_lex = fun() => void {
+    init_keywords();
+    char_to_digit_plus_one[ord("0")@i32] = 1;
+    char_to_digit_plus_one[ord("1")@i32] = 2;
+    char_to_digit_plus_one[ord("2")@i32] = 3;
+    char_to_digit_plus_one[ord("3")@i32] = 4;
+    char_to_digit_plus_one[ord("4")@i32] = 5;
+    char_to_digit_plus_one[ord("5")@i32] = 6;
+    char_to_digit_plus_one[ord("6")@i32] = 7;
+    char_to_digit_plus_one[ord("7")@i32] = 8;
+    char_to_digit_plus_one[ord("8")@i32] = 9;
+    char_to_digit_plus_one[ord("9")@i32] = 10;
+    char_to_digit_plus_one[ord("a")@i32] = 11;
+    char_to_digit_plus_one[ord("A")@i32] = 11;
+    char_to_digit_plus_one[ord("b")@i32] = 12;
+    char_to_digit_plus_one[ord("B")@i32] = 12;
+    char_to_digit_plus_one[ord("c")@i32] = 13;
+    char_to_digit_plus_one[ord("C")@i32] = 13;
+    char_to_digit_plus_one[ord("d")@i32] = 14;
+    char_to_digit_plus_one[ord("D")@i32] = 14;
+    char_to_digit_plus_one[ord("e")@i32] = 15;
+    char_to_digit_plus_one[ord("E")@i32] = 15;
+    char_to_digit_plus_one[ord("f")@i32] = 16;
+    char_to_digit_plus_one[ord("F")@i32] = 16;
+}
+
+let scan_int_literal = fun(allow_hex: bool = true) => i64 {
+    var base: i64 = 10;
+    var val: i64 = 0;
+    if (*stream == ord("0") && allow_hex) {
+        stream++;
+        if (*stream == ord("x") || *stream == ord("X")) {
+            base = 16;
+            stream++;
+        } else {
+            compile_error("Invalid integer literal suffix");
+        }
+    }
+    for (;;) {
+        var digit_plus_one = char_to_digit_plus_one[(*stream)@i32]@i64;
+        if (digit_plus_one == 0 && digit_plus_one <= base)
+        {
+            break;
+        }
+        var digit = digit_plus_one - 1;
+        if (val >\ (MAX_UNSIGNED_I64 - digit) /\ 10) {
+            compile_error("integer literal overflow");
+        }
+        val = val * base + digit;
+        stream++;
+    }
+    return val;
+}
+
+
+
+let scan_float_literal = fun() => f64 {
+    var a = scan_int_literal(false);
+    assert(*stream == ord("."));
+    stream++;
+    var temp = stream;
+    var b = scan_int_literal(false);
+    var places = (stream - temp)@\i32;
+    var result: f64;
+    var divisor: f64 = 1;
+    for (var i = 0; i < places; ++i) {
+        divisor *= 10.0;
+    }
+    if (places > 0) {
+        result = a@f64 + (b@f64 / divisor);
+    } else {
+        result = a@f64;
+    }
+    return result;
+}
 
 let next_token = fun() => void {
+    while (is_whitespace(*stream)) {
+        stream++;
+    }
     token.text.data = stream;
     var current = *stream;
     if (is_digit(current)) {
-        var val: i64 = 0;
-        while (is_digit(*stream)) {
-            val *= 10;
-            val += *stream@i64 - ord("0")@i64;
+        var temp = stream;
+        while (is_digit(*stream)) { 
             stream++;
         }
-        token.value = val;
-        token.kind = token_kind::int_literal;
+        if (*stream == ord(".")) {
+            stream = temp;
+            token.kind = token_kind::float_literal;
+            token.float_value = scan_float_literal();
+        } else {
+            stream = temp;
+            token.kind = token_kind::int_literal;
+            token.int_value = scan_int_literal();
+        }
     }
     elif (is_identifier_start_char(current)) {
         var name: string;
@@ -99,7 +191,6 @@ let next_token = fun() => void {
     }
     token.text.length = (stream - token.text.data)@i32;
 }
-
 
 let tk = fun(k: string) => token_kind {
     assert(k.length == 1);
@@ -148,8 +239,8 @@ let fatal = fun(msg: string) => void {
 }
 
 let friendly_name = fun(kind: token_kind) => string {
-    if (kind == token_kind::null) {
-        return clone_string("null");
+    if (kind == token_kind::eof) {
+        return clone_string("eof");
     }
     elif (kind@i32 < 128) {
         var result = make_string(3);
@@ -169,80 +260,70 @@ let friendly_name = fun(kind: token_kind) => string {
     }
 }
 
-
-let parse_expr3 = fun() => void {
-    if (is_token(token_kind::int_literal)) {
-        next_token();
-    }
-    elif (match_token("(")) {
-        parse_expr();
-        expect_token(")");
-    }
-    else {
-        fatal(concat("expected int_literal or (, got ", friendly_name(token.kind)));
-    }
-}
-
-let parse_expr2 = fun() => void {
-    if (is_token(tk("-"))) {
-        next_token();
-        parse_expr3();
-    } else {
-        parse_expr3();
-    }
-}
-
-let parse_expr1 = fun() => void {
-    parse_expr2();
-    while (is_token(tk("*")) || is_token(tk("/"))) {
-        var op = token.kind;
-        next_token();
-        parse_expr1();
-    }
-}
-
-let parse_expr0 = fun() => void {
-    parse_expr1();
-    while (is_token(tk("+")) || is_token(tk("-"))) {
-        var op = token.kind;
-        next_token();
-        parse_expr1();
-    }
-}
-
-// expr3 = INT | '(' expr ')'
-// expr2 = expr3 ([-] expr3)*
-// expr1 = expr2 ([*/] expr2)*
-// expr0 = expr1 ([+-] expr1)*
-// expr = expr0
-let parse_expr = fun() => void {
-    parse_expr0();
-}
-
 let init_stream = fun(s: string) => void {
     stream = &s[0];
     next_token();
 }
-let parse_test_exp = fun(exp: string) => void {
-    init_stream(exp);
-    parse_expr();
+
+let assert_token = fun(s: string; filepos: string = __file_pos__()) => void {
+    assert(match_token(s), "", filepos);
 }
-let parse_test = fun() => void {
-    parse_test_exp("1");
-    parse_test_exp("(1)");
-    parse_test_exp("1+2*3");
+let assert_token_ident = fun(name: string; filepos: string = __file_pos__()) => void {
+    var s = str_intern(name);
+    assert(token.name.data == s.data && match_token(token_kind::identifier), "", filepos);
+}
+let assert_token_int = fun(value: i64; filepos: string = __file_pos__()) => void {
+    assert(token.int_value == value && match_token(token_kind::int_literal), "", filepos);
+}
+let assert_token_float = fun(value: f64; filepos: string = __file_pos__()) => void {
+    assert(token.float_value == value && match_token(token_kind::float_literal), "", filepos);
+}
+let assert_token_eof = fun(filepos: string = __file_pos__()) => void {
+    assert(match_token(token_kind::eof), "", filepos);
 }
 
 let lex_test = fun() => void {
-    init_keywords();
-    var source = "xy+(xy)3_hello_pupsul1234+123\0";
-    stream = &source[0];
-    next_token();
-    while (token.kind != token_kind::null) {
-        print(token);
-        next_token();
-    }
-    debug_print("str_intern_buf", str_intern_buf);
+    init_stream("XY+(XY)_HELLO1,234+994\0");
+    assert_token_ident("XY");
+    assert_token("+");
+    assert_token("(");
+    assert_token_ident("XY");
+    assert_token(")");
+    assert_token_ident("_HELLO1");
+    assert_token(",");
+    assert_token_int(234);
+    assert_token("+");
+    assert_token_int(994);
+    assert_token_eof();
+    
+    // MAX_UNSIGNED_I64 should not trigger overlflow check
+    init_stream("18446744073709551615\0");
+    assert_token_int(18446744073709551615);
+    assert_token_eof();
+    
+    init_stream("0x1234\0");
+    assert_token_int(0x1234);
+    assert_token_eof();
+    
+    init_stream("0XFfFfaaaa\0");
+    assert_token_int(0xFFFFAAAA);
+    assert_token_eof();
+    
+    init_stream("0x0000 1234\0");
+    assert_token_int(0);
+    assert_token_int(1234);
+    assert_token_eof();
+    
+    init_stream("2.5 3.141592654 0.123 42.\0");
+    assert_token_float(2.5);
+    assert_token_float(3.141592654);
+    assert_token_float(0.123);
+    assert_token_float(42.0);
+    assert_token_eof();
+    
+    init_stream("0xFFFFFFFFFFFFFFFF\0");
+    assert_token_int(0xFFFFFFFFFFFFFFFF);
+    assert_token_eof();
 }
 
 let buf_test = fun() => void {
@@ -250,7 +331,7 @@ let buf_test = fun() => void {
     buf_push(&buf, "foo");
     buf_push(&buf, "bar");
     buf_push(&buf, "poop");
-    debug_print("buf", buf);
+    // debug_print("buf", buf);
     print("\n");
 }
 
@@ -260,7 +341,7 @@ let print = fun(token: token) => void {
         debug_print("__name", token.name);
     }
     elif (token.kind == token_kind::int_literal) {
-        debug_print("__int", token.value);
+        debug_print("__int", token.int_value);
     }
     elif (token.kind@i32 < 128) {
         var str: string;
@@ -317,7 +398,7 @@ let str_intern_test = fun() => void {
 let main = fun () => void {
     buf_test();
     str_intern_test();
+    init_lex();
     lex_test();
-    parse_test();
 }
 

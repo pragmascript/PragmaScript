@@ -114,6 +114,7 @@ let register_text_panel_commands = fun(editor_state: editor_state*) => void {
     register_editor_command(es, create_key_combo(VK_TAB, MOD_CTRL), cmd_cycle_tab@editor_command_callback, CTX_TEXT);
     register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_CTRL), cmd_undo@editor_command_callback, CTX_TEXT);
     register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_SHIFT|MOD_CTRL), cmd_redo@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(VK_F5), cmd_compile@editor_command_callback, CTX_TEXT);
 }
 
 // todo make this work:
@@ -482,3 +483,9 @@ let cmd_redo = fun(@ctx: command_context*) => bool {
     suppress_new_selection = true;
     return true;
 }
+
+let cmd_compile = fun(@ctx: command_context*) => bool {
+    compile_buffer(ctx.document.file_name);
+    return true;
+}
+

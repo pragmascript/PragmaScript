@@ -260,8 +260,8 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     let regular_font_color = v3(0.831, 0.831, 0.788);
     let line_font_color = scaled(regular_font_color, 0.3);
     let cursor_font_color = regular_font_color;
-    let background_color_regular = v3(0.118, 0.118, 0.118);
-    let background_color_selection = v3(0.118 - 0.05, 0.118 - 0.05, 0.118 - 0.05);
+    let background_color_regular = v3(0.038, 0.038, 0.038);
+    let background_color_selection = scaled(v3(255.0/255.0, 143.0/255.0, 61.0/255.0), 0.3);
     let background_color_highlight = v3(0.118 + 0.03, 0.118 + 0.03, 0.118 + 0.03);
     
     var theme_colors = [

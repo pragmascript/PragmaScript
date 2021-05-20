@@ -8,6 +8,7 @@ import "edit_opengl.prag"
 import "edit_lexer.prag"
 import "edit_commands.prag"
 import "edit_text.prag"
+import "edit_compile.prag"
 
 let max_line_length = 1024;
 let max_undo_points = 1024;

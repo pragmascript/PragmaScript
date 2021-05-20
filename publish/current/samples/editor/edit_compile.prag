@@ -1,24 +1,13 @@
 import "../preamble.prag"
 import "../windows.prag"
+import "edit.prag"
 
-let to_upper = fun(str: string) => void {
-	for (var char_idx = 0; char_idx < str.length; ++char_idx) {
-		if (str[char_idx] >= ord("a") && str[char_idx] <= ord("z")) {
-			str[char_idx] += ord("A") - ord("a");
-		}
-	}
-}
-
-[
-	"compile.entry", 
-	"compile.run":"true", 
-	"compile.opt": "0",
-	"compile.debuginfo": "true"
-]
-let main = fun () => void {	
-	print("hello, world!\n");
-	
-	var sa = Windows::SECURITY_ATTRIBUTES {};
+let compile_buffer = fun(path: string) => void
+{
+    var cmd = "..\\..\\..\\bin\\pragma.exe -D ";
+    cmd = concat(cmd, path);
+    
+    var sa = Windows::SECURITY_ATTRIBUTES {};
 	sa.nLength = size_of(Windows::SECURITY_ATTRIBUTES)@i32;
 	sa.InheritHandle = 1;
 	
@@ -32,9 +21,9 @@ let main = fun () => void {
 	assert(success != 0);
 	success = Windows::CreatePipe(&stdout_pipe_read, &stdout_pipe_write, &sa, 0);
 	assert(success != 0);
-	
-	
-	var si = Windows::STARTUPINFOA {};
+    
+    
+    var si = Windows::STARTUPINFOA {};
 	si.cb = size_of(Windows::STARTUPINFOA)@i32;
 	si.dwFlags = Windows::STARTF_USESTDHANDLES;
 	si.hStdError = stdout_pipe_write;
@@ -42,7 +31,6 @@ let main = fun () => void {
 	si.hStdInput = stdin_pipe_read;
 	
 	var pi = Windows::PROCESS_INFORMATION {};
-	var cmd = "C:\\Windows\\System32\\cmd.exe /c dir\0";
 	Windows::CreateProcessA(nullptr, cstr(cmd), nullptr, nullptr, 1, 0, nullptr, nullptr, &si, &pi);
 	
 	Windows::CloseHandle(stdout_pipe_write);
@@ -63,5 +51,4 @@ let main = fun () => void {
 	
 	Windows::CloseHandle(pi.hProcess);
 	Windows::CloseHandle(pi.hThread);
-	print("exit...");
 }
