@@ -345,6 +345,41 @@ let trim = fun(s: string) => string {
     return result;
 }
 
+
+let match_substring_at = fun(sub: string; at: i32; s: string) => bool {
+    if (sub.length == 0 || s.length == 0) {
+        return false;
+    }
+    if (sub.length > s.length - at) {
+        return false;
+    }
+    for (var idx = 0; idx < sub.length; ++idx) {
+        if (s[at + idx] != sub[idx]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+let first_index_of = fun(sub: string; s: string) => i32 {
+    if (sub.length == 0 || s.length == 0) {
+        return -1;
+    }
+    if (sub.length > s.length) {
+        return -1;
+    }
+    for (var idx = 0; idx < s.length; ++idx) {
+        if (match_substring_at(sub, idx, s)) {
+            return idx;
+        }
+    }
+    return -1;
+}
+
+let starts_with = fun(sub: string; s: string) => bool {
+    return match_substring_at(sub, 0, s);
+}
+
 let from_str = fun(str: string; value: i32*) => bool {
     var result = 0;
     var sign = 1;

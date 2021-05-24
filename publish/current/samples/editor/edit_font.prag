@@ -374,10 +374,11 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
                     render_context.background_color = background_color_regular;
                 }
                 
+                // draw characters from current line
                 for (var char_idx = 0; char_idx < current_line.chars.length + 1; ++char_idx) {
                     var cursor_p = p;
                     
-                    // TODO(pragma): we can also include x here:
+                    // TODO(pragma): we should also include x here:
                     var should_draw = p.y > min_safe_y && p.y < max_safe_y;
                     if (should_draw) {
                         var selected = is_in_selection(&active_tab.cursor, char_idx, line_idx, chunk_idx);
@@ -399,9 +400,11 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
                         }
                     }
                     
-                    
                     if (is_active_panel) {
-                        // TODO this should be extracted into a function. We can determine the exact cursor position just using the line height and pseudo rendering the single line the cursor is on (without actually drawing it)
+                        // TODO this should be extracted into a function.
+                        // We can determine the exact cursor position just using the line height
+                        // and pseudo rendering the single line the cursor is on
+                        // (without actually drawing it)
                         if (cursor_in_this_line && char_idx == cursor.pos.x) {
                             cursor_center.x = cursor_p.x + active_tab.scroll_target.x - active_tab.scroll_pos.x;
                             

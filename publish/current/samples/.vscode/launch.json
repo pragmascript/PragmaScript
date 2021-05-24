@@ -7,12 +7,12 @@
             //"type": "cppdbg",
             "request": "launch",
             // "preLaunchTask": "build",
-            "program": "${workspaceRoot}/basics/bin/output.exe",
+            "program": "${workspaceRoot}/editor/bin/edit.exe",
             "args": [
                 "..\\."
             ],
             "stopAtEntry": false,
-            "cwd": "${workspaceRoot}/basics/bin/",
+            "cwd": "${workspaceRoot}/editor/bin/",
             "environment": [],
             "externalConsole": true
         }

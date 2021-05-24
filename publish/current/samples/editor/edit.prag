@@ -80,8 +80,17 @@ let character = struct(
     value: i8;
     token_type: i8;
 );
+
+let line_comment_type = enum(
+  None; Warning; Error  
+);
+let line_comment = struct(
+    type: line_comment_type;
+    chars: character[];
+);
 let line = struct(
     chars: character[];
+    comment: line_comment;
 );
 let text_chunk = struct(
     lines: line[];
@@ -128,6 +137,7 @@ let create_text_chunk = fun() => text_chunk {
     
     result.lines.data = memory@line*;
     result.lines.length = 0;
+    result.lines.capacity = text_chunk_line_count;
     result.needs_syntax_highlight = false;
     result.is_dirty_for_undo = true;
     memory += lines_size;
@@ -166,7 +176,7 @@ let recycle_chunk = fun(document_state: document*; chunk_idx: i32) => void {
     var chunk = document_state.chunks + chunk_idx;
     free_chunk(chunk);
     for (var src_chunk_idx = chunk_idx + 1; src_chunk_idx < document_state.chunks_count; ++src_chunk_idx) {
-        *(document_state.chunks + (src_chunk_idx - 1)) = *(document_state.chunks + src_chunk_idx);
+        document_state.chunks[src_chunk_idx - 1] = document_state.chunks[src_chunk_idx];
     }
     document_state.chunks_count--;
 }
@@ -630,7 +640,6 @@ let handle_text_panel_key_down = fun(vk_code: i32; active_panel: editor_panel*; 
     assert(cursor.pos.y < lines_ptr.length);
     assert(lines_ptr.length <= text_chunk_line_count);
 #endif
-
 }
 
 let handle_editor_key_down = fun(vk_code: i32; should_syntax_highlight: bool; should_auto_indent: bool) => void {
