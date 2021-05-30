@@ -21,8 +21,8 @@ namespace PragmaScript
         public bool asm = false;
         public bool ll = false;
         public bool bc = false;
-        public List<string> libs = new List<string>();
-        public List<string> lib_path = new List<string>();
+        public HashSet<string> libs = new HashSet<string>();
+        public HashSet<string> lib_path = new HashSet<string>();
         public bool dll = false;
         public string output = "output.exe";
         public bool verbose = false;
@@ -78,7 +78,7 @@ namespace PragmaScript
             Stack<Token[]> toCompile = new Stack<Token[]>();
 
             var ffn = filename;
-            if (!Path.IsPathRooted(filename)) 
+            if (!Path.IsPathRooted(filename))
             {
                 ffn = Path.GetFullPath(filename);
             }
@@ -155,7 +155,6 @@ namespace PragmaScript
 
             timer.Stop();
             Program.CompilerMessage($"{timer.ElapsedMilliseconds}ms", CompilerMessageType.Timing);
-
             Program.CompilerMessage("type checking...", CompilerMessageType.Info);
             timer.Reset();
             timer.Start();
@@ -312,6 +311,11 @@ namespace PragmaScript
                 }
             }
 
+
+            {
+                var fullPath = Path.GetFullPath(@"..\lib", Path.GetDirectoryName(entry.token.filename));
+                CompilerOptions._i.lib_path.Add(fullPath);
+            }
             var lib_path = d.GetAttribute("COMPILE.PATH", upperCase: false);
             if (lib_path != null)
             {
@@ -319,11 +323,11 @@ namespace PragmaScript
                 foreach (var p in lp)
                 {
                     var tp = p.Trim();
-                    CompilerOptions._i.lib_path.Add(tp);
+                    var fullPath = Path.GetFullPath(tp, Path.GetDirectoryName(entry.token.filename));
+                    CompilerOptions._i.lib_path.Add(fullPath);
                 }
             }
         }
-
     }
 }
 

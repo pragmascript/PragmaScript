@@ -31,7 +31,7 @@ namespace PragmaScript
             var co = new CompilerOptions();
             parseARGS(args);
 
-#if false
+#if False
             CompilerOptions._i.debug = true;
             var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"../publish/current/samples"));
             System.IO.Directory.SetCurrentDirectory(programDir);
@@ -98,6 +98,7 @@ namespace PragmaScript
             Console.WriteLine("    -D                build in debug mode");
             Console.WriteLine("    -O0               turn off optimizations");
             Console.WriteLine("    -OX               turn on optimization level X in [1..3]");
+            Console.WriteLine("    -F                run frontend only");
             Console.WriteLine("    -R                run program after compilation");
             Console.WriteLine("    -ASM              output generated assembly");
             Console.WriteLine("    -LL               output LLVM IL");
@@ -173,6 +174,9 @@ namespace PragmaScript
                         case "R":
                         case "RUN":
                             CompilerOptions._i.runAfterCompile = true;
+                            break;
+                        case "F":
+                            CompilerOptions._i.buildExecuteable = false;
                             break;
                         case "DLL":
                             CompilerOptions._i.dll = true;

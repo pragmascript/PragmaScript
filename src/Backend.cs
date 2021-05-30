@@ -21,8 +21,14 @@ namespace PragmaScript
         Dictionary<string, Value> stringTable = new Dictionary<string, Value>();
 
         Dictionary<FunctionAttribs, int> functionAttribs;
-        string exeDir;
+        static string exeDir;
         Platform platform;
+
+        static Backend()
+        {
+            // https://www.hanselman.com/blog/how-do-i-find-which-directory-my-net-core-console-application-was-started-in-or-is-running-from
+            exeDir = AppContext.BaseDirectory;// Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+        }
 
         public Backend(TypeChecker typeChecker, Platform platform)
         {
@@ -30,7 +36,6 @@ namespace PragmaScript
             this.typeChecker = typeChecker;
             mod = new Module();
             builder = new Builder(mod);
-            exeDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
             functionAttribs.Add(FunctionAttribs.nounwind, 0);
             this.platform = platform;
         }
@@ -372,13 +377,12 @@ namespace PragmaScript
                 outputProcess.Close();
             }
 
-
             timer.Stop();
             Program.CompilerMessage($"Run time: {timer.ElapsedMilliseconds} ms", CompilerMessageType.Timing);
             Program.CompilerMessage("done.", CompilerMessageType.Info);
         }
 
-        public string RelDir(string dir)
+        public static string RelDir(string dir)
         {
             string result = Path.Combine(exeDir, dir);
             return result;

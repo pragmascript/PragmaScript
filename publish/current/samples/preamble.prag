@@ -315,7 +315,9 @@ let clone_string = fun(s: string; arena: memory_arena* = &temp_memory_arena) => 
 }
 
 let concat = fun(a: string; b: string; arena: memory_arena* = &temp_memory_arena) => string {
-    var result = make_string(a.length + b.length, arena);
+    var result = make_string(a.length + b.length + 1, arena);
+    result[result.length - 1] = 0;
+    result.length--;
     memcpy(result.data, a.data, @mm a.length);
     memcpy(result.data + a.length, b.data, @mm b.length);
     return result;
@@ -361,14 +363,33 @@ let match_substring_at = fun(sub: string; at: i32; s: string) => bool {
     return true;
 }
 
-let first_index_of = fun(sub: string; s: string) => i32 {
+let first_index_of = fun(sub: string; s: string; start_idx:i32=0) => i32 {
     if (sub.length == 0 || s.length == 0) {
         return -1;
     }
     if (sub.length > s.length) {
         return -1;
     }
-    for (var idx = 0; idx < s.length; ++idx) {
+    if (start_idx < 0 || start_idx >= s.length) {
+        return -1;
+    }
+    for (var idx = start_idx; idx < s.length; ++idx) {
+        if (match_substring_at(sub, idx, s)) {
+            return idx;
+        }
+    }
+    return -1;
+}
+
+let last_index_of = fun(sub: string; s: string) => i32 {
+    if (sub.length == 0 || s.length == 0) {
+        return -1;
+    }
+    if (sub.length > s.length) {
+        return -1;
+    }
+    
+    for (var idx = s.length - 1; idx >= 0; --idx) {
         if (match_substring_at(sub, idx, s)) {
             return idx;
         }
@@ -740,6 +761,7 @@ let from_cstr = fun(cstr: ptr; maxLength: i32 = 1024) => string {
     while (*ptr++ != 0 && result.length <\ maxLength) {
         result.length++;
     }
+    result.capacity = result.length + 1;
     return result;
 }
 

@@ -40,13 +40,13 @@ namespace PragmaScript
             {
                 defines.Add("PLATFORM_WINDOWS");
                 CompilerOptions._i.libs.Add("kernel32.lib");
-                CompilerOptions._i.lib_path.Add("lib");
+                CompilerOptions._i.lib_path.Add(Backend.RelDir("lib"));
             }
             else if (platform == Platform.LinuxX64)
             {
                 defines.Add("PLATFORM_LINUX");
             }
-            
+
             StringBuilder result = new StringBuilder(text.Length);
             int idx = 0;
 

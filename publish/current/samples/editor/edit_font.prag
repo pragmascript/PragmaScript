@@ -225,22 +225,7 @@ let scroll_lines = fun(panel: editor_panel*; global_render_state: global_render_
     var font_size = global_render_state.font_size;
     var line_height = font_size;
     var active_tab = panel.active_tab;
-    var cursor = &active_tab.cursor;
     active_tab.scroll_target.y += @f32 lines_delta * line_height;
-}
-
-let trim_title = fun(title: string) => string {
-    var result = string { };
-    for (var idx = title.length - 1; idx >= 0; --idx) {
-        var char = title[idx];
-        if (char == 92) { // backslash
-            break;
-        }
-        result.length++;
-    }
-    assert(result.length <= title.length);
-    result.data = title.data + (title.length - result.length);
-    return result;
 }
 
 let render_panel = fun(panel: editor_panel*; global_render_state: global_render_state*; is_active_panel: bool;) => void {
@@ -263,6 +248,9 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     let background_color_regular = v3(0.038, 0.038, 0.038);
     let background_color_selection = scaled(v3(255.0/255.0, 143.0/255.0, 61.0/255.0), 0.3);
     let background_color_highlight = v3(0.118 + 0.03, 0.118 + 0.03, 0.118 + 0.03);
+    let error_color = v3(217.0/255.0, 93.0/255.0, 66.0/255.0);
+    let background_error_color = scaled(error_color, 0.33);
+    let background_error_color_active = scaled(error_color, 0.5);
     
     var theme_colors = [
         regular_font_color,                     // none
@@ -367,11 +355,20 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
                 var current_line = lines[line_idx];
                 
                 var cursor_in_this_line = chunk_idx == cursor.pos.z && line_idx == cursor.pos.y;
-                if (is_active_panel && cursor_in_this_line) {
-                    render_context.background_color = background_color_highlight;
+                
+                render_context.background_color = background_color_regular;
+                if (current_line.comment.type == line_comment_type::error) {
+                    if (is_active_panel && cursor_in_this_line) {
+                        render_context.background_color = background_error_color_active;
+                    } else {
+                        render_context.background_color = background_error_color;
+                    }
                     add_line_highlight(&p, &render_context);
-                } else {
-                    render_context.background_color = background_color_regular;
+                } elif (is_active_panel) {
+                    if (cursor_in_this_line) {
+                        render_context.background_color = background_color_highlight;    
+                        add_line_highlight(&p, &render_context);
+                    }
                 }
                 
                 // draw characters from current line
@@ -401,7 +398,7 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
                     }
                     
                     if (is_active_panel) {
-                        // TODO this should be extracted into a function.
+                        // TODO(pragma): this should be extracted into a function.
                         // We can determine the exact cursor position just using the line height
                         // and pseudo rendering the single line the cursor is on
                         // (without actually drawing it)
@@ -420,6 +417,14 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
                                 render_context.relative_size = relative_size;
                             }
                         }
+                    }
+                }
+                if (has_comment(&current_line)) {
+                    add_character(from_ascii(ord(" ")), from_ascii(0), false, &p, &render_context);
+                    var c = current_line.comment;
+                    render_context.foreground_color = error_color;
+                    for (var char_idx = 0; char_idx < c.comment.length; ++char_idx) {
+                        add_character(from_ascii(c.comment[char_idx]), from_ascii(0), false, &p, &render_context);
                     }
                 }
                 p.y -= line_height;
@@ -453,7 +458,7 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     }
     
     
-    var start_x_title = 25;
+    var start_x_title = 25 - panel.title_scroll_pos;
     var start_y_title = render_context.render_height;
     
     // render title bar
@@ -462,6 +467,8 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
     add_line_highlight(&p, &render_context);
     p.x += start_x_title@f32;
     p.y -= 4;
+    
+    var active_tab_max_x = 0.0;
     
     for (var tab_idx = 0; tab_idx < panel.tabs.length; ++tab_idx) {
         var tab = &panel.tabs[tab_idx];
@@ -474,7 +481,7 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
         var tab_doc = tab.document;
         var tab_title: string;
         if (tab_doc.file_name.length > 0) {
-            tab_title = trim_title(tab_doc.file_name);
+            tab_title = tab_doc.file_name;
         } else {
             tab_title = concat("Untitled-", to_str(tab_doc.idx, false, temp_memory), temp_memory);
         }
@@ -486,6 +493,9 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
             }
             add_character(char, char_next, false, &p, &render_context);
         }
+        if (is_active_tab) {
+            active_tab_max_x = (p.x + panel.title_scroll_pos) + 25;
+        }
         if (tab_idx != panel.tabs.length - 1) {
             render_context.foreground_color = inactive_tab_font_color;
             add_character(from_ascii(ord(" ")), from_ascii(0), false, &p, &render_context);
@@ -496,6 +506,13 @@ let render_panel = fun(panel: editor_panel*; global_render_state: global_render_
             add_character(from_ascii(ord(" ")), from_ascii(0), false, &p, &render_context);
         }
     }
+    
+    if (active_tab_max_x > render_context.render_width@f32) {
+        panel.title_scroll_target = active_tab_max_x - render_context.render_width@f32;
+    } else {
+        panel.title_scroll_target = 0.0;
+    }
+    panel.title_scroll_pos = Math::lerp(panel.title_scroll_pos, panel.title_scroll_target, global_render_state.delta_time * 25.0);
     
     var current_quad_count = quads.current_quad_count;
     var current_vertex_count = current_quad_count * 4;

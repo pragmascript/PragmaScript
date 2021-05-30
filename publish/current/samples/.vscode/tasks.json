@@ -17,7 +17,7 @@
                 "isDefault": true
             },
             "args": [
-                //"-v",
+                "-v",
                 "-D",
                 "${file}"
             ],

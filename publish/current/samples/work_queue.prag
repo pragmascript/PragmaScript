@@ -138,8 +138,7 @@ let test_sleep_rnd = fun(queue: work_queue*; data: ptr) => void {
 	"compile.asm"   : "false",
  	"compile.opt"   : "0",
  	"compile.run"   : "false",
- 	"compile.libs"  : "kernel32.lib",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+ 	"compile.libs"  : "kernel32.lib"
 ]
 let main = fun () => void {
     var queue = work_queue { };

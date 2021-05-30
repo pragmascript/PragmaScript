@@ -15,6 +15,7 @@ let command_context = struct(
     should_auto_indent: bool;
     old_editor_dirty_for_undo: bool;
 );
+
 let key_combo = struct(
     vk_code: i32;
     shift: bool;
@@ -37,7 +38,6 @@ let MOD_NONE = 0;
 let MOD_SHIFT = 1;
 let MOD_CTRL = 2;
 let MOD_ALT = 4;
-
 
 let create_key_combo = fun(vk_code: i32; mod_flags: i32 = MOD_NONE) => key_combo {
     var result = key_combo { };
@@ -114,7 +114,8 @@ let register_text_panel_commands = fun(editor_state: editor_state*) => void {
     register_editor_command(es, create_key_combo(VK_TAB, MOD_CTRL), cmd_cycle_tab@editor_command_callback, CTX_TEXT);
     register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_CTRL), cmd_undo@editor_command_callback, CTX_TEXT);
     register_editor_command(es, create_key_combo(ord("Z")@i32, MOD_SHIFT|MOD_CTRL), cmd_redo@editor_command_callback, CTX_TEXT);
-    register_editor_command(es, create_key_combo(VK_F5), cmd_compile@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("B")@i32, MOD_CTRL), cmd_build@editor_command_callback, CTX_TEXT);
+    register_editor_command(es, create_key_combo(ord("B")@i32, MOD_CTRL|MOD_SHIFT), cmd_compile@editor_command_callback, CTX_TEXT);
 }
 
 // todo make this work:
@@ -136,7 +137,6 @@ let cmd_delete_left = fun(@ctx: command_context*) => bool {
     }
     return true;
 }
-
 
 let cmd_increase_indent = fun(@ctx: command_context*) => bool {
     if (cursor.selection_active) {
@@ -281,6 +281,12 @@ let cmd_scroll_lines_down = fun(@ctx: command_context*) => bool {
 }
 
 let cmd_cursor_end_of_line = fun(@ctx: command_context*) => bool {
+    if (cursor.last_valid_char_pos == current_line.chars.length
+        && has_comment(current_line)) {
+        var font_size = editor_state.global_render_state.font_size;
+        active_tab.scroll_target.x -= 0.32 * (@f32 current_line.comment.comment.length * font_size);
+        debug_print("active_tab.scroll_target.x", active_tab.scroll_target.x);
+    }
     cursor.last_valid_char_pos = current_line.chars.length;
     return true;
 }
@@ -485,7 +491,58 @@ let cmd_redo = fun(@ctx: command_context*) => bool {
 }
 
 let cmd_compile = fun(@ctx: command_context*) => bool {
-    compile_buffer(ctx.document.file_name);
+    var t0 = get_perf_counter();
+    for (var doc_idx = 0; doc_idx < editor_state.documents.length; ++doc_idx) {
+        clear_comments(&editor_state.documents[doc_idx]);
+    }
+    var msg = compile_buffer(ctx.document.file_path, true);
+    var slash_idx = last_index_of(trim_right("\\ "), msg.file_path);
+    var file_name = msg.file_path[slash_idx + 1:];
+    if (file_name.length > 0) {
+        for (var tab_idx = 0; tab_idx < active_panel.tabs.length; tab_idx++) {
+            var tab = active_panel.tabs[tab_idx];
+            if (strings_are_equal(file_name, tab.document.file_name)) {
+                var doc = tab.document;
+                var line_idx = msg.line - 1;
+                var line = get_line(line_idx, doc);
+                var comment = line_comment {
+                    line_comment_type::error,
+                    msg.message
+                };
+                line.comment = comment;
+                return true;
+            }
+        }    
+    }
+    var t1 = get_perf_counter();
+    // debug_print("compile (ms)", get_ms_elapsed(t0, t1));
     return true;
 }
-
+let cmd_build = fun(@ctx: command_context*) => bool {
+    var t0 = get_perf_counter();
+    for (var doc_idx = 0; doc_idx < editor_state.documents.length; ++doc_idx) {
+        clear_comments(&editor_state.documents[doc_idx]);
+    }
+    var msg = compile_buffer(ctx.document.file_path, false);
+    var slash_idx = last_index_of(trim_right("\\ "), msg.file_path);
+    var file_name = msg.file_path[slash_idx + 1:];
+    if (file_name.length > 0) {
+        for (var tab_idx = 0; tab_idx < active_panel.tabs.length; tab_idx++) {
+            var tab = active_panel.tabs[tab_idx];
+            if (strings_are_equal(file_name, tab.document.file_name)) {
+                var doc = tab.document;
+                var line_idx = msg.line - 1;
+                var line = get_line(line_idx, doc);
+                var comment = line_comment {
+                    line_comment_type::error,
+                    msg.message
+                };
+                line.comment = comment;
+                return true;
+            }
+        }    
+    }
+    var t1 = get_perf_counter();
+    // debug_print("compile (ms)", get_ms_elapsed(t0, t1));
+    return true;
+}

@@ -680,8 +680,7 @@ let get_ms_elapsed = fun(t0: i64; t1: i64) => f64 {
  	"compile.opt"   : "4",
 	"compile.cpu"	: "native",
  	"compile.run"   : "true",
- 	"compile.libs"  : "kernel32.lib, libopenlibm.a",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a"
 ]
 let main = fun () => void {
 	Windows::QueryPerformanceFrequency(&perf_count_freq);

@@ -161,6 +161,19 @@ let dedent_line = fun(line_ptr: line*) => void {
     }
 }
 
+let has_comment = fun(line: line*) => bool {
+    return line.comment.type != line_comment_type::none;
+}
+
+let clear_comments = fun(document: document*) => void {
+    for (var chunk_idx = 0; chunk_idx < document.chunks_count; chunk_idx++) {
+        var chunk = document.chunks + chunk_idx;
+        for (var line_idx = 0; line_idx < chunk.lines.length; ++line_idx) {
+            chunk.lines[line_idx].comment.type = line_comment_type::none;
+        }
+    }
+}
+
 let change_indent_selection = fun(tab: panel_tab*; dedent: bool) => void {
     var document = tab.document;
     var first: v3i;

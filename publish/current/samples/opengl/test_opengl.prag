@@ -550,16 +550,15 @@ let gl_error_callback = fun(
 }
 
 [
-	"compile.output": "test_opengl.exe",
-	"compile.entry" : "true",
- 	"compile.opt"   : "0",
+    "compile.output": "test_opengl.exe",
+    "compile.entry" : "true",
+    "compile.opt"   : "0",
     "compile.debuginfo": "true",
     "compile.ll"    : "true",
     "compile.asm"   : "true",
     "compile.cpu"   : "native",
- 	"compile.run"   : "true",
- 	"compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+    "compile.run"   : "true",
+    "compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib"
 ]
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);
@@ -592,7 +591,6 @@ let main = fun() => void {
     window_class.lpszClassName = class_name;
     window_class.hCursor = LoadCursorA(null, IDC_ARROW);
     RegisterClassExA(&window_class);
-    
     
     let dw_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
     let dw_ex_style = 0 & WS_EX_TOPMOST;

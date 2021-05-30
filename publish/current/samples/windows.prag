@@ -269,6 +269,8 @@
     hStdError: mm;
   );
     
+    
+  let CREATE_NEW_CONSOLE = 0x00000010;
   let CreateProcessA = extern fun
   (
     ApplicationName: i8*;
@@ -337,6 +339,11 @@
     flags: i32;
     data: WIN32_FILE_ATTRIBUTE_DATA*;
   ) => i32;
+
+
+let GetFullPathNameA = extern fun(
+  
+) => i32;
 
   ["PACKED"]
   let WIN32_FIND_DATA = struct

@@ -6,11 +6,11 @@ with Windows;
 
 let key_repeat_delay = 0.5;
 let key_repeat_interval = 0.020;
-
 let key_down_state = struct(
     last_key_down_time: f32;
     last_key_repeat_time: f32;
 );
+
 let window_state = struct 
 (
     handle: mm;
@@ -36,7 +36,6 @@ let process_pending_messages = fun() => void {
             || message == WM_KEYUP) {
 
             // TODO(pragma): read this https://blog.molecular-matters.com/2011/09/05/properly-handling-keyboard-input/
-
             var w_param = @i32 (msg.wParam >> 32@mm);
             var l_param = @i32 (msg.lParam >> 32@mm);
             var vk_code = w_param;
@@ -165,9 +164,8 @@ let HIWORD = fun(p: mm) => i16 {
     "compile.ll"    : "true",
     "compile.asm"   : "false",
     "compile.cpu"   : "native", // "sandybridge",
-    "compile.run"   : "true",
-    "compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib",
-    "compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+    "compile.run"   : "false",
+    "compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib"
 ]
 let main = fun() => void {
     QueryPerformanceFrequency(&perf_count_freq);

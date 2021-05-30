@@ -2,83 +2,117 @@ import "../preamble.prag"
 import "../windows.prag"
 import "edit.prag"
 
-let parse_compiler_message = fun(msg: string) => void {
-	if (msg.data == nullptr || msg.length == 0) {
-		return;
-	}
-	if (starts_with("error: ", msg)) {
-		var s = msg[7:];
-		var idx_at = first_index_of(" at (", s);
-		if (idx_at == -1) {
-			return;
-		}
-		var error_msg = s[:idx_at];
-		var file_pos = s[idx_at + 4:];
-		debug_print("error_msg", error_msg);
-		debug_print("file_pos", file_pos);
-	}
-	
-	
-	
-	// error: expected "assignment operator, function call, or increment/decrement", but got "Identifier" at (Identifier, file "c:\Projects\dotnet\PragmaScript\publish\current\samples\editor\edit_compile.prag", line 9, pos 5, "bug_print")
-	
+
+let compiler_message_type = enum(
+    none = 0; error; warning
+);
+let compiler_message = struct(
+    message_type: compiler_message_type;
+    message: string;
+    file_path: string;
+    line: i32;
+    pos: i32;
+);
+
+let parse_compiler_message = fun(msg: string) => compiler_message {
+    var result = compiler_message { };
+    
+    if (msg.data == nullptr || msg.length == 0) {
+        return result;
+    }
+    
+    if (starts_with("error: ", msg)) {
+        var s = msg[7:];
+        var idx_at = first_index_of(" at (", s);
+        if (idx_at == -1) {
+            return result;
+        }
+        var error_msg = s[:idx_at];
+        var loc = trim_right(s[idx_at + 4:]);
+        var file_idx = first_index_of(", file \"", loc) + 8;
+        var file_idx_end = first_index_of("\", ", loc, file_idx);
+        var file_path = loc[file_idx:file_idx_end];
+        loc = loc[file_idx_end + 8:];
+        var line_str = loc[:first_index_of(",", loc)];
+        loc = loc[line_str.length + 6:];
+        var pos_str = loc[:first_index_of(",", loc)];
+        
+        result.message_type = compiler_message_type::error;
+        result.message = error_msg;
+        result.file_path = file_path;
+        from_str(line_str, &result.line);
+        from_str(pos_str, &result.pos);
+    }
+    return result;
 }
 
-let compile_buffer = fun(path: string) => void {
-	// TODO(pragma): this is stupid
-    var cmd = "..\\..\\..\\bin\\pragma.exe -D ";
+let compile_buffer = fun(path: string; just_syntax: bool) => compiler_message {
+    // TODO(pragma): this is stupid
+	var cmd: string;
+	if (just_syntax)
+	{
+		cmd = "..\\..\\..\\bin\\pragma.exe -D -F ";
+	}
+	else
+	{
+		cmd = "..\\..\\..\\bin\\pragma.exe -D ";
+	}
+	
     cmd = concat(cmd, path);
-	cmd = concat(cmd, "\0");
-	
+    cmd = concat(cmd, "\0");
+    
     var sa = Windows::SECURITY_ATTRIBUTES {};
-	sa.nLength = size_of(Windows::SECURITY_ATTRIBUTES)@i32;
-	sa.InheritHandle = 1;
-	
-	var stdin_pipe_read: mm = 0;
-	var	stdin_pipe_write: mm = 0;
-	var stdout_pipe_read: mm = 0;
-	var stdout_pipe_write: mm = 0;
-	
-	var success = 1;
-	success = Windows::CreatePipe(&stdin_pipe_read, &stdin_pipe_write, &sa, 0);
-	assert(success != 0);
-	success = Windows::CreatePipe(&stdout_pipe_read, &stdout_pipe_write, &sa, 0);
-	assert(success != 0);
+    sa.nLength = size_of(Windows::SECURITY_ATTRIBUTES)@i32;
+    sa.InheritHandle = 1;
+    
+    var stdin_pipe_read: mm = 0;
+	var stdin_pipe_write: mm = 0;
+    var stdout_pipe_read: mm = 0;
+    var stdout_pipe_write: mm = 0;
+    
+    var success = 1;
+    success = Windows::CreatePipe(&stdin_pipe_read, &stdin_pipe_write, &sa, 0);
+    assert(success != 0);
+    success = Windows::CreatePipe(&stdout_pipe_read, &stdout_pipe_write, &sa, 0);
+    assert(success != 0);
     
     
     var si = Windows::STARTUPINFOA {};
-	si.cb = size_of(Windows::STARTUPINFOA)@i32;
-	si.dwFlags = Windows::STARTF_USESTDHANDLES;
-	si.hStdError = stdout_pipe_write;
-	si.hStdOutput = stdout_pipe_write;
-	si.hStdInput = stdin_pipe_read;
-	
-	var pi = Windows::PROCESS_INFORMATION {};
-	Windows::CreateProcessA(nullptr, cstr(cmd), nullptr, nullptr, 1, 0, nullptr, nullptr, &si, &pi);
-	Windows::CloseHandle(stdout_pipe_write);
-	Windows::CloseHandle(stdin_pipe_read);
-	
-	var watermark = start_temp(&temp_memory_arena);
-	
-	let MAX_MSG_SIZE = 1024*1024;
-	
-	var buf = make_string(MAX_MSG_SIZE);
-	
-	var bytes_read = 0;
-	success = Windows::ReadFile(stdout_pipe_read, &buf[0], MAX_MSG_SIZE - 1, &bytes_read, nullptr);
-	assert(success != 0);
-	
-	parse_compiler_message(buf[:bytes_read]);
-	
-	
-	// while (success != 0) {
-	// 	debug_print("output", buf[:bytes_read]);
-	// 	print("\n");
-	// 	success = Windows::ReadFile(stdout_pipe_read, &buf[0], 1024, &bytes_read, nullptr);
-	// }
-	Windows::CloseHandle(stdout_pipe_read);
-	Windows::CloseHandle(stdin_pipe_write);
-	
-	Windows::CloseHandle(pi.hProcess);
-	Windows::CloseHandle(pi.hThread);
+    si.cb = size_of(Windows::STARTUPINFOA)@i32;
+    si.dwFlags = Windows::STARTF_USESTDHANDLES;
+    si.hStdError = stdout_pipe_write;
+    si.hStdOutput = stdout_pipe_write;
+    si.hStdInput = stdin_pipe_read;
+    
+    var pi = Windows::PROCESS_INFORMATION {};
+    Windows::CreateProcessA(nullptr, cstr(cmd), nullptr, nullptr, 1, 0, nullptr, nullptr, &si, &pi);
+    Windows::CloseHandle(stdout_pipe_write);
+    Windows::CloseHandle(stdin_pipe_read);
+    
+    var watermark = start_temp(&temp_memory_arena);
+    // TODO(pragma): we are leaking this memory
+    
+    let MAX_MSG_SIZE = 1024*1024;
+    var buf = make_string(MAX_MSG_SIZE);
+    var total_bytes_read = 0;
+    while (true) {
+        var max_size = MAX_MSG_SIZE - 1 - total_bytes_read;
+        var bytes_read = 0;
+        assert(max_size > 0);
+        success = Windows::ReadFile(stdout_pipe_read, &buf[total_bytes_read], max_size, &bytes_read, nullptr);
+        total_bytes_read += bytes_read;
+        if (success == 0) {
+            // debug_print("GetLastError", Windows::GetLastError());
+            break;
+        }
+    }
+    var result = parse_compiler_message(buf[:total_bytes_read]);
+    
+    Windows::CloseHandle(stdout_pipe_read);
+    Windows::CloseHandle(stdin_pipe_write);
+    
+    Windows::CloseHandle(pi.hProcess);
+    Windows::CloseHandle(pi.hThread);
+    
+    return result;
 }

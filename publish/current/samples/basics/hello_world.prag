@@ -2,66 +2,66 @@ import "../preamble.prag"
 import "../windows.prag"
 
 let to_upper = fun(str: string) => void {
-	for (var char_idx = 0; char_idx < str.length; ++char_idx) {
-		if (str[char_idx] >= ord("a") && str[char_idx] <= ord("z")) {
-			str[char_idx] += ord("A") - ord("a");
-		}
-	}
+    for (var char_idx = 0; char_idx < str.length; ++char_idx) {
+        if (str[char_idx] >= ord("a") && str[char_idx] <= ord("z")) {
+            str[char_idx] += ord("A") - ord("a");
+        }
+    }
 }
 
 [
-	"compile.entry", 
-	"compile.run":"true", 
-	"compile.opt": "0",
-	"compile.debuginfo": "true"
+    "compile.entry", 
+    "compile.run":"true", 
+    "compile.opt": "0",
+    "compile.debuginfo": "true"
 ]
-let main = fun () => void {	
-	print("hello, world!\n");
-	
-	var sa = Windows::SECURITY_ATTRIBUTES {};
-	sa.nLength = size_of(Windows::SECURITY_ATTRIBUTES)@i32;
-	sa.InheritHandle = 1;
-	
-	var stdin_pipe_read: mm = 0;
-	var	stdin_pipe_write: mm = 0;
-	var stdout_pipe_read: mm = 0;
-	var stdout_pipe_write: mm = 0;
-	
-	var success = 1;
-	success = Windows::CreatePipe(&stdin_pipe_read, &stdin_pipe_write, &sa, 0);
-	assert(success != 0);
-	success = Windows::CreatePipe(&stdout_pipe_read, &stdout_pipe_write, &sa, 0);
-	assert(success != 0);
-	
-	
-	var si = Windows::STARTUPINFOA {};
-	si.cb = size_of(Windows::STARTUPINFOA)@i32;
-	si.dwFlags = Windows::STARTF_USESTDHANDLES;
-	si.hStdError = stdout_pipe_write;
-	si.hStdOutput = stdout_pipe_write;
-	si.hStdInput = stdin_pipe_read;
-	
-	var pi = Windows::PROCESS_INFORMATION {};
-	var cmd = "C:\\Windows\\System32\\cmd.exe /c dir\0";
-	Windows::CreateProcessA(nullptr, cstr(cmd), nullptr, nullptr, 1, 0, nullptr, nullptr, &si, &pi);
-	
-	Windows::CloseHandle(stdout_pipe_write);
-	Windows::CloseHandle(stdin_pipe_read);
-	
-	var buf: i8[1025];
-	memset(&buf[0], 0, len(buf));
-	
-	var bytes_read = 0;
-	success = Windows::ReadFile(stdout_pipe_read, &buf[0], 1024, &bytes_read, nullptr);
-	while (success != 0) {
-		debug_print("output", buf[:bytes_read]);
-		print("\n");
-		success = Windows::ReadFile(stdout_pipe_read, &buf[0], 1024, &bytes_read, nullptr);
-	}
-	Windows::CloseHandle(stdout_pipe_read);
-	Windows::CloseHandle(stdin_pipe_write);
-	
-	Windows::CloseHandle(pi.hProcess);
-	Windows::CloseHandle(pi.hThread);
-	print("exit...");
+let main = fun () => void {    
+    print("hello, world!\n");
+    
+    var sa = Windows::SECURITY_ATTRIBUTES {};
+    sa.nLength = size_of(Windows::SECURITY_ATTRIBUTES)@i32;
+    sa.InheritHandle = 1;
+    
+    var stdin_pipe_read: mm = 0;
+    var    stdin_pipe_write: mm = 0;
+    var stdout_pipe_read: mm = 0;
+    var stdout_pipe_write: mm = 0;
+    
+    var success = 1;
+    success = Windows::CreatePipe(&stdin_pipe_read, &stdin_pipe_write, &sa, 0);
+    assert(success != 0);
+    success = Windows::CreatePipe(&stdout_pipe_read, &stdout_pipe_write, &sa, 0);
+    assert(success != 0);
+    
+    
+    var si = Windows::STARTUPINFOA {};
+    si.cb = size_of(Windows::STARTUPINFOA)@i32;
+    si.dwFlags = Windows::STARTF_USESTDHANDLES;
+    si.hStdError = stdout_pipe_write;
+    si.hStdOutput = stdout_pipe_write;
+    si.hStdInput = stdin_pipe_read;
+    
+    var pi = Windows::PROCESS_INFORMATION {};
+    var cmd = "C:\\Windows\\System32\\cmd.exe /c dir\0";
+    Windows::CreateProcessA(nullptr, cstr(cmd), nullptr, nullptr, 1, 0, nullptr, nullptr, &si, &pi);
+    
+    Windows::CloseHandle(stdout_pipe_write);
+    Windows::CloseHandle(stdin_pipe_read);
+    
+    var buf: i8[1025];
+    memset(&buf[0], 0, len(buf));
+    
+    var bytes_read = 0;
+    success = Windows::ReadFile(stdout_pipe_read, &buf[0], 1024, &bytes_read, nullptr);
+    while (success != 0) {
+        debug_print("output", buf[:bytes_read]);
+        print("\n");
+        success = Windows::ReadFile(stdout_pipe_read, &buf[0], 1024, &bytes_read, nullptr);
+    }
+    Windows::CloseHandle(stdout_pipe_read);
+    Windows::CloseHandle(stdin_pipe_write);
+    
+    Windows::CloseHandle(pi.hProcess);
+    Windows::CloseHandle(pi.hThread);
+    print("exit...");
 }

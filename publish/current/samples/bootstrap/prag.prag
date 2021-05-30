@@ -385,15 +385,14 @@ let str_intern_test = fun() => void {
 }
 
 [
-	"compile.output": "prag.exe",
+    "compile.output": "prag.exe",
     "compile.debuginfo" : "true",
-	"compile.entry" : "true",
+    "compile.entry" : "true",
     "compile.ll"    : "false",
-	"compile.asm"   : "false",
- 	"compile.opt"   : "0",
- 	"compile.run"   : "true",
- 	"compile.libs"  : "kernel32.lib",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64, lib"
+    "compile.asm"   : "false",
+     "compile.opt"   : "0",
+     "compile.run"   : "true",
+     "compile.libs"  : "kernel32.lib"
 ]
 let main = fun () => void {
     buf_test();

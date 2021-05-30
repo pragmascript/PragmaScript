@@ -33,6 +33,7 @@ let cursor = struct(
 );
 
 let document = struct(
+    file_path: string;
     file_name: string;
     chunks: text_chunk*;
     chunks_count: i32;
@@ -75,6 +76,8 @@ let editor_panel = struct(
     visible_line_count: i32;
     tabs: panel_tab[];
     active_tab: panel_tab*;
+    title_scroll_pos: f32;
+    title_scroll_target: f32;
 );
 let character = struct(
     value: i8;
@@ -82,11 +85,11 @@ let character = struct(
 );
 
 let line_comment_type = enum(
-  None; Warning; Error  
+  none; warning; error  
 );
 let line_comment = struct(
     type: line_comment_type;
-    chars: character[];
+    comment: string;
 );
 let line = struct(
     chars: character[];
@@ -201,6 +204,18 @@ let create_tab = fun(idx: i32; document: document*) => panel_tab {
     result.document = document;
     result.idx = idx;
     return result;
+}
+
+let get_line = fun(idx: i32; document: document*) => line* {
+    var total_line_idx = 0;
+    for (var chunk_idx = 0; chunk_idx < document.chunks_count; ++chunk_idx) {
+        var chunk = document.chunks + chunk_idx;
+        if (idx < total_line_idx + chunk.lines.length) {
+            return &chunk.lines[idx - total_line_idx];
+        }
+        total_line_idx += chunk.lines.length;
+    }
+    return nullptr@line*;
 }
 
 let create_panel = fun() => editor_panel {
@@ -676,14 +691,16 @@ let add_tab = fun(panel: editor_panel*; document: document*) => panel_tab* {
     return result;
 }
 
-let load_text_file = fun(tab: panel_tab*; file_name: string) => void {
-    var temp_file_name = file_name;
+let load_text_file = fun(tab: panel_tab*; file_name: string; dir: string = "") => void {
     var document = tab.document;
+    var temp_file_name = file_name;
+    var file_path = concat(dir, file_name);
     var watermark = start_temp(&temp_memory_arena);
-    var txt = read_file(file_name);
+    var txt = read_file(file_path);
     if (txt.length > 0) {
         paste_string(tab, txt);
         document.file_name = file_name;
+        document.file_path = file_path;
     } else {
         debug_print("could not load text file with argument", file_name);
     }
@@ -698,15 +715,13 @@ let load_all_files_in_directory = fun(editor_state: editor_state*; dir: string) 
     var handle = Windows::FindFirstFileA(cstr(wc), &data);
     if (handle != Windows::INVALID_HANDLE_VALUE) {
         while (true) {
-            var file_name = clone_string(concat(dir[:-1], from_cstr(&data.FileName[0], 260)));
-            debug_print("filename", file_name);
+            var file_name = from_cstr(&data.FileName[0], 260);
             var doc = add_document(editor_state);
             var left_tab = add_tab(&editor_state.left_panel, doc);
-            load_text_file(left_tab, file_name);
+            load_text_file(left_tab, clone_string(file_name), dir[:-1]);
             var right_tab = add_tab(&editor_state.right_panel, doc);
             left_tab.cursor.pos = v3iz;
             right_tab.cursor.pos = v3iz;
-            syntax_highlight(doc);
             if (Windows::FindNextFileA(handle, &data) == 0) {
                 break;
             }
@@ -716,7 +731,7 @@ let load_all_files_in_directory = fun(editor_state: editor_state*; dir: string) 
 
 let save_text_file = fun(tab: panel_tab*) => bool {
     var document = tab.document;
-    if (document.file_name.length > 0) {
+    if (document.file_path.length > 0) {
         var first = v3iz;
         var last: v3i;
         last.z = document.chunks_count - 1;
@@ -724,7 +739,7 @@ let save_text_file = fun(tab: panel_tab*) => bool {
         last.y =  chunk.lines.length - 1;
         last.x = chunk.lines[last.y].chars.length;
         copy_to_clipboard(tab, first, last, false);
-        write_file(document.file_name, tab.cursor.clipboard);
+        write_file(document.file_path, tab.cursor.clipboard);
         return true;
     }
     return false;

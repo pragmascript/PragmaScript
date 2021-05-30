@@ -47,8 +47,7 @@ let print_array_unsafe = fun(arr: i32*; count: i32) => void {
     "compile.ll"    : "true",
     "compile.asm"   : "false",
  	"compile.run"   : "true",
- 	"compile.libs"  : "kernel32.lib",
-	"compile.path"  : "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.14393.0\um\x64"
+ 	"compile.libs"  : "kernel32.lib"
 ]
 let main = fun () => void {
     var arr = [1,2,3,4];
