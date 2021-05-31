@@ -4,29 +4,58 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using CommandLine;
 using static PragmaScript.AST;
 
 namespace PragmaScript
 {
+
     public class CompilerOptions
     {
         public static CompilerOptions _i;
-        internal bool debug = false;
-        public bool debugInfo = true;
-        public string inputFilename;
-        public int optimizationLevel;
-        public string cpu = "native";
-        public bool runAfterCompile;
-        public bool buildExecuteable = true;
-        public bool asm = false;
-        public bool ll = false;
-        public bool bc = false;
-        public HashSet<string> libs = new HashSet<string>();
-        public HashSet<string> lib_path = new HashSet<string>();
-        public bool dll = false;
-        public string output = "output.exe";
-        public bool verbose = false;
 
+        [Value(0, MetaName = "input-filename", Required = true, HelpText = "Source filename to compile.")]
+        public string inputFilename { get; set; }
+
+        [Option('d', "debug", HelpText = "Compile with DEBUG preprocessor define.")]
+        public bool debug { get; set; }
+
+        [Option('g', "generate-debug-info", HelpText = "Generate debugging information.")]
+        public bool debugInfo { get; set; }
+
+        [Option('o', "output-filename", HelpText = "Filename of the output executeable.", Default = "output.exe")]
+        public string output { get; set; }
+
+        [Option('O', "optimization-level", HelpText = "Backend optimization level between 0 and 4.", Default = 0)]
+        public int optimizationLevel { get; set; }
+
+        public string cpu = "native";
+
+        [Option('r', "run", HelpText = "Run executeable after compilation.")]
+        public bool runAfterCompile { get; set; }
+
+        [Option("emit-asm", HelpText = "Output generated assembly.")]
+        public bool asm { get; set; }
+        [Option("emit-llvm", HelpText = "Output generated LLVM IR.")]
+        public bool ll { get; set; }
+
+        public bool bc = false;
+
+        [Option('l', "libs", HelpText = "';' separated list of static libraries to link against.", Separator = ';')]
+        public IList<string> libs { get; set; }
+        [Option('L', "lib-dirs", HelpText = "';' separated list of library search directories.", Separator = ';')]
+        public IList<string> lib_path { get; set; }
+
+        [Option("shared-library", HelpText = "Set binary type to a shared library file.")]
+        public bool dll { get; set; }
+
+        [Option('v', "verbose", HelpText = "Set output to verbose messages.")]
+        public bool verbose { get; set; }
+
+        [Option("dry-run", HelpText = "Compile and output errors only; no executeable will be generated.")]
+        public bool dryRun { get; set; }
+
+        public bool buildExecuteable { get { return !dryRun; } set { dryRun = !value; } }
         public bool useFastMath
         {
             get { return optimizationLevel > 3; }
@@ -37,8 +66,19 @@ namespace PragmaScript
         {
             _i = this;
         }
-    }
 
+        [CommandLine.Text.Usage(ApplicationAlias = "pragma")]
+        public static IEnumerable<CommandLine.Text.Example> Examples
+        {
+            get
+            {
+                yield return new CommandLine.Text.Example("Debug build \"hello.prag\" outut \"hello.exe\"", new CommandLine.UnParserSettings() { PreferShortName = true },
+                    new CompilerOptions { inputFilename = "hello.prag", output = "hello.exe", debug = true, debugInfo = true });
+                yield return new CommandLine.Text.Example("Compile optimized release build and run", new CommandLine.UnParserSettings() { PreferShortName = true },
+                    new CompilerOptions { inputFilename = "hello.prag", output = "hello.exe", optimizationLevel = 3, runAfterCompile = true, libs = new string[] { "user32.lib", "libopenlibm.a" } });
+            }
+        }
+    }
 
     public class Compiler
     {
@@ -310,7 +350,6 @@ namespace PragmaScript
                     CompilerOptions._i.libs.Add(tlib);
                 }
             }
-
 
             {
                 var fullPath = Path.GetFullPath(@"..\lib", Path.GetDirectoryName(entry.token.filename));

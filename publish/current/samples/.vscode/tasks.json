@@ -18,8 +18,8 @@
             },
             "args": [
                 "-v",
-                "-D",
-                "${file}"
+                "-d",
+                "\"${file}\""
             ],
             "problemMatcher": [
                 {

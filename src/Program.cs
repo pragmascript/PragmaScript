@@ -6,6 +6,9 @@ using System.Diagnostics;
 
 using static PragmaScript.AST;
 
+using CommandLine;
+
+
 
 namespace PragmaScript
 {
@@ -17,19 +20,67 @@ namespace PragmaScript
         Timing
     }
 
-    class Options
-    {
-    }
 
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
     class Program
     {
 
+        static void TestCommandLineParser()
+        {
+            static void Test(string[] args)
+            {
+                CommandLine.Parser.Default.ParseArguments<CompilerOptions>(args)
+                .WithParsed<CompilerOptions>(co =>
+                {
+                    Console.WriteLine($"success: {co}");
+                }).WithNotParsed(err =>
+                {
+                    foreach (var e in err)
+                    {
+                        Console.WriteLine($"error: {e}");
+                    }
+                });
+            }
+            var arg_0 = new string[] { "-d", "nase.prag" };
+            Test(arg_0);
+
+            var arg_1 = new string[] { "-d", "--generate-debug-info", "nase.prag" };
+            Test(arg_1);
+
+            var arg_2 = new string[] { };
+            Test(arg_2);
+
+            var arg_3 = new string[] { "--help" };
+            Test(arg_3);
+
+            var arg_4 = new string[] { "-O3", "nase.prag" };
+            Test(arg_4);
+
+            var arg_5 = new string[] { "nase.prag", "-l", "kernel32.lib;user32.lib", "-v" };
+            Test(arg_5);
+
+            var arg_6 = @"-v -d c:\Projects\dotnet\PragmaScript\publish\current\samples\editor\edit.prag".Split();
+            Test(arg_6);
+        }
+
+
         static void Main(string[] args)
         {
             Compiler compiler = new Compiler();
-            var co = new CompilerOptions();
-            parseARGS(args);
+
+            CompilerOptions co = null;
+            CommandLine.Parser.Default.ParseArguments<CompilerOptions>(args).WithParsed(result =>
+            {
+                co = result;
+            });
+
+            if (co == null)
+            {
+                return;
+            }
+
+            co.libs = new List<string>(co.libs);
+            co.lib_path = new List<string>(co.lib_path);
 
 #if False
             CompilerOptions._i.debug = true;
@@ -59,12 +110,6 @@ namespace PragmaScript
             // CompilerOptions._i.inputFilename = Path.Combine(programDir, "neural", "neural.prag");
             // Console.WriteLine(CompilerOptions._i.inputFilename);
 #endif
-            if (CompilerOptions._i.inputFilename == null)
-            {
-                Console.WriteLine("Input file name missing!");
-                return;
-            }
-
             try
             {
                 compiler.Compile(co);
@@ -77,32 +122,11 @@ namespace PragmaScript
                 }
                 else
                 {
+                    Debugger.Launch();
                     throw e;
                 }
             }
 
-        }
-
-
-        static void printHelp()
-        {
-            Console.WriteLine();
-            Console.WriteLine("OVERVIEW:");
-            Console.WriteLine("    pragma compiler");
-            Console.WriteLine();
-            Console.WriteLine("USAGE:");
-            Console.WriteLine("    pragma.exe [options] <input>");
-            Console.WriteLine();
-            Console.WriteLine("OPTIONS:");
-            Console.WriteLine("    -O <filename>     set output filename");
-            Console.WriteLine("    -D                build in debug mode");
-            Console.WriteLine("    -O0               turn off optimizations");
-            Console.WriteLine("    -OX               turn on optimization level X in [1..3]");
-            Console.WriteLine("    -F                run frontend only");
-            Console.WriteLine("    -R                run program after compilation");
-            Console.WriteLine("    -ASM              output generated assembly");
-            Console.WriteLine("    -LL               output LLVM IL");
-            Console.WriteLine("    -N <projectname>  [template] create new project with name and optional template");
         }
 
         static void createProject()
@@ -125,79 +149,6 @@ namespace PragmaScript
             if (shouldPrint)
             {
                 Console.WriteLine(message);
-            }
-        }
-
-        static void parseARGS(string[] args)
-        {
-            for (int i = 0; i < args.Length; ++i)
-            {
-                var arg = args[i];
-                if (arg.TrimStart().StartsWith("-"))
-                {
-                    var x = arg.TrimStart().Remove(0, 1);
-                    x = x.ToUpperInvariant();
-                    switch (x)
-                    {
-                        case "D":
-                        case "DEGUG":
-                            CompilerOptions._i.debug = true;
-                            break;
-                        case "ASM":
-                            CompilerOptions._i.asm = true;
-                            break;
-                        case "LL":
-                            CompilerOptions._i.ll = true;
-                            break;
-                        case "O0":
-                            CompilerOptions._i.optimizationLevel = 0;
-                            break;
-                        case "O1":
-                            CompilerOptions._i.optimizationLevel = 1;
-                            break;
-                        case "O2":
-                            CompilerOptions._i.optimizationLevel = 2;
-                            break;
-                        case "O3":
-                            CompilerOptions._i.optimizationLevel = 3;
-                            break;
-                        case "HELP":
-                        case "-HELP":
-                        case "H":
-                            printHelp();
-                            Environment.Exit(0);
-                            break;
-                        case "N":
-                            createProject();
-                            Environment.Exit(0);
-                            break;
-                        case "R":
-                        case "RUN":
-                            CompilerOptions._i.runAfterCompile = true;
-                            break;
-                        case "F":
-                            CompilerOptions._i.buildExecuteable = false;
-                            break;
-                        case "DLL":
-                            CompilerOptions._i.dll = true;
-                            break;
-                        case "O":
-                        case "OUTPUT":
-                            CompilerOptions._i.output = args[++i];
-                            break;
-                        case "V":
-                        case "VERBOSE":
-                            CompilerOptions._i.verbose = true;
-                            break;
-                        default:
-                            System.Console.WriteLine(("Unknown command line option"));
-                            break;
-                    }
-                }
-                else
-                {
-                    CompilerOptions._i.inputFilename = arg;
-                }
             }
         }
     }
