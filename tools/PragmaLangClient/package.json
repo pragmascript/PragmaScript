@@ -2,6 +2,7 @@
   "name": "pragmalangclient",
   "displayName": "PragmaLangClient",
   "description": "Client for pragma language server",
+  "publisher": "pragmascript",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.50.0"

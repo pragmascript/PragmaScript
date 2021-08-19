@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
+
 using static PragmaScript.SSA;
 using static PragmaScript.SSA.Const;
+using static PragmaScript.Program;
 
 namespace PragmaScript
 {
@@ -21,13 +23,13 @@ namespace PragmaScript
         Dictionary<string, Value> stringTable = new Dictionary<string, Value>();
 
         Dictionary<FunctionAttribs, int> functionAttribs;
-        static string exeDir;
+
         Platform platform;
 
         static Backend()
         {
             // https://www.hanselman.com/blog/how-do-i-find-which-directory-my-net-core-console-application-was-started-in-or-is-running-from
-            exeDir = AppContext.BaseDirectory;// Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+            // Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
         }
 
         public Backend(TypeChecker typeChecker, Platform platform)
@@ -48,15 +50,15 @@ namespace PragmaScript
             var ll = emitLL();
 
 
-            int optLevel = CompilerOptions._i.optimizationLevel;
+            int optLevel = CompilerOptionsBuild._i.optimizationLevel;
             Debug.Assert(optLevel >= 0 && optLevel <= 4);
             var arch = "x86-64";
 
-            var outputDir = Path.GetDirectoryName(CompilerOptions._i.inputFilename);
+            var outputDir = Path.GetDirectoryName(CompilerOptionsBuild._i.inputFilename);
             var outputTempDir = Path.Combine(outputDir, "obj");
-            var outputTemp = Path.Combine(outputTempDir, Path.GetFileNameWithoutExtension(CompilerOptions._i.output));
+            var outputTemp = Path.Combine(outputTempDir, Path.GetFileNameWithoutExtension(CompilerOptionsBuild._i.output));
             var outputBinDir = Path.Combine(outputDir, "bin");
-            var outputBin = Path.Combine(outputBinDir, Path.GetFileNameWithoutExtension(CompilerOptions._i.output));
+            var outputBin = Path.Combine(outputBinDir, Path.GetFileNameWithoutExtension(CompilerOptionsBuild._i.output));
 
             Func<string, string> oxt = (ext) => "\"" + outputTemp + ext + "\"";
             Func<string, string> ox = (ext) => "\"" + outputBin + ext + "\"";
@@ -64,7 +66,7 @@ namespace PragmaScript
             Directory.CreateDirectory(outputTempDir);
             Directory.CreateDirectory(outputBinDir);
 
-            if (CompilerOptions._i.ll)
+            if (CompilerOptionsBuild._i.ll)
             {
                 File.WriteAllText(outputTemp + ".ll", ll);
             }
@@ -76,7 +78,7 @@ namespace PragmaScript
             Program.CompilerMessage($"backend preparation time: {timer.ElapsedMilliseconds}ms", CompilerMessageType.Timing);
             timer.Reset();
             timer.Start();
-            var mcpu = CompilerOptions._i.cpu.ToLower();
+            var mcpu = CompilerOptionsBuild._i.cpu.ToLower();
             bool error = false;
 
             bool use_fast_flags = false;
@@ -109,7 +111,7 @@ namespace PragmaScript
                 {
                     fast_flags = "-enable-no-infs-fp-math -enable-no-nans-fp-math -enable-no-signed-zeros-fp-math -enable-unsafe-fp-math -enable-no-trapping-fp-math -fp-contract=fast ";
                 }
-                if (CompilerOptions._i.ll)
+                if (CompilerOptionsBuild._i.ll)
                 {
                     optProcess.StartInfo.Arguments = $"{oxt(".ll")} -O{optLevel} {fast_flags}-march={arch} -mcpu={mcpu} -S -o {oxt("_opt.ll")}";
                     optProcess.StartInfo.RedirectStandardInput = false;
@@ -157,7 +159,7 @@ namespace PragmaScript
                     Debug.Assert(count < buffer.Length);
                     reader.Close();
                     bufferSize = count;
-                    if (CompilerOptions._i.bc)
+                    if (CompilerOptionsBuild._i.bc)
                     {
                         File.WriteAllBytes(oxt("_opt.bc"), buffer.Take(bufferSize).ToArray());
                     }
@@ -174,7 +176,7 @@ namespace PragmaScript
             {
                 inp = oxt(".ll");
             }
-            if (!error && CompilerOptions._i.asm)
+            if (!error && CompilerOptionsBuild._i.asm)
             {
                 Program.CompilerMessage("assembler...(debug)", CompilerMessageType.Info);
                 var llcProcess = new Process();
@@ -189,7 +191,7 @@ namespace PragmaScript
                         break;
                 }
 
-                if (CompilerOptions._i.ll)
+                if (CompilerOptionsBuild._i.ll)
                 {
                     llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=asm -o {oxt(".asm")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
@@ -248,7 +250,7 @@ namespace PragmaScript
                         break;
                 }
 
-                if (CompilerOptions._i.ll)
+                if (CompilerOptionsBuild._i.ll)
                 {
                     llcProcess.StartInfo.Arguments = $"{inp} -O{optLevel} -march={arch} -mcpu={mcpu} -filetype=obj -o {oxt(".o")}";
                     llcProcess.StartInfo.RedirectStandardInput = false;
@@ -294,8 +296,8 @@ namespace PragmaScript
             }
             if (!error)
             {
-                var libs = String.Join(" ", CompilerOptions._i.libs);
-                var lib_path = String.Join(" /libpath:", CompilerOptions._i.lib_path.Select(s => "\"" + s + "\""));
+                var libs = String.Join(" ", CompilerOptionsBuild._i.libs);
+                var lib_path = String.Join(" /libpath:", CompilerOptionsBuild._i.lib_path.Select(s => "\"" + s + "\""));
                 Program.CompilerMessage("linker...", CompilerMessageType.Info);
                 var lldProcess = new Process();
 
@@ -305,7 +307,7 @@ namespace PragmaScript
                         {
                             lldProcess.StartInfo.FileName = RelDir("external/lld-link.exe");
                             var flags = "/entry:__init";
-                            if (CompilerOptions._i.dll)
+                            if (CompilerOptionsBuild._i.dll)
                             {
                                 flags += $" /NODEFAULTLIB /dll /out:{ox(".dll")}";
                             }
@@ -313,7 +315,7 @@ namespace PragmaScript
                             {
                                 flags += $" /NODEFAULTLIB /subsystem:CONSOLE /out:{ox(".exe")}";
                             }
-                            if (CompilerOptions._i.debug)
+                            if (CompilerOptionsBuild._i.debug)
                             {
                                 flags += " /DEBUG";
                             }
@@ -350,7 +352,7 @@ namespace PragmaScript
             timer.Start();
 
 
-            if (!error && CompilerOptions._i.runAfterCompile)
+            if (!error && CompilerOptionsBuild._i.runAfterCompile)
             {
                 Program.CompilerMessage("running...", CompilerMessageType.Info);
                 var outputProcess = new Process();
@@ -382,11 +384,6 @@ namespace PragmaScript
             Program.CompilerMessage("done.", CompilerMessageType.Info);
         }
 
-        public static string RelDir(string dir)
-        {
-            string result = Path.Combine(exeDir, dir);
-            return result;
-        }
 
         static bool isConstVariableDefinition(AST.Node node)
         {
@@ -465,7 +462,7 @@ namespace PragmaScript
             }
 
             FunctionType ft;
-            if (CompilerOptions._i.dll)
+            if (CompilerOptionsBuild._i.dll)
             {
                 ft = new FunctionType(i32_t, mm_t, i32_t, ptr_t);
             }
@@ -476,7 +473,7 @@ namespace PragmaScript
 
             Block entry;
             Block vars;
-            if (CompilerOptions._i.buildExecuteable)
+            if (CompilerOptionsBuild._i.buildExecuteable)
             {
                 var initFun = new AST.FunctionDefinition(main.token, main.scope);
                 initFun.parent = node;
@@ -540,7 +537,7 @@ namespace PragmaScript
                 builder.BuildCall(mf, node);
             }
 
-            if (CompilerOptions._i.dll)
+            if (CompilerOptionsBuild._i.dll)
             {
                 builder.BuildRet(one_i32_v, node);
             }

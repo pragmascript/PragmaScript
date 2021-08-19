@@ -1,5 +1,7 @@
+import "../../test.prag"
 import "../preamble.prag"
 import "../windows.prag"
+
 
 let to_upper = fun(str: string) => void {
     for (var char_idx = 0; char_idx < str.length; ++char_idx) {
@@ -23,7 +25,7 @@ let main = fun () => void {
     sa.InheritHandle = 1;
     
     var stdin_pipe_read: mm = 0;
-    var    stdin_pipe_write: mm = 0;
+    var stdin_pipe_write: mm = 0;
     var stdout_pipe_read: mm = 0;
     var stdout_pipe_write: mm = 0;
     

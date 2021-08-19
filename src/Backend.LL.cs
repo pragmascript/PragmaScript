@@ -188,11 +188,11 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                 {
                     AP("argmemonly ");
                 }
-                if (CompilerOptions._i.optimizationLevel == 0)
+                if (CompilerOptionsBuild._i.optimizationLevel == 0)
                 {
                     AP("noinline optnone ");
                 }
-                if (CompilerOptions._i.debugInfo)
+                if (CompilerOptionsBuild._i.debugInfo)
                 {
                     AP("uwtable ");
                     //  AP("uwtable \"correctly-rounded-divide-sqrt-fp-math\"=\"false\" \"disable-tail-calls\"=\"false\" \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"false\" \"no-infs-fp-math\"=\"false\" \"no-jump-tables\"=\"false\" \"no-nans-fp-math\"=\"false\" \"no-signed-zeros-fp-math\"=\"false\" \"no-trapping-math\"=\"false\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+fxsr,+mmx,+sse,+sse2,+x87\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" ");
@@ -211,7 +211,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
             }
 
             // debug info
-            if (CompilerOptions._i.debugInfo)
+            if (CompilerOptionsBuild._i.debugInfo)
             {
                 FixUpGlobalVariableDebugInfoList();
                 AL();
@@ -779,7 +779,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                         else
                         {
                             var fast = "";
-                            if (CompilerOptions._i.useFastMath && (ft.returnType.kind == TypeKind.Float || ft.returnType.kind == TypeKind.Half || ft.returnType.kind == TypeKind.Double))
+                            if (CompilerOptionsBuild._i.useFastMath && (ft.returnType.kind == TypeKind.Float || ft.returnType.kind == TypeKind.Half || ft.returnType.kind == TypeKind.Double))
                             {
                                 fast = "fast ";
                             }
@@ -1006,19 +1006,19 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                     AppendBinOp(v, "lshr", isConst);
                     break;
                 case Op.FAdd:
-                    AppendBinOp(v, "fadd", isConst, !isConst && CompilerOptions._i.useFastMath ? "fast" : null);
+                    AppendBinOp(v, "fadd", isConst, !isConst && CompilerOptionsBuild._i.useFastMath ? "fast" : null);
                     break;
                 case Op.FSub:
-                    AppendBinOp(v, "fsub", isConst, !isConst && CompilerOptions._i.useFastMath ? "fast" : null);
+                    AppendBinOp(v, "fsub", isConst, !isConst && CompilerOptionsBuild._i.useFastMath ? "fast" : null);
                     break;
                 case Op.FMul:
-                    AppendBinOp(v, "fmul", isConst, !isConst && CompilerOptions._i.useFastMath ? "fast" : null);
+                    AppendBinOp(v, "fmul", isConst, !isConst && CompilerOptionsBuild._i.useFastMath ? "fast" : null);
                     break;
                 case Op.FDiv:
-                    AppendBinOp(v, "fdiv", isConst, !isConst && CompilerOptions._i.useFastMath ? "fast" : null);
+                    AppendBinOp(v, "fdiv", isConst, !isConst && CompilerOptionsBuild._i.useFastMath ? "fast" : null);
                     break;
                 case Op.FRem:
-                    AppendBinOp(v, "frem", isConst, !isConst && CompilerOptions._i.useFastMath ? "fast" : null);
+                    AppendBinOp(v, "frem", isConst, !isConst && CompilerOptionsBuild._i.useFastMath ? "fast" : null);
                     break;
                 case Op.ICmp:
                     {
@@ -1029,7 +1029,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                 case Op.FCmp:
                     {
                         var fast = "";
-                        if (!isConst && CompilerOptions._i.useFastMath)
+                        if (!isConst && CompilerOptionsBuild._i.useFastMath)
                         {
                             fast = "fast ";
                         }

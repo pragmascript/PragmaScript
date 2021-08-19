@@ -164,7 +164,7 @@ let HIWORD = fun(p: mm) => i16 {
     "compile.ll"    : "true",
     "compile.asm"   : "false",
     "compile.cpu"   : "native", // "sandybridge",
-    "compile.run"   : "false",
+    "compile.run"   : "true",
     "compile.libs"  : "kernel32.lib, user32.lib, gdi32.lib, shcore.lib, libopenlibm.a, opengl32.lib"
 ]
 let main = fun() => void {

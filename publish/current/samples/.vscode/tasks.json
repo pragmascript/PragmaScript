@@ -17,7 +17,8 @@
                 "isDefault": true
             },
             "args": [
-                "-v",
+                // "-v",
+                "build",
                 "-d",
                 "\"${file}\""
             ],
@@ -53,6 +54,7 @@
             "command": "..\\bin\\pragma.exe",
             "group": "build",
             "args": [
+                "build",
                 "${file}"
             ],
             "problemMatcher": [

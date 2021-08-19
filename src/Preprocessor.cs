@@ -26,7 +26,7 @@ namespace PragmaScript
             }
             HashSet<string> defines = new HashSet<string>();
             defines.Add("TRUE");
-            if (CompilerOptions._i.debug)
+            if (CompilerOptionsBuild._i.debug)
             {
                 defines.Add("DEBUG");
             }
@@ -39,8 +39,8 @@ namespace PragmaScript
             if (platform == Platform.WindowsX64)
             {
                 defines.Add("PLATFORM_WINDOWS");
-                CompilerOptions._i.libs.Add("kernel32.lib");
-                CompilerOptions._i.lib_path.Add(Backend.RelDir("lib"));
+                CompilerOptionsBuild._i.libs.Add("kernel32.lib");
+                CompilerOptionsBuild._i.lib_path.Add(Program.RelDir("lib"));
             }
             else if (platform == Platform.LinuxX64)
             {

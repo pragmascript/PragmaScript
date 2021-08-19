@@ -317,13 +317,13 @@ namespace PragmaScript
                                 {
                                     if (result is FunctionDefinition)
                                     {
-                                        if (CompilerOptions._i.entry != null)
+                                        if (CompilerOptionsBuild._i.entry != null)
                                         {
                                             {
                                                 throw new CompilerError("Program entry point already defined!", result.token);
                                             }
                                         }
-                                        CompilerOptions._i.entry = result as FunctionDefinition;
+                                        CompilerOptionsBuild._i.entry = result as FunctionDefinition;
                                     }
                                 }
                             }

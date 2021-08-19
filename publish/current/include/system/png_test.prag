@@ -1,0 +1,377 @@
+import "preamble.prag"
+import "windows.prag"
+import "math.prag"
+import "memory.prag"
+
+import "zlib.prag"
+
+
+let bitmap = struct (
+    width: i32;
+    height: i32;
+    pixels: i8*;
+);
+
+["PACKED"]
+let bmp_file_header = struct(
+	magic: i16;
+	size: i32;
+	reserverd: i32;
+	offset: i32;
+);
+
+let load_bitmap = fun(file: string) => bitmap {
+    var result = bitmap { };
+    var bmp = read_file(file);
+    var file_header = bmp.data@bmp_file_header*;
+    assert(file_header.magic == 0x4D42);
+    assert(file_header.size <= bmp.length);
+    
+    var bmp_info = (bmp.data + size_of(bmp_file_header))@Windows::BITMAPINFOHEADER*;
+    assert(bmp_info.biPlanes == 1);
+    assert(bmp_info.biCompression == 0);
+    assert(bmp_info.biBitCount == 24);
+    result.width = bmp_info.biWidth;
+    result.height = bmp_info.biHeight;
+    result.pixels = bmp.data + file_header.offset;
+    assert(result.width > 0 && result.width < 4096);
+    assert(result.height > 0 && result.height < 4096);
+    
+    return result;
+}
+
+let save_bitmap = fun(file: string; bmp: bitmap) => void {
+    var header = bmp_file_header { };
+    header.magic = 0x4D42;
+    
+    header.offset = size_of(bmp_file_header)@\i32 + size_of(Windows::BITMAPINFOHEADER)@i32;
+    header.size = header.offset + bmp.width * bmp.height * 4;
+    header.reserverd = 0;
+    var dib = Windows::BITMAPINFOHEADER{ };
+    dib.biSize = size_of(Windows::BITMAPINFOHEADER)@i32;
+    dib.biWidth = bmp.width;
+    dib.biHeight = -bmp.height;
+    dib.biPlanes = 1;
+    dib.biCompression = 0;
+    dib.biBitCount = 32;
+    
+    var buffer = allocate(header.size@mm);
+    var buf_ptr = buffer;
+    
+    *(buf_ptr@bmp_file_header*) = header;
+    buf_ptr += size_of(bmp_file_header);
+    *(buf_ptr@Windows::BITMAPINFOHEADER*) = dib;
+    buf_ptr += size_of(Windows::BITMAPINFOHEADER);
+    
+    var src = bmp.pixels@i32*;
+    var dst = buf_ptr@i32*;
+    
+    var width = bmp.width;
+    var height = bmp.height;
+    for (var j = 0; j < height; ++j) {
+        for (var i = 0; i < width; ++i) {
+            var r = channel(src, 0);
+            var g = channel(src, 1);
+            var b = channel(src, 2);
+            var a = channel(src, 3);
+            var dest_pixel = b + (g << 8) + (r << 16) + (a << 24);
+            *dst++ = dest_pixel;
+            src++;
+        }
+    }
+    
+    // memcpy(buf_ptr, bmp.pixels, (bmp.width * bmp.height * 4)@mm);
+    write_file(file, buffer[:header.size]);
+    free(buffer);
+}
+
+let png_info = struct(
+    width: i32;
+    height: i32;
+    compressed_data: memory_arena;
+);
+
+let png_stream = struct(
+    f: i8[];
+    info: png_info;
+);
+
+["PACKED"]
+let png_chunk_header = struct(
+    length: i32;
+    type: i8[4];
+);
+["PACKED"]
+let ihdr = struct(
+    width: i32;
+    height: i32;
+    bit_depth: i8;
+    color_type: i8;
+    compression_method: i8;
+    filter_method: i8;
+    interlace_method: i8;
+);
+
+let advance = fun(stream: png_stream*; bytes: mm) => void {
+    assert(stream.f.length >= bytes@i32);
+    stream.f.data += bytes;
+    stream.f.length -= bytes@i32;
+}
+
+let read_chunk_header = fun(stream: png_stream*) => png_chunk_header {
+    var result: png_chunk_header;
+    result = *(stream.f.data@png_chunk_header*);
+    endian_swap(&result.length);
+    advance(stream, size_of(png_chunk_header));
+    return result;
+}
+
+let read_ihdr = fun(stream: png_stream*) => ihdr {
+    var result = *(stream.f.data@ihdr*);
+    endian_swap(&result.width);
+    endian_swap(&result.height);
+    advance(stream, size_of(ihdr));
+    return result;
+}
+
+let read_next_chunk = fun(stream: png_stream*) => void {
+    var header = read_chunk_header(stream);
+    
+    var chunk_str = header.type[:];
+    // debug_print("reading_chunk", chunk_str);
+    
+    if (strings_are_equal(chunk_str, "IHDR")) {
+        assert(header.length == size_of(ihdr)@i32);
+        var ihdr = read_ihdr(stream);
+        assert(ihdr.bit_depth == 8);
+        assert(ihdr.color_type == 6);
+        assert(ihdr.compression_method == 0);
+        assert(ihdr.filter_method == 0);
+        assert(ihdr.interlace_method == 0);
+        stream.info.width = ihdr.width;
+        stream.info.height = ihdr.height;
+    } 
+    elif (strings_are_equal(chunk_str, "IDAT")) {
+        assert(stream.info.width > 0);
+        assert(stream.info.height > 0);
+        var dst = push(&stream.info.compressed_data, header.length@mm);
+        var src = stream.f.data;
+        CopyMemory(dst, src, header.length@mm);
+        advance(stream, header.length@mm);
+    }
+    else {
+        advance(stream, header.length@mm);
+    }
+    
+    // TODO(pragma): check crc
+    advance(stream, 4);
+}
+
+let channel = fun(pixel: i32*; idx: i32) => i32 {
+    var byte_ptr = pixel@i8*;
+    assert(idx >= 0 && idx < 4);
+    var result = (*(byte_ptr + idx))@\i32;
+    return result;
+}
+
+let paeth = fun(a: i32; b: i32; c: i32) => i32 {
+    var p = a + b - c;
+    var pa = Math::abs(p - a);
+    var pb = Math::abs(p - b);
+    var pc = Math::abs(p - c);
+    if (pa <= pb && pa <= pc) {
+        return a;
+    }
+    if (pb <= pc) {
+        return b;
+    }
+    return c;
+    
+}
+
+let trunc_to_byte = fun(value: i32) => i8 {
+    return (value & 255)@\i8;
+}
+
+let apply_png_filters = fun(scanlines: ptr; bmp: bitmap) => void {
+    var width = bmp.width;
+    var height = bmp.height;
+    var src_ptr = scanlines;
+    var dst_ptr = bmp.pixels;
+    var dst_ptr_prev_row = dst_ptr;
+    var row_byte_offset = width * 4;
+    
+    for (var scanline_idx = 0; scanline_idx < height; ++scanline_idx) {
+        // skip png filter byte
+        var filter = *src_ptr++;
+        if (filter == 0) {
+            memcpy(dst_ptr, src_ptr, row_byte_offset@mm);
+            src_ptr += row_byte_offset;
+            dst_ptr += row_byte_offset;
+            if (scanline_idx != 0) {
+                dst_ptr_prev_row += row_byte_offset;
+            }
+        }
+        if (filter == 1) {
+            var pixel_b = 0;
+            for (var x = 0; x < width; ++x) {
+                *(dst_ptr + 0) = trunc_to_byte(channel(src_ptr@i32*, 0) + channel(&pixel_b, 0));
+                *(dst_ptr + 1) = trunc_to_byte(channel(src_ptr@i32*, 1) + channel(&pixel_b, 1));
+                *(dst_ptr + 2) = trunc_to_byte(channel(src_ptr@i32*, 2) + channel(&pixel_b, 2));
+                *(dst_ptr + 3) = trunc_to_byte(channel(src_ptr@i32*, 3) + channel(&pixel_b, 3));
+                pixel_b = *(dst_ptr@i32*);
+                src_ptr += 4;
+                dst_ptr += 4;
+            }
+            if (scanline_idx != 0) {
+                dst_ptr_prev_row += row_byte_offset;
+            }
+        }
+        elif (filter == 2) {
+            var pixel_b = 0;
+            for (var x = 0; x < width; ++x) {
+                if (scanline_idx != 0) {
+                    pixel_b = *(dst_ptr_prev_row@i32*);
+                    dst_ptr_prev_row += 4;
+                }
+                *(dst_ptr + 0) = trunc_to_byte(channel(src_ptr@i32*, 0) + channel(&pixel_b, 0));
+                *(dst_ptr + 1) = trunc_to_byte(channel(src_ptr@i32*, 1) + channel(&pixel_b, 1));
+                *(dst_ptr + 2) = trunc_to_byte(channel(src_ptr@i32*, 2) + channel(&pixel_b, 2));
+                *(dst_ptr + 3) = trunc_to_byte(channel(src_ptr@i32*, 3) + channel(&pixel_b, 3));
+                src_ptr += 4;
+                dst_ptr += 4;
+            }
+        }
+        elif (filter == 3) {
+            var pixel_a = 0;
+            var pixel_b = 0;
+            for (var x = 0; x < width; ++x) {
+                if (scanline_idx != 0) {
+                    pixel_b = *(dst_ptr_prev_row@i32*);
+                    dst_ptr_prev_row += 4;
+                }
+                *(dst_ptr + 0) = trunc_to_byte(channel(src_ptr@i32*, 0) + ((channel(&pixel_a, 0) + channel(&pixel_b, 0)) / 2));
+                *(dst_ptr + 1) = trunc_to_byte(channel(src_ptr@i32*, 1) + ((channel(&pixel_a, 1) + channel(&pixel_b, 1)) / 2));
+                *(dst_ptr + 2) = trunc_to_byte(channel(src_ptr@i32*, 2) + ((channel(&pixel_a, 2) + channel(&pixel_b, 2)) / 2));
+                *(dst_ptr + 3) = trunc_to_byte(channel(src_ptr@i32*, 3) + ((channel(&pixel_a, 3) + channel(&pixel_b, 3)) / 2));
+                pixel_a = *(dst_ptr@i32*);
+                
+                src_ptr += 4;
+                dst_ptr += 4;
+            }
+        }
+        elif (filter == 4) {
+            var pixel_a = 0;
+            var pixel_b = 0;
+            var pixel_c = 0;
+            for (var x = 0; x < width; ++x) {
+                if (scanline_idx != 0) {
+                    pixel_b = *(dst_ptr_prev_row@i32*);
+                    dst_ptr_prev_row += 4;
+                }
+                *(dst_ptr + 0) = trunc_to_byte(channel(src_ptr@i32*, 0) + paeth(channel(&pixel_a, 0), channel(&pixel_b, 0), channel(&pixel_c, 0)));
+                *(dst_ptr + 1) = trunc_to_byte(channel(src_ptr@i32*, 1) + paeth(channel(&pixel_a, 1), channel(&pixel_b, 1), channel(&pixel_c, 1)));
+                *(dst_ptr + 2) = trunc_to_byte(channel(src_ptr@i32*, 2) + paeth(channel(&pixel_a, 2), channel(&pixel_b, 2), channel(&pixel_c, 2)));
+                *(dst_ptr + 3) = trunc_to_byte(channel(src_ptr@i32*, 3) + paeth(channel(&pixel_a, 3), channel(&pixel_b, 3), channel(&pixel_c, 3)));
+                
+                pixel_a = *(dst_ptr@i32*);
+                pixel_c = pixel_b;
+                src_ptr += 4;
+                dst_ptr += 4;
+            }
+        }
+        else {
+            assert(false);
+        }
+        assert((dst_ptr - dst_ptr_prev_row)@i32 == row_byte_offset);
+    }
+}
+
+let load_png = fun(file: string) => bitmap {
+    var result = bitmap { };
+    
+    var arena = create_arena(megabytes(35));
+    var f = read_file(file, &arena);
+    assert(f.length > 0);
+    
+    var magic = f.data[:8];
+    var compare_magic = [@i8 137, 80, 78, 71, 13, 10, 26, 10];
+    assert(strings_are_equal(magic, compare_magic[:]));
+
+    var stream = png_stream { f, png_info{} };
+    stream.info.compressed_data = create_arena(f.length@mm);
+    advance(&stream, 8);
+    
+    while (stream.f.length > 0) {
+        read_next_chunk(&stream);
+    }
+    assert(stream.f.length == 0);
+    assert(stream.info.compressed_data.used > 0);
+    
+    var width = stream.info.width;
+    var height = stream.info.height;
+    
+    var size = width * height * 4 + height;  // RGBA 
+    var scanlines = allocate(size@mm);
+    decompress(get_slice(&stream.info.compressed_data), scanlines[:size]);
+    
+    result.pixels = allocate(@mm (width * height * 4));
+    result.width = width;
+    result.height = height;
+    
+    apply_png_filters(scanlines, result);
+    
+    return result;
+    
+}
+
+let print_hex = fun(name: string; value: i32) => void {
+    print(name);
+    print(": 0x");
+    print(to_hex_str(value));
+    print("\n");
+}
+
+
+
+#if false
+[
+	"compile.output": "png.exe",
+	"compile.entry" : "true",
+ 	"compile.opt"   : "4",
+    "compile.debuginfo": "true",
+    "compile.ll"    : "false",
+    "compile.asm"   : "false",
+    "compile.cpu"   : "native", // "sandybridge",
+ 	"compile.run"   : "true",
+ 	"compile.libs"  : "kernel32.lib, libopenlibm.a"
+]
+let main = fun() => void {
+    
+    var t0: i64;
+    var t1: i64;
+    Windows::QueryPerformanceCounter(&t0);
+    var bmp = load_png("png_test_2.png\0");
+    Windows::QueryPerformanceCounter(&t1);
+    
+    var freq: i64;
+    Windows::QueryPerformanceFrequency(&freq);
+    var seconds_elapsed = (t1 - t0)@f64 / freq@f64;
+    
+    
+    var seconds_decode_huffman = decode_huffman_ticks@f64 / freq@f64;
+    var seconds_build_huffman = build_huffman_ticks@f64 / freq@f64;
+    
+    debug_print("width", bmp.width);
+    debug_print("height", bmp.height);
+    debug_print("seconds", seconds_elapsed);
+    
+    // debug_print("decode_huffman_seconds", seconds_decode_huffman);
+    // debug_print("build_huffman_seconds", seconds_build_huffman);
+    
+    
+    
+    // var bmp = load_png("png_test_2.png\0");
+    // save_bitmap("decompressed.bmp\0", bmp);
+}
+#endif

@@ -1,0 +1,1204 @@
+﻿#if PLATFORM_WINDOWS
+    import "windows.prag"
+#endif
+#if PLATFORM_LINUX
+    import "linux.prag"
+#endif
+
+import "memory.prag"
+
+// var temp_memory_arena  = memory_arena{};
+var temp_memory_arena: memory_arena = create_arena(megabytes(32));
+
+let kilobytes = fun (bytes: mm) => mm 
+{
+    return bytes * 1024 ;
+}
+let megabytes = fun (bytes: mm) => mm 
+{
+    return bytes * 1024 * 1024;
+}
+let gigabytes = fun (bytes: mm) => mm
+{
+    return bytes * 1024 * 1024 * 1024;
+}
+let terabytes = fun (bytes: mm) => mm
+{
+    return bytes * 1024 * 1024 * 1024 * 1024;
+}
+
+let endian_swap = fun(value: i16) => i16 {
+    var result =
+        ((value >>\ 8) & (0xFF))  << 0 |
+        ((value >>\ 0) & (0xFF))  << 8;
+    return result;
+}
+let endian_swap = fun(value: i16*) => void {
+    *value = endian_swap(*value);
+}
+
+let endian_swap = fun(value: i32) => i32 {
+    var result =
+        ((value >>\ 24) & (0xFF)) << 0  |
+        ((value >>\ 16) & (0xFF)) << 8  |
+        ((value >>\ 8) & (0xFF))  << 16 |
+        ((value >>\ 0) & (0xFF))  << 24;
+    return result;
+}
+let endian_swap = fun(value: i32*) => void {
+    *value = endian_swap(*value);
+}
+
+let endian_swap = fun(value: i64) => i64 {
+    var result =
+        ((value >>\ 56) & (0xFF)) << 0  |
+        ((value >>\ 48) & (0xFF)) << 8  |
+        ((value >>\ 40) & (0xFF)) << 16 |
+        ((value >>\ 32) & (0xFF)) << 24 |
+        ((value >>\ 24) & (0xFF)) << 32 |
+        ((value >>\ 16) & (0xFF)) << 40 |
+        ((value >>\ 8) & (0xFF))  << 48 |
+        ((value >>\ 0) & (0xFF))  << 56;
+    return result;
+}
+
+
+
+let null = @mm 0;
+let nullptr = @ptr 0;
+
+let ZERO_F32: f32 = 0.0;
+let ONE_F32: f32 = 1.0;
+let NAN_F32 = ZERO_F32 / ZERO_F32;
+let INF_F32 = ONE_F32 / ZERO_F32;
+let NEG_INF_32 = -ONE_F32 / ZERO_F32;
+let MAX_F32: f32 = 0x7F7FFFFF_f32;
+let MIN_F32: f32 = 0xFF7FFFFF_f32;
+
+
+let ZERO_F64: f64 = 0.0;
+let ONE_F64: f64 = 1.0;
+let NAN_F64 = ZERO_F64 / ZERO_F64;
+let INF_F64 = ONE_F64 / ZERO_F64;
+let NEG_INF_64 = -ONE_F64 / ZERO_F64;
+
+let MAX_F64: f64 = 0x7FEFFFFFFFFFFFFF_f64;
+let MIN_F64: f64 = 0xFFEFFFFFFFFFFFFF_f64;
+
+let MAX_UNSIGNED_I32 = 0xFFFFFFFF;
+let MAX_SIGNED_I32: i32 = 0x7FFFFFFF;
+let MIN_SIGNED_I32: i32 = MAX_UNSIGNED_I32;
+let MAX_UNSIGNED_I64: i64 = 0xFFFFFFFFFFFFFFFF;
+
+["stub"]
+let _rdtsc = extern fun () => i64;
+
+["stub"]
+let __chkstk = extern fun () => void;
+
+
+#if PLATFORM_WINDOWS
+    let print = fun (s: string) => void	{
+        assert(Windows::console_output_handle != Windows::INVALID_HANDLE_VALUE);
+        Windows::WriteFile(Windows::console_output_handle, s.data, s.length, @i32* nullptr, nullptr);
+    }
+    let print_error = fun (s: string) => void {
+        assert(Windows::console_error_handle != Windows::INVALID_HANDLE_VALUE);
+        Windows::WriteFile(Windows::console_error_handle, s.data, s.length, @i32* nullptr, nullptr);
+    }
+    let allocate = fun(size: mm) => ptr {
+        var result = Windows::VirtualAlloc(0@ptr, size, Windows::MEM_COMMIT | Windows::MEM_RESERVE, Windows::PAGE_READWRITE);
+        return result;
+    }
+    let free = fun(p: ptr) => void 	{
+        Windows::VirtualFree(p, null, Windows::MEM_RELEASE);
+    }
+    let readln = fun(arena: memory_arena* = &temp_memory_arena) => string {
+        var result = string {};
+        result.data = push(arena, 256);
+        result.length = 256;
+        Windows::SetConsoleMode(Windows::console_input_handle,  
+            Windows::ENABLE_LINE_INPUT | Windows::ENABLE_ECHO_INPUT |  Windows::ENABLE_PROCESSED_INPUT );
+        Windows::ReadFile(Windows::console_input_handle, result.data, result.length, &result.length, nullptr);
+        result.length -= 2;
+        if (result.length < 0) {
+            result.length = 0;
+        }
+        return result;
+        
+    }
+    let read_file = fun(path: string; arena: memory_arena* = &temp_memory_arena) => i8[] {
+        var temp_arena = *arena;
+        
+        var result: i8[];
+        result.data = nullptr;
+        result.length = 0;
+        var handle = Windows::CreateFileA(cstr(path), Windows::GENERIC_READ, Windows::FILE_SHARE_READ, nullptr, Windows::OPEN_EXISTING, 0, 0);
+        if (handle == Windows::INVALID_HANDLE_VALUE) {
+            return result;
+        }
+
+        var size: i64 = 0;
+        var fsr = Windows::GetFileSizeEx(handle, &size);
+        if (fsr == 0 || size == 0) {
+            Windows::CloseHandle(handle);
+            return result;
+        }
+        
+        var buffer = push(arena, size@mm);
+        if (buffer@mm == null) {
+            Windows::CloseHandle(handle);
+            return result;
+        }
+        assert(size@mm <=\ gigabytes(4));
+        var size_32 = @i32 size;
+        var bytes_read: i32;
+        var rfr = Windows::ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
+        assert(bytes_read == size_32);
+        if (rfr == 0) {
+            *arena = temp_arena;
+            Windows::CloseHandle(handle);
+            return result;		
+        }
+
+        result.data = buffer;
+        result.length = size_32;
+        Windows::CloseHandle(handle);
+        return result;
+    }
+    let write_file = fun (name: string; buffer: string) => bool
+    {
+        var handle = Windows::CreateFileA(cstr(name), Windows::GENERIC_WRITE, 0, nullptr, Windows::CREATE_ALWAYS, 0, 0);
+        if (handle == null) {
+            Windows::CloseHandle(handle);
+            return false;
+        }
+        var bytes_written: i32 = 0;
+        var result = Windows::WriteFile(handle, buffer.data, buffer.length, &bytes_written, nullptr);
+        if (result != 0) {
+            Windows::CloseHandle(handle);
+            assert(buffer.length == bytes_written);
+            return true;
+        } else {
+            Windows::CloseHandle(handle);
+            return false;
+        }
+
+        Windows::CloseHandle(handle);
+        return false;
+    }
+    let CopyMemory = extern("RtlCopyMemory") fun (dest: ptr; src: ptr; length: mm) => void;
+#endif
+
+#if PLATFORM_LINUX
+    // https://jameshfisher.com/2018/02/19/how-to-syscall-in-c/
+    // https://www.gamekiller.net/threads/tutorial-writing-c-software-without-the-standard-library-linux-edition.3247890/
+    // https://the-linux-channel.the-toffee-project.org/index.php?page=5-tutorials-a-linux-system-call-in-c-without-a-standard-library
+    // https://github.com/raminfp/linux_syscall/tree/master/C_syscall_without_standard_library_linux
+
+
+
+    let print = fun (s: string) => void	{
+        Linux::__write(1, s.data, @mm s.length);
+    }
+    let print_error = fun (s: string) => void {
+        Linux::__write(1, s.data, @mm s.length);
+    }
+
+    let allocate = fun(size: mm) => ptr {
+        if (size > 0) {
+            var memory = Linux::__mmap(nullptr, size, Linux::PROT_READ | Linux::PROT_WRITE, Linux::MAP_PRIVATE | Linux::MAP_ANONYMOUS, 0, 0);
+            *(memory@mm*) = size;
+            return memory + size_of(mm);
+        } else {
+            return nullptr;
+        }
+
+    }
+    let free = fun(addr: ptr) => void 	{
+        if (addr != nullptr) {
+            var size = *((addr - size_of(mm))@mm*);
+            Linux::__munmap(addr, size);
+        }
+    }
+
+    // TODO(pragma): speed
+    let CopyMemory = fun (dest: ptr; src: ptr; length: mm) => void
+    {
+        for (var offset: mm = 0; offset < length; ++offset)
+        {
+            *(dest + offset) = *(src + offset);
+        }
+    } 
+
+    let readln = fun(arena: memory_arena* = &temp_memory_arena) => string {
+        var result = string {};
+        result.data = push(arena, 256);
+        result.length = 256;
+        
+        result.length = @i32 Linux::__read(0, result.data, result.length@mm);
+
+        result.length -= 1;
+        if (result.length < 0) {
+            result.length = 0;
+        }
+        return result;
+    }
+    
+    let read_file = fun(path: string; arena: memory_arena* = &temp_memory_arena) => i8[] {
+        var temp_arena = *arena;
+        var result: i8[];
+        result.data = nullptr;
+        result.length = 0;
+
+        var fd = Linux::__openat(Linux::AT_FDCWD, cstr(path), Linux::O_RDONLY, 0); 
+        if (fd == -1) {
+            return result;
+        }
+
+        var statbuf: Linux::stat;
+        var fstat_result = Linux::__fstatat(Linux::AT_FDCWD, cstr(path), (&statbuf)@ptr, 0);
+        var file_size = statbuf.st_size@mm;
+
+        if (fstat_result == -1 || file_size <= 0) {
+            Linux::__close(fd);
+            return result;
+        }
+
+        assert(file_size@mm <=\ gigabytes(4));
+
+        var buffer = push(arena, file_size);
+        if (buffer@mm == null) {
+            Linux::__close(fd);
+            return result;
+        }
+
+        var read_size = Linux::__read(fd, buffer, file_size);
+        if (read_size >= 0) {
+            result.data = buffer;
+            result.length = @i32 read_size;
+        } else {
+            *arena = temp_arena;
+        }
+        Linux::__close(fd);
+        return result;
+    }
+    let write_file = fun (path: string; buffer: string) => bool	{
+        var c_str_path = cstr(path);
+        var fd = Linux::__openat(Linux::AT_FDCWD, c_str_path, Linux::O_WRONLY|Linux::O_CREAT, 0); 
+        if (fd == -1) {
+            return false;
+        }
+        var bytes_written = Linux::__write(fd, buffer.data, buffer.length@mm);
+        if (bytes_written != 0) {
+            assert(buffer.length == bytes_written@i32);
+        }
+        Linux::__close(fd);
+        return bytes_written@i32 == buffer.length;
+    }
+#endif
+
+let make_string = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => string {
+    var result = string {};
+    result.data = push(arena, @mm length);
+    memset(result.data, 0, @mm result.length);
+    result.length = length;
+    return result;
+}
+
+let clone_string = fun(s: string; arena: memory_arena* = &temp_memory_arena) => string {
+    var result = make_string(s.length + 1, arena);
+    result[result.length - 1] = 0;
+    result.length--;
+    memcpy(result.data, s.data, result.length@mm);
+    return result;
+}
+
+let concat = fun(a: string; b: string; arena: memory_arena* = &temp_memory_arena) => string {
+    var result = make_string(a.length + b.length + 1, arena);
+    result[result.length - 1] = 0;
+    result.length--;
+    memcpy(result.data, a.data, @mm a.length);
+    memcpy(result.data + a.length, b.data, @mm b.length);
+    return result;
+}
+
+let trim_left = fun(s: string) => string {
+    var result = s;
+    while (result.length > 0 && is_whitespace(result[0])) {
+        result.data++;
+        result.length--;
+    }
+    return result;
+}
+
+let trim_right = fun(s: string) => string {
+    var result = s;
+    while (result.length > 0 && is_whitespace(result[result.length - 1])) {
+        result.length--;
+    }
+    return result;
+}
+
+let trim = fun(s: string) => string {
+    var result = s;
+    result = trim_left(result);
+    result = trim_right(result);
+    return result;
+}
+
+
+let match_substring_at = fun(sub: string; at: i32; s: string) => bool {
+    if (sub.length == 0 || s.length == 0) {
+        return false;
+    }
+    if (sub.length > s.length - at) {
+        return false;
+    }
+    for (var idx = 0; idx < sub.length; ++idx) {
+        if (s[at + idx] != sub[idx]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+let first_index_of = fun(sub: string; s: string; start_idx:i32=0) => i32 {
+    if (sub.length == 0 || s.length == 0) {
+        return -1;
+    }
+    if (sub.length > s.length) {
+        return -1;
+    }
+    if (start_idx < 0 || start_idx >= s.length) {
+        return -1;
+    }
+    for (var idx = start_idx; idx < s.length; ++idx) {
+        if (match_substring_at(sub, idx, s)) {
+            return idx;
+        }
+    }
+    return -1;
+}
+
+let last_index_of = fun(sub: string; s: string) => i32 {
+    if (sub.length == 0 || s.length == 0) {
+        return -1;
+    }
+    if (sub.length > s.length) {
+        return -1;
+    }
+    
+    for (var idx = s.length - 1; idx >= 0; --idx) {
+        if (match_substring_at(sub, idx, s)) {
+            return idx;
+        }
+    }
+    return -1;
+}
+
+let starts_with = fun(sub: string; s: string) => bool {
+    return match_substring_at(sub, 0, s);
+}
+
+let from_str = fun(str: string; value: i32*) => bool {
+    var result = 0;
+    var sign = 1;
+    if (str.length < 1) {
+        return false;
+    }
+    var first_digit_idx = 0;
+    if (str[0] == ord("+") || str[0] == ord("-")) {
+        first_digit_idx = 1;
+        if (str[0] == ord("-")) {
+            sign = -1;
+        }
+    }
+    var decimal_factor = 1;
+    for (var str_idx = str.length - 1; str_idx >= first_digit_idx; --str_idx) {
+        var chr = str[str_idx];
+        var current_digit: i32;
+        if (chr == ord("0")) {
+            current_digit = 0;
+        }
+        elif (chr == ord("1")) {
+            current_digit = 1;
+        }
+        elif (chr == ord("2")) {
+            current_digit = 2;
+        }
+        elif (chr == ord("3")) {
+            current_digit = 3;
+        }
+        elif (chr == ord("4")) {
+            current_digit = 4;
+        }
+        elif (chr == ord("5")) {
+            current_digit = 5;
+        }
+        elif (chr == ord("6")) {
+            current_digit = 6;
+        }
+        elif (chr == ord("7")) {
+            current_digit = 7;
+        }
+        elif (chr == ord("8")) {
+            current_digit = 8;
+        }
+        elif (chr == ord("9")) {
+            current_digit = 9;
+        }		
+        else { 
+            return false;
+        }
+        result += current_digit * decimal_factor;
+        decimal_factor *= 10;
+    }
+    *value = sign * result;
+    return true;
+}
+
+let from_hex_str = fun(str: string; value: i32*) => bool {
+    var result = 0;
+    var sign = 1;
+    if (str.length < 1) {
+        return false;
+    }
+    var first_digit_idx = 0;
+    if (str[0] == ord("+") || str[0] == ord("-")) {
+        first_digit_idx = 1;
+        if (str[0] == ord("-")) {
+            sign = -1;
+        }
+    }
+    var hex_factor = 1;
+    for (var str_idx = str.length - 1; str_idx >= first_digit_idx; --str_idx) {
+        var chr = str[str_idx];
+        var current_digit: i32;
+        if (chr == ord("0")) {
+            current_digit = 0;
+        }
+        elif (chr == ord("1")) {
+            current_digit = 1;
+        }
+        elif (chr == ord("2")) {
+            current_digit = 2;
+        }
+        elif (chr == ord("3")) {
+            current_digit = 3;
+        }
+        elif (chr == ord("4")) {
+            current_digit = 4;
+        }
+        elif (chr == ord("5")) {
+            current_digit = 5;
+        }
+        elif (chr == ord("6")) {
+            current_digit = 6;
+        }
+        elif (chr == ord("7")) {
+            current_digit = 7;
+        }
+        elif (chr == ord("8")) {
+            current_digit = 8;
+        }
+        elif (chr == ord("9")) {
+            current_digit = 9;
+        }
+        elif (chr == ord("a") || chr == ord("A")) {
+            current_digit = 10;
+        }		
+        elif (chr == ord("b") || chr == ord("B")) {
+            current_digit = 11;
+        }		
+        elif (chr == ord("c") || chr == ord("C")) {
+            current_digit = 12;
+        }		
+        elif (chr == ord("d") || chr == ord("D")) {
+            current_digit = 13;
+        }		
+        elif (chr == ord("e") || chr == ord("E")) {
+            current_digit = 14;
+        }		
+        elif (chr == ord("f") || chr == ord("F")) {
+            current_digit = 15;
+        }		
+        else { 
+            return false;
+        }
+        result += current_digit * hex_factor;
+        hex_factor *= 16;
+    }
+    *value = sign * result;
+    return true;
+}
+
+let to_binary_str = fun(value: i8;  arena: memory_arena* = &temp_memory_arena) => string {
+    var result = make_string(8, arena);
+    var temp = value;
+    for (var str_idx = 7; str_idx >= 0; --str_idx) {
+        var digit = temp & 0x1;
+        temp = temp >>\ 1;
+        var char: i8;
+        if (digit == 0) {
+            char = ord("0");
+        } else {
+            char = ord("1");
+        }
+        result[str_idx] = char;
+    }
+    return result;
+}
+
+let to_binary_str = fun(value: i16;  arena: memory_arena* = &temp_memory_arena) => string {
+    var result = make_string(16, arena);
+    var temp = value;
+    for (var str_idx = 15; str_idx >= 0; --str_idx) {
+        var digit = temp & 0x1;
+        temp = temp >>\ 1;
+        var char: i8;
+        if (digit == 0) {
+            char = ord("0");
+        } else {
+            char = ord("1");
+        }
+        result[str_idx] = char;
+    }
+    return result;
+}
+
+let to_binary_str = fun(value: i32;  arena: memory_arena* = &temp_memory_arena) => string {
+    var result = make_string(32, arena);
+    var temp = value;
+    for (var str_idx = 31; str_idx >= 0; --str_idx) {
+        var digit = temp & 0x1;
+        temp = temp >>\ 1;
+        var char: i8;
+        if (digit == 0) {
+            char = ord("0");
+        } else {
+            char = ord("1");
+        }
+        result[str_idx] = char;
+    }
+    return result;
+}
+
+let to_hex_str = fun(value: i32; arena: memory_arena* = &temp_memory_arena) => string {
+    var result = make_string(8, arena);
+    var temp = value;
+    
+    for (var str_idx = 7; str_idx >= 0; --str_idx) {
+        var digit = temp & 0xF;
+        var char: i8;
+        if (digit == 0) {
+            char = ord("0");
+        }
+        elif (digit == 1) {
+            char = ord("1");
+        }
+        elif (digit == 2) {
+            char = ord("2");
+        }
+        elif (digit == 3) {
+            char = ord("3");
+        }
+        elif (digit == 4) {
+            char = ord("4");
+        }
+        elif (digit == 5) {
+            char = ord("5");
+        }
+        elif (digit == 6) {
+            char = ord("6");
+        }
+        elif (digit == 7) {
+            char = ord("7");
+        }
+        elif (digit == 8) {
+            char = ord("8");
+        }
+        elif (digit == 9) {
+            char = ord("9");
+        }
+        elif (digit == 10) {
+            char = ord("A");
+        }
+        elif (digit == 11) {
+            char = ord("B");
+        }
+        elif (digit == 12) {
+            char = ord("C");
+        }
+        elif (digit == 13) {
+            char = ord("D");
+        }
+        elif (digit == 14) {
+            char = ord("E");
+        }
+        elif (digit == 15) {
+            char = ord("F");
+        }
+        result[str_idx] = char;
+        temp >>=\ 4;
+    }	
+    // var offset = str_idx + 1;
+    // result.data += offset;
+    // result.length -= offset;
+    return result;
+}
+let to_str = fun(value: i32; signed: bool = true; arena: memory_arena* = &temp_memory_arena) => string {
+    var result = make_string(11, arena);
+    var temp = value;
+    
+    var negative = false;
+    if (signed) {
+        if (temp < 0) {
+            temp = - temp;
+            negative = true;
+        }
+    }
+    var str_idx = 10;
+    
+    for (; str_idx >= 0; --str_idx) {
+        var digit = temp % 10;
+        var char: i8;
+        if (digit == 0) {
+            char = ord("0");
+        }
+        elif (digit == 1) {
+            char = ord("1");
+        }
+        elif (digit == 2) {
+            char = ord("2");
+        }
+        elif (digit == 3) {
+            char = ord("3");
+        }
+        elif (digit == 4) {
+            char = ord("4");
+        }
+        elif (digit == 5) {
+            char = ord("5");
+        }
+        elif (digit == 6) {
+            char = ord("6");
+        }
+        elif (digit == 7) {
+            char = ord("7");
+        }
+        elif (digit == 8) {
+            char = ord("8");
+        }
+        elif (digit == 9) {
+            char = ord("9");
+        }
+        result[str_idx] = char;
+        temp /= 10;
+        if (temp == 0) {
+            break;
+        }
+    }	
+    
+    if (signed && negative) {
+        result[--str_idx] = ord("-");
+    }
+    
+    var offset = str_idx;
+    result.data += offset;
+    result.length -= offset;
+    return result;
+}
+
+["conditional":"debug"]
+let assert = fun 
+(
+    value: bool; 
+    msg: string = ""; 
+    filepos: string = __file_pos__();
+) => void 
+{
+    if (!value) {
+        print_error("Assertion "); 
+        if (msg.length > 0) 
+        {
+            print_error("\"");
+            print_error(msg);
+            print_error("\" ");
+        }
+        print_error("failed at: ");
+        print_error(filepos);
+        print_error("\n");
+        *nullptr = 42;
+    }
+}
+
+#if SLOW
+let cstr = fun(value: string; filepos: string = __file_pos__()) => i8* 
+{
+    assert(value[value.length - 1] == 0, "c-string not null terminated", filepos);
+    return value.data;
+}
+#else
+let cstr = fun(value: string) => i8* 
+{
+    return value.data;
+}
+#endif
+
+let strlen = fun(str: ptr) => mm {
+    var temp = str;
+    var result: mm = 0;
+    for (; *temp != 0; result++) { temp++; }
+    return result;
+}
+
+let from_cstr = fun(cstr: ptr; maxLength: i32 = 1024) => string {
+    var result: string;
+    result.data = cstr;
+    result.length = 0;
+    var ptr = cstr;
+    while (*ptr++ != 0 && result.length <\ maxLength) {
+        result.length++;
+    }
+    result.capacity = result.length + 1;
+    return result;
+}
+
+let ord = fun(value: string) => i8
+{
+#if SLOW
+    assert(value.length == 1);
+#endif
+    return value[0];
+}
+
+let strings_are_equal = fun(a: string; b: string) => bool {
+    if (a.length != b.length) {
+        return false;
+    }
+    for (var idx = 0; idx < a.length; ++idx) {
+        if (a[idx] != b[idx]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+let is_end_of_line = fun(char: i8) => bool {
+    var result = char == 10 || char == 13;
+    return result;
+}
+
+let is_whitespace = fun(char: i8) => bool {
+    var result = char == 32 || char == 09 || char == 11 || char == 12 || is_end_of_line(char);
+    return result;
+}
+let is_letter_char = fun(char: i8) => bool {
+    var result = false;
+    result |= char >= ord("a") && char <= ord("z");
+    result |= char >= ord("A") && char <= ord("Z");
+    return result;
+}
+let is_identifier_char = fun(char: i8) => bool {
+    var result = false;
+    result |= char >= ord("a") && char <= ord("z");
+    result |= char >= ord("A") && char <= ord("Z");
+    result |= char >= ord("0") && char <= ord("9");
+    result |= char == ord("_");
+    return result;
+}
+let is_identifier_start_char = fun(char: i8) => bool {
+    var result = false;
+    result |= char >= ord("a") && char <= ord("z");
+    result |= char >= ord("A") && char <= ord("Z");
+    result |= char == ord("_");
+    return result;
+}
+let is_digit = fun(char: i8) => bool {
+    var result = char >= ord("0") && char <= ord("9");
+    return result;
+}
+let is_hex_digit = fun(char: i8) => bool {
+    var result = char >= ord("0") && char <= ord("9");
+    result |= char >= ord("A") && char <= ord("F");
+    return result;
+}
+
+// let __chkstk = fun() => void 
+// {
+// 	return;
+// }
+// https://raw.githubusercontent.com/Microsoft/compiler-rt/8902445ef0cb23430ab6d9e3213c02c23752196d/lib/builtins/x86_64/chkstk.S
+// https://github.com/Microsoft/compiler-rt/blob/8902445ef0cb23430ab6d9e3213c02c23752196d/lib/builtins/i386/chkstk.S
+// void __chkstk() 
+// {
+// 	 __asm__ ( "push   %rcx \t\n"
+//                "push   %rax \t\n"
+//                "cmp    $0x1000,%rax \t\n"
+//                "lea    24(%rsp),%rcx \t\n"
+//                "jb     1f \t\n"
+//                "2: \t\n"
+//                "sub    $0x1000,%rcx \t\n"              
+//                "orl    $0,(%rcx) \t\n"
+//                "sub    $0x1000,%rax \t\n"              
+//                "cmp    $0x1000,%rax \t\n"              
+//                "ja     2b \t\n"              
+//                "1: \t\n"
+//                "sub    %rax,%rcx \t\n"
+//                "orl    $0,(%rcx) \t\n"
+//                "pop    %rax \t\n"
+//                "pop    %rcx \t\n"
+//                "ret \t\n"
+//     );
+// }
+// // https://git.musl-libc.org/cgit/musl/tree/src/math
+// let fmodf = fun(x: f32; y: f32) => f32
+// {
+// 	var result = x / y;
+// 	return 3.0;
+// }
+
+
+// TODO make a fast version
+let memset = fun
+(
+    dest : ptr;
+    value: i32;
+    count: mm;
+) => ptr
+{
+    var data = dest;
+    while (data != (dest + count)) {
+        *data++ = @\i8 value;
+    }
+    return dest;
+}
+
+
+    // TODO(pragma): READ/WRITE barrier?
+    // https://godbolt.org/z/3a1fQJ
+    // https://github.com/llvm-mirror/clang/blob/master/test/CodeGen/ms-barriers-intrinsics.c
+    // fence syncscope("singlethread") seq_cst
+    // fence syncscope("singlethread") seq_cst
+    // _WriteBarrier()
+    // _ReadBarrier()
+let _WriteBarrier = fun() => void 
+{
+    __emit__("fence syncscope(\"singlethread\") seq_cst");
+}
+
+let _ReadBarrier = fun() => void 
+{
+    __emit__("fence syncscope(\"singlethread\") seq_cst");
+}
+
+let _ReadWriteBarrier = fun() => void 
+{
+    __emit__("fence syncscope(\"singlethread\") seq_cst");
+}
+
+let atomic_inc = fun(ptr: i32*) => i32
+{
+    return atomic_add(ptr, 1);
+}
+let atomic_inc = fun(ptr: i64*) => i64
+{
+    return atomic_add(ptr, 1);
+}
+let atomic_dec = fun(ptr: i32*) => i32
+{
+    return atomic_sub(ptr, 1);
+}
+let atomic_dec = fun(ptr: i64*) => i64
+{
+    return atomic_sub(ptr, 1);
+}
+let memcpy = fun(dest: ptr; src: ptr; length: mm) => void
+{
+    CopyMemory(dest, src, length);
+}
+
+let print = fun (value: i32; signed: bool = true) => void
+{
+    if (signed) {
+        print(@i64 value, true);
+    } else {
+        print(@\i64 value, false);
+    }
+}
+
+
+let print = fun (value: i64; signed: bool = true) => void
+{
+    var v = value;
+    var pd: print_dest;
+    pd.pos = 0;
+    pd.buffer = "                                                                ";
+    assert(pd.buffer.length == 64); 
+    
+    if (signed && v < 0) {
+        v = -v;
+        out_char(&pd, 45);
+    }
+    u64_to_ascii(&pd, v);
+    pd.buffer.length = pd.pos;
+    print(pd.buffer);
+}
+
+let print = fun (value: f32; precision: i32 = 4) => void
+{
+    print(@f64 value, precision);	
+}
+
+let print_dest = struct
+(
+    buffer: string;
+    pos: i32;
+);
+
+let out_char = fun (dest: print_dest*; char: i8) => void
+{
+    assert(dest.pos >= 0 && dest.pos < dest.buffer.length);
+    dest.buffer[dest.pos++] = char;
+} 
+
+var decimal_digits = "0123456789";
+let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
+{
+    let base = 10;
+    var v = value;
+
+    var start = &dest.buffer[dest.pos];
+    while (true) {
+        var index = @i32 (v % @i64 base);
+        assert(index >= 0 && index < 10);
+        var digit = decimal_digits[index];
+        out_char(dest, digit);
+        v /=\ @i64 base;
+        if (v == 0) {
+            break;
+        }
+    }
+    var end = &dest.buffer[dest.pos];
+
+    while(start <\ end) {
+        --end;
+        var temp = *end;
+        *end = *start;
+        *start = temp;
+        ++start;
+    }
+}
+
+let is_nan = fun(x: f32) => bool {
+    return (x == NAN_F32) || (x == -NAN_F32);
+}
+
+let is_nan = fun(x: f64) => bool {
+    return (x == NAN_F64) || (x == -NAN_F64);
+}
+
+let is_inf = fun(x: f32) => bool {
+    return x == INF_F32;
+}
+
+let is_inf = fun(x: f64) => bool {
+    return x == INF_F64;
+}
+
+let is_neg_inf = fun(x: f32) => bool {
+    return x == NEG_INF_32;
+}
+
+let is_neg_inf = fun(x: f64) => bool {
+    return x == NEG_INF_64;
+}
+
+let print = fun (value: f64; precision: i32 = 4) => void
+{
+    var temp_value = value;
+    var neg_inf = NEG_INF_32;
+    var inf = INF_F32;
+    var nan = NAN_F32;
+    
+    if (is_nan(value)) {
+        print("NaN");
+        return;
+    } elif (is_inf(value)) {
+        print("INF");
+        return;
+    } elif (is_neg_inf(value)) {
+        print("-INF");
+        return;
+    }
+    
+    var v = value;
+    var pd: print_dest;
+    pd.pos = 0;
+    pd.buffer = "                                                                ";
+    assert(pd.buffer.length == 64); 
+
+    if (v < 0) {
+        v = -v;
+        out_char(&pd, 45);
+    }
+    var int_part = @\i64 v;
+    u64_to_ascii(&pd, int_part);
+    v -= @f64 int_part;
+    out_char(&pd, 46);
+
+    var first_fraction_char = pd.pos;
+    var last_non_zero = pd.pos;
+    for (var i = 0; i < precision; ++i) {
+        v *= 10.0;
+        var int_part = @i32 v;
+        v -= @f64 int_part;
+        if (int_part >= 10 || int_part < 0) {
+            print("NaN(ind)");
+            return;
+        }
+        // assert(int_part < 10 && int_part >= 0);
+        out_char(&pd, decimal_digits[int_part]);
+        if (int_part != 0) {
+            last_non_zero = pd.pos;
+        } 
+    }
+    assert(pd.pos <= pd.buffer.length);
+    pd.buffer.length = pd.pos;
+    print(pd.buffer);
+}
+
+let print = fun (value: f32_4x; precision: i32 = 4) => void
+{
+    print("< ");
+    print(value[0], precision);
+    print(", ");
+    print(value[1], precision);
+    print(", ");
+    print(value[2], precision);
+    print(", ");
+    print(value[3], precision);
+    print(" >");
+}
+
+let debug_print = fun(name: string; value: string) => void {
+    print(name);
+    print(": \"");
+    print(value);
+    print("\"\n");
+}	
+
+let debug_print = fun (name: string; value: i64; signed: bool = true) => void
+{
+    print(name);
+    print(": ");
+    print(value, signed);
+    print("\n");
+}
+let debug_print = fun (name: string; value: mm; signed: bool = true) => void
+{
+    debug_print(name, value@i64, signed);
+}
+
+let debug_print = fun (name: string; value: i8; signed: bool = true) => void
+{
+    print(name);
+    print(": ");
+    if (signed) {
+        print(value@i32, true);    
+    } else {
+        print(value@\i32, false);
+    }
+    
+    print("\n");
+}
+
+let debug_print = fun (name: string; value: i32; signed: bool = true) => void
+{
+    print(name);
+    print(": ");
+    print(value, signed);
+    print("\n");
+}
+let debug_print = fun (name: string; value: f32; precision: i32 = 4) => void
+{
+    print(name);
+    print(": ");
+    print(value, precision);
+    print("\n");
+}
+let debug_print = fun (name: string; value: f64; precision: i32 = 4) => void
+{
+    print(name);
+    print(": ");
+    print(value, precision);
+    print("\n");
+}
+
+let debug_print = fun (name: string; value: bool) => void
+{
+    print(name);
+    print(": ");
+    if (value) {
+        print("true");
+    } else {
+        print("false");
+    }
+    print("\n");
+}
+
+let debug_print = fun(name: string; value: f32_4x) => void
+{
+    print(name);
+    print(": < ");
+    print(value[0]);
+    print(", ");
+    print(value[1]);
+    print(", ");
+    print(value[2]);
+    print(", ");
+    print(value[3]);
+    print(" >\n");
+}
+let debug_print = fun(name: string; value: i32_4x) => void
+{
+    print(name);
+    print(": < ");
+    print(value[0]);
+    print(", ");
+    print(value[1]);
+    print(", ");
+    print(value[2]);
+    print(", ");
+    print(value[3]);
+    print(" >\n");
+}
+
+let debug_print = fun(name: string; value: f32[]) => void {
+    if (name.length > 0) {
+        print(name);
+        print(": [ ");	
+    } else {
+        print("[ ");
+    }
+    for (var idx = 0; idx < value.length; ++idx) {
+        print(value[idx]);
+        if (idx != value.length - 1) {
+            print(", ");
+        }
+    }
+    print(" ]\n");
+}
+
+var _fltused = 0;
+let __hack_reserve_intrinsics = fun () => bool
+{
+    if (@mm memcpy == 1234 || @mm memset == 1234 || @mm __chkstk == 1234 || @mm (&_fltused) == 1234) {
+        
+        print("");
+        return true;
+    }
+    return false;
+}
+var __intrinsics = __hack_reserve_intrinsics();

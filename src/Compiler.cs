@@ -10,9 +10,11 @@ using static PragmaScript.AST;
 namespace PragmaScript
 {
 
-    public class CompilerOptions
+
+    [Verb("build", HelpText = "Compile and build the project.")]
+    public class CompilerOptionsBuild
     {
-        public static CompilerOptions _i;
+        public static CompilerOptionsBuild _i;
 
         [Value(0, MetaName = "input-filename", Required = true, HelpText = "Source filename to compile.")]
         public string inputFilename { get; set; }
@@ -62,7 +64,7 @@ namespace PragmaScript
         }
 
         internal FunctionDefinition entry;
-        public CompilerOptions()
+        public CompilerOptionsBuild()
         {
             _i = this;
         }
@@ -72,13 +74,24 @@ namespace PragmaScript
         {
             get
             {
-                yield return new CommandLine.Text.Example("Debug build \"hello.prag\" outut \"hello.exe\"", new CommandLine.UnParserSettings() { PreferShortName = true },
-                    new CompilerOptions { inputFilename = "hello.prag", output = "hello.exe", debug = true, debugInfo = true });
+                yield return new CommandLine.Text.Example("Debug build \"hello.prag\" output \"hello.exe\"", new CommandLine.UnParserSettings() { PreferShortName = true },
+                    new CompilerOptionsBuild { inputFilename = "hello.prag", output = "hello.exe", debug = true, debugInfo = true });
                 yield return new CommandLine.Text.Example("Compile optimized release build and run", new CommandLine.UnParserSettings() { PreferShortName = true },
-                    new CompilerOptions { inputFilename = "hello.prag", output = "hello.exe", optimizationLevel = 3, runAfterCompile = true, libs = new string[] { "user32.lib", "libopenlibm.a" } });
+                    new CompilerOptionsBuild { inputFilename = "hello.prag", output = "hello.exe", optimizationLevel = 3, runAfterCompile = true, libs = new string[] { "user32.lib", "libopenlibm.a" } });
             }
         }
     }
+
+
+    [Verb("new", HelpText = "Creates a new pragma project.")]
+    public class CompilerOptionsNew
+    {
+        public enum NewProjectType { HelloWorld, Empty }
+
+        [Option("vscode", HelpText = "Generate default VSCode Tasks, Launch and Settings files.")]
+        public bool VSCode { get; set; } = false;
+    }
+
 
     public class Compiler
     {
@@ -89,7 +102,7 @@ namespace PragmaScript
             this.GetFileText = GetFileText;
         }
 
-        public (Scope root, TypeChecker tc) Compile(CompilerOptions options)
+        public (Scope root, TypeChecker tc) Compile(CompilerOptionsBuild options)
         {
             Platform platform;
             if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
@@ -187,7 +200,7 @@ namespace PragmaScript
                 root.files.Add(fileRoot);
             }
 
-            var entry = CompilerOptions._i.entry;
+            var entry = CompilerOptionsBuild._i.entry;
             if (entry != null)
             {
                 SetEntryPoint(entry);
@@ -266,77 +279,77 @@ namespace PragmaScript
             var output = d.GetAttribute("COMPILE.OUTPUT", false);
             if (output != null)
             {
-                CompilerOptions._i.output = output;
+                CompilerOptionsBuild._i.output = output;
             }
 
             var asm = d.GetAttribute("COMPILE.ASM");
             if (asm == "TRUE")
             {
-                CompilerOptions._i.asm = true;
+                CompilerOptionsBuild._i.asm = true;
             }
             else if (asm == "FALSE")
             {
-                CompilerOptions._i.asm = false;
+                CompilerOptionsBuild._i.asm = false;
             }
             var ll = d.GetAttribute("COMPILE.LL");
             if (ll == "TRUE")
             {
-                CompilerOptions._i.ll = true;
+                CompilerOptionsBuild._i.ll = true;
             }
             else if (ll == "FALSE")
             {
-                CompilerOptions._i.ll = false;
+                CompilerOptionsBuild._i.ll = false;
             }
             var bc = d.GetAttribute("COMPILE.BC");
             if (bc == "TRUE")
             {
-                CompilerOptions._i.bc = true;
+                CompilerOptionsBuild._i.bc = true;
             }
             else if (bc == "FALSE")
             {
-                CompilerOptions._i.bc = false;
+                CompilerOptionsBuild._i.bc = false;
             }
 
             var opt = d.GetAttribute("COMPILE.OPT");
             if (int.TryParse(opt, out int opt_level))
             {
-                CompilerOptions._i.optimizationLevel = opt_level;
+                CompilerOptionsBuild._i.optimizationLevel = opt_level;
             }
 
             var debugInfo = d.GetAttribute("COMPILE.DEBUGINFO");
             if (debugInfo == "TRUE")
             {
-                CompilerOptions._i.debugInfo = true;
+                CompilerOptionsBuild._i.debugInfo = true;
             }
             else if (debugInfo == "FALSE")
             {
-                CompilerOptions._i.debugInfo = false;
+                CompilerOptionsBuild._i.debugInfo = false;
             }
 
             var cpu = d.GetAttribute("COMPILE.CPU");
             if (!string.IsNullOrWhiteSpace(cpu))
             {
-                CompilerOptions._i.cpu = cpu;
+                CompilerOptionsBuild._i.cpu = cpu;
             }
 
             var run = d.GetAttribute("COMPILE.RUN");
             if (run == "TRUE")
             {
-                CompilerOptions._i.runAfterCompile = true;
+                CompilerOptionsBuild._i.runAfterCompile = true;
             }
             else if (run == "FALSE")
             {
-                CompilerOptions._i.runAfterCompile = false;
+                CompilerOptionsBuild._i.runAfterCompile = false;
             }
 
             var dll = d.GetAttribute("COMPILE.DLL");
             if (dll == "TRUE")
             {
-                CompilerOptions._i.dll = true;
+                CompilerOptionsBuild._i.dll = true;
             }
             else if (dll == "FALSE")
             {
-                CompilerOptions._i.dll = false;
+                CompilerOptionsBuild._i.dll = false;
             }
 
 
@@ -347,13 +360,13 @@ namespace PragmaScript
                 foreach (var lib in ls)
                 {
                     var tlib = lib.Trim();
-                    CompilerOptions._i.libs.Add(tlib);
+                    CompilerOptionsBuild._i.libs.Add(tlib);
                 }
             }
 
             {
                 var fullPath = Path.GetFullPath(@"..\lib", Path.GetDirectoryName(entry.token.filename));
-                CompilerOptions._i.lib_path.Add(fullPath);
+                CompilerOptionsBuild._i.lib_path.Add(fullPath);
             }
             var lib_path = d.GetAttribute("COMPILE.PATH", upperCase: false);
             if (lib_path != null)
@@ -363,7 +376,7 @@ namespace PragmaScript
                 {
                     var tp = p.Trim();
                     var fullPath = Path.GetFullPath(tp, Path.GetDirectoryName(entry.token.filename));
-                    CompilerOptions._i.lib_path.Add(fullPath);
+                    CompilerOptionsBuild._i.lib_path.Add(fullPath);
                 }
             }
         }

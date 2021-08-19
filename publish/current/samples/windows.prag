@@ -10,6 +10,8 @@
   var console_input_handle = GetStdHandle(STD_INPUT_HANDLE);
   var console_error_handle = GetStdHandle(STD_ERROR_HANDLE);
 
+  let MAX_PATH = 260;
+
   let WS_OVERLAPPEDWINDOW = 13565952;
   let WS_OVERLAPPED = 0x00000000;
   let WS_CAPTION = 0x00C00000;
@@ -382,6 +384,7 @@ let GetFullPathNameA = extern fun(
   let GetLastError = extern fun () => i32;
   let GetStdHandle = extern fun (nStdHandle: i32) => mm;
   let GetModuleHandleA = extern fun (lpModuleName: mm) => mm;
+  let GetModuleFileNameA = extern fun (hModule: mm; filename: i8*; size: i16) => i16;
   let RegisterClassExA = extern fun (window_class: WNDCLASSEX*) => i16;
   let DefWindowProcA = extern fun (window: mm; message: i32; w_param: mm; l_param: mm) => mm;
   let ExitProcess = extern fun(signal: i32) => void;

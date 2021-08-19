@@ -415,7 +415,7 @@ namespace PragmaScript
                 var cond = node.GetAttribute("CONDITIONAL");
                 if (cond != null)
                 {
-                    if (CompilerOptions._i.debug)
+                    if (CompilerOptionsBuild._i.debug)
                     {
                         if (cond != "DEBUG")
                         {

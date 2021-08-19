@@ -1,0 +1,566 @@
+import "preamble.prag"
+import "memory.prag"
+import "math.prag"
+
+["PACKED"]
+let zlib_header = struct(
+    compression_flags: i8;
+    flags: i8;
+);
+
+
+// DEFLATE Compressed Data Format Specification
+
+// http://graphics.stanford.edu/~seander/bithacks.html#BitReverseObvious
+let reverse_bits = fun(value: i8) => i8 {
+    var temp = (((@\i64 value * 0x80200802) & 0x0884422110) * 0x0101010101) >>\ 32;
+    var result = temp@\i8;
+    return result;
+}
+let reverse_bits = fun(value: i16) => i16 {
+    var p0 = reverse_bits((value >>\ 8)@i8)@\i16;
+    var p1 = reverse_bits((value & 0x00FF)@i8)@\i16 << 8;
+    var result = p0 + p1;
+    return result;
+}
+let reverse_bits_15 = fun(value: i16) => i16 {
+    var p0 = reverse_bits((value >>\ 8)@i8)@\i16;
+    var p1 = reverse_bits((value & 0x00FF)@i8)@\i16 << 8;
+    var result = p0 + p1;
+    return result >>\ 1;
+}
+
+let zlib_stream = struct(
+    // source_bit_idx: i32;
+    current_src_bit_count: i32;
+    current_src_bits: i32;
+    
+    source: i8[];
+    
+    dest_idx: i32;
+    dest: i8[];
+);
+
+let advance_source = fun(stream: zlib_stream*; bytes: i32) => void {
+    assert(stream.source.length >= bytes);
+    stream.source.data += bytes;
+    stream.source.length -= bytes;
+}
+
+let skip_unused_bits_of_byte = fun(stream: zlib_stream*) => void {
+    stream.current_src_bit_count = 0;
+    stream.current_src_bits = 0;
+}
+
+let read_i16 = fun(stream: zlib_stream*) => i16 {
+    assert(stream.current_src_bit_count == 0);
+    var result: i16 = *(stream.source.data@i16*);
+    advance_source(stream, 2);
+    return result;
+}
+
+let write_byte = fun(stream: zlib_stream*; value: i8) => void {
+    assert(stream.dest_idx + 1 < stream.dest.length);
+    stream.dest[stream.dest_idx] = value;
+    stream.dest_idx++;
+}
+
+let next_byte = fun(stream: zlib_stream*) => i8 {
+    var result = stream.source[0];
+    advance_source(stream, 1);
+    return result;
+}
+
+let peek_byte = fun(stream: zlib_stream*; offset: i32) => i8 {
+    var result = stream.source[offset];
+    return result;
+}
+
+let peek_15 = fun(stream: zlib_stream*) => i16 {
+    assert(stream.current_src_bit_count >= 0);
+    assert(stream.current_src_bits <\ (1 << stream.current_src_bit_count));
+    assert(stream.current_src_bit_count <\ 8);
+    
+    let bit_count = 15;
+    var temp_bits = stream.current_src_bits;
+    var temp_bit_count = stream.current_src_bit_count;
+    var byte_offset = 0;
+    
+    while(temp_bit_count < bit_count) {
+        var next = peek_byte(stream, byte_offset++)@\i32;
+        temp_bits |= next << temp_bit_count;
+        temp_bit_count += 8;
+    }
+    
+    var result = temp_bits & ((1 << bit_count) - 1);
+    
+    assert(stream.current_src_bit_count >= 0);
+    assert(stream.current_src_bits <\ (1 << stream.current_src_bit_count));
+    assert(stream.current_src_bit_count <\ 8);
+    
+    return result@\i16;
+}
+
+let discard_bits = fun(stream: zlib_stream*; bit_count: i32) => void {
+    var temp_bit_count = bit_count;
+    var temp_stream = stream;
+    assert(stream.current_src_bit_count >= 0);
+    assert(stream.current_src_bits <\ (1 << stream.current_src_bit_count));
+    assert(stream.current_src_bit_count <\ 8);
+    assert(bit_count > 0);
+    while(stream.current_src_bit_count < bit_count) {
+        var next = next_byte(stream)@\i32;
+        stream.current_src_bits |= next << stream.current_src_bit_count;
+        stream.current_src_bit_count += 8;
+    }
+    stream.current_src_bit_count -= bit_count;
+    stream.current_src_bits = stream.current_src_bits >>\ bit_count;
+    
+    assert(stream.current_src_bit_count >= 0);
+    assert(stream.current_src_bits <\ (1 << stream.current_src_bit_count));
+    assert(stream.current_src_bit_count <\ 8);
+}
+
+let next_bits = fun(stream: zlib_stream*; bit_count: i32) => i32 {
+    assert(stream.current_src_bit_count >= 0);
+    assert(stream.current_src_bits <\ (1 << stream.current_src_bit_count));
+    assert(stream.current_src_bit_count < 8);
+    assert(bit_count > 0);
+    assert(bit_count <= 32);
+    
+    // debug_print("bit_count", bit_count);
+    // debug_print("current_src_bit_count", stream.current_src_bit_count);
+    
+    while(stream.current_src_bit_count < bit_count) {
+        var next = next_byte(stream)@\i32;
+        // debug_print("next", to_binary_str(next@\i8));
+        // debug_print("stream.current_src_bits", to_binary_str(stream.current_src_bits));        
+        stream.current_src_bits |= next << stream.current_src_bit_count;
+        // debug_print("stream.current_src_bits", to_binary_str(stream.current_src_bits));        
+        stream.current_src_bit_count += 8;
+    }
+    // debug_print("mask", to_binary_str((1 << bit_count) - 1));
+    var result = stream.current_src_bits & ((1 << bit_count) - 1);
+    // debug_print("result", to_binary_str(result));
+    
+    stream.current_src_bit_count -= bit_count;
+    stream.current_src_bits >>=\ bit_count;
+    
+    // debug_print("current_src_bit_count", stream.current_src_bit_count);
+    // debug_print("stream.current_src_bits", to_binary_str(stream.current_src_bits));        
+
+    assert(stream.current_src_bit_count >= 0);
+    assert(stream.current_src_bits <\ (1 << stream.current_src_bit_count));
+    assert(stream.current_src_bit_count < 8);
+    
+    return result;
+}
+
+let huffman_table_entry = struct(
+    symbol: i16;
+    bit_length: i16;
+);
+
+let MAX_HUFFMAN_BIT_LENGTH = 15;
+let huffman_data = struct(
+    table: huffman_table_entry[32768];
+    // symbol_bit_length: i8[288];
+    // symbols: i16[288];
+);
+
+var build_huffman_ticks: i64;
+
+let build_huffman = fun(length_codes: i32[]) => huffman_data* {
+
+#if MEASURE_STUFF
+    var t0: i64;
+    var t1: i64;
+    Windows::QueryPerformanceCounter(&t0);
+#endif    
+    let MAX_CODE = 288;
+    
+    var temp_length_codes = length_codes;
+       
+    var symbol_count = length_codes.length;
+    var bit_length_counts: i32[16];
+    memset((&bit_length_counts[0])@ptr, 0, len(bit_length_counts) * size_of(i32));
+    
+    for (var i = 0; i < length_codes.length; ++i) {
+        var bit_length = length_codes[i];
+        assert(bit_length <= MAX_HUFFMAN_BIT_LENGTH);
+        bit_length_counts[bit_length]++;
+    }
+    bit_length_counts[0] = 0;
+    for (var i = 1; i < len(bit_length_counts)@i32; ++i) {
+        assert(bit_length_counts[i] < (1 << i));
+    }
+    
+    var smallest_code_for_length: i32[16];
+    smallest_code_for_length[0] = 0;
+    var code = 0;
+    for (var bit_idx = 1; bit_idx <= MAX_HUFFMAN_BIT_LENGTH; ++bit_idx) {
+        code = (code + bit_length_counts[bit_idx - 1]) << 1;
+        smallest_code_for_length[bit_idx] = code;
+    }
+    
+    var code_bit_length: i8[288];
+    var codes: i16[288];
+    memset(&code_bit_length[0], 0, len(code_bit_length) * size_of(i8));
+    
+    // memset(&codes[0]@ptr, 0, len(codes) * size_of(i8));
+    
+    for (var i = 0; i < length_codes.length; ++i) {
+        code_bit_length[i] = length_codes[i]@i8;
+    }
+    for (var code_idx = 0; code_idx < MAX_CODE; ++code_idx) {
+        var len = code_bit_length[code_idx];
+        if (len != 0) {
+            assert(len < 17);
+            var code = @i16 smallest_code_for_length[len@i32]++;
+            codes[code_idx] = code;
+        }
+    }
+    
+    var result = allocate(size_of(huffman_data))@huffman_data*;
+    // TODO(pragma): WHY IS THIS FASTER EVEN THOUGH THE MEMORY SHOULD BE ZERO FROM VIRTUAL ALLOC ANYWAY??????ß
+    memset(&result.table[0]@ptr, 0, len(result.table) * size_of(huffman_table_entry));
+    
+    for (var code_idx = 0; code_idx < MAX_CODE; ++code_idx) {
+        var code_len = code_bit_length[code_idx];
+        if (code_len != 0 && code_len < 15) {
+            var temp_code_idx = code_idx;
+            var code = codes[code_idx];
+            var p_count = 1 << (15 - code_len@\i32);
+            for (var p_idx = 0; p_idx < p_count; ++p_idx) {
+                var index = p_idx@i32 + (code@\i32 << (15 - code_len@\i32));
+                // index = reverse_bits_15(index@\i16)@\i32;
+                assert(index <\ len(result.table)@\i32);
+                assert(result.table[index].bit_length == 0);
+                result.table[index].symbol = code_idx@\i16;
+                assert(code_len > 0 && code_len <= 15);
+                result.table[index].bit_length = code_len@\i16;
+            }
+        }
+    }
+    
+#if MEASURE_STUFF    
+    Windows::QueryPerformanceCounter(&t1);
+    build_huffman_ticks += (t1 - t0);
+#endif
+    
+    return result;
+}
+
+
+var decode_huffman_ticks: i64;
+
+let decode_huffman = fun(huffman: huffman_data*; stream: zlib_stream*) => i16 {
+    
+#if MEASURE_STUFF
+    var t0: i64;
+    var t1: i64;
+    Windows::QueryPerformanceCounter(&t0);
+#endif
+    //          b0                        b1 
+    // value    07 06 05 04 03 02 01 00   15 14 13 12 11 10 09 08
+    
+    //          b0                        b1 
+    // table    00 01 02 03 04 05 06 07   08 09 10 11 12 13 14 15
+    
+    var value = peek_15(stream);
+    var idx = reverse_bits_15(value@\i16)@\i32;
+    // var idx = value@\i32;
+    var entry = huffman.table[idx];
+    
+    var actual_code_length = entry.bit_length;
+    discard_bits(stream, actual_code_length@\i32);
+    
+#if MEASURE_STUFF    
+    Windows::QueryPerformanceCounter(&t1);
+    decode_huffman_ticks += (t1 - t0);
+#endif    
+    
+    return entry.symbol;
+}
+
+let decode_lookup_tuple = struct(
+    value: i32;
+    extra_bits: i32;
+);
+
+let init_length_lookup = fun() => decode_lookup_tuple[] {
+    let count = 21;
+    var buffer = push(&temp_memory_arena, (count@mm) * size_of(decode_lookup_tuple))@decode_lookup_tuple*;
+    
+    var temp = buffer;
+    *temp++ = decode_lookup_tuple { 11, 1 };  // 265
+    *temp++ = decode_lookup_tuple { 13, 1 };  // 266
+    *temp++ = decode_lookup_tuple { 15, 1 };  // 267
+    *temp++ = decode_lookup_tuple { 17, 1 };  // 268
+    *temp++ = decode_lookup_tuple { 19, 2 };  // 269
+    *temp++ = decode_lookup_tuple { 23, 2 };  // 270
+    *temp++ = decode_lookup_tuple { 27, 2 };  // 271
+    *temp++ = decode_lookup_tuple { 31, 2 };  // 272
+    *temp++ = decode_lookup_tuple { 35, 3 };  // 273
+    *temp++ = decode_lookup_tuple { 43, 3 };  // 274
+    *temp++ = decode_lookup_tuple { 51, 3 };  // 275
+    *temp++ = decode_lookup_tuple { 59, 3 };  // 276
+    *temp++ = decode_lookup_tuple { 67, 4 };  // 277
+    *temp++ = decode_lookup_tuple { 83, 4 };  // 278
+    *temp++ = decode_lookup_tuple { 99, 4 };  // 279
+    *temp++ = decode_lookup_tuple { 115, 4 }; // 280
+    *temp++ = decode_lookup_tuple { 131, 5 }; // 281
+    *temp++ = decode_lookup_tuple { 163, 5 }; // 282
+    *temp++ = decode_lookup_tuple { 195, 5 }; // 283
+    *temp++ = decode_lookup_tuple { 227, 5 }; // 284
+    *temp++ = decode_lookup_tuple { 258, 0 }; // 285
+    
+    var result: decode_lookup_tuple[];
+    result.data = buffer;
+    result.length = count;
+    return result;
+}
+
+let init_distance_lookup = fun() => decode_lookup_tuple[] {
+    let count = 26;
+    var buffer = push(&temp_memory_arena, (count@mm) * size_of(decode_lookup_tuple))@decode_lookup_tuple*;
+    
+    var temp = buffer;
+    *temp++ = decode_lookup_tuple { 5, 1 };      // 4
+    *temp++ = decode_lookup_tuple { 7, 1 };      // 5
+    *temp++ = decode_lookup_tuple { 9, 2 };      // 6
+    *temp++ = decode_lookup_tuple { 13, 2 };     // 7
+    *temp++ = decode_lookup_tuple { 17, 3 };     // 8
+    *temp++ = decode_lookup_tuple { 25, 3 };     // 9
+    *temp++ = decode_lookup_tuple { 33, 4 };     // 10
+    *temp++ = decode_lookup_tuple { 49, 4 };     // 11
+    *temp++ = decode_lookup_tuple { 65, 5 };     // 12
+    *temp++ = decode_lookup_tuple { 97, 5 };     // 13
+    *temp++ = decode_lookup_tuple { 129, 6 };    // 14
+    *temp++ = decode_lookup_tuple { 193, 6 };    // 15
+    *temp++ = decode_lookup_tuple { 257, 7 };    // 16
+    *temp++ = decode_lookup_tuple { 385, 7 };    // 17
+    *temp++ = decode_lookup_tuple { 513, 8 };    // 18
+    *temp++ = decode_lookup_tuple { 769, 8 };    // 19
+    *temp++ = decode_lookup_tuple { 1025, 9 };   // 20
+    *temp++ = decode_lookup_tuple { 1537, 9 };   // 21
+    *temp++ = decode_lookup_tuple { 2049, 10 };  // 22
+    *temp++ = decode_lookup_tuple { 3073, 10 };  // 23
+    *temp++ = decode_lookup_tuple { 4097, 11 };  // 24
+    *temp++ = decode_lookup_tuple { 6145, 11 };  // 25
+    *temp++ = decode_lookup_tuple { 8193, 12 };  // 26
+    *temp++ = decode_lookup_tuple { 12289, 12 }; // 27
+    *temp++ = decode_lookup_tuple { 16385, 13 }; // 28
+    *temp++ = decode_lookup_tuple { 24577, 13 }; // 29
+    
+    // var result: decode_lookup_tuple[];
+    // result.data = buffer;
+    // result.length = count;
+    
+    return buffer[:count];
+    
+    
+    return result;
+}
+
+
+let decode_length = fun(value: i16; length_lookup: decode_lookup_tuple[]) => decode_lookup_tuple {
+    assert(value > 256);
+    var result: decode_lookup_tuple;
+    if (value <= 264) {
+        result.value = value@i32 - (257 - 3);
+        result.extra_bits = 0;
+    }
+    else  {
+        assert(value <= 285);
+        result = length_lookup[value@i32 - 265];
+    }
+    return result;
+}
+
+let decode_distance = fun(value: i16; distance_lookup: decode_lookup_tuple[]) => decode_lookup_tuple {
+    var result: decode_lookup_tuple;
+    assert(value >= 0);
+    if (value <= 3) {
+        result.value = value@i32 + 1;
+        result.extra_bits = 0;
+    } else {
+        assert(value <= 29);
+        result = distance_lookup[value@i32 - 4];
+    }
+    return result;
+}
+
+let dyn_huffman_block = fun(stream: zlib_stream*; length_lookup: decode_lookup_tuple[]; distance_lookup: decode_lookup_tuple[]) => void {
+    var hlit = next_bits(stream, 5) + 257;
+    var hdist = next_bits(stream, 5) + 1;
+    var hclen = next_bits(stream, 4) + 4;
+    
+    var cl_al_cl_seq = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+    var cl_al_cl = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    assert(len(cl_al_cl_seq) == len(cl_al_cl));
+    
+    for (var s_idx = 0; s_idx < hclen; ++s_idx) {
+        var cl_al_cl_idx = cl_al_cl_seq[s_idx];
+        cl_al_cl[cl_al_cl_idx] = next_bits(stream, 3);
+    }
+    
+#if false
+    var test_l = [3, 3, 3, 3, 3, 2, 4, 4];
+    var test = build_huffman(test_l[:]);
+#endif    
+    
+    var code_len_huff = build_huffman(cl_al_cl[:len(cl_al_cl)@i32]);
+    var literal_len_code_length = @i32* allocate(@mm (hlit + hdist) * size_of(i32));
+    var dist_code_length = literal_len_code_length + hlit;
+    var cl_ptr = literal_len_code_length;
+    while (cl_ptr <\ literal_len_code_length + hlit + hdist) {
+        var h_len_code = decode_huffman(code_len_huff, stream)@i32;
+        
+        if (h_len_code <= 15) {
+            *cl_ptr++ = h_len_code;
+        } 
+        elif (h_len_code == 16) {
+            var repeat_length = next_bits(stream, 2) + 3;
+            assert(cl_ptr - 1 >=\ literal_len_code_length);
+            var last_length = *(cl_ptr - 1);
+            for (var repeat_idx = 0; repeat_idx < repeat_length; ++repeat_idx) {
+                *cl_ptr++ = last_length;
+            }
+        }
+        elif (h_len_code == 17) {
+            var repeat_length = next_bits(stream, 3) + 3;
+            for (var repeat_idx = 0; repeat_idx < repeat_length; ++repeat_idx) {
+                *cl_ptr++ = 0;
+            }
+        }
+        elif (h_len_code == 18) {
+            var repeat_length = next_bits(stream, 7) + 11;
+            for (var repeat_idx = 0; repeat_idx < repeat_length; ++repeat_idx) {
+                *cl_ptr++ = 0;
+            }
+        }
+        else {
+            assert(false);
+        }
+    }
+    assert(cl_ptr == literal_len_code_length + hlit + hdist);
+    
+    var lit_length_huff = build_huffman(literal_len_code_length[:hlit]);
+    
+    var dist_huff = build_huffman(dist_code_length[:hdist]);
+    
+    while (true) {
+        var length_value = decode_huffman(lit_length_huff, stream);
+        if (length_value <\ 256) {
+            write_byte(stream, length_value@\i8);
+        }
+        elif (length_value == 256) {
+            // print("end of block value\n");
+            break;
+        }
+        else {
+            var temp_stream = stream;
+            var dl = decode_length(length_value, length_lookup);
+            if (dl.extra_bits > 0) {
+                dl.value += next_bits(stream, dl.extra_bits);
+            }
+            
+            var distance_value = decode_huffman(dist_huff, stream);
+            var dd = decode_distance(distance_value, distance_lookup);
+            if (dd.extra_bits > 0) {
+                dd.value += next_bits(stream, dd.extra_bits);
+            }
+            
+            var offset = (stream.dest_idx - 0) - dd.value;
+            assert(offset >= 0);
+            var temp_dest_idx = stream.dest_idx;
+            var temp_stream_dest_length = stream.dest.length;
+            assert(stream.dest_idx + dl.value <= stream.dest.length);
+            var src_ptr = stream.dest.data + offset;
+            var dst_ptr = stream.dest.data + stream.dest_idx;
+            for (var len_idx = 0; len_idx < dl.value; ++len_idx) {
+                *dst_ptr++ = *src_ptr++;
+            }
+            stream.dest_idx += dl.value;
+        }
+    }
+    
+    free(literal_len_code_length@ptr);
+}
+
+let tests = fun () => void {
+    assert(reverse_bits(255@i8) == 255);
+    assert(reverse_bits(0@i8) == 0);
+    assert(reverse_bits(1@i8) == 128);
+    assert(reverse_bits(2@i8) == 64);
+    assert(reverse_bits(4@i8) == 32);
+    assert(reverse_bits(8@i8) == 16);
+    assert(reverse_bits(16@i8) == 8);
+    assert(reverse_bits(32@i8) == 4);
+    assert(reverse_bits(64@i8) == 2);
+    assert(reverse_bits(128@i8) == 1);
+    assert(strings_are_equal(to_binary_str(18229@i16), "0100011100110101"));
+    assert(strings_are_equal(to_binary_str(reverse_bits(18229@i16)), "1010110011100010"));
+}
+
+
+
+// LZ77 with 32K window size
+let decompress = fun(source: i8[]; dest: i8[]) => void {
+    var length_lookup = init_length_lookup();
+    var distance_lookup = init_distance_lookup();
+    
+    var header = source.data@zlib_header*;
+    var compression_method = header.compression_flags & 15;
+    var compression_info =  (header.compression_flags >>\ 4) & 15;
+    
+    // deflate
+    assert(compression_method == 8);
+    
+    // window size 32K
+    assert(compression_info == 7);
+    
+    // no preset dict
+    assert((header.flags & 32) == 0);
+    
+    var stream = zlib_stream { };
+    stream.current_src_bit_count = 0;
+    stream.current_src_bits = 0;
+    stream.source = source;
+    stream.dest_idx = 0;
+    stream.dest = dest;
+    
+    advance_source(&stream, size_of(zlib_header)@i32);
+    
+    var bfinal = 0;
+    while (true) {
+        var bfinal = next_bits(&stream, 1);
+        var btype = next_bits(&stream, 2);
+        
+        let BT_NO_COMPRESSION = 0;
+        let BT_FIXED_HUFFMAN = 1;
+        let BT_DYNAMIC_HUFFMAN = 2;
+        let BT_RESERVED = 3;
+        
+        assert(btype != BT_RESERVED && btype != BT_FIXED_HUFFMAN);
+        
+        if (btype == BT_NO_COMPRESSION) {
+            skip_unused_bits_of_byte(&stream);
+            var len = read_i16(&stream); 
+            var nlen = read_i16(&stream);
+            assert(len == (~nlen));
+            for (var byte_idx = 0; byte_idx < len@i32; ++byte_idx) {
+                var b = next_byte(&stream);
+                write_byte(&stream, b);
+            }   
+        }        
+        elif (btype == BT_DYNAMIC_HUFFMAN) {
+            dyn_huffman_block(&stream, length_lookup, distance_lookup);
+        }
+        if (bfinal > 0) {
+            break;
+        }
+    }
+    
+}

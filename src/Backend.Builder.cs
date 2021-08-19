@@ -661,7 +661,7 @@ namespace PragmaScript
             }
             public void BuildComment(string comment, AST.Node contextNode, string name = null)
             {
-                if (CompilerOptions._i.debug && CompilerOptions._i.ll)
+                if (CompilerOptionsBuild._i.debug && CompilerOptionsBuild._i.ll)
                 {
                     var result = new Emit($"; {comment}");
                     AddOp(result, name, contextNode: contextNode);

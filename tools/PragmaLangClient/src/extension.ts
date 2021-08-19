@@ -17,20 +17,20 @@ export function activate(context: vscode.ExtensionContext) {
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "pragmaclient" is now active!');
-	
+
 	let basePath = context.asAbsolutePath("");
-	console.log(`basepath: ${ basePath }`)
+	console.log(`basepath: ${basePath}`)
 
-	let serverPath = path.join(basePath, "../PragmaLangServer/bin/Debug/net5.0/PragmaLangServer")
+	let serverPath = path.join(basePath, "server/PragmaLangServer")
 
-	console.log(`serverPath: ${ serverPath }`)
+	console.log(`serverPath: ${serverPath}`)
 
 	let serverOptions: ServerOptions = {
-		run: {command: serverPath},
-		debug: {command: serverPath}
+		run: { command: serverPath },
+		debug: { command: serverPath }
 	};
 
-	let clientOptions : LanguageClientOptions = {
+	let clientOptions: LanguageClientOptions = {
 		documentSelector: [
 			{
 				pattern: "**/*.prag",
@@ -39,16 +39,10 @@ export function activate(context: vscode.ExtensionContext) {
 		synchronize: {
 			// Notify the server about file changes to '.prag files contained in the workspace
 			fileEvents: vscode.workspace.createFileSystemWatcher('**/.prag')
-		}
-		// this is deprecated! what do we need to do instead??
-		// ,
-		// synchronize: {
-		// 	configurationSection: "PragmaLanguaageServer"
-		// }
+		},
 	}
 
 	client = new LanguageClient("PragmaLanguageClient", serverOptions, clientOptions);
-
 	client.start();
 
 	// The command has been defined in the package.json file
@@ -65,4 +59,4 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() { }

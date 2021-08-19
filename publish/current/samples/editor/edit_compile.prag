@@ -51,11 +51,11 @@ let compile_buffer = fun(path: string; just_syntax: bool) => compiler_message {
 	var cmd: string;
 	if (just_syntax)
 	{
-		cmd = "..\\..\\..\\bin\\pragma.exe -D -F ";
+		cmd = "pragma build -d --dry-run ";
 	}
 	else
 	{
-		cmd = "..\\..\\..\\bin\\pragma.exe -D ";
+		cmd = "pragma build -d ";
 	}
 	
     cmd = concat(cmd, path);

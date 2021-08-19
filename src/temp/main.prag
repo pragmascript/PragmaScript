@@ -1,0 +1,10 @@
+import "system/preamble.prag"
+[
+    "compile.entry", 
+    "compile.run":"true",
+    "compile.opt": "0",
+    "compile.debuginfo": "true"
+]
+let main = fun () => void {
+    print("hello, world!\n");
+}

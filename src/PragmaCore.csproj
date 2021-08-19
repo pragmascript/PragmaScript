@@ -2,7 +2,14 @@
   <PropertyGroup>
     <AssemblyName>pragma</AssemblyName>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <VersionSuffix>0.1.0.$([System.DateTime]::UtcNow.ToString(mmff))</VersionSuffix>
+    <AssemblyVersion Condition=" '$(VersionSuffix)' == '' ">0.0.0.1</AssemblyVersion>
+    <AssemblyVersion Condition=" '$(VersionSuffix)' != '' ">$(VersionSuffix)</AssemblyVersion>
+    <Version Condition=" '$(VersionSuffix)' == '' ">0.0.1.0</Version>
+    <Version Condition=" '$(VersionSuffix)' != '' ">$(VersionSuffix)</Version>
+    <!-- <Company>pragma</Company>
+    <Authors>pragma</Authors> -->
+    <TargetFramework>net5.0</TargetFramework> 
     <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' ">linux-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition=" '$(OS)' == 'Windows_NT' ">win7-x64</RuntimeIdentifier>
     <DefineConstants>DISPLAY_TIMINGS</DefineConstants>
@@ -12,13 +19,13 @@
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>true</PublishTrimmed>
     <SelfContained>true</SelfContained>
-    
+
   </PropertyGroup>
   <PropertyGroup Condition="'$(CompileConfig)' == 'Release'">
     <Optimization>true</Optimization>
     <DebugSymbols>false</DebugSymbols>
-  <DebugType>portable</DebugType>
-</PropertyGroup>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
   <Target Name="MyPostCompileTarget1" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Exec Command="python postbuild.py -Release" />
   </Target>

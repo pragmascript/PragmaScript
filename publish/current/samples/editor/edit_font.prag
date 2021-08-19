@@ -37,10 +37,34 @@ let font = struct (
     kerning_table: i32[];
 );
 
+
+// TODO(pragma): this breaks the compiler with LLVM ERROR "PHI node entries do not match predecessors!"
+// probably becasue we have an indexer within an indexer expression...
+#if false
+let rel_path = fun(path: string) => string {
+    var exe_path = make_string(Windows::MAX_PATH + 1);
+    var result = Windows::GetModuleFileNameA(0, exe_path.data, Windows::MAX_PATH@i16);
+    var slash = "\\ ";
+    var exe_dir = exe_path[:last_index_of(slash[:1], exe_path)];
+    return exe_dir;
+}
+#endif
+
+let exe_rel_path = fun(path: string) => string {
+    // TODO(pragma): we leaky leak memory here
+    var exe_path = make_string(Windows::MAX_PATH + 1);
+    Windows::GetModuleFileNameA(0, exe_path.data, Windows::MAX_PATH@i16);
+    var slash = "\\ ";
+    var idx = last_index_of(slash[:1], exe_path);
+    var exe_dir = exe_path[:idx];
+    var result = concat(exe_dir, path);
+    return result;
+}
+
 let load_font = fun() => font {
     var result = font { };
     
-    result.texture_handle = load_texture("fonts/plex_mono.bmp\0", &result.atlas_width, &result.atlas_height);
+    result.texture_handle = load_texture(exe_rel_path("/fonts/plex_mono.bmp\0"), &result.atlas_width, &result.atlas_height);
     glGenBuffers(1, &result.v_bo);
     glGenBuffers(1, &result.e_bo);
     glGenBuffers(1, &result.uv_bo);
@@ -55,7 +79,7 @@ let load_font = fun() => font {
     for (var i = 0; i < glyph_count; ++i) {
         result.glyphs[i] = glyph { };
     }
-    var xml = read_xml("fonts/plex_mono.png.fnt\0");
+    var xml = read_xml(exe_rel_path("/fonts/plex_mono.png.fnt\0"));
     var e_font = get_child(&xml, "font");
     assert(e_font@ptr != nullptr);
     from_str(get_attrib_value(get_child(e_font, "info"), "size"), &result.base_size);

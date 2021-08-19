@@ -7,7 +7,7 @@ using System.Diagnostics;
 using static PragmaScript.AST;
 
 using CommandLine;
-
+using CommandLine.Text;
 
 
 namespace PragmaScript
@@ -24,13 +24,23 @@ namespace PragmaScript
     // http://llvm.lyngvig.org/Articles/Mapping-High-Level-Constructs-to-LLVM-IR
     class Program
     {
+        static string exeDir;
+        static Program()
+        {
+            exeDir = AppContext.BaseDirectory;
+        }
+        public static string RelDir(string dir)
+        {
+            string result = Path.Combine(Program.exeDir, dir);
+            return result;
+        }
 
         static void TestCommandLineParser()
         {
             static void Test(string[] args)
             {
-                CommandLine.Parser.Default.ParseArguments<CompilerOptions>(args)
-                .WithParsed<CompilerOptions>(co =>
+                CommandLine.Parser.Default.ParseArguments<CompilerOptionsBuild>(args)
+                .WithParsed<CompilerOptionsBuild>(co =>
                 {
                     Console.WriteLine($"success: {co}");
                 }).WithNotParsed(err =>
@@ -63,56 +73,127 @@ namespace PragmaScript
             Test(arg_6);
         }
 
+        static void CreateNewProject(CompilerOptionsNew co)
+        {
+            void CopyFromTemplate(string srcFilename, string destDir = "", params (string, string)[] replacements)
+            {
+                var src = Path.Combine(@"..\template\", srcFilename);
+                Debug.Assert(File.Exists(src), srcFilename);
+                var txt = File.ReadAllText(src);
+                var dest = Path.Combine(destDir, Path.GetFileName(src));
+                if (replacements != null && replacements.Length > 0)
+                {
+                    foreach (var (oldStr, newStr) in replacements)
+                    {
+                        txt = txt.Replace(oldStr, newStr);
+                    }
+                }
+                if (!File.Exists(dest))
+                {
+                    File.WriteAllText(dest, txt);
+                }
+            }
+
+            var src = RelDir(@"..\include\system");
+            var dest = "system";
+            if (!Directory.Exists(dest))
+            {
+                Directory.CreateDirectory(dest);
+            }
+            if (!Directory.Exists(src))
+            {
+                System.Console.WriteLine($"Could not find system directory at \"{Path.GetFullPath(src)}\". Aborting...");
+                return;
+            }
+            foreach (var f in Directory.GetFiles(src))
+            {
+                var destPath = Path.Combine(dest, Path.GetFileName(f));
+                if (!File.Exists(destPath))
+                {
+                    File.Copy(f, destPath, overwrite: false);
+                }
+            }
+            CopyFromTemplate("main.prag");
+
+            if (co.VSCode)
+            {
+                if (!Directory.Exists(".vscode"))
+                {
+                    Directory.CreateDirectory(".vscode");
+                }
+                CopyFromTemplate(@"launch.json", ".vscode");
+                CopyFromTemplate(@"settings.json", ".vscode");
+                CopyFromTemplate(@"tasks.json", ".vscode");
+                var ps = new ProcessStartInfo("code", ".") { UseShellExecute = true };
+                Process.Start(ps);
+            }
+            else
+            {
+                var ps = new ProcessStartInfo("pragma_edit", ".") { UseShellExecute = true };
+                Process.Start(ps);
+            }
+        }
 
         static void Main(string[] args)
         {
             Compiler compiler = new Compiler();
 
-            CompilerOptions co = null;
-            CommandLine.Parser.Default.ParseArguments<CompilerOptions>(args).WithParsed(result =>
+            StringWriter helpWriter = new StringWriter();
+            CompilerOptionsBuild coBuild = null;
+            CompilerOptionsNew coNew = null;
+            var parserResult = (new CommandLine.Parser(with => with.HelpWriter = helpWriter))
+                .ParseArguments<CompilerOptionsBuild, CompilerOptionsNew>(args);
+            parserResult
+            .WithParsed<CompilerOptionsBuild>(r => coBuild = r)
+            .WithParsed<CompilerOptionsNew>(r => coNew = r)
+            .WithNotParsed(err =>
             {
-                co = result;
+                if (!err.IsVersion())
+                {
+                    // Console.WriteLine(helpWriter.ToString());
+
+                    var helpText = CommandLine.Text.HelpText.AutoBuild(parserResult, h =>
+                                    {
+                                        h.AdditionalNewLineAfterOption = false;
+                                        h.Copyright = "Copyright (c) 2021 pragmascript@googlemail.com";
+                                        return h;
+                                    }, e => e, verbsIndex: true);
+                    var helpStr = helpText.ToString().Replace("-O 3", "-O3");
+                    System.Console.WriteLine(helpStr);
+                }
+                else
+                {
+                    var versionText = CommandLine.Text.HeadingInfo.Default.ToString();
+                    System.Console.WriteLine($"version {versionText}");
+                }
             });
 
-            if (co == null)
+#if false
+            coBuild = new CompilerOptionsBuild();
+            coBuild.debug = true;
+            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"../../publish/current/samples"));
+            System.IO.Directory.SetCurrentDirectory(programDir);
+            coBuild.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            coBuild.libs = new List<string>();
+            coBuild.lib_path = new List<string>();
+#else
+            if (coNew != null)
             {
+                CreateNewProject(coNew);
                 return;
             }
 
-            co.libs = new List<string>(co.libs);
-            co.lib_path = new List<string>(co.lib_path);
-
-#if False
-            CompilerOptions._i.debug = true;
-            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"../publish/current/samples"));
-            System.IO.Directory.SetCurrentDirectory(programDir);
-
-            // CompilerOptions._i.buildExecuteable  = false;
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "preamble.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "smallpt", "smallpt_win.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "handmade.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "handmade", "win32_handmade.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "test", "array.prag");
-
-
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
-
-
-
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "nintendo", "nintendo.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "editor", "edit.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "ld46", "ld.prag");
-            CompilerOptions._i.inputFilename = Path.Combine("test", "bugs.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "wasapi", "wasapi.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "raytracer", "raytracer.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir,  "work_queue.prag");
-            // CompilerOptions._i.inputFilename = Path.Combine(programDir, "neural", "neural.prag");
-            // Console.WriteLine(CompilerOptions._i.inputFilename);
+            if (coBuild == null)
+            {
+                return;
+            }
 #endif
+            coBuild.libs = new List<string>(coBuild.libs);
+            coBuild.lib_path = new List<string>(coBuild.lib_path);
+
             try
             {
-                compiler.Compile(co);
+                compiler.Compile(coBuild);
             }
             catch (Exception e)
             {
@@ -126,19 +207,12 @@ namespace PragmaScript
                     throw e;
                 }
             }
-
-        }
-
-        static void createProject()
-        {
-            Console.WriteLine("Enter name: ");
-            var name = Console.ReadLine();
         }
 
 
         public static void CompilerMessage(string message, CompilerMessageType type)
         {
-            bool shouldPrint = CompilerOptions._i.verbose;
+            bool shouldPrint = CompilerOptionsBuild._i.verbose;
             switch (type)
             {
                 case CompilerMessageType.Warning:

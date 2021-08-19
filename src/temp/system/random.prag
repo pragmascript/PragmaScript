@@ -1,0 +1,83 @@
+
+mod Random 
+{
+	let seed0 = 12345;
+	let seed1 = 33333;
+	let seed2 = 982845;
+	let seed3 = 11293929;
+	
+	let state = struct
+	(
+		z1: i32_4x;
+		z2: i32_4x;
+		z3: i32_4x;
+		z4: i32_4x;
+	);
+	
+	// var state: state = state{seed0, seed0, seed0, seed0};
+	var state: state = state { 
+		i32_4x {seed0, seed1, seed2, seed3},
+		i32_4x {seed0, seed1, seed2, seed3},
+		i32_4x {seed0, seed1, seed2, seed3},
+		i32_4x {seed0, seed1, seed2, seed3}
+	};
+
+	
+	let init_seed = fun (seed: i32_4x; state: state*) => void {
+		state.z1 = seed;
+		state.z2 = seed;
+		state.z3 = seed;
+		state.z4 = seed;
+	}
+
+	let rand_i32_4x = fun (@state: state*) => i32_4x {
+		let vi_2 = i32_4x { 2, 2, 2, 2 };
+		let vi_3 = i32_4x { 3, 3, 3, 3 };
+		let vi_6 = i32_4x { 6, 6, 6, 6 };
+		let vi_7 = i32_4x { 7, 7, 7, 7 };
+		let vi_12 = i32_4x { 12, 12, 12, 12 };
+		let vi_13 = i32_4x { 13, 13, 13, 13};
+		let vi_18 = i32_4x { 18, 18, 18, 18};
+		let vi_21 = i32_4x { 21, 21, 21, 21};
+		let vi_27 = i32_4x { 27, 27, 27, 27};
+		let vi_m0 = i32_4x { 4294967294, 4294967294, 4294967294, 4294967294 };
+		let vi_m1 = i32_4x { 4294967288, 4294967288, 4294967288, 4294967288 };
+		let vi_m2 = i32_4x { 4294967280, 4294967280, 4294967280, 4294967280 };
+		let vi_m3 = i32_4x { 4294967168, 4294967168, 4294967168, 4294967168 };
+		
+		var b: i32_4x;
+		b  = ((z1 << vi_6) ^ z1) >>\ vi_13;
+		z1 = ((z1 & vi_m0) << vi_18) ^ b;
+		b  = ((z2 << vi_2) ^ z2) >>\ vi_27;
+		z2 = ((z2 & vi_m1) << vi_2) ^ b;
+		b  = ((z3 << vi_13) ^ z3) >>\ vi_21;
+		z3 = ((z3 & vi_m2) << vi_7) ^ b;
+		b  = ((z4 << vi_3) ^ z4) >>\ vi_12;
+		z4 = ((z4 & vi_m3) << vi_13) ^ b;
+   		return (z1 ^ z2 ^ z3 ^ z4);
+	}
+	
+	let rand_f32_4x = fun(min: f32_4x = f32_4x { 0.0, 0.0, 0.0, 0.0 }; max: f32_4x = f32_4x { 1.0, 1.0, 1.0, 1.0 }; state: state* = &state) => f32_4x {
+		let div = f32_4x { 4294967295.0, 4294967295.0, 4294967295.0, 4294967295.0 };
+		var x = rand_i32_4x(state);
+		var result = @\f32_4x x / div;
+		result = min + result * (max - min);
+		return result;
+	}
+	
+	let rand_i32 = fun(state: state* = &state) => i32 {
+		var result = rand_i32_4x(state);
+		return result[0];
+	}
+	
+	let rand_f32 = fun (min: f32 = 0.0; max: f32 = 1.0; state: state* = &state;) => f32 {
+		var x = rand_i32(state);
+		var result = @\f32 x / 4294967295.0;
+		result = min + result * (max - min);
+		return result;
+	}	
+	let rand_xkcd = fun () => i32 {
+		return 4;  // chosen by fair dice roll.
+		           // guaranteed to be random.
+	}
+}
