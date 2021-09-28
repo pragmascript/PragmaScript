@@ -77,7 +77,7 @@ namespace PragmaScript
         {
             void CopyFromTemplate(string srcFilename, string destDir = "", params (string, string)[] replacements)
             {
-                var src = Path.Combine(@"..\template\", srcFilename);
+                var src = RelDir(Path.Combine(@"..\template\", srcFilename));
                 Debug.Assert(File.Exists(src), srcFilename);
                 var txt = File.ReadAllText(src);
                 var dest = Path.Combine(destDir, Path.GetFileName(src));

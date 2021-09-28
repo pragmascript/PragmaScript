@@ -101,7 +101,22 @@ namespace PragmaScript
         {
             this.GetFileText = GetFileText;
         }
-
+        
+        string IncludeRelDir(string dir)
+        {
+            return Program.RelDir(Path.Combine("..\\include\\", dir));
+        }    
+        
+        string ResolveImportPath(string import, string dir)
+        {
+            var result = Path.GetFullPath(Path.Combine(dir, import));
+            if (!File.Exists(result))
+            {
+                result = Path.GetFullPath(IncludeRelDir(import));
+            }
+            return result;
+        }
+        
         public (Scope root, TypeChecker tc) Compile(CompilerOptionsBuild options)
         {
             Platform platform;
@@ -145,6 +160,7 @@ namespace PragmaScript
             while (toImport.Count > 0)
             {
                 var (fn, import_token) = toImport.Dequeue();
+                Console.WriteLine($"parsing: {fn}");
                 string text;
                 try
                 {
@@ -159,12 +175,12 @@ namespace PragmaScript
                 }
                 catch (Exception)
                 {
-                    throw new CompilerError($"Could not read import file \"{fn}\"", import_token);
+                    throw new CompilerError($"Could not read import file", import_token);
                 }
 
                 if (string.IsNullOrWhiteSpace(text))
                 {
-                    throw new CompilerError($"Empty import file \"{fn}\"", import_token);
+                    throw new CompilerError($"Empty import file", import_token);
                 }
 
                 text = Preprocessor.Preprocess(text, platform);
@@ -182,11 +198,11 @@ namespace PragmaScript
                 foreach (var (import, token) in imports)
                 {
                     var dir = Path.GetDirectoryName(fn);
-                    var imp_fn = Path.GetFullPath(Path.Combine(dir, import));
-                    if (!imported.Contains(imp_fn))
+                    var importPath = ResolveImportPath(import, dir);
+                    if (!imported.Contains(importPath))
                     {
-                        toImport.Enqueue((imp_fn, token));
-                        imported.Add(imp_fn);
+                        toImport.Enqueue((importPath, token));
+                        imported.Add(importPath);
                     }
                 }
             }
