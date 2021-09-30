@@ -19,6 +19,7 @@ using PragmaScript;
 
 class TextDocumentSyncHandler : ITextDocumentSyncHandler
 {
+    public static string includeDirectory;
     private readonly ILanguageServer router;
     private readonly BufferManager buffers;
     private SynchronizationCapability capability;
@@ -37,6 +38,7 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
     {
         this.router = router;
         this.buffers = buffers;
+        
         compiler = new Compiler((fp) =>
         {
             var result = buffers.GetBuffer(fp);
@@ -88,13 +90,13 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
         bool foundError = false;
         try
         {
-            // Debugger.Launch();
-            var co = new PragmaScript.CompilerOptions
+            var co = new PragmaScript.CompilerOptionsBuild
             {
                 inputFilename = document.GetFileSystemPath(),
                 buildExecuteable = false,
                 lib_path = new List<string>(),
                 libs = new List<string>(),
+                include_dirs = new List<string>{ includeDirectory }
             };
             var (rootScope, tc) = compiler.Compile(co);
             buffers.Annotate(documentPath, rootScope, tc);

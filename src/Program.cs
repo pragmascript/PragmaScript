@@ -8,7 +8,7 @@ using static PragmaScript.AST;
 
 using CommandLine;
 using CommandLine.Text;
-
+using System.Web;
 
 namespace PragmaScript
 {
@@ -34,6 +34,7 @@ namespace PragmaScript
             string result = Path.Combine(Program.exeDir, dir);
             return result;
         }
+         
 
         static void TestCommandLineParser()
         {
@@ -75,7 +76,7 @@ namespace PragmaScript
 
         static void CreateNewProject(CompilerOptionsNew co)
         {
-            void CopyFromTemplate(string srcFilename, string destDir = "", params (string, string)[] replacements)
+            void CopyFromTemplate(string srcFilename, string destDir = "", params (string oldStr, string newStr)[] replacements)
             {
                 var src = RelDir(Path.Combine(@"..\template\", srcFilename));
                 Debug.Assert(File.Exists(src), srcFilename);
@@ -93,28 +94,29 @@ namespace PragmaScript
                     File.WriteAllText(dest, txt);
                 }
             }
-
-            var src = RelDir(@"..\include\system");
-            var dest = "system";
-            if (!Directory.Exists(dest))
+            if (co.CopySystemIncludes)
             {
-                Directory.CreateDirectory(dest);
-            }
-            if (!Directory.Exists(src))
-            {
-                System.Console.WriteLine($"Could not find system directory at \"{Path.GetFullPath(src)}\". Aborting...");
-                return;
-            }
-            foreach (var f in Directory.GetFiles(src))
-            {
-                var destPath = Path.Combine(dest, Path.GetFileName(f));
-                if (!File.Exists(destPath))
+                var src = RelDir("..\\include\\system");
+                var dest = "system";
+                if (!Directory.Exists(dest))
                 {
-                    File.Copy(f, destPath, overwrite: false);
+                    Directory.CreateDirectory(dest);
                 }
+                if (!Directory.Exists(src))
+                {
+                    System.Console.WriteLine($"Could not find system directory at \"{Path.GetFullPath(src)}\". Aborting...");
+                    return;
+                }
+                foreach (var f in Directory.GetFiles(src))
+                {
+                    var destPath = Path.Combine(dest, Path.GetFileName(f));
+                    if (!File.Exists(destPath))
+                    {
+                        File.Copy(f, destPath, overwrite: false);
+                    }
+                }    
             }
             CopyFromTemplate("main.prag");
-
             if (co.VSCode)
             {
                 if (!Directory.Exists(".vscode"))
@@ -122,7 +124,8 @@ namespace PragmaScript
                     Directory.CreateDirectory(".vscode");
                 }
                 CopyFromTemplate(@"launch.json", ".vscode");
-                CopyFromTemplate(@"settings.json", ".vscode");
+                var includeDirEscaped = HttpUtility.JavaScriptStringEncode(Path.GetFullPath(RelDir("..\\include")));
+                CopyFromTemplate(@"settings.json", ".vscode", ("$$includeDir$$", $"\"pragma.includeDirectory\": \"{includeDirEscaped}\""));
                 CopyFromTemplate(@"tasks.json", ".vscode");
                 var ps = new ProcessStartInfo("code", ".") { UseShellExecute = true };
                 Process.Start(ps);
@@ -190,6 +193,7 @@ namespace PragmaScript
 #endif
             coBuild.libs = new List<string>(coBuild.libs);
             coBuild.lib_path = new List<string>(coBuild.lib_path);
+            coBuild.include_dirs = new List<string>(coBuild.include_dirs);
 
             try
             {
@@ -197,15 +201,15 @@ namespace PragmaScript
             }
             catch (Exception e)
             {
-                if (e is CompilerError || e is LexerError)
-                {
-                    CompilerMessage(e.Message, CompilerMessageType.Error);
-                }
-                else
-                {
-                    Debugger.Launch();
-                    throw e;
-                }
+               if (e is CompilerError || e is LexerError)
+               {
+                   CompilerMessage(e.Message, CompilerMessageType.Error);
+               }
+               else
+               {
+                   Debugger.Launch();
+                   throw e;
+               }
             }
         }
 

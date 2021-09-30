@@ -39,8 +39,7 @@ namespace PragmaScript
             if (platform == Platform.WindowsX64)
             {
                 defines.Add("PLATFORM_WINDOWS");
-                CompilerOptionsBuild._i.libs.Add("kernel32.lib");
-                CompilerOptionsBuild._i.lib_path.Add(Program.RelDir("lib"));
+                
             }
             else if (platform == Platform.LinuxX64)
             {

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
 
 namespace LangServer
@@ -23,7 +24,16 @@ namespace LangServer
                 .WithHandler<DefinitionHandler>()
                 .WithHandler<SignatureHelpHandler>()
                 .WithHandler<HoverHandler>()
-            );
+                .OnStarted(async (languageServer, result, token) => {
+                    var configuration = await languageServer.Configuration.GetConfiguration(
+                        new ConfigurationItem {
+                            Section = "pragma"
+                        }
+                    ).ConfigureAwait(false);
+                    TextDocumentSyncHandler.includeDirectory = configuration["pragma:includeDirectory"];
+                })
+
+            ).ConfigureAwait(false);
             await server.WaitForExit;
         }
 

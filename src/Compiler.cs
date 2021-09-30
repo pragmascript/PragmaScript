@@ -47,6 +47,9 @@ namespace PragmaScript
         public IList<string> libs { get; set; }
         [Option('L', "lib-dirs", HelpText = "';' separated list of library search directories.", Separator = ';')]
         public IList<string> lib_path { get; set; }
+        
+        [Option('I', "include-dirs", HelpText = "';' separated list of include search directories.", Separator = ';')]
+        public IList<string> include_dirs { get; set; }
 
         [Option("shared-library", HelpText = "Set binary type to a shared library file.")]
         public bool dll { get; set; }
@@ -90,6 +93,9 @@ namespace PragmaScript
 
         [Option("vscode", HelpText = "Generate default VSCode Tasks, Launch and Settings files.")]
         public bool VSCode { get; set; } = false;
+        
+        [Option("copy-system-includes", HelpText = "Copies system includes to project directory.")]
+        public bool CopySystemIncludes { get; set; } = false;
     }
 
 
@@ -102,27 +108,33 @@ namespace PragmaScript
             this.GetFileText = GetFileText;
         }
         
-        string IncludeRelDir(string dir)
-        {
-            return Program.RelDir(Path.Combine("..\\include\\", dir));
-        }    
-        
-        string ResolveImportPath(string import, string dir)
+        string ResolveImportPath(string import, string dir, IList<string> includeDirs)
         {
             var result = Path.GetFullPath(Path.Combine(dir, import));
             if (!File.Exists(result))
             {
-                result = Path.GetFullPath(IncludeRelDir(import));
+                foreach (var incDir in includeDirs)
+                {
+                    result = Path.GetFullPath(Path.Combine(incDir, import));
+                    if (File.Exists(result)) 
+                    {
+                        break;
+                    }
+                }    
             }
             return result;
         }
         
         public (Scope root, TypeChecker tc) Compile(CompilerOptionsBuild options)
         {
+            CompilerOptionsBuild._i.lib_path.Add(Path.GetFullPath(Program.RelDir("..\\lib")));
+            CompilerOptionsBuild._i.include_dirs.Add(Path.GetFullPath(Program.RelDir("..\\include")));
+            
             Platform platform;
             if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
             {
                 platform = Platform.WindowsX64;
+                CompilerOptionsBuild._i.libs.Add("kernel32.lib");
             }
             else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux))
             {
@@ -160,7 +172,6 @@ namespace PragmaScript
             while (toImport.Count > 0)
             {
                 var (fn, import_token) = toImport.Dequeue();
-                Console.WriteLine($"parsing: {fn}");
                 string text;
                 try
                 {
@@ -180,7 +191,7 @@ namespace PragmaScript
 
                 if (string.IsNullOrWhiteSpace(text))
                 {
-                    throw new CompilerError($"Empty import file", import_token);
+                    throw new CompilerError($"Empty import file!", import_token);
                 }
 
                 text = Preprocessor.Preprocess(text, platform);
@@ -198,7 +209,7 @@ namespace PragmaScript
                 foreach (var (import, token) in imports)
                 {
                     var dir = Path.GetDirectoryName(fn);
-                    var importPath = ResolveImportPath(import, dir);
+                    var importPath = ResolveImportPath(import, dir, options.include_dirs);
                     if (!imported.Contains(importPath))
                     {
                         toImport.Enqueue((importPath, token));

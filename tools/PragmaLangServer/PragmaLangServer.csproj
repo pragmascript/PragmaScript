@@ -5,11 +5,11 @@
     <TargetFramework>net5.0</TargetFramework>
     <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' ">linux-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition=" '$(OS)' == 'Windows_NT' ">win7-x64</RuntimeIdentifier>
-    <PublishReadyToRun>true</PublishReadyToRun>
+    <!-- <PublishReadyToRun>true</PublishReadyToRun>
     <PublishReadyToRunShowWarnings>true</PublishReadyToRunShowWarnings>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>true</PublishTrimmed>
-    <SelfContained>true</SelfContained>
+    <SelfContained>true</SelfContained> -->
   </PropertyGroup>
 
   <ItemGroup>
