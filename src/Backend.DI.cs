@@ -573,7 +573,27 @@ namespace PragmaScript
             switch (t.kind)
             {
                 case TypeKind.Vector:
-                    return 16;
+                    {
+                        var vt = (VectorType)t;
+                        if (vt.elementType.kind == TypeKind.Float)
+                        {
+                            if (vt.elementCount == 4) 
+                            {
+                                return 16;
+                            }
+                            else if (vt.elementCount == 8)
+                            {
+                                return 32;
+                            }
+                            else
+                            {
+                                Debug.Assert(false, "vector type not supported!");
+                                return 32;
+                            }
+                        }
+                        return 16;
+                    }
+                    
                 case TypeKind.Struct:
                     {
                         var st = (StructType)t;

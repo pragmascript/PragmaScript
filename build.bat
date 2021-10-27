@@ -1,9 +1,11 @@
 cd src
 call dotnet build -c %1 
+
 cd..
 cd tools
 cd PragmaLangServer
 call dotnet publish -c %1 
+
 cd ..
 cd ..
 cd tools

@@ -312,6 +312,7 @@ namespace PragmaScript
             {
                 t.type = TokenType.String;
                 char last = current;
+                bool insideExcapeSequence = false;
                 do
                 {
                     pos++;
@@ -321,9 +322,10 @@ namespace PragmaScript
                         t.text = line.Substring(t.pos_idx, t.length - 1);
                         throw new LexerError("String constant exceeds line!", t);
                     }
+                    insideExcapeSequence = current == '\\' && last != '\\';
                     last = current;
                     current = line[pos];
-                } while (current != '"' || last == '\\');
+                } while (current != '"' || insideExcapeSequence);
                 pos++;
                 t.length++;
                 t.text = line.Substring(t.pos_idx, t.length);

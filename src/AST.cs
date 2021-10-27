@@ -99,6 +99,7 @@ namespace PragmaScript
                 sf.AddParam("shift", FrontendType.i32);
                 scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
             }
+            
         }
 
         static void addSpecialFunctions(Scope scope)

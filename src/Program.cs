@@ -174,11 +174,12 @@ namespace PragmaScript
 #if false
             coBuild = new CompilerOptionsBuild();
             coBuild.debug = true;
-            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"../../publish/current/samples"));
+            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"../../publish/current/new_samples"));
             System.IO.Directory.SetCurrentDirectory(programDir);
-            coBuild.inputFilename = Path.Combine(programDir, "basics", "hello_world.prag");
+            coBuild.inputFilename = Path.Combine(programDir, "hello_world", "hello_world.prag");
             coBuild.libs = new List<string>();
             coBuild.lib_path = new List<string>();
+            coBuild.include_dirs = new List<string>();
 #else
             if (coNew != null)
             {
@@ -194,22 +195,22 @@ namespace PragmaScript
             coBuild.libs = new List<string>(coBuild.libs);
             coBuild.lib_path = new List<string>(coBuild.lib_path);
             coBuild.include_dirs = new List<string>(coBuild.include_dirs);
-
+            
             try
             {
                 compiler.Compile(coBuild);
             }
             catch (Exception e)
             {
-               if (e is CompilerError || e is LexerError)
-               {
-                   CompilerMessage(e.Message, CompilerMessageType.Error);
-               }
-               else
-               {
-                   Debugger.Launch();
-                   throw e;
-               }
+                if (e is CompilerError || e is LexerError)
+                {
+                    CompilerMessage(e.Message, CompilerMessageType.Error);
+                }
+                else
+                {
+                    Debugger.Launch();
+                    throw e;
+                }
             }
         }
 

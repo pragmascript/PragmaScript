@@ -8,9 +8,6 @@ import "../../system/preamble.prag"
     "compile.debuginfo": "true"
 ]
 let main = fun () => void {    
-    print("hello, world!\n");
-    for (var i = 0; i < 12; ++i) {
-        debug_print("i", i);
-    }
+    var x = ord("\\");
 }
 

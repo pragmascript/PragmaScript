@@ -298,11 +298,22 @@ let __chkstk = extern fun () => void;
     }
 #endif
 
+
+let meke_empty_string = fun(capacity: i32; arena: memory_arena* = &temp_memory_arena) => string {
+    var result = string {};
+    result.data = push(arena, @mm capacity);
+    memset(result.data, 0, @mm result.capacity);
+    result.length = 0;
+    result.capacity = capacity;
+    return result;
+}
+
 let make_string = fun(length: i32; arena: memory_arena* = &temp_memory_arena) => string {
     var result = string {};
     result.data = push(arena, @mm length);
-    memset(result.data, 0, @mm result.length);
+    memset(result.data, 0, @mm length);
     result.length = length;
+    result.capacity = length;
     return result;
 }
 
@@ -315,11 +326,12 @@ let clone_string = fun(s: string; arena: memory_arena* = &temp_memory_arena) => 
 }
 
 let concat = fun(a: string; b: string; arena: memory_arena* = &temp_memory_arena) => string {
-    var result = make_string(a.length + b.length + 1, arena);
+    var result: string;
+    result = make_string(a.length + b.length + 1, arena);
     result[result.length - 1] = 0;
     result.length--;
     memcpy(result.data, a.data, @mm a.length);
-    memcpy(result.data + a.length, b.data, @mm b.length);
+    memcpy(result.data + a.length, b.data, @mm b.length);    
     return result;
 }
 

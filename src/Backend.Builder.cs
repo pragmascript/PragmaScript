@@ -289,9 +289,9 @@ namespace PragmaScript
             }
             public Value BuildAlloca(SSAType t, AST.Node contextNode, string name = null, int align = 0)
             {
-                if (align > 16)
+                if (align > 32)
                 {
-                    align = 16;
+                    align = 32;
                 }
                 var result = new Value(Op.Alloca, new PointerType(t));
                 result.alignment = align;
