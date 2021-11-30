@@ -1,0 +1,949 @@
+﻿mod Windows
+{
+
+  let STD_ERROR_HANDLE  = -12;
+  let STD_OUTPUT_HANDLE = -11;
+  let STD_INPUT_HANDLE  = -10;
+  let INVALID_HANDLE_VALUE:mm = 0xFFFFFFFFFFFFFFFF;
+
+  var console_output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+  var console_input_handle = GetStdHandle(STD_INPUT_HANDLE);
+  var console_error_handle = GetStdHandle(STD_ERROR_HANDLE);
+
+  let MAX_PATH = 260;
+
+  let WS_OVERLAPPEDWINDOW = 13565952;
+  let WS_OVERLAPPED = 0x00000000;
+  let WS_CAPTION = 0x00C00000;
+  let WS_SYSMENU = 0x00080000;
+  let WS_MINIMIZEBOX = 0x00020000;
+  let WS_MAXIMIZEBOX = 0x00010000;
+  let WS_VISIBLE    = 0x10000000; 
+  let WS_EX_TOPMOST = 0x00000008;
+  let WS_THICKFRAME = 0x00040000;
+
+
+  let CW_USEDEFAULT = 0x80000000;
+  let CS_OWNDC   = 0x0020;
+  let CS_HREDRAW = 0x0002;
+  let CS_VREDRAW = 0x0001;
+  let WM_PAINT = 15;
+  let WM_CLOSE = 16;
+  let WM_DESTROY = 2;
+  let WM_SIZE = 5;
+  let WM_SIZING = 0x0214;
+  let WM_QUIT = 18;
+  let WM_SYSKEYDOWN = 260;
+  let WM_SYSKEYUP = 261;
+  let WM_KEYDOWN = 256;
+  let WM_KEYUP = 257;
+  let WHITENESS = 16711778;
+  let BLACKNESS = 66;
+  let SRCCOPY = 13369376;
+  let DIB_RGB_COLORS = 0;
+  let BI_RGB = 0;
+  let MEM_COMMIT     = 0x00001000;
+  let MEM_RESERVE    = 0x00002000;
+  let MEM_RESET      = 0x00008000;
+  let MEM_RESET_UNDO = 0x10000000;
+  let MEM_LARGE_PAGES= 0x20000000;
+  let PAGE_READWRITE = 0x04;
+  let MEM_RELEASE = 0x8000;
+  let PM_NOREMOVE = 0x0000;
+  let PM_REMOVE = 0x0001;
+  let PM_NOYIELD = 0x0002;
+
+  
+  let VK_LBUTTON = 0x01;
+  let VK_RBUTTON = 0x02;
+  let VK_MBUTTON = 0x04;
+  let VK_BACK    = 0x08;
+  let VK_TAB     = 0x09;
+  let VK_ESCAPE  = 0x1B;
+  let VK_UP      = 0x26;
+  let VK_DOWN    = 0x28;
+  let VK_LEFT    = 0x25;
+  let VK_RIGHT   = 0x27;
+  let VK_SPACE   = 0x20;
+  let VK_RETURN   = 0x0D;
+  let VK_SHIFT = 0x10;
+  let VK_CONTROL = 0x11;
+  let VK_MENU = 0x12;
+  let VK_END = 0x23;
+  let VK_HOME = 0x24;
+  let VK_DELETE = 0x2E;
+  let VK_PRIOR = 0x21;
+  let VK_NEXT = 0x22;
+
+  let VK_F1 = 0x70;
+  let VK_F2 = 0x71;
+  let VK_F3 = 0x72;
+  let VK_F4 = 0x73;
+  let VK_F5 = 0x74;
+  let VK_F6 = 0x75;
+  let VK_F7 = 0x76;
+  let VK_F8 = 0x77;
+  let VK_F9 = 0x78;
+  let VK_F10 = 0x79;
+  let VK_F11 = 0x7A;
+  let VK_F12 = 0x7B;
+  let VK_F13 = 0x7C;
+  let VK_F14 = 0x7D;
+  let VK_F15 = 0x7E;
+  let VK_F16 = 0x7F;
+  let VK_F17 = 0x80;
+  let VK_F18 = 0x81;
+  let VK_F19 = 0x82;
+  let VK_F20 = 0x83;
+  let VK_F21 = 0x84;
+  let VK_F22 = 0x85;
+  let VK_F23 = 0x86;
+  let VK_F24 = 0x87;
+  
+  
+  let VK_ALT = VK_MENU;
+  
+  
+  let ToAscii = extern fun(
+    uVirtKey: i32;
+    uScanCode: i32;
+    lpKeyState: ptr;
+    lpChar: i16*;
+    uFlags: i32;
+  ) => i32;
+  
+  let GetKeyboardState = extern fun(lpKeyState: i8*) => i32;
+  
+  ["PACKED"]
+  let WNDCLASSEX = struct 
+  (
+    cbSize: i32;
+    style: i32;
+    lpfnWndProc: i8*;
+    cbClsExtra: i32;
+    cbWndExtra: i32;
+    hInstance: mm;
+    hIcon: mm;
+    hCursor: mm;
+    hbrBackground: mm;
+    lpszMenuName: i8*;
+    lpszClassName: i8*;
+    hIconSm: mm;
+  );
+
+  
+  ["PACKED"]
+  let POINT = struct 
+  (
+    x: i32;
+    y: i32;
+  );
+  ["PACKED"]
+  let MSG = struct
+  (
+    hwnd: mm;
+    message: i32;
+    wParam: mm;
+    lParam: mm;
+    time: i32;
+    pt: POINT;
+    pad: mm;
+  );
+  ["PACKED"]
+  let RECT = struct 
+  (
+    left: i32;
+    top: i32;
+    right: i32;
+    bottom: i32;
+  );
+  ["PACKED"]
+  let PAINTSTRUCT = struct
+  (
+    hdc: mm;
+    fErase: i32;
+    rcPaint: RECT;
+    fRestore: i32;
+    fIncUpdate: i32;
+    reserved0: mm;
+    reserved1: mm;
+    reserved2: mm;
+    reserved3: mm;
+  );
+  ["PACKED"]
+  let BITMAPINFOHEADER = struct
+  (
+    biSize: i32;
+    biWidth: i32;
+    biHeight: i32;
+    biPlanes: i16;
+    biBitCount: i16;
+    biCompression: i32;
+    biSizeImage: i32;
+    biXPelsPerMeter: i32;
+    biYPelsPerMeter: i32;
+    biClrUsed: i32;
+    biClrImportant: i32;
+  );
+  ["PACKED"]
+  let RGBQUAD = struct 
+  (
+    blue: i8;
+    green: i8;
+    red: i8;
+    reserved: i8;
+  );
+  ["PACKED"]
+  let BITMAPINFO = struct
+  (
+    header: BITMAPINFOHEADER;
+    rgb: RGBQUAD;
+  );
+
+  let GENERIC_READ    = 0x80000000;
+  let GENERIC_WRITE   = 0x40000000;
+  let FILE_SHARE_READ = 1;
+  let CREATE_ALWAYS   = 2;
+  let OPEN_EXISTING   = 3;
+  
+  let CreateFileA = extern fun
+  (
+    FileName: i8*;
+    DesiredAccess: i32;
+    SharedMode: i32;
+    SecurityAttributes: ptr;
+    CreationDisposition: i32;
+    FlagsAndAttributes: i32;
+    TemplateFile: mm;
+  ) => mm;
+  
+  let SECURITY_ATTRIBUTES = struct
+  (
+    nLength: i32;
+    SecurityDescriptor: ptr;
+    InheritHandle: i32;
+  );
+  
+  let STARTF_USESHOWWINDOW =        0x00000001;
+  let STARTF_USESIZE =              0x00000002;
+  let STARTF_USEPOSITION =          0x00000004;
+  let STARTF_USECOUNTCHARS =        0x00000008;
+  let STARTF_USEFILLATTRIBUTE =     0x00000010;
+  let STARTF_RUNFULLSCREEN =        0x00000020; // ignored for non-x86 platforms
+  let STARTF_FORCEONFEEDBACK =      0x00000040;
+  let STARTF_FORCEOFFFEEDBACK =     0x00000080;
+  let STARTF_USESTDHANDLES =        0x00000100;
+  
+  let CreatePipe = extern fun
+  (
+    ReadPipe: mm*;
+    WritePipe: mm*;
+    SecurityAttributes: SECURITY_ATTRIBUTES*;
+    nSize: i32;
+  ) => i32;
+  
+  
+  let PROCESS_INFORMATION = struct(
+    hProcess : mm;
+    hThread: mm;
+    dwProcessId: i32;
+    dwThreadId: i32;
+  );
+
+  let STARTUPINFOA = struct (
+    cb: i32;
+    lpReserved: i8*;
+    lpDesktop: i8*;
+    lpTitle: i8*;
+    dwX: i32;
+    dwY: i32;
+    dwXSize: i32;
+    dwYSize: i32;
+    dwXCountChars: i32;
+    dwYCountChars: i32;
+    dwFillAttribute: i32;
+    dwFlags: i32;
+    wShowWindow: i16;
+    cbReserved2: i16;
+    lpReserved2: ptr;
+    hStdInput: mm;
+    hStdOutput: mm;
+    hStdError: mm;
+  );
+    
+    
+  let CREATE_NEW_CONSOLE = 0x00000010;
+  let CreateProcessA = extern fun
+  (
+    ApplicationName: i8*;
+    CommandLine: i8*;
+    ProcessAttributes: ptr;
+    ThreadAttributes: ptr;
+    InheritHandles: i32;
+    CreationFlags: i32;
+    Environment: ptr;
+    CurrentDirectory: i8*;
+    StartupInfo: STARTUPINFOA*;
+    ProcessInformation: PROCESS_INFORMATION*;
+  ) => mm;
+  
+
+  let WriteFile = extern fun
+  (
+    hFile: mm;
+    // ["LLVM.NoCapture"]
+    lpBuffer: i8*;
+    nNumberOfBytesToWrite: i32;
+    // ["LLVM.NoCapture"]
+    lpNumberOfBytesWritten: i32*;
+    lpOverlapped: ptr;
+  ) => i32;
+
+  let CopyFileA = extern fun
+  (
+    source: i8*;
+    dest: i8*;
+    fail_if_exists: i32;
+  ) => i32;
+
+  let ReadFile = extern fun
+  (
+    hFile: mm;
+    lpBuffer: ptr;
+    nNumberOfBytesToRead: i32;
+    nNumberOfBytesRead: i32*;
+    lpOverlapped: ptr;
+  ) => i32;
+
+  let GetFileTime = extern fun 
+  (
+    hFile: mm;
+    CreationTime: i64*;
+    LastAccessTime: i64*;
+    LastWriteTime: i64*;
+  ) => i32;
+
+
+  ["PACKED"]
+  let WIN32_FILE_ATTRIBUTE_DATA = struct
+  (
+    FileAttributes: i32;
+    CreationTime:   i64;
+    LastAccessTime: i64;
+    LastWriteTime:  i64;
+    FileSize:       i64;
+  );
+
+  let GetFileExInfoStandard = 0;
+  let GetFileAttributesExA = extern fun
+  (
+    filename: i8*;
+    flags: i32;
+    data: WIN32_FILE_ATTRIBUTE_DATA*;
+  ) => i32;
+
+
+let GetFullPathNameA = extern fun(
+  
+) => i32;
+
+  ["PACKED"]
+  let WIN32_FIND_DATA = struct
+  (
+    FileAttributes: i32;
+    CreationTime: i64;
+    LastAccessTime: i64;
+    LastWriteTime: i64;
+    FileSize: i64;
+    Reserved: i64;
+    FileName: i8[260];
+    AlternateFileName: i8[14];
+  ); 
+  let FindFirstFileA = extern fun
+  (
+    FileName: i8*;
+    FindData: WIN32_FIND_DATA*;
+  ) => mm;
+  let FindNextFileA = extern fun(
+    handle: mm;
+    FindData: WIN32_FIND_DATA*;
+  ) => i32;
+
+  let FindClose = extern fun 
+  (
+    handle: mm;
+  ) => i32;
+
+  let GetFileSizeEx = extern fun
+  (
+    hFile: mm;
+    FileSizeHigh: i64*;
+  ) => i32;
+
+
+  let GetLastError = extern fun () => i32;
+  let GetStdHandle = extern fun (nStdHandle: i32) => mm;
+  let GetModuleHandleA = extern fun (lpModuleName: mm) => mm;
+  let GetModuleFileNameA = extern fun (hModule: mm; filename: i8*; size: i16) => i16;
+  let RegisterClassExA = extern fun (window_class: WNDCLASSEX*) => i16;
+  let DefWindowProcA = extern fun (window: mm; message: i32; w_param: mm; l_param: mm) => mm;
+  let ExitProcess = extern fun(signal: i32) => void;
+  
+  
+  let ANSI_CHARSET            = 0;
+  let DEFAULT_CHARSET         = 1;
+  let SYMBOL_CHARSET          = 2;
+  let OUT_DEFAULT_PRECIS          = 0;
+  let OUT_STRING_PRECIS           = 1;
+  let OUT_CHARACTER_PRECIS        = 2;
+  let OUT_STROKE_PRECIS           = 3;
+  let OUT_TT_PRECIS               = 4;
+  let OUT_DEVICE_PRECIS           = 5;
+  let OUT_RASTER_PRECIS           = 6;
+  let OUT_TT_ONLY_PRECIS          = 7;
+  let OUT_OUTLINE_PRECIS          = 8;
+  let OUT_SCREEN_OUTLINE_PRECIS   = 9;
+  let OUT_PS_ONLY_PRECIS          = 10;
+  let CLIP_DEFAULT_PRECIS     = 0;
+  let CLIP_CHARACTER_PRECIS   = 1;
+  let CLIP_STROKE_PRECIS      = 2;
+  let FW_DONTCARE         = 0;
+  let FW_THIN             = 100;
+  let FW_EXTRALIGHT       = 200;
+  let FW_LIGHT            = 300;
+  let FW_NORMAL           = 400;
+  let FW_MEDIUM           = 500;
+  let FW_SEMIBOLD         = 600;
+  let FW_BOLD             = 700;
+  let FW_EXTRABOLD        = 800;
+  let FW_HEAVY            = 900;
+  let DEFAULT_QUALITY         = 0;
+  let DRAFT_QUALITY           = 1;
+  let PROOF_QUALITY           = 2;
+  let NONANTIALIASED_QUALITY  = 3;
+  let ANTIALIASED_QUALITY     = 4;
+  let CLEARTYPE_QUALITY       = 5;
+  let CLEARTYPE_NATURAL_QUALITY       = 6;
+  let DEFAULT_PITCH           = 0;
+  let FIXED_PITCH             = 1;
+  let VARIABLE_PITCH          = 2;
+  let MONO_FONT               = 8;
+  let FF_DONTCARE         = (0<<4);
+  let AddFontResourceA = extern fun(str: i8*) => i32;
+  let CreateFontA = extern fun (
+    cHeight: i32;
+    cWidth: i32;
+    cEscapement: i32;
+    cOrientation: i32;
+    cWeight: i32;
+    bItalic: i32;
+    bUnderline: i32;
+    bStrikeOut: i32;
+    iCharSet: i32;
+    iOutPrecision: i32;
+    iClipPrecision: i32;
+    iQuality: i32;
+    iPitchAndFamily: i32;
+    pszFaceName: i8*
+  ) => mm;
+  
+  ["PACKED"]
+  let KERNINGPAIR = struct(
+    wFirst: i16;
+    wSecond: i16;
+    iKernAmount: i32;
+  );
+  let GetKerningPairsA = extern fun(dc: mm; nPairs:i32; lpKernPair: KERNINGPAIR*) => i32;
+  let SelectObject = extern fun(hdc: mm; h: mm) => mm;
+  
+  let ENABLE_ECHO_INPUT = 0x0004;
+  let ENABLE_EXTENDED_FLAGS = 0x0080;
+  let ENABLE_INSERT_MODE = 0x0020;
+  let ENABLE_LINE_INPUT = 0x0002;
+  let ENABLE_MOUSE_INPUT = 0x0010;
+  let ENABLE_PROCESSED_INPUT = 0x0001;
+  let ENABLE_WINDOW_INPUT = 0x0040;
+  let ENABLE_VIRTUAL_TERMINAL_INPUT = 0x0008;
+  let ENABLE_QUICK_EDIT_MODE = 0x0200;
+  let ENABLE_PROCESSED_OUTPUT = 0x0001;
+  let ENABLE_WRAP_AT_EOL_OUTPUT = 0x0002;
+  let ENABLE_VIRTUAL_TERMINAL_PROCESSING  = 0x0004;
+  let DISABLE_NEWLINE_AUTO_RETURN = 0x0008;
+  let ENABLE_LVB_GRID_WORLDWIDE = 0x0010;
+  let SetConsoleMode = extern fun(handle: mm; dwMode: i32) => i32;
+  
+  let FOREGROUND_BLUE = 0x0001;
+  let FOREGROUND_GREEN = 0x0002;
+  let FOREGROUND_RED = 0x0004;
+  let FOREGROUND_INTENSITY = 0x0008;
+  let BACKGROUND_BLUE = 0x0010;
+  let BACKGROUND_GREEN = 0x0020;
+  let BACKGROUND_RED = 0x0040;
+  let BACKGROUND_INTENSITY = 0x0080;
+  let COMMON_LVB_LEADING_BYTE = 0x0100;
+  let COMMON_LVB_TRAILING_BYTE = 0x0200;
+  let COMMON_LVB_GRID_HORIZONTAL = 0x0400;
+  let COMMON_LVB_GRID_LVERTICAL = 0x0800;
+  let COMMON_LVB_GRID_RVERTICAL = 0x1000;
+  let COMMON_LVB_REVERSE_VIDEO = 0x4000;
+  let COMMON_LVB_UNDERSCORE = 0x8000;
+  let SetConsoleTextAttribute = extern fun(handle: mm; wAttributes: i32) => i32;
+  
+  
+  let GetCommandLineA = extern fun() => ptr;
+  
+  let CreateWindowExA = extern fun
+  (
+     dwExStyle: i32;     
+     lpClassName: i8*;
+     lpWindowName: i8*;
+     dwStyle: i32;
+     x: i32;
+     y: i32;
+     nWidth: i32;
+     nHeight: i32;
+     hWndParent: mm;
+     hMenu: mm;
+    hInstance: mm;
+     lpParam: mm;
+  ) => mm;
+
+  let DestroyWindow = extern fun(
+    hWnd: mm;
+  ) => i32;
+
+  let GetMessageA = extern fun
+  (
+    message: MSG*;
+    hWnd: mm;
+    wMsgFilterMin: i32;
+    wMsgFilterMax: i32;
+  ) => i32;
+  let PeekMessageA = extern fun
+  (
+    message: MSG*;
+    hWnd: mm;
+    wMsgFilterMin: i32;
+    wMsgFilterMax: i32;
+    wRemoveMsg: i32;
+  ) => i32;
+
+  let TranslateMessage = extern fun (message: MSG*) => i32;
+  let DispatchMessageA = extern fun (message: MSG*) => mm;
+  let BeginPaint = extern fun (hwnd: mm; lpPaint: PAINTSTRUCT*) => mm;
+  let EndPaint = extern fun (hwnd: mm; lpPaint: PAINTSTRUCT*) => i32;
+  let GetClientRect = extern fun (hWnd: mm; rect: RECT*) => i32;
+  let PostQuitMessage = extern fun (nExitCode: i32) => void;
+  let CreateDIBSection = extern fun 
+  (
+    hdc: mm;
+    bitmap: BITMAPINFO*;
+    iUsage: i32;
+    ppvBits: ptr*;
+    hSection: mm; 
+    dwOffset: i32
+  ) => mm;
+
+  let StretchDIBits = extern fun 
+  (
+    hdc: mm;
+    xDest: i32;
+    yDest: i32;
+    nDestWidth: i32;
+    nDestHeight: i32;
+    XSrc: i32;
+    YSrc: i32;
+    nSrcWidth: i32;
+    nSrcHeight: i32;
+    lpBits: ptr;
+    lpBitsInfo: BITMAPINFO*;
+    iUsage: i32;
+    dwRop: i32;
+  ) => i32;
+
+  let AdjustWindowRectEx = extern fun 
+  (
+    lpRect: RECT*;
+    dwStyle: i32;
+    bMenu: i32;
+    dwExStyle: i32;
+  ) => i32;
+
+  // gdi32.lib
+  let PatBlt = extern fun 
+  (
+    hdc: mm;
+    nXLeft: i32;
+    nYLeft: i32;
+    nWidth: i32;
+    nHeight: i32;
+    dwRop: i32;
+  ) => i32;
+
+  let CloseHandle = extern fun (handle: mm) => i32;
+  let DeleteObject = extern fun (obj: mm) => i32;
+  let CreateCompatibleDC = extern fun (hdc: mm) => mm;
+  let GetDC = extern fun (hWnd: mm) => mm;
+  let ReleaseDC = extern fun (hWnd: mm; hdc: mm) => i32;
+  let GetCompatibleDC = extern fun (hdc: mm) => mm;
+
+  let VirtualAlloc = extern fun 
+  (
+    address: ptr;
+    size: mm;
+    allocation_type: i32;
+    protect: i32;
+  ) => ptr;
+
+  let VirtualFree = extern fun
+  (
+    address: ptr;
+    size: mm;
+    free_type: i32;
+  ) => i32;
+
+  let LoadLibraryA = extern fun (name: i8*) => mm;
+  let FreeLibrary = extern fun (lib: mm) => i32;
+  let GetProcAddress = extern fun(lib: mm; name: i8*) => ptr;
+
+  let QueryPerformanceCounter = extern fun(result: i64*) => i32;
+  let QueryPerformanceFrequency = extern fun(result: i64*) => i32;
+  let Sleep = extern fun (ms: i32) => void;
+  let timeBeginPeriod = extern fun (ms: i32) => i32;
+  let VREFRESH = 116;
+  let GetDeviceCaps = extern fun (hdc: mm; index: i32) => i32;
+  
+  
+  
+  // let ProcessorArchitecture = enum (
+  //     X86 = 0;
+  //     Arm = 5;
+  //     Itanium = 6;
+  //     X64 = 9;
+  //     ARM64 = 12;
+  //     Unknown = 0xFFFF;
+  // );
+
+  let SYSTEM_INFO  = struct (
+      ProcessorArchitecture: i32; //
+      PageSize: i32; // DWORD
+      MinimumApplicationAddress: ptr; // (long IntPtr)void*
+      MaximumApplicationAddress: ptr; // (long IntPtr)void*
+      ActiveProcessorMask: ptr;  // DWORD*
+      NumberOfProcessors: i32; // DWORD  uint(WTF)
+      ProcessorType: i32; // DWORD
+      AllocationGranularity: i32; // DWORD
+      ProcessorLevel: i16; // WORD
+      ProcessorRevision: i16; // WORD
+  );
+  let GetSystemInfo = extern fun(info: SYSTEM_INFO*) => void;
+  
+
+  let IDC_ARROW:mm = 32512;
+
+  let LoadCursorA = extern fun(hInstance: mm; cursor: mm) => mm;
+  let GetCursorPos = extern fun(pos: POINT*) => i32;
+  let GetKeyState = extern fun(vk: i32) => i16;
+  let ScreenToClient = extern fun(wnd: mm; pos: POINT*) => i32;
+
+
+
+  let ThreadProc = fun (param: ptr) => i32;
+  let CreateThread = extern fun 
+  (
+    lpThreadAttributes: ptr;
+    dwStackSize: mm;
+    lpStartAddress: ThreadProc;
+    lpParameter: ptr;
+    dwCreationFlags: i32;
+    lpThreadId: mm*;
+  ) => mm;
+  let GetCurrentThread = extern fun() => mm;
+  let THREAD_PRIORITY_HIGHEST       = 0x00000002;
+  let THREAD_PRIORITY_NORMAL        = 0x00000000;
+  let THREAD_PRIORITY_BELOW_NORMAL  = 0xFFFFFFFF;
+  let THREAD_PRIORITY_ABOVE_NORMAL  = 0x00000001;
+  let THREAD_PRIORITY_LOWEST        = 0xFFFFFFFE;
+  let THREAD_PRIORITY_IDLE          = 0xFFFFFFF1;
+  let THREAD_PRIORITY_TIME_CRITICAL = 0x0000000F;
+  let SetThreadPriority = extern fun (
+    thread_handle: mm;
+    priority: i32;
+  ) => i32;
+  let CreateEvent = extern("CreateEventA") fun(
+    securityAttributes: ptr;
+    manualReset: i32;
+    initialState: i32;
+    name: i8*;
+  ) => mm;
+  let INFINITE: i32 = 0xFFFFFFFF;
+  let WAIT_OBJECT_0: i32 = 0;
+  let WAIT_FAILED: i32 = 0xFFFFFFFF;
+  let WaitForSingleObject = extern fun (handle: mm; milliseconds: i32) => i32;
+
+  let ReleaseSemaphore = extern fun (handle: mm; lReleaseCount: i32; lpPreviousCount: i32*) => i32;
+  let CreateSemaphoreA = extern fun(
+    lpSemaphoreAttribures: ptr;
+    lInitialCount: i32;
+    lMaximumCount: i32;
+    lpName: i8*;
+  ) => mm;
+  
+
+  let SwapBuffers = extern fun(hdc: mm) => i32;
+  ["PACKED"]
+  let PIXELFORMATDESCRIPTOR = struct(
+    nSize: i16;
+    nVersion: i16;
+    dwFlags: i32;
+    iPixelType: i8;
+    cColorBits: i8;
+    cRedBits: i8;
+    cRedShift: i8;
+    cGreenBits: i8;
+    cGreenShift: i8;
+    cBlueBits: i8;
+    cBlueShift: i8;
+    cAlphaBits: i8;
+    cAlphaShift: i8;
+    cAccumBits: i8;
+    cAccumRedBits: i8;
+    cAccumGreenBits: i8;
+    cAccumBlueBits: i8;
+    cAccumAlphaBits: i8;
+    cDepthBits: i8;
+    cStencilBits: i8;
+    cAuxBuffers: i8;
+    iLayerType: i8;
+    bReserved: i8;
+    dwLayerMask: i32;
+    dwVisibleMask: i32;
+    dwDamageMask: i32;
+  );
+  let SetPixelFormat = extern fun(
+    hdc: mm;
+    iPixelFormat: i32;
+    ppfd: PIXELFORMATDESCRIPTOR*;
+  ) => i32;
+  let ChoosePixelFormat = extern fun(
+    hdc: mm;
+    ppfd: PIXELFORMATDESCRIPTOR*;
+  ) => i32;
+  let DescribePixelFormat = extern fun(
+    hdc: mm;
+    iPixelFormat: i32;
+    bytes: i32;
+    ppfd: PIXELFORMATDESCRIPTOR*;
+  ) => i32;
+
+  let PFD_TYPE_RGBA = 0;
+  let PFD_TYPE_COLORINDEX = 1;
+  let PFD_MAIN_PLANE = 0;
+  let PFD_OVERLAY_PLANE = 1;
+  let PFD_UNDERLAY_PLANE = (-1);
+  
+  let PFD_DOUBLEBUFFER = 0x00000001;
+  let PFD_STEREO = 0x00000002;
+  let PFD_DRAW_TO_WINDOW = 0x00000004;
+  let PFD_DRAW_TO_BITMAP = 0x00000008;
+  let PFD_SUPPORT_GDI = 0x00000010;
+  let PFD_SUPPORT_OPENGL = 0x00000020;
+  let PFD_GENERIC_FORMAT = 0x00000040;
+  let PFD_NEED_PALETTE = 0x00000080;
+  let PFD_NEED_SYSTEM_PALETTE = 0x00000100;
+  let PFD_SWAP_EXCHANGE = 0x00000200;
+  let PFD_SWAP_COPY = 0x00000400;
+  let PFD_SWAP_LAYER_BUFFERS = 0x00000800;
+  let PFD_GENERIC_ACCELERATED = 0x00001000;
+  let PFD_SUPPORT_DIRECTDRAW = 0x00002000;
+  let PFD_DIRECT3D_ACCELERATED = 0x00004000;
+  let PFD_SUPPORT_COMPOSITION = 0x00008000;
+  
+  let PFD_DEPTH_DONTCARE = 0x20000000;
+  let PFD_DOUBLEBUFFER_DONTCARE = 0x40000000;
+  let PFD_STEREO_DONTCARE = 0x80000000;
+
+
+  let CF_TEXT = 1;
+  let OpenClipboard = extern fun(hWndNewOwner: mm) => i32;
+  let GetClipboardData = extern fun(uFormat: i32) => mm;
+  let CloseClipboard  = extern fun() => i32;
+  let EmptyClipboard = extern fun() => i32;
+  let IsClipboardFormatAvailable = extern fun(uFormat: i32) => i32;
+  let SetClipboardData = extern fun(format: i32; hMem: mm) => mm;
+
+  let GHND = 0x0042;
+  let GMEM_FIXED = 0x0000;
+  let GMEM_MOVEABLE = 0x0002;
+  let GMEM_ZEROINIT = 0x0040;
+  let GPTR = 0x0040;
+  let GlobalAlloc = extern fun(flags: i32; bytes: mm) => mm;
+  let GlobalFree = extern fun(hMem: mm) => mm;
+  let GlobalLock = extern fun(hMem: mm) => ptr;
+  let GlobalUnlock = extern fun(hMem: mm) => i32;
+
+  // ********************** XINPUT ********************** 
+
+  let XUSER_MAX_COUNT = 4;
+  let XINPUT_SUCCESS = 0;
+  let XINPUT_DEVICE_NOT_CONNECTED = 1167;
+  ["PACKED"]
+  let XINPUT_GAMEPAD = struct
+  (
+    Buttons: i16; 
+    LeftTrigger: i8;
+    RightTrigger: i8;
+    ThumbLX: i16;
+    ThumbLY: i16;
+    ThumbRX: i16;
+    ThumbRY: i16; // 12
+  );
+
+  ["PACKED"]
+  let XINPUT_STATE = struct
+  (
+    PacketNumber: i32;
+    Gamepad: XINPUT_GAMEPAD;
+  );
+
+  var XInputGetState: fun 
+  (
+    dwUserIndex: i32;
+    state : XINPUT_STATE*
+  ) => i32;
+
+
+  // ********************** DIRECTSOUND ********************** 
+
+  let DS_OK = 0;
+  let WAVE_FORMAT_PCM = @i16 1;
+  let DSBCAPS_PRIMARYBUFFER = 1;
+  let DSBCAPS_GETCURRENTPOSITION2 = 0x10000;
+  let DSBPLAY_LOOPING = 1;
+  let DSSCL_PRIORITY = 2;
+
+  ["PACKED"]
+  let WAVEFORMATEX = struct
+  (
+    formatTag: i16;
+    channels: i16;
+    samplesPerSec: i32;
+    avgBytesPerSec: i32;
+    blockAlign: i16;
+    bitsPerSample: i16;
+    size: i16;
+  );
+
+
+  ["PACKED"]
+  let DSBUFFERDESC = struct
+  (
+    size: i32;
+    flags: i32;
+    bufferBytes: i32;
+    reserved: i32;
+    fxFormat: WAVEFORMATEX*;
+  ); 
+
+
+  ["PACKED"]
+  let IDirectSoundBuffer = struct
+  (
+    vtable: DirectSoundBufferFunctions*;
+  );
+
+  ["PACKED"]
+  let DirectSoundBufferFunctions = struct
+  (
+    _unused0: ptr;
+    _unused1: ptr;
+    _unused2: ptr;
+
+    _unused3: ptr; // GetCaps
+    GetCurrentPosition: fun
+    (
+      this: IDirectSoundBuffer*;
+      currentPlayCursor: i32*;
+      currentWriteCursor: i32*;
+    ) => i32;
+    _unused4: ptr; // GetFormat
+    _unused5: ptr; // GetVolume
+    _unused6: ptr; // GetPan
+    _unused7: ptr; // GetFrequency
+    _unused8: ptr; // GetStatus
+    _usused9: ptr; // Initialize
+    Lock: fun
+    (
+      this: IDirectSoundBuffer*;
+      writeCursor: i32;
+      writeBytes: i32;
+      audioRegion1: ptr*;
+      audioRegion1Size: i32*;
+      audioRegion2: ptr*;
+      audioRegion2Size: i32*;
+      flags: i32;
+    ) => i32;
+    Play: fun
+    (
+      this: IDirectSoundBuffer*;
+      reserved: i32;
+      priority: i32;
+      flags: i32;
+    ) => i32;
+    _usused10: ptr; // SetCurrentPosition
+    SetFormat: fun
+    (
+      this: IDirectSoundBuffer*;
+      format: WAVEFORMATEX*;
+    ) => i32;
+    _usused11: ptr; // SetVolume
+    _usused12: ptr; // SetPan
+    _usused14: ptr; // SetFrequency
+    Stop: fun
+    (
+    ) => i32;
+    Unlock: fun
+    (
+      this: IDirectSoundBuffer*;
+      audioRegion1: ptr;
+      audioRegion1Size: i32;
+      audioRegion2: ptr;
+      audioRegion2Size: i32;
+    ) => i32;
+    _usused15: ptr;
+  );
+
+  ["PACKED"]
+  let IDirectSound = struct
+  (
+    vtable: DirectSoundFunctions*;
+  ); 
+
+  ["PACKED"]
+  let DirectSoundFunctions = struct
+  (
+    _unused0: ptr;
+    _unused1: ptr;
+    _unused2: ptr;
+    CreateSoundBuffer: fun
+    (
+      this: IDirectSound*;
+      desc: DSBUFFERDESC*;
+      dsb: IDirectSoundBuffer**;
+      unused: ptr;
+    ) => i32;
+    _unused3: ptr; // GetCaps
+    _unused4: ptr; // DuplicateSoundBuffer
+    SetCooperativeLevel: fun
+    (
+      this: IDirectSound*;
+      hwnd: mm;
+      level: i32;
+    ) => i32;
+    _unused5: ptr; // Compact
+    _unused6: ptr; // GetSpeakerConfig
+    _unused7: ptr; // SetSpeakerConfig
+    _unused8: ptr; // Initialize
+  );
+}
+

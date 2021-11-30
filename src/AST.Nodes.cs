@@ -749,15 +749,69 @@ namespace PragmaScript
         public class Assignment : Node, ICanReturnPointer
         {
             public enum AssignmentType { Regular, Vector }
+            public enum CompoundAssignmentType
+            {
+                None = Token.TokenType.Assignment,
+                Plus = Token.TokenType.PlusEquals,
+                RightShift = Token.TokenType.RightShiftEquals,
+                LeftShift = Token.TokenType.LeftShiftEquals,
+                Or = Token.TokenType.OrEquals,
+                Divide = Token.TokenType.DivideEquals,
+                And = Token.TokenType.AndEquals,
+                Remainder = Token.TokenType.RemainderEquals,
+                Multiply = Token.TokenType.MultiplyEquals,
+                Minus = Token.TokenType.MinusEquals,
+                Xor = Token.TokenType.XorEquals,
+                DivideUnsigned = Token.TokenType.DivideEqualsUnsigned,
+                RightShiftUnsigned = Token.TokenType.RightShiftEqualsUnsigned
+            }
             public Node left;
             public Node right;
             public AssignmentType type;
+            public CompoundAssignmentType compoundType;
+
+            public AST.BinOp.BinOpType compoundBinOpType
+            {
+                get
+                {
+                    switch (compoundType)
+                    {
+                        case CompoundAssignmentType.None: return AST.BinOp.BinOpType.None;
+                        case CompoundAssignmentType.Plus: return AST.BinOp.BinOpType.Add;
+                        case CompoundAssignmentType.RightShift: return AST.BinOp.BinOpType.RightShift;
+                        case CompoundAssignmentType.LeftShift: return AST.BinOp.BinOpType.LeftShift;
+                        case CompoundAssignmentType.Or: return AST.BinOp.BinOpType.LogicalOR;
+                        case CompoundAssignmentType.Divide: return AST.BinOp.BinOpType.Divide;
+                        case CompoundAssignmentType.And: return AST.BinOp.BinOpType.LogicalAND;
+                        case CompoundAssignmentType.Remainder: return AST.BinOp.BinOpType.Remainder;
+                        case CompoundAssignmentType.Multiply: return AST.BinOp.BinOpType.Multiply;
+                        case CompoundAssignmentType.Minus: return AST.BinOp.BinOpType.Subtract;
+                        case CompoundAssignmentType.Xor: return AST.BinOp.BinOpType.LogicalXOR;
+                        case CompoundAssignmentType.DivideUnsigned: return AST.BinOp.BinOpType.DivideUnsigned;
+                        case CompoundAssignmentType.RightShiftUnsigned: return AST.BinOp.BinOpType.RightShiftUnsigned;
+                        default:
+                            Debug.Assert(false);
+                            return AST.BinOp.BinOpType.None;
+                            
+                    }
+                }
+            }
 
 
             public Assignment(Token t, Scope s)
                 : base(t, s)
             {
+                SetCompoundAssignmentType(t);
             }
+
+
+
+            void SetCompoundAssignmentType(Token op)
+            {
+                Debug.Assert(op.isAssignmentOperator());
+                compoundType = (CompoundAssignmentType)op.type;
+            }
+
             public override Node DeepCloneTree()
             {
                 var result = new Assignment(token, scope);
@@ -766,6 +820,7 @@ namespace PragmaScript
                 result.type = type;
                 return result;
             }
+
             public bool returnPointer { get; set; }
             public bool CanReturnPointer()
             {
@@ -1279,12 +1334,31 @@ namespace PragmaScript
         {
             public enum BinOpType
             {
-                Add, Subract, Multiply, Divide, ConditionalOR, ConditionaAND, LogicalOR, LogicalXOR, LogicalAND, Equal, NotEqual, Greater, Less, GreaterEqual, LessEqual, LeftShift, RightShift, RightShiftUnsigned, Remainder,
-                GreaterEqualUnsigned,
-                LessEqualUnsigned,
-                GreaterUnsigned,
-                LessUnsigned,
-                DivideUnsigned
+                None,
+                Add = Token.TokenType.Add,
+                Subtract = Token.TokenType.Subtract,
+                Multiply = Token.TokenType.Multiply,
+                Divide = Token.TokenType.Divide,
+                ConditionalOR = Token.TokenType.ConditionalOR,
+                ConditionalAND = Token.TokenType.ConditionalAND,
+                LogicalOR = Token.TokenType.LogicalOR,
+                LogicalXOR = Token.TokenType.LogicalXOR,
+                LogicalAND = Token.TokenType.LogicalAND,
+                Equal = Token.TokenType.Equal,
+                NotEqual = Token.TokenType.NotEqual,
+                Greater = Token.TokenType.Greater,
+                Less = Token.TokenType.Less,
+                GreaterEqual = Token.TokenType.GreaterEqual,
+                LessEqual = Token.TokenType.LessEqual,
+                LeftShift = Token.TokenType.LeftShift,
+                RightShift = Token.TokenType.RightShift,
+                RightShiftUnsigned = Token.TokenType.RightShiftUnsigned,
+                Remainder = Token.TokenType.Remainder,
+                GreaterEqualUnsigned = Token.TokenType.GreaterEqualUnsigned,
+                LessEqualUnsigned = Token.TokenType.LessEqualUnsigned,
+                GreaterUnsigned = Token.TokenType.GreaterUnsigned,
+                LessUnsigned = Token.TokenType.LessUnsigned,
+                DivideUnsigned = Token.TokenType.DivideUnsigned
             }
             public BinOpType type;
 
@@ -1305,86 +1379,23 @@ namespace PragmaScript
             }
             public void SetTypeFromToken(Token next)
             {
-                switch (next.type)
+                if (!next.IsBinOp())
                 {
-                    case Token.TokenType.Add:
-                        type = BinOpType.Add;
-                        break;
-                    case Token.TokenType.Subtract:
-                        type = BinOpType.Subract;
-                        break;
-                    case Token.TokenType.Multiply:
-                        type = BinOpType.Multiply;
-                        break;
-                    case Token.TokenType.Divide:
-                        type = BinOpType.Divide;
-                        break;
-                    case Token.TokenType.DivideUnsigned:
-                        type = BinOpType.DivideUnsigned;
-                        break;
-                    case Token.TokenType.Remainder:
-                        type = BinOpType.Remainder;
-                        break;
-                    case Token.TokenType.LeftShift:
-                        type = BinOpType.LeftShift;
-                        break;
-                    case Token.TokenType.RightShift:
-                        type = BinOpType.RightShift;
-                        break;
-                    case Token.TokenType.RightShiftUnsigned:
-                        type = BinOpType.RightShiftUnsigned;
-                        break;
-                    case Token.TokenType.ConditionalOR:
-                        type = BinOpType.ConditionalOR;
-                        break;
-                    case Token.TokenType.ConditionalAND:
-                        type = BinOpType.ConditionaAND;
-                        break;
-                    case Token.TokenType.LogicalOR:
-                        type = BinOpType.LogicalOR;
-                        break;
-                    case Token.TokenType.LogicalXOR:
-                        type = BinOpType.LogicalXOR;
-                        break;
-                    case Token.TokenType.LogicalAND:
-                        type = BinOpType.LogicalAND;
-                        break;
-                    case Token.TokenType.Equal:
-                        type = BinOpType.Equal;
-                        break;
-                    case Token.TokenType.NotEquals:
-                        type = BinOpType.NotEqual;
-                        break;
-                    case Token.TokenType.Greater:
-                        type = BinOpType.Greater;
-                        break;
-                    case Token.TokenType.Less:
-                        type = BinOpType.Less;
-                        break;
-                    case Token.TokenType.GreaterEqual:
-                        type = BinOpType.GreaterEqual;
-                        break;
-                    case Token.TokenType.LessEqual:
-                        type = BinOpType.LessEqual;
-                        break;
-                    case Token.TokenType.GreaterUnsigned:
-                        type = BinOpType.GreaterUnsigned;
-                        break;
-                    case Token.TokenType.LessUnsigned:
-                        type = BinOpType.LessUnsigned;
-                        break;
-                    case Token.TokenType.GreaterEqualUnsigned:
-                        type = BinOpType.GreaterEqualUnsigned;
-                        break;
-                    case Token.TokenType.LessEqualUnsigned:
-                        type = BinOpType.LessEqualUnsigned;
-                        break;
-                    default:
-                        throw new CompilerError("Invalid token type for binary operation", next);
+                    throw new CompilerError("Invalid token type for binary operation", next);
                 }
+                type = (BinOpType)next.type;
             }
 
-            internal bool isEither(params BinOpType[] types)
+            internal static bool IsAny(BinOpType type, params BinOpType[] types)
+            {
+                for (int i = 0; i < types.Length; ++i)
+                {
+                    if (type == types[i])
+                        return true;
+                }
+                return false;
+            }
+            internal bool IsAny(params BinOpType[] types)
             {
                 for (int i = 0; i < types.Length; ++i)
                 {
@@ -1406,7 +1417,7 @@ namespace PragmaScript
                 {
                     case BinOpType.Add:
                         return "+";
-                    case BinOpType.Subract:
+                    case BinOpType.Subtract:
                         return "-";
                     case BinOpType.Multiply:
                         return "*";
@@ -1416,7 +1427,7 @@ namespace PragmaScript
                         return "/\\";
                     case BinOpType.ConditionalOR:
                         return "||";
-                    case BinOpType.ConditionaAND:
+                    case BinOpType.ConditionalAND:
                         return "&&";
                     case BinOpType.LogicalOR:
                         return "|";

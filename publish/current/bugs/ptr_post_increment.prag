@@ -1,5 +1,0 @@
-import "../preamble.prag"
-
-let foo = fun() => void {
-    
-}

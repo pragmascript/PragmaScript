@@ -811,14 +811,13 @@ namespace PragmaScript
                 left = a;
                 next = ps.PeekToken();
             }
-
+                    
             for (int i = 0; i < assignments.Count; ++i)
             {
                 var a = assignments[i];
-
+#if false
                 if (a.token.type != Token.TokenType.Assignment)
                 {
-                    
                     // TODO(pragma): THIS IS A BUG WEHN WE HAVE *ptr++ += 7; since it will evaluate the ptr++ TWICE!
                     // FIXME
                     var left_copy = a.left.DeepCloneTree();
@@ -866,6 +865,7 @@ namespace PragmaScript
                             break;
                     }
                 }
+#endif
                 if (!ActivateReturnPointer(a.left))
                 {
                     if (a.left is VariableReference)
@@ -1019,7 +1019,7 @@ namespace PragmaScript
                         || tt == Token.TokenType.GreaterEqualUnsigned;
                 case 6:
                     return tt == Token.TokenType.Equal
-                        || tt == Token.TokenType.NotEquals;
+                        || tt == Token.TokenType.NotEqual;
                 case 7:
                     return tt == Token.TokenType.LogicalAND;
                 case 8:

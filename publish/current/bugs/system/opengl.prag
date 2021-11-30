@@ -1,0 +1,273 @@
+// https://www.khronos.org/opengl/wiki/OpenGL_Type
+
+let wglCreateContext = extern fun(window_dc: mm) => mm;
+let wglDeleteContext = extern fun(gl_rc: mm) => i32;
+let wglMakeCurrent = extern fun(window_dc: mm; gl_rc: mm) => i32;
+let wglGetProcAddress = extern fun(str: ptr) => ptr;
+
+let glClearColor = extern fun(r: f32; g: f32; b: f32; a: f32) => void;
+let glClear = extern fun(flags: i32) => void;
+let glViewport = extern fun(x: i32; y: i32; width: i32; height: i32) => void;
+let glScissor = extern fun(x: i32; y: i32; width: i32; height: i32) => void;
+
+let glBegin = extern fun(flags: i32) => void;
+let glColor3f = extern fun(r: f32; g: f32; b: f32) => void;
+let glVertex3f = extern fun(x: f32; y: f32; z: f32) => void;
+let glEnd = extern fun() => void;
+
+let glEnable = extern fun(cap: i32) => void;
+let glGetString = extern fun(flags: i32) => ptr;
+let glGetIntegerv = extern fun(flags: i32; param: i32*) => void;
+
+let glTexParameteri = extern fun(target: i32; pname: i32; param: i32) => void;
+let glTexImage2D = extern fun(target: i32; level: i32; internalformat: i32; width: i32; height: i32; border: i32; format: i32; type: i32; pixels: ptr) => void;
+
+
+let glDebugMessageCallbackType = fun(
+    source: i32;
+    type: i32;
+    id: i32;
+    severity: i32;
+    message: ptr;
+    userParam: ptr;
+) => void;
+
+let GL_DEPTH_BUFFER_BIT   = 0x00000100;
+let GL_STENCIL_BUFFER_BIT = 0x00000400;
+let GL_COLOR_BUFFER_BIT   = 0x00004000;
+let GL_TRIANGLES          =     0x0004;
+
+let GL_SHADING_LANGUAGE_VERSION = 0x8B8C;
+let GL_VENDOR             =       0x1F00;
+let GL_RENDERER           =       0x1F01;
+let GL_VERSION            =       0x1F02;
+let GL_EXTENSIONS         =       0x1F03;
+
+let GL_TRUE  = 1;
+let GL_FALSE = 0;
+
+let GL_BYTE                         = 0x1400;
+let GL_UNSIGNED_BYTE                = 0x1401;
+let GL_SHORT                        = 0x1402;
+let GL_UNSIGNED_SHORT               = 0x1403;
+let GL_INT                          = 0x1404;
+let GL_UNSIGNED_INT                 = 0x1405;
+let GL_FLOAT                        = 0x1406;
+
+let GL_RED                            = 0x1903;
+let GL_GREEN                          = 0x1904;
+let GL_BLUE                           = 0x1905;
+let GL_ALPHA                          = 0x1906;
+let GL_RGB                            = 0x1907;
+let GL_RGBA                           = 0x1908;
+let GL_BGR                            = 0x80E0;
+let GL_BGRA                           = 0x80E1;
+
+
+let GL_TEXTURE_2D                      = 0x0DE1;
+let GL_NEAREST                         = 0x2600;
+let GL_LINEAR                          = 0x2601;
+let GL_NEAREST_MIPMAP_NEAREST          = 0x2700;
+let GL_LINEAR_MIPMAP_NEAREST           = 0x2701;
+let GL_NEAREST_MIPMAP_LINEAR           = 0x2702;
+let GL_LINEAR_MIPMAP_LINEAR            = 0x2703;
+let GL_TEXTURE_MAG_FILTER              = 0x2800;
+let GL_TEXTURE_MIN_FILTER              = 0x2801;
+let GL_TEXTURE_WRAP_S                  = 0x2802;
+let GL_TEXTURE_WRAP_T                  = 0x2803;
+let GL_REPEAT                          = 0x2901;
+let GL_CLAMP_TO_EDGE                   = 0x812F;
+
+let GL_TEXTURE0                       = 0x84C0;
+let GL_TEXTURE1                       = 0x84C1;
+let GL_TEXTURE2                       = 0x84C2;
+let GL_TEXTURE3                       = 0x84C3;
+let GL_TEXTURE4                       = 0x84C4;
+let GL_TEXTURE5                       = 0x84C5;
+let GL_TEXTURE6                       = 0x84C6;
+let GL_TEXTURE7                       = 0x84C7;
+let GL_TEXTURE8                       = 0x84C8;
+let GL_TEXTURE9                       = 0x84C9;
+let GL_TEXTURE10                      = 0x84CA;
+let GL_TEXTURE11                      = 0x84CB;
+let GL_TEXTURE12                      = 0x84CC;
+let GL_TEXTURE13                      = 0x84CD;
+let GL_TEXTURE14                      = 0x84CE;
+let GL_TEXTURE15                      = 0x84CF;
+let GL_TEXTURE16                      = 0x84D0;
+let GL_TEXTURE17                      = 0x84D1;
+let GL_TEXTURE18                      = 0x84D2;
+let GL_TEXTURE19                      = 0x84D3;
+let GL_TEXTURE20                      = 0x84D4;
+let GL_TEXTURE21                      = 0x84D5;
+let GL_TEXTURE22                      = 0x84D6;
+let GL_TEXTURE23                      = 0x84D7;
+let GL_TEXTURE24                      = 0x84D8;
+let GL_TEXTURE25                      = 0x84D9;
+let GL_TEXTURE26                      = 0x84DA;
+let GL_TEXTURE27                      = 0x84DB;
+let GL_TEXTURE28                      = 0x84DC;
+let GL_TEXTURE29                      = 0x84DD;
+let GL_TEXTURE30                      = 0x84DE;
+let GL_TEXTURE31                      = 0x84DF;
+
+
+
+let GL_ARRAY_BUFFER                 = 0x8892;
+let GL_ELEMENT_ARRAY_BUFFER         = 0x8893;
+let GL_ARRAY_BUFFER_BINDING         = 0x8894;
+let GL_ELEMENT_ARRAY_BUFFER_BINDING = 0x8895;
+
+let GL_STREAM_DRAW                  = 0x88E0;
+let GL_STREAM_READ                  = 0x88E1;
+let GL_STREAM_COPY                  = 0x88E2;
+let GL_STATIC_DRAW                  = 0x88E4;
+let GL_STATIC_READ                  = 0x88E5;
+let GL_STATIC_COPY                  = 0x88E6;
+let GL_DYNAMIC_DRAW                 = 0x88E8;
+let GL_DYNAMIC_READ                 = 0x88E9;
+let GL_DYNAMIC_COPY                 = 0x88EA;
+
+let GL_FRAGMENT_SHADER              = 0x8B30;
+let GL_VERTEX_SHADER                = 0x8B31;
+let GL_COMPILE_STATUS               = 0x8B81;
+let GL_LINK_STATUS                  = 0x8B82;
+
+let GL_VIEWPORT                     = 0x0BA2;
+
+let GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB = 0x8242;
+
+let WGL_DRAW_TO_WINDOW_ARB           = 0x2001;
+let WGL_ACCELERATION_ARB             = 0x2003;
+let WGL_SUPPORT_OPENGL_ARB           = 0x2010;
+let WGL_DOUBLE_BUFFER_ARB            = 0x2011;
+let WGL_PIXEL_TYPE_ARB               = 0x2013;
+let WGL_TYPE_RGBA_ARB                = 0x202B;
+let WGL_FULL_ACCELERATION_ARB        = 0x2027;
+let WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB = 0x20A9;
+let WGL_SAMPLE_BUFFERS_ARB           = 0x2041;
+let WGL_SAMPLES_ARB                  = 0x2042;
+
+let WGL_CONTEXT_MAJOR_VERSION_ARB           = 0x2091;
+let WGL_CONTEXT_MINOR_VERSION_ARB           = 0x2092;
+let WGL_CONTEXT_LAYER_PLANE_ARB             = 0x2093;
+let WGL_CONTEXT_FLAGS_ARB                   = 0x2094;
+let WGL_CONTEXT_PROFILE_MASK_ARB            = 0x9126;
+let WGL_CONTEXT_DEBUG_BIT_ARB               = 0x0001;
+let WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB  = 0x0002;
+let WGL_CONTEXT_CORE_PROFILE_BIT_ARB        = 0x00000001;
+let WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB = 0x00000002;
+
+
+let GL_DEBUG_SOURCE_API               = 0x8246;
+let GL_DEBUG_SOURCE_WINDOW_SYSTEM     = 0x8247;
+let GL_DEBUG_SOURCE_SHADER_COMPILER   = 0x8248;
+let GL_DEBUG_SOURCE_THIRD_PARTY       = 0x8249;
+let GL_DEBUG_SOURCE_APPLICATION       = 0x824A;
+let GL_DEBUG_SOURCE_OTHER             = 0x824B;
+let GL_DEBUG_TYPE_ERROR               = 0x824C;
+let GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR = 0x824D;
+let GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR  = 0x824E;
+let GL_DEBUG_TYPE_PORTABILITY         = 0x824F;
+let GL_DEBUG_TYPE_PERFORMANCE         = 0x8250;
+let GL_DEBUG_TYPE_OTHER               = 0x8251;
+let GL_DEBUG_TYPE_MARKER              = 0x8268;
+let GL_DEBUG_TYPE_PUSH_GROUP          = 0x8269;
+let GL_DEBUG_TYPE_POP_GROUP           = 0x826A;
+let GL_DEBUG_SEVERITY_HIGH            = 0x9146;
+let GL_DEBUG_SEVERITY_MEDIUM          = 0x9147;
+let GL_DEBUG_SEVERITY_LOW             = 0x9148;
+let GL_DEBUG_SEVERITY_NOTIFICATION    = 0x826B;
+let GL_SCISSOR_TEST                   = 0x0C11;
+
+var wglCreateContextAttribsARB: fun(
+    hdc: mm;
+    hShareContext: mm;
+    attribList: i32*;
+) => mm;
+var wglChoosePixelFormatARB: fun(
+    hdc: mm;
+    piAttribIList: i32*;
+    pfAttribFList: f32*;
+    nMaxFormats: i32;
+    piFormats: i32*;
+    nNumFormats: i32*; 
+) => i32;
+var wglSwapIntervalEXT: fun(value: i32) => i32;
+var wglGetExtensionsStringEXT: fun() => ptr;
+
+var glDebugMessageCallback: fun(
+    callback: glDebugMessageCallbackType;
+    userParam: ptr;
+ ) => void;
+
+
+var glGenTextures: fun(count: i32; textures: i32*) => void;
+var glBindTexture: fun(target: i32; texture: i32) => void;
+var glActiveTexture: fun(texture: i32) => void;
+var glGenerateMipmap: fun(target: i32) => void;
+
+var glGenBuffers: fun(count: i32; buffers: i32*) => void;
+var glBindBuffer: fun(target: i32; buffer: i32) => void;
+var glBufferData: fun(mode: i32; size: mm; data: ptr; usage: i32) => void;
+var glEnableVertexAttribArray: fun(index: i32) => void;
+var glDisableVertexAttribArray: fun(index: i32) => void;
+var glVertexAttribPointer: fun
+(
+    index: i32;
+    size: i32;
+    type: i32;
+    normalized: i32; // TODO(pragma): make b32 type
+    stride: i32;
+    data: ptr;
+) => void;
+
+var glCreateShader: fun(shaderType: i32) => i32;
+var glShaderSource: fun(
+    shader: i32;
+    count: i32;
+    source: i8**;
+    length: i32*
+    ) => void;
+var glCompileShader: fun(shader: i32) => void;
+var glDeleteShader: fun(shader: i32) => void;
+
+
+var glCreateProgram: fun() => i32;
+var glAttachShader: fun(program: i32; shader: i32) => void;
+var glLinkProgram: fun(program: i32) => void;
+var glUseProgram: fun(program: i32) => void;
+var glDeleteProgram: fun(program: i32) => void;
+var glGetShaderiv: fun(shader: i32; pname: i32; params: i32*) => void;
+var glGetProgramiv: fun(program: i32; pname: i32; params: i32*) => void;
+var glGetShaderInfoLog: fun(
+    shader: i32;
+    maxLength: i32;
+    legnth: i32*;
+    infoLog: i8*) => void;
+var glGetProgramInfoLog: fun(
+    program: i32;
+    maxLength: i32;
+    legnth: i32*;
+    infoLog: i8*) => void;
+    
+var glUniform1i: fun(location: i32; v0: i32) => void;
+var glUniform1f: fun(location: i32; v0: f32) => void;
+var glUniform4f: fun(location: i32; v0: f32; v1: f32; v2: f32; v3: f32) => void;
+var glGetUniformLocation: fun(program: i32; name: i8*) => i32;
+
+var glGenVertexArrays: fun(count: i32; arrays: i32*) => void;
+var glBindVertexArray: fun(array: i32) => void;
+
+var glDrawArrays: fun(
+    mode: i32;
+    first: i32;
+    count: i32;
+) => void;
+var glDrawElements: fun(
+    mode: i32;
+    count: i32;
+    type: i32;
+    indices: ptr;
+) => void;
+

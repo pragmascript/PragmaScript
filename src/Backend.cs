@@ -732,41 +732,20 @@ namespace PragmaScript
         }
 
 
-        void InvalidBinOp(AST.BinOp node)
+        void InvalidBinOp(AST.Node node, FrontendType leftFrontendType, FrontendType rightFrontendType)
         {
-            var text = $"Binary operator \"{node.token.text}\" not defined for types \"{this.typeChecker.GetNodeType(node.left)}\" and \"{this.typeChecker.GetNodeType(node.right)}\"!";
+            var text = $"Binary operator \"{node.token.text}\" not defined for types \"{leftFrontendType}\" and \"{rightFrontendType}\"!";
             throw new CompilerError(text, node.token);
         }
-
-        public void Visit(AST.BinOp node)
+        
+        Value CreateBinOP(AST.Node node, AST.BinOp.BinOpType binOpType, Value left, FrontendType leftFrontendType, Value right, FrontendType rightFrontendType)
         {
-            if (node.type == AST.BinOp.BinOpType.ConditionalOR)
-            {
-                VisitConditionalOR(node);
-                return;
-            }
-            if (node.type == AST.BinOp.BinOpType.ConditionaAND)
-            {
-                visitConditionalAND(node);
-                return;
-            }
-
-            Visit(node.left);
-            var left = valueStack.Pop();
-            Visit(node.right);
-            var right = valueStack.Pop();
-
-            var leftFrontendType = typeChecker.GetNodeType(node.left);
-            var rightFrontendType = typeChecker.GetNodeType(node.right);
-
+            Value result = null;
             var leftType = left.type;
             var rightType = right.type;
-
-
-            Value result = null;
             if (leftFrontendType.Equals(FrontendType.bool_))
             {
-                switch (node.type)
+                switch (binOpType)
                 {
                     case AST.BinOp.BinOpType.LogicalAND:
                         result = builder.BuildAnd(left, right, node, "and_tmp");
@@ -784,7 +763,7 @@ namespace PragmaScript
                         result = builder.BuildICmp(left, right, IcmpType.ne, node, "icmp_tmp");
                         break;
                     default:
-                        InvalidBinOp(node);
+                        InvalidBinOp(node, leftFrontendType, rightFrontendType);
                         break;
                 }
             }
@@ -794,12 +773,12 @@ namespace PragmaScript
                 {
                     case TypeKind.Vector when ((VectorType)leftType).elementType.kind == TypeKind.Integer:
                     case TypeKind.Integer:
-                        switch (node.type)
+                        switch (binOpType)
                         {
                             case AST.BinOp.BinOpType.Add:
                                 result = builder.BuildAdd(left, right, node, "add_tmp");
                                 break;
-                            case AST.BinOp.BinOpType.Subract:
+                            case AST.BinOp.BinOpType.Subtract:
                                 result = builder.BuildSub(left, right, node, "sub_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Multiply:
@@ -863,7 +842,7 @@ namespace PragmaScript
                                 result = builder.BuildXor(left, right, node, "xor_tmp");
                                 break;
                             default:
-                                InvalidBinOp(node);
+                                InvalidBinOp(node, leftFrontendType, rightFrontendType);
                                 break;
                         }
                         break;
@@ -873,12 +852,12 @@ namespace PragmaScript
                     case TypeKind.Double:
                     case TypeKind.Float:
                     case TypeKind.Half:
-                        switch (node.type)
+                        switch (binOpType)
                         {
                             case AST.BinOp.BinOpType.Add:
                                 result = builder.BuildFAdd(left, right, node, "fadd_tmp");
                                 break;
-                            case AST.BinOp.BinOpType.Subract:
+                            case AST.BinOp.BinOpType.Subtract:
                                 result = builder.BuildFSub(left, right, node, "fsub_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Multiply:
@@ -909,7 +888,7 @@ namespace PragmaScript
                                 result = builder.BuildFCmp(left, right, FcmpType.ole, node, "fcmp_tmp");
                                 break;
                             default:
-                                InvalidBinOp(node);
+                                InvalidBinOp(node, leftFrontendType, rightFrontendType);
                                 break;
                         }
                         break;
@@ -917,30 +896,30 @@ namespace PragmaScript
                         {
                             if (rightType.kind == TypeKind.Integer)
                             {
-                                switch (node.type)
+                                switch (binOpType)
                                 {
                                     case AST.BinOp.BinOpType.Add:
                                         {
                                             result = builder.BuildGEP(left, node, "ptr_add", false, right);
                                         }
                                         break;
-                                    case AST.BinOp.BinOpType.Subract:
+                                    case AST.BinOp.BinOpType.Subtract:
                                         {
                                             var n_right = builder.BuildNeg(right, node, "ptr_add_neg");
                                             result = builder.BuildGEP(left, node, "ptr_add", false, n_right);
                                         }
                                         break;
                                     default:
-                                        InvalidBinOp(node);
+                                        InvalidBinOp(node, leftFrontendType, rightFrontendType);
                                         break;
                                 }
                                 break;
                             }
                             else if (rightType.kind == TypeKind.Pointer)
                             {
-                                switch (node.type)
+                                switch (binOpType)
                                 {
-                                    case AST.BinOp.BinOpType.Subract:
+                                    case AST.BinOp.BinOpType.Subtract:
                                         {
                                             var li = builder.BuildPtrToInt(left, mm_t, node, "ptr_to_int");
                                             var ri = builder.BuildPtrToInt(right, mm_t, node, "ptr_to_int");
@@ -969,19 +948,45 @@ namespace PragmaScript
                                         result = builder.BuildICmp(left, right, IcmpType.ne, node, "icmp_tmp");
                                         break;
                                     default:
-                                        InvalidBinOp(node);
+                                        InvalidBinOp(node, leftFrontendType, rightFrontendType);
                                         break;
                                 }
                             }
                             else
-                                InvalidBinOp(node);
+                                InvalidBinOp(node, leftFrontendType, rightFrontendType);
                         }
                         break;
                     default:
-                        InvalidBinOp(node);
+                        InvalidBinOp(node, leftFrontendType, rightFrontendType);
                         break;
                 }
             }
+            return result;
+        }
+        
+
+        public void Visit(AST.BinOp node)
+        {
+            if (node.type == AST.BinOp.BinOpType.ConditionalOR)
+            {
+                VisitConditionalOR(node);
+                return;
+            }
+            if (node.type == AST.BinOp.BinOpType.ConditionalAND)
+            {
+                visitConditionalAND(node);
+                return;
+            }
+
+            Visit(node.left);
+            var left = valueStack.Pop();
+            Visit(node.right);
+            var right = valueStack.Pop();
+
+            var leftFrontendType = typeChecker.GetNodeType(node.left);
+            var rightFrontendType = typeChecker.GetNodeType(node.right);
+
+            var result = CreateBinOP(node, node.type, left, leftFrontendType, right, rightFrontendType);
             valueStack.Push(result);
         }
 
@@ -1951,12 +1956,10 @@ namespace PragmaScript
                 var target = valueStack.Pop();
                 var targetType = target.type;
                 bool isVolatile = target.flags.HasFlag(SSAFlags.@volatile);
-                // var targetTypeName = typeToString(targetType);
 
                 Visit(node.right);
                 var result = valueStack.Pop();
                 var resultType = result.type;
-                // var resultTypeName = typeToString(resultType);
 
                 if (!(targetType is PointerType))
                 {
@@ -1968,11 +1971,24 @@ namespace PragmaScript
                     target = builder.BuildBitCast(target, new PointerType(resultType), node, "hmpf");
                 }
                 var align = GetMinimumAlignmentForBackend(resultType);
+                
+                if (node.compoundType != AST.Assignment.CompoundAssignmentType.None)
+                {
+                    var oldValue = builder.BuildLoad(target, node, "compound_load", isVolatile, align);
+                    var binOpType = node.compoundBinOpType;
+                    var leftFrontendType = typeChecker.GetNodeType(node.left);
+                    var rightFrontendType = typeChecker.GetNodeType(node.right);
+                    result = CreateBinOP(node, binOpType, oldValue, leftFrontendType, result, rightFrontendType);
+                }
                 builder.BuildStore(result, target, node, isVolatile, align);
                 valueStack.Push(result);
             }
             else if (node.type == AST.Assignment.AssignmentType.Vector)
             {
+                if (node.compoundType != AST.Assignment.CompoundAssignmentType.None)
+                {
+                    throw new CompilerError("Compound assignments of vector types not yet supported!", node.token);    
+                }
                 var iea = (AST.IndexedElementAccess)node.left;
                 Visit(iea.left);
                 var vecPtr = valueStack.Pop();

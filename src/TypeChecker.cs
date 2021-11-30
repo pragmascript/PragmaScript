@@ -981,11 +981,18 @@ namespace PragmaScript
 
             if (tt != null && et != null)
             {
-                if (!FrontendType.CompatibleAndLateBind(et, tt))
+                if (node.compoundType != AST.Assignment.CompoundAssignmentType.None)
                 {
-                    throw new ParserVariableTypeMismatch(tt, et, node.token);
+                    var binOpType = node.compoundBinOpType;
+                    CheckBinOpType(node, binOpType, tt, et);
                 }
-                // TODO(pragma): this should be in desugar?
+                else
+                {
+                    if (!FrontendType.CompatibleAndLateBind(et, tt))
+                    {
+                        throw new ParserVariableTypeMismatch(tt, et, node.token);
+                    }    
+                }
                 if (node.left is AST.IndexedElementAccess iea)
                 {
                     if (GetNodeType(iea.left) is FrontendVectorType)
@@ -996,7 +1003,6 @@ namespace PragmaScript
                 }
                 resolve(node, tt);
             }
-
         }
 
         void checkType(AST.ConstInt node)
@@ -1425,6 +1431,112 @@ namespace PragmaScript
             }
         }
 
+        FrontendType CheckBinOpType(AST.Node node, AST.BinOp.BinOpType binOpType, FrontendType lt, FrontendType rt)
+        {
+            if (AST.BinOp.IsAny(binOpType, AST.BinOp.BinOpType.LeftShift, AST.BinOp.BinOpType.RightShift))
+            {
+                if (lt is FrontendVectorType vt_left)
+                {
+                    if (!(rt is FrontendVectorType vt_right))
+                    {
+                        throw new ParserTypeMismatch(lt, rt, node.token);
+                    }
+                    if (!FrontendType.IntegersOrLateBind(vt_left.elementType, vt_right.elementType))
+                    {
+                        throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lt, rt), node.token);
+                    }
+                }
+                else
+                {
+                    if (lt is FrontendNumberType)
+                    {
+                        var lnt = lt as FrontendNumberType;
+                        lt = lnt.Default();
+                        lnt.Bind(lt);
+                    }
+                    if (rt is FrontendNumberType)
+                    {
+                        var rnt = rt as FrontendNumberType;
+                        rt = rnt.Default();
+                        rnt.Bind(rt);
+                    }
+                    if (!FrontendType.IntegersOrLateBind(lt, rt))
+                    {
+                        throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lt, rt), node.token);
+                    }
+                }
+            }
+            else if (lt is FrontendPointerType)
+            {
+                if (!AST.BinOp.IsAny(binOpType, AST.BinOp.BinOpType.Add, AST.BinOp.BinOpType.Subtract,
+                                    AST.BinOp.BinOpType.Equal, AST.BinOp.BinOpType.NotEqual,
+                                    AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned,
+                                    AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned))
+                {
+                    throw new CompilerError("Only add, subtract and unsigned comparisons are valid pointer operations.", node.token);
+                }
+
+                bool correctType = false;
+                correctType = correctType || FrontendType.IsIntegerOrLateBind(rt);
+                if (rt is FrontendPointerType)
+                {
+                    var ltp = lt as FrontendPointerType;
+                    var rtp = rt as FrontendPointerType;
+                    if (ltp.elementType.Equals(rtp.elementType))
+                    {
+                        correctType = true;
+                    }
+                }
+                // TODO: rather use umm and smm???
+                if (!correctType)
+                {
+                    throw new CompilerError($"Right side of pointer arithmetic operation is not of supported type.", node.token);
+                }
+            }
+            else if (!FrontendType.CompatibleAndLateBind(lt, rt))
+            {
+                throw new ParserTypeMismatch(lt, rt, node.token);
+            }
+            if (AST.BinOp.IsAny(binOpType, AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned,
+                AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned))
+            {
+                if (!(lt is FrontendPointerType))
+                {
+                    if (!FrontendType.IntegersOrLateBind(lt, rt))
+                    {
+                        throw new CompilerError($"Unsigned comparison operators are only valid for integer or pointer types not \"{lt}\".", node.token);
+                    }
+                }
+            }
+            if (binOpType == AST.BinOp.BinOpType.DivideUnsigned)
+            {
+                if (!FrontendType.IntegersOrLateBind(lt, rt))
+                {
+                    throw new CompilerError($"Unsigned division operator is only valid for integer types not \"{lt}\".", node.token);
+                }
+            }
+            
+            if (AST.BinOp.IsAny(binOpType, AST.BinOp.BinOpType.Less, AST.BinOp.BinOpType.LessEqual,
+                AST.BinOp.BinOpType.Greater, AST.BinOp.BinOpType.GreaterEqual,
+                AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned,
+                AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned,
+                AST.BinOp.BinOpType.Equal, AST.BinOp.BinOpType.NotEqual))
+            {
+                return FrontendType.bool_;
+            }
+            else
+            {
+                if (binOpType == AST.BinOp.BinOpType.DivideUnsigned)
+                {
+                    if (!FrontendType.IntegersOrLateBind(lt, rt))
+                    {
+                        throw new CompilerError($"Unsigned division operator is only valid for integer types not \"{lt}\".", node.token);
+                    }
+                }
+                return lt;
+            }
+        }
+
         void checkType(AST.BinOp node)
         {
             checkTypeDynamic(node.left);
@@ -1441,103 +1553,8 @@ namespace PragmaScript
             }
             if (lt != null && rt != null)
             {
-                if (node.isEither(AST.BinOp.BinOpType.LeftShift, AST.BinOp.BinOpType.RightShift))
-                {
-                    if (lt is FrontendVectorType vt_left)
-                    {
-                        if (!(rt is FrontendVectorType vt_right))
-                        {
-                            throw new ParserTypeMismatch(lt, rt, node.token);
-                        }
-                        if (!FrontendType.IntegersOrLateBind(vt_left.elementType, vt_right.elementType))
-                        {
-                            throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lt, rt), node.token);
-                        }
-                    }
-                    else
-                    {
-                        if (lt is FrontendNumberType)
-                        {
-                            var lnt = lt as FrontendNumberType;
-                            lt = lnt.Default();
-                            lnt.Bind(lt);
-                        }
-                        if (rt is FrontendNumberType)
-                        {
-                            var rnt = rt as FrontendNumberType;
-                            rt = rnt.Default();
-                            rnt.Bind(rt);
-                        }
-                        if (!FrontendType.IntegersOrLateBind(lt, rt))
-                        {
-                            throw new ParserErrorExpected("two integer types", string.Format("{0} and {1}", lt, rt), node.token);
-                        }
-                    }
-                }
-                else if (lt is FrontendPointerType)
-                {
-                    if (!node.isEither(AST.BinOp.BinOpType.Add, AST.BinOp.BinOpType.Subract,
-                                       AST.BinOp.BinOpType.Equal, AST.BinOp.BinOpType.NotEqual,
-                                       AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned,
-                                       AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned))
-                    {
-                        throw new CompilerError("Only add, subtract and unsigned comparisons are valid pointer operations.", node.token);
-                    }
-
-                    bool correctType = false;
-                    correctType = correctType || FrontendType.IsIntegerOrLateBind(rt);
-                    if (rt is FrontendPointerType)
-                    {
-                        var ltp = lt as FrontendPointerType;
-                        var rtp = rt as FrontendPointerType;
-                        if (ltp.elementType.Equals(rtp.elementType))
-                        {
-                            correctType = true;
-                        }
-                    }
-                    // TODO: rather use umm and smm???
-                    if (!correctType)
-                    {
-                        throw new CompilerError($"Right side of pointer arithmetic operation is not of supported type.", node.right.token);
-                    }
-                }
-                else if (!FrontendType.CompatibleAndLateBind(lt, rt))
-                {
-                    throw new ParserTypeMismatch(lt, rt, node.token);
-                }
-
-                if (node.isEither(AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned,
-                    AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned))
-                {
-                    if (!(lt is FrontendPointerType))
-                    {
-                        if (!FrontendType.IntegersOrLateBind(lt, rt))
-                        {
-                            throw new CompilerError($"Unsigned comparison operators are only valid for integer or pointer types not \"{lt}\".", node.right.token);
-                        }
-                    }
-                }
-
-                if (node.isEither(AST.BinOp.BinOpType.Less, AST.BinOp.BinOpType.LessEqual,
-                    AST.BinOp.BinOpType.Greater, AST.BinOp.BinOpType.GreaterEqual,
-                    AST.BinOp.BinOpType.LessUnsigned, AST.BinOp.BinOpType.LessEqualUnsigned,
-                    AST.BinOp.BinOpType.GreaterUnsigned, AST.BinOp.BinOpType.GreaterEqualUnsigned,
-                    AST.BinOp.BinOpType.Equal, AST.BinOp.BinOpType.NotEqual))
-                {
-                    resolve(node, FrontendType.bool_);
-                }
-                else
-                {
-                    if (node.type == AST.BinOp.BinOpType.DivideUnsigned)
-                    {
-                        if (!FrontendType.IntegersOrLateBind(lt, rt))
-                        {
-                            throw new CompilerError($"Unsigned division operator is only valid for integer types not \"{lt}\".", node.right.token);
-                        }
-                    }
-
-                    resolve(node, lt);
-                }
+                var result = CheckBinOpType(node, node.type, lt, rt);
+                resolve(node, result);
             }
         }
 

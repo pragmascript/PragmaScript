@@ -1,0 +1,5 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+    "debug.allowBreakpointsEverywhere": true,
+    "pragma.includeDirectory": "C:\\Projects\\dotnet\\PragmaScript\\publish\\current\\include"
+}

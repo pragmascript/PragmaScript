@@ -1,0 +1,86 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "windows": {
+                "command": "pragma"
+            },
+            "linux": {
+                "command": "pragma"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "args": [
+                "build",
+                "-d",
+                "\"${file}\""
+            ],
+            "problemMatcher": [
+                {
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
+                        "message": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    "applyTo": "allDocuments",
+                    "severity": "error"
+                },
+                {
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "(Assertion) failed at: \\(file \"(.*?)\".*?line (.*?),.*?pos (.*?)\\)",
+                        "message": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    "applyTo": "allDocuments"
+                }
+            ]
+        },
+        {
+            "label": "build release",
+            "type": "shell",
+            "command": "pragma",
+            "group": "build",
+            "args": [
+                "build",
+                "${file}"
+            ],
+            "problemMatcher": [
+                {
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
+                        "message": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    "applyTo": "allDocuments",
+                    "severity": "error"
+                },
+                {
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "(Assertion) failed at: \\(file \"(.*?)\".*?line (.*?),.*?pos (.*?)\\)",
+                        "message": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    "applyTo": "allDocuments"
+                }
+            ]
+        }
+    ],
+}

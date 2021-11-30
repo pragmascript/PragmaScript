@@ -171,7 +171,7 @@ namespace PragmaScript
                 }
             });
 
-#if true
+#if false
             coBuild = new CompilerOptionsBuild();
             coBuild.debug = true;
             coBuild.inputFilename = @"g:\projects\pragma\nn\test.prag";

@@ -43,7 +43,7 @@ namespace PragmaScript
             Add, Subtract, Multiply, Divide, Remainder, Semicolon, Comma, Return,
             LeftShift, RightShift,
             ConditionalOR, ConditionalAND, LogicalOR, LogicalXOR, LogicalAND,
-            Equal, NotEquals, Less, Greater, LessEqual, GreaterEqual,
+            Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
             Undefined,
             LogicalNOT,
             Complement,
@@ -169,7 +169,7 @@ namespace PragmaScript
             operators.Add("^", TokenType.LogicalXOR);
             operators.Add("&", TokenType.LogicalAND);
             operators.Add("==", TokenType.Equal);
-            operators.Add("!=", TokenType.NotEquals);
+            operators.Add("!=", TokenType.NotEqual);
             operators.Add(">", TokenType.Greater);
             operators.Add("<", TokenType.Less);
             operators.Add(">=", TokenType.GreaterEqual);
@@ -243,6 +243,40 @@ namespace PragmaScript
                 case TokenType.RemainderEquals:
                 case TokenType.MultiplyEquals:
                 case TokenType.MinusEquals:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public bool IsBinOp()
+        {
+            switch (type)
+            {
+                case Token.TokenType.Add:
+                case Token.TokenType.Subtract:
+                case Token.TokenType.Multiply:
+                case Token.TokenType.Divide:
+                case Token.TokenType.DivideUnsigned:
+                case Token.TokenType.Remainder:
+                case Token.TokenType.LeftShift:
+                case Token.TokenType.RightShift:
+                case Token.TokenType.RightShiftUnsigned:
+                case Token.TokenType.ConditionalOR:
+                case Token.TokenType.ConditionalAND:
+                case Token.TokenType.LogicalOR:
+                case Token.TokenType.LogicalXOR:
+                case Token.TokenType.LogicalAND:
+                case Token.TokenType.Equal:
+                case Token.TokenType.NotEqual:
+                case Token.TokenType.Greater:
+                case Token.TokenType.Less:
+                case Token.TokenType.GreaterEqual:
+                case Token.TokenType.LessEqual:
+                case Token.TokenType.GreaterUnsigned:
+                case Token.TokenType.LessUnsigned:
+                case Token.TokenType.GreaterEqualUnsigned:
+                case Token.TokenType.LessEqualUnsigned:
                     return true;
                 default:
                     return false;
