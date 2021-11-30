@@ -76,7 +76,7 @@ namespace PragmaScript
 
         static void CreateNewProject(CompilerOptionsNew co)
         {
-            void CopyFromTemplate(string srcFilename, string destDir = "", params (string oldStr, string newStr)[] replacements)
+            static void CopyFromTemplate(string srcFilename, string destDir = "", params (string oldStr, string newStr)[] replacements)
             {
                 var src = RelDir(Path.Combine(@"..\template\", srcFilename));
                 Debug.Assert(File.Exists(src), srcFilename);
@@ -171,12 +171,10 @@ namespace PragmaScript
                 }
             });
 
-#if false
+#if true
             coBuild = new CompilerOptionsBuild();
             coBuild.debug = true;
-            var programDir = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, @"../../publish/current/new_samples"));
-            System.IO.Directory.SetCurrentDirectory(programDir);
-            coBuild.inputFilename = Path.Combine(programDir, "hello_world", "hello_world.prag");
+            coBuild.inputFilename = @"g:\projects\pragma\nn\test.prag";
             coBuild.libs = new List<string>();
             coBuild.lib_path = new List<string>();
             coBuild.include_dirs = new List<string>();
@@ -209,8 +207,8 @@ namespace PragmaScript
                 else
                 {
                     Debugger.Launch();
-                    throw e;
-                }
+                    throw;
+                 }
             }
         }
 

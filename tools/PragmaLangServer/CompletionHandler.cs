@@ -206,6 +206,10 @@ class CompletionHandler : ICompletionHandler
                     {
                         ft = tc.GetNodeType(node);
                     }
+                    if (ft == null) 
+                    {
+                        continue;
+                    }
                     var detail = ft.ToString();
                     switch (ft)
                     {

@@ -818,6 +818,9 @@ namespace PragmaScript
 
                 if (a.token.type != Token.TokenType.Assignment)
                 {
+                    
+                    // TODO(pragma): THIS IS A BUG WEHN WE HAVE *ptr++ += 7; since it will evaluate the ptr++ TWICE!
+                    // FIXME
                     var left_copy = a.left.DeepCloneTree();
                     var compound = new BinOp(a.token, scope);
                     compound.left = left_copy;
@@ -867,7 +870,7 @@ namespace PragmaScript
                 {
                     if (a.left is VariableReference)
                     {
-                        throw new CompilerError("Cannot assign to constant variable", a.left.token);
+                        throw new CompilerError("Cannot assign to a constant", a.left.token);
                     }
                     else
                     {
