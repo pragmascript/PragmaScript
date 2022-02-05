@@ -139,7 +139,7 @@ let apply_png_filters = fun(scanlines: ptr; bmp: bitmap) => void {
                 dst_ptr_prev_row += row_byte_offset;
             }
         }
-        if (filter == 1) {
+        elif (filter == 1) {
             var pixel_b = 0;
             for (var x = 0; x < width; ++x) {
                 *(dst_ptr + 0) = trunc_to_byte(channel(src_ptr@i32*, 0) + channel(&pixel_b, 0));

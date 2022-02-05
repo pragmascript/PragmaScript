@@ -65,6 +65,7 @@ mod Random
 		return result;
 	}
 	
+	
 	let rand_i32 = fun(state: state* = &state) => i32 {
 		var result = rand_i32_4x(state);
 		return result[0];

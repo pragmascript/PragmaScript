@@ -174,7 +174,7 @@ namespace PragmaScript
 #if false
             coBuild = new CompilerOptionsBuild();
             coBuild.debug = true;
-            coBuild.inputFilename = @"g:\projects\pragma\nn\test.prag";
+            coBuild.inputFilename = @"g:\projects\pragma\nn\system\vec3_8x.prag";
             coBuild.libs = new List<string>();
             coBuild.lib_path = new List<string>();
             coBuild.include_dirs = new List<string>();

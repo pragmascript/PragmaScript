@@ -15,13 +15,19 @@ let align_8 = fun(value: mm) => mm {
 let align_16 = fun(value: mm) => mm {
 	return (value + 15) & (~15);
 }
+let align_32 = fun(value: mm) => mm {
+	return (value + 31) & (~31);
+}
+let align_64 = fun(value: mm) => mm {
+	return (value + 63) & (~63);
+}
+let align_n = fun(value: mm; n: i32) => mm {
+	return (value + (n - 1)@mm) & (~(n - 1))@mm;
+}
 
-let push = fun(@arena: memory_arena*; push_size: mm) => ptr {
-	var result = base + used;
-	// result = align_16(result@mm)@ptr;
-
-	used = result@mm - base@mm  + push_size@mm;
-	
+let push = fun(@arena: memory_arena*; push_size: mm; align: i32 = 4) => ptr {
+	var result = base + align_n(arena.used, align);
+	used = result@mm - base@mm + push_size@mm;
 	if (used > size) {
 		assert(false);
 		return nullptr;
@@ -41,7 +47,6 @@ mod _INTERNAL {
 	var temp_memory_stack_pos: i32;
 	var temp_memory_stack: mm[32];	
 }
-
 
 // TODO(pragma): make this threadsafe
 let push_temp = fun(@arena: memory_arena* = &temp_memory_arena) => void {

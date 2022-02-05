@@ -452,8 +452,8 @@ let dyn_huffman_block = fun(stream: zlib_stream*; length_lookup: decode_lookup_t
     
     while (true) {
         var length_value = decode_huffman(lit_length_huff, stream);
-        if (length_value <\ 256) {
-            write_byte(stream, length_value@\i8);
+        if (length_value <\ 256 && length_value != 0) {
+            write_byte(stream, length_value@\i8);   
         }
         elif (length_value == 256) {
             // print("end of block value\n");

@@ -873,7 +873,7 @@ namespace PragmaScript
                                 result = builder.BuildFCmp(left, right, FcmpType.oeq, node, "fcmp_tmp");
                                 break;
                             case AST.BinOp.BinOpType.NotEqual:
-                                result = builder.BuildFCmp(left, right, FcmpType.one, node, "fcmp_tmp");
+                                result = builder.BuildFCmp(left, right, FcmpType.une, node, "fcmp_tmp");
                                 break;
                             case AST.BinOp.BinOpType.Greater:
                                 result = builder.BuildFCmp(left, right, FcmpType.ogt, node, "fcmp_tmp");

@@ -576,7 +576,7 @@ namespace PragmaScript
                 if (node.argumentList.Count != 0 && node.argumentList.Count != vecType.length)
                 {
                     var token = node.argumentList.Count < vecType.length ? node.argumentList.Last().token : node.argumentList[vecType.length].token;
-                    throw new CompilerError("The number of arguments in a compound literal must match the length of the vector type.", node.argumentList[structType.fields.Count].token);
+                    throw new CompilerError("The number of arguments in a compound literal must match the length of the vector type.", token);
                 }
 
                 for (int i = 0; i < argTypes.Count; ++i)

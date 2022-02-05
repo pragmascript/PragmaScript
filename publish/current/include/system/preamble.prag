@@ -195,9 +195,6 @@ let __chkstk = extern fun () => void;
     // https://www.gamekiller.net/threads/tutorial-writing-c-software-without-the-standard-library-linux-edition.3247890/
     // https://the-linux-channel.the-toffee-project.org/index.php?page=5-tutorials-a-linux-system-call-in-c-without-a-standard-library
     // https://github.com/raminfp/linux_syscall/tree/master/C_syscall_without_standard_library_linux
-
-
-
     let print = fun (s: string) => void	{
         Linux::__write(1, s.data, @mm s.length);
     }
@@ -323,6 +320,14 @@ let clone_string = fun(s: string; arena: memory_arena* = &temp_memory_arena) => 
     result.length--;
     memcpy(result.data, s.data, result.length@mm);
     return result;
+}
+
+let concat = fun(a: string; b: string; c: string; d: string; arena: memory_arena* = &temp_memory_arena) => string {
+    return concat(a, concat(b, c, d));
+}
+
+let concat = fun(a: string; b: string; c: string; arena: memory_arena* = &temp_memory_arena) => string {
+    return concat(a, concat(b, c));
 }
 
 let concat = fun(a: string; b: string; arena: memory_arena* = &temp_memory_arena) => string {
@@ -940,7 +945,6 @@ let print = fun (value: i32; signed: bool = true) => void
     }
 }
 
-
 let print = fun (value: i64; signed: bool = true) => void
 {
     var v = value;
@@ -1004,11 +1008,11 @@ let u64_to_ascii = fun (dest: print_dest*; value: i64) => void
 }
 
 let is_nan = fun(x: f32) => bool {
-    return (x == NAN_F32) || (x == -NAN_F32);
+    return x != x;
 }
 
 let is_nan = fun(x: f64) => bool {
-    return (x == NAN_F64) || (x == -NAN_F64);
+    return x != x;
 }
 
 let is_inf = fun(x: f32) => bool {
@@ -1025,6 +1029,14 @@ let is_neg_inf = fun(x: f32) => bool {
 
 let is_neg_inf = fun(x: f64) => bool {
     return x == NEG_INF_64;
+}
+
+let is_weird = fun(x: f32) => bool {
+    return is_nan(x) || is_inf(x) || is_neg_inf(x);
+}
+
+let is_weird = fun(x: f64) => bool {
+    return is_nan(x) || is_inf(x) || is_neg_inf(x);
 }
 
 let print = fun (value: f64; precision: i32 = 4) => void
@@ -1091,6 +1103,27 @@ let print = fun (value: f32_4x; precision: i32 = 4) => void
     print(value[2], precision);
     print(", ");
     print(value[3], precision);
+    print(" >");
+}
+
+let print = fun (value: f32_8x; precision: i32 = 4) => void
+{
+    print("< ");
+    print(value[0], precision);
+    print(", ");
+    print(value[1], precision);
+    print(", ");
+    print(value[2], precision);
+    print(", ");
+    print(value[3], precision);
+    print(", ");
+    print(value[4], precision);
+    print(", ");
+    print(value[5], precision);
+    print(", ");
+    print(value[6], precision);
+    print(", ");
+    print(value[7], precision);
     print(" >");
 }
 
@@ -1171,6 +1204,27 @@ let debug_print = fun(name: string; value: f32_4x) => void
     print(value[2]);
     print(", ");
     print(value[3]);
+    print(" >\n");
+}
+let debug_print = fun(name: string; value: f32_8x) => void
+{
+    print(name);
+    print(": < ");
+    print(value[0]);
+    print(", ");
+    print(value[1]);
+    print(", ");
+    print(value[2]);
+    print(", ");
+    print(value[3]);
+    print(", ");
+    print(value[4]);
+    print(", ");
+    print(value[5]);
+    print(", ");
+    print(value[6]);
+    print(", ");
+    print(value[7]);
     print(" >\n");
 }
 let debug_print = fun(name: string; value: i32_4x) => void

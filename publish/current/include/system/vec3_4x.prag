@@ -14,7 +14,7 @@ let v3 = fun (x: f32_4x; y: f32_4x; z: f32_4x) => v3_4x {
     return result;
 }
 
-var vz_4 = v3_4x { f32_4x { 0.0, 0.0, 0.0, 0.0 } , f32_4x { 0.0, 0.0, 0.0, 0.0 }, f32_4x { 0.0, 0.0, 0.0, 0.0 }};
+var v3z_4 = v3_4x { f32_4x { 0.0, 0.0, 0.0, 0.0 } , f32_4x { 0.0, 0.0, 0.0, 0.0 }, f32_4x { 0.0, 0.0, 0.0, 0.0 }};
 let add = fun (a: v3_4x*; b: v3_4x*) => v3_4x {
     var result = v3_4x { a.x + b.x, a.y + b.y, a.z + b.z};
     return result;

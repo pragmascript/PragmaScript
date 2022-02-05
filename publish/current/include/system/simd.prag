@@ -1,15 +1,65 @@
 import "preamble.prag"
 mod SIMD
 {
-    // declare <4 x float> @llvm.x86.sse.max.ps(<4 x float>, <4 x float>)
+    let ZERO_f32_8x         = f32_8x {};
+    let ONE_f32_8x          = f32_8x { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
+    
+    let _CMP_EQ_OQ: i8      = 0x00;
+    let _CMP_LT_OS: i8      = 0x01;
+    let _CMP_LE_OS: i8      = 0x02;
+    let _CMP_UNORD_Q: i8    = 0x03;
+    let _CMP_NEQ_UQ: i8     = 0x04;
+    let _CMP_NLT_US: i8     = 0x05;
+    let _CMP_NLE_US: i8     = 0x06;
+    let _CMP_ORD_Q: i8      = 0x07;
+    let _CMP_EQ_UQ: i8      = 0x08;
+    let _CMP_NGE_US: i8     = 0x09;
+    let _CMP_NGT_US: i8     = 0x0A;
+    let _CMP_FALSE_OQ: i8   = 0x0B;
+    let _CMP_NEQ_OQ: i8     = 0x0C;
+    let _CMP_GE_OS: i8      = 0x0D;
+    let _CMP_GT_OS: i8      = 0x0E;
+    let _CMP_TRUE_UQ: i8    = 0x0F;
+    let _CMP_EQ_OS: i8      = 0x10;
+    let _CMP_LT_OQ: i8      = 0x11;
+    let _CMP_LE_OQ: i8      = 0x12;
+    let _CMP_UNORD_S: i8    = 0x13;
+    let _CMP_NEQ_US: i8     = 0x14;
+    let _CMP_NLT_UQ: i8     = 0x15;
+    let _CMP_NLE_UQ: i8     = 0x16;
+    let _CMP_ORD_S: i8      = 0x17;
+    let _CMP_EQ_US: i8      = 0x18;
+    let _CMP_NGE_UQ: i8     = 0x19;
+    let _CMP_NGT_UQ: i8     = 0x1A;
+    let _CMP_FALSE_OS: i8   = 0x1B;
+    let _CMP_NEQ_OS: i8     = 0x1C;
+    let _CMP_GE_OQ: i8      = 0x1D;
+    let _CMP_GT_OQ: i8      = 0x1E;
+    let _CMP_TRUE_US: i8    = 0x1F;
     
     let max_ps = extern("llvm.x86.sse.max.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
-    let min_ps = extern("llvm.x86.sse.min.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
+    let max_ps = extern("llvm.x86.avx.max.ps.256") fun (a: f32_8x; b: f32_8x) => f32_8x;
     
+    let min_ps = extern("llvm.x86.sse.min.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
+    let min_ps = extern("llvm.x86.avx.min.ps.256") fun (a: f32_8x; b: f32_8x) => f32_8x;
+    
+    // let and_ps = extern("llvm.x86.sse.and.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
+    // let and_ps = extern("llvm.x86.avx.and.ps.256") fun (a: f32_8x; b: f32_8x) => f32_8x;
+    
+    let blendv_ps = extern("llvm.x86.avx.blendv.ps.256") fun (a: f32_8x; b: f32_8x; mask: f32_8x) => f32_8x;
+    
+    
+    
+    let cmp_ps = extern("llvm.x86.avx.cmp.ps.256") fun (a: f32_8x; b: f32_8x; flag: i8) => f32_8x;
+
     
     let set1_ps = fun(v: f32) => f32_4x {
         return f32_4x { v, v, v, v };
     }
+    let set1_ps_256 = fun(v: f32) => f32_8x {
+        return f32_8x { v, v, v, v, v, v, v, v };
+    }
+    
     let set1_epi32 = fun(v: i32) => i32_4x {
         return i32_4x {v, v, v, v};
     }
@@ -18,5 +68,8 @@ mod SIMD
     }
     
     let rcp_ps = extern("llvm.x86.sse.rcp.ps") fun(v: f32_4x) => f32_4x;
+    let rcp_ps = extern("llvm.x86.avx.rcp.ps.256") fun(v: f32_8x) => f32_8x;
+    
+    
  
 }
