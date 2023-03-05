@@ -120,8 +120,6 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
             {
                 uri = DocumentUri.FromFileSystemPath(error.token.filename);
             }
-
-
             router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Diagnostics = new List<Diagnostic> { diag },
@@ -129,11 +127,6 @@ class TextDocumentSyncHandler : ITextDocumentSyncHandler
             });
             foundError = true;
         }
-        catch (Exception)
-        {
-            foundError = true;
-        }
-
         if (!foundError)
         {
             router.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams

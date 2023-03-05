@@ -2,9 +2,9 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' ">linux-x64</RuntimeIdentifier>
-    <RuntimeIdentifier Condition=" '$(OS)' == 'Windows_NT' ">win7-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$(OS)' == 'Windows_NT' ">win10-x64</RuntimeIdentifier>
     <!-- <PublishReadyToRun>true</PublishReadyToRun>
     <PublishReadyToRunShowWarnings>true</PublishReadyToRunShowWarnings>
     <PublishSingleFile>true</PublishSingleFile>
@@ -14,10 +14,10 @@
 
   <ItemGroup>
     <Reference Include="pragma" Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' ">
-      <HintPath>../../src/bin/Debug/net5.0/linux-x64/pragma.dll</HintPath>
+      <HintPath>../../src/bin/Debug/net6.0/linux-x64/pragma.dll</HintPath>
     </Reference>
     <Reference Include="pragma" Condition=" '$(OS)' == 'Windows_NT' ">
-      <HintPath>../../src/bin/Debug/net5.0/win7-x64/pragma.dll</HintPath>
+      <HintPath>../../src/bin/Debug/net6.0/win10-x64/pragma.dll</HintPath>
     </Reference>
     <PackageReference Include="GuiLabs.Language.Xml" Version="1.2.38" />
     <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.17.2" />

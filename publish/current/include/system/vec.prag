@@ -142,6 +142,22 @@ let swap = fun (a: v3*; b: v3*) => void {
     *a = *b;
     *b = temp;
 }
+let min = fun (a: v3; b: v3) => v3 {
+    var result = v3 {
+        Math::min(a.x, b.x),
+        Math::min(a.y, b.y),
+        Math::min(a.z, b.z)
+    };
+    return result;
+}
+let max = fun (a: v3; b: v3) => v3 {
+    var result = v3 {
+        Math::max(a.x, b.x),
+        Math::max(a.y, b.y),
+        Math::max(a.z, b.z)
+    };
+    return result;
+}
 let ray = struct 
 (
     origin: v3;
@@ -303,3 +319,15 @@ let v4 = struct
     w: f32;
 );
 var v4z = v4 {0.0, 0.0, 0.0, 0.0};
+let debug_print = fun(name: string; value: v4) => void {
+    print(name);
+    print(": (");
+    print(value.x);
+    print(", ");
+    print(value.y);
+    print(", ");
+    print(value.z);
+    print(", ");
+    print(value.w);
+    print(")\n");
+}

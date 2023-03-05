@@ -99,7 +99,38 @@ namespace PragmaScript
                 sf.AddParam("shift", FrontendType.i32);
                 scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
             }
-            
+            {
+                var name = "cast_ps_si";
+                var sf = new FrontendFunctionType(name);
+                sf.specialFun = true;
+                sf.returnType = FrontendType.i32_4x;
+                sf.AddParam("a", FrontendType.f32_4x);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "cast_ps_si";
+                var sf = new FrontendFunctionType(name);
+                sf.specialFun = true;
+                sf.returnType = FrontendType.i32_8x;
+                sf.AddParam("a", FrontendType.f32_8x);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "cast_si_ps";
+                var sf = new FrontendFunctionType(name);
+                sf.specialFun = true;
+                sf.returnType = FrontendType.f32_4x;
+                sf.AddParam("a", FrontendType.i32_4x);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
+            {
+                var name = "cast_si_ps";
+                var sf = new FrontendFunctionType(name);
+                sf.specialFun = true;
+                sf.returnType = FrontendType.f32_8x;
+                sf.AddParam("a", FrontendType.i32_8x);
+                scope.AddVar(name, sf, Token.Undefined, isConst: true, allowOverloading: true);
+            }
         }
 
         static void addSpecialFunctions(Scope scope)

@@ -1,0 +1,186 @@
+import "preamble.prag"
+import "bmp.prag"
+
+
+["PACKED"]
+let qoi_header = struct (
+    magic: i8[4];
+    width: i32;
+    height: i32;
+    channels: i8;
+    colorspace: i8;
+);
+
+
+let qoi_load_file = fun(filename: string) => bitmap {
+    var file = read_file(filename);
+    assert(file.length > 0);
+    var result = qoi_load_data(file);
+    free(file.data);
+    return result;
+}
+
+let qoi_load_data = fun(buffer: i8[]) => bitmap {
+    var result = bitmap { };
+    var b = buffer;
+    
+    assert(b.length >= size_of(qoi_header)@i32);
+    var header = @qoi_header* b.data;
+    header.width = endian_swap(header.width);
+    header.height = endian_swap(header.height);
+    b = advance(b, size_of(qoi_header));
+    assert(strings_are_equal(header.magic[:], "qoif"));
+
+    var current_pixel = rgba_color { 0, 0, 0, 255 };
+    var temp: rgba_color[64];
+    memset(&temp[0]@i8*, 0, size_of(rgba_color[64]));
+
+    result.pixels = allocate(@mm header.width * @mm header.height * size_of(rgba_color));
+    result.width = header.width;
+    result.height = header.height;
+
+#if FALSE
+    var tag_map = bitmap { };
+    tag_map.pixels = allocate(@mm header.width * @mm header.height * size_of(rgba_color));
+    tag_map.width = header.width;
+    tag_map.height = header.height;
+    var tag_pixel_ptr = tag_map.pixels@rgba_color*;
+#endif    
+    var pixel_ptr = result.pixels@rgba_color*;
+    var pixel_idx: i64 = 0;
+    var qoi_op = 0;
+
+    while (true) {
+        var run_length = 1;    
+        var next = rgba_color {};
+        // QOI_OP_RGB
+        if (b[0] == 254) {
+            next.r = b[1];
+            next.g = b[2];
+            next.b = b[3];
+            next.a = current_pixel.a;
+            b = advance(b, 4);
+            qoi_op = 0;
+        }
+        // QOI_OP_RGBA
+        elif (b[0] == 255) {
+            next.r = b[1];
+            next.g = b[2];
+            next.b = b[3];
+            next.a = b[4];
+            b = advance(b, 5);
+            qoi_op = 1;
+        }
+        else {
+            var tag = b[0] >>\ 6;
+            var v = b[0] & 63;
+            // QOI_OP_INDEX
+            if (tag == 0) {
+                next = temp[v@\i32];
+                b = advance(b, 1);
+                qoi_op = 2;
+            }
+            // QOI_OP_DIFF
+            elif (tag == 1) {
+                var dr = ((v >>\ 4) & 3) - 2;
+                var dg = ((v >>\ 2) & 3) - 2;
+                var db = (v & 3) - 2;
+                next = rgba_color {
+                    current_pixel.r + dr,
+                    current_pixel.g + dg,
+                    current_pixel.b + db,
+                    current_pixel.a
+                };
+                b = advance(b, 1);
+                qoi_op = 3;
+            }
+            // QOI_OP_LUMA
+            elif (tag == 2) {
+                var dg = v - 32;
+                var dr_dg = (b[1] >>\ 4) - 8;
+                var db_dg = (b[1] & 15) - 8;
+                next = rgba_color {
+                    current_pixel.r + dg + dr_dg,
+                    current_pixel.g + dg,
+                    current_pixel.b + dg + db_dg,
+                    current_pixel.a
+                };
+                b = advance(b, 2);
+                qoi_op = 4;
+            }
+            // QOI_OP_RUN
+            elif (tag == 3) {
+                run_length = (v + 1)@\i32;
+                assert(run_length >= 1 && run_length <= 62);
+                next = current_pixel;
+                b = advance(b, 1);
+                qoi_op = 5;
+                
+            }
+        }
+        assert(pixel_idx + run_length@i64 <= @i64 header.width * @i64 header.height);
+        current_pixel = next;
+        temp[qoi_hash(current_pixel)] = current_pixel;
+        for (var idx = 0; idx < run_length; ++idx) {
+            *pixel_ptr++ = current_pixel;
+#if FALSE            
+            var tag_col: rgba_color;
+            if (qoi_op == 0) {
+                tag_col = rgba_color { 255, 0, 0, 255 };
+            }
+            elif (qoi_op == 1) {
+                tag_col = rgba_color { 0, 255, 0, 255 };
+            }
+            elif (qoi_op == 2) {
+                tag_col = rgba_color { 0, 0, 255, 255 };
+            }
+            elif (qoi_op == 3) {
+                tag_col = rgba_color { 255, 255, 0, 255 };
+            }
+            elif (qoi_op == 4) {
+                tag_col = rgba_color { 255, 0, 255, 255 };
+            }
+            elif (qoi_op == 5) {
+                tag_col = rgba_color { 0, 255, 255, 255 };
+            }
+            *tag_pixel_ptr++ = tag_col;
+#endif            
+        }
+        
+        pixel_idx += run_length@i64;
+        if (pixel_idx == @i64 header.width * @i64 header.height) {
+            break;
+        }
+    }
+    assert(b[0] == 0);
+    assert(b[1] == 0);
+    assert(b[2] == 0);
+    assert(b[3] == 0);
+    assert(b[4] == 0);
+    assert(b[5] == 0);
+    assert(b[6] == 0);
+    assert(b[7] == 1);
+    assert(b.length == 8);
+
+    assert(pixel_idx == @i64 header.width * @i64 header.height);
+    // save_bitmap("tags.bmp\0", tag_map);
+    return result;
+}
+
+let qoi_hash = fun(c: rgba_color) => i32 {
+    var r = @\i32 c.r;
+    var g = @\i32 c.g;
+    var b = @\i32 c.b;
+    var a = @\i32 c.a;
+    var result = (r * 3 + g * 5 + b * 7 + a * 11) % 64;
+    assert(result >= 0 && result < 64);
+    return result;
+}
+
+let advance = fun(s: i8[]; n: mm) => i8[] {
+    assert(n@i32 <= s.length);
+    var result = s[n@i32:];
+    assert(result.length > 0);
+    return result;
+}
+

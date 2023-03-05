@@ -185,6 +185,57 @@
     biClrUsed: i32;
     biClrImportant: i32;
   );
+
+// typedef struct {
+//   DWORD        bV4Size;
+//   LONG         bV4Width;
+//   LONG         bV4Height;
+//   WORD         bV4Planes;
+//   WORD         bV4BitCount;
+//   DWORD        bV4V4Compression;
+//   DWORD        bV4SizeImage;
+//   LONG         bV4XPelsPerMeter;
+//   LONG         bV4YPelsPerMeter;
+//   DWORD        bV4ClrUsed;
+//   DWORD        bV4ClrImportant;
+//   DWORD        bV4RedMask;
+//   DWORD        bV4GreenMask;
+//   DWORD        bV4BlueMask;
+//   DWORD        bV4AlphaMask;
+//   DWORD        bV4CSType;
+//   CIEXYZTRIPLE bV4Endpoints;
+//   DWORD        bV4GammaRed;
+//   DWORD        bV4GammaGreen;
+//   DWORD        bV4GammaBlue;
+// } BITMAPV4HEADER, *LPBITMAPV4HEADER, *PBITMAPV4HEADER;
+
+  ["PACKED"]
+  let BITMAPV4HEADER = struct
+  (
+    biSize: i32;
+    biWidth: i32;
+    biHeight: i32;
+    biPlanes: i16;
+    biBitCount: i16;
+    biCompression: i32;
+    biSizeImage: i32;
+    biXPelsPerMeter: i32;
+    biYPelsPerMeter: i32;
+    biClrUsed: i32;
+    biClrImportant: i32;
+    biRedMask: i32;
+    biGreenMask: i32;
+    biBlueMask: i32;
+    biAlphaMask: i32;
+    biCSType: i32;
+    biEndpoints: i8[36];
+    biGammaRed: i32;
+    biGammaGreen: i32;
+    biGammaBlue: i32;
+  );
+
+
+
   ["PACKED"]
   let RGBQUAD = struct 
   (

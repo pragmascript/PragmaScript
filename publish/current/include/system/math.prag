@@ -115,6 +115,10 @@ mod Math
 	{
 		return a + (b-a)*t;
 	}
+	let inverse_lerp = fun(a: f32; b: f32; x: f32) => f32
+	{
+		return (x - a) / (b - a);
+	}
 	["READNONE"]
 	let abs = fun (value: i32) => i32
 	{
@@ -155,7 +159,7 @@ mod Math
 	}
 
 	["READNONE"]
-	let clamp = fun (value: f32; min: f32; max: f32) => f32 
+	let clamp = fun (value: f32; min: f32=0.0; max: f32=1.0) => f32 
 	{
 		assert(min <= max);
 		var result = value;

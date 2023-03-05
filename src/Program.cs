@@ -158,7 +158,7 @@ namespace PragmaScript
                     var helpText = CommandLine.Text.HelpText.AutoBuild(parserResult, h =>
                                     {
                                         h.AdditionalNewLineAfterOption = false;
-                                        h.Copyright = "Copyright (c) 2021 pragmascript@googlemail.com";
+                                        h.Copyright = "Copyright (c) 2023 pragmascript@googlemail.com";
                                         return h;
                                     }, e => e, verbsIndex: true);
                     var helpStr = helpText.ToString().Replace("-O 3", "-O3");
@@ -174,7 +174,7 @@ namespace PragmaScript
 #if false
             coBuild = new CompilerOptionsBuild();
             coBuild.debug = true;
-            coBuild.inputFilename = @"g:\projects\pragma\nn\system\vec3_8x.prag";
+            coBuild.inputFilename = @"g:\projects\pragma\test\main.prag";
             coBuild.libs = new List<string>();
             coBuild.lib_path = new List<string>();
             coBuild.include_dirs = new List<string>();

@@ -217,6 +217,7 @@ let apply_png_filters = fun(scanlines: ptr; bmp: bitmap) => void {
 let load_png = fun(file: string) => bitmap {
     var result = bitmap { };
     
+    // TODO(pragma): determine file size
     var arena = create_arena(megabytes(35));
     var f = read_file(file, &arena);
     assert(f.length > 0);

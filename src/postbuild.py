@@ -14,18 +14,15 @@ else:
 
 cwd = os.getcwd()
 
-
 def nj(*paths):
     return os.path.normpath(os.path.join(*paths))
 
-
 if platform.system() == "Windows":
-    binPath = nj(cwd, prefixPath, "net6.0/win10-x64")
+    binPath = nj(cwd, prefixPath, "net7.0/win10-x64")
 elif platform.system() == "Linux":
-    binPath = nj(cwd, prefixPath, "net6.0/linux-x64")
+    binPath = nj(cwd, prefixPath, "net7.0/linux-x64")
 
 publishPath = nj(cwd, "../publish/current/bin")
-
 
 for _, _, files in os.walk(binPath):
     for f in files:

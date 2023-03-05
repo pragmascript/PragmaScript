@@ -68,6 +68,7 @@ let null = @mm 0;
 let nullptr = @ptr 0;
 
 let ZERO_F32: f32 = 0.0;
+let NEG_ZERO_F32: f32 = 0x80000000_f32;
 let ONE_F32: f32 = 1.0;
 let NAN_F32 = ZERO_F32 / ZERO_F32;
 let INF_F32 = ONE_F32 / ZERO_F32;
@@ -127,9 +128,7 @@ let __chkstk = extern fun () => void;
         return result;
         
     }
-    let read_file = fun(path: string; arena: memory_arena* = &temp_memory_arena) => i8[] {
-        var temp_arena = *arena;
-        
+    let read_file = fun(path: string) => i8[] {
         var result: i8[];
         result.data = nullptr;
         result.length = 0;
@@ -145,7 +144,7 @@ let __chkstk = extern fun () => void;
             return result;
         }
         
-        var buffer = push(arena, size@mm);
+        var buffer = allocate(size@mm);
         if (buffer@mm == null) {
             Windows::CloseHandle(handle);
             return result;
@@ -156,7 +155,7 @@ let __chkstk = extern fun () => void;
         var rfr = Windows::ReadFile(handle, buffer, size_32, &bytes_read,  nullptr);
         assert(bytes_read == size_32);
         if (rfr == 0) {
-            *arena = temp_arena;
+            free(buffer);
             Windows::CloseHandle(handle);
             return result;		
         }
@@ -322,6 +321,14 @@ let clone_string = fun(s: string; arena: memory_arena* = &temp_memory_arena) => 
     return result;
 }
 
+let concat = fun(a: string; b: string; c: string; d: string; e: string; f: string; arena: memory_arena* = &temp_memory_arena) => string {
+    return concat(a, concat(b, c, d, e, f));
+}
+
+let concat = fun(a: string; b: string; c: string; d: string; e: string; arena: memory_arena* = &temp_memory_arena) => string {
+    return concat(a, concat(b, c, d, e));
+}
+
 let concat = fun(a: string; b: string; c: string; d: string; arena: memory_arena* = &temp_memory_arena) => string {
     return concat(a, concat(b, c, d));
 }
@@ -474,6 +481,51 @@ let from_str = fun(str: string; value: i32*) => bool {
     *value = sign * result;
     return true;
 }
+
+let from_str = fun(str: string; value: f32*) => bool {
+    if (str.length < 1) {
+        return false;
+    }
+    var p_index = first_index_of(".", str, 0);
+    if (p_index < 0) {
+        var int_value: i32;
+        var result = from_str(str, &int_value);
+        *value = int_value@f32;
+        return result;
+    }
+
+    var sign = 1.0;
+    var first_digit_idx = 0;
+    if (str[0] == ord("+") || str[0] == ord("-")) {
+        first_digit_idx = 1;
+        if (str[0] == ord("-")) {
+            sign = -1.0;
+        }
+    }
+
+    var decimal_part = str[first_digit_idx:p_index];
+    var fractional_part = str[p_index + 1:];
+    if (fractional_part.length > 8) {
+        fractional_part = fractional_part[:8];
+    }
+    
+    var d_int: i32;
+    if (!from_str(decimal_part, &d_int)) {
+        return false;
+    }
+    var f_int: i32;
+    if (!from_str(fractional_part, &f_int)) {
+        return false;
+    }
+    var factor = 1.0;
+    for (var i = 0; i < fractional_part.length; ++i) {
+        factor *= 10.0;
+    }
+    var result = sign * (@f32 d_int + @\f32 f_int / factor);
+    *value = result;
+    return true;
+}
+
 
 let from_hex_str = fun(str: string; value: i32*) => bool {
     var result = 0;
@@ -750,18 +802,12 @@ let assert = fun
     }
 }
 
-#if SLOW
+
 let cstr = fun(value: string; filepos: string = __file_pos__()) => i8* 
 {
     assert(value[value.length - 1] == 0, "c-string not null terminated", filepos);
     return value.data;
 }
-#else
-let cstr = fun(value: string) => i8* 
-{
-    return value.data;
-}
-#endif
 
 let strlen = fun(str: ptr) => mm {
     var temp = str;

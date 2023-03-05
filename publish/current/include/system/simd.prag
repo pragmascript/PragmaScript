@@ -1,4 +1,5 @@
 import "preamble.prag"
+import "math.prag"
 mod SIMD
 {
     let ZERO_f32_8x         = f32_8x {};
@@ -36,6 +37,15 @@ mod SIMD
     let _CMP_GE_OQ: i8      = 0x1D;
     let _CMP_GT_OQ: i8      = 0x1E;
     let _CMP_TRUE_US: i8    = 0x1F;
+
+    let _MM_FROUND_TO_NEAREST_INT = 0x00;
+    let _MM_FROUND_TO_NEG_INF = 0x01;
+    let _MM_FROUND_TO_POS_INF = 0x02;
+    let _MM_FROUND_TO_ZERO = 0x03;
+    let _MM_FROUND_CUR_DIRECTION = 0x04;
+    let _MM_FROUND_NO_EXC = 0x08;
+    let _MM_FROUND_RAISE_EXC = 0x00;
+
     
     let max_ps = extern("llvm.x86.sse.max.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
     let max_ps = extern("llvm.x86.avx.max.ps.256") fun (a: f32_8x; b: f32_8x) => f32_8x;
@@ -43,15 +53,16 @@ mod SIMD
     let min_ps = extern("llvm.x86.sse.min.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
     let min_ps = extern("llvm.x86.avx.min.ps.256") fun (a: f32_8x; b: f32_8x) => f32_8x;
     
+    // let xor_ps = extern("llvm.x86.sse.xor.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
+    // let xor_ps = extern("llvm.x86.avx.xor.ps.256") fun (a: f32_8x; b: f32_8x) => f32_8x;
+    
+    
     // let and_ps = extern("llvm.x86.sse.and.ps") fun (a: f32_4x; b: f32_4x) => f32_4x;
     // let and_ps = extern("llvm.x86.avx.and.ps.256") fun (a: f32_8x; b: f32_8x) => f32_8x;
     
     let blendv_ps = extern("llvm.x86.avx.blendv.ps.256") fun (a: f32_8x; b: f32_8x; mask: f32_8x) => f32_8x;
     
-    
-    
     let cmp_ps = extern("llvm.x86.avx.cmp.ps.256") fun (a: f32_8x; b: f32_8x; flag: i8) => f32_8x;
-
     
     let set1_ps = fun(v: f32) => f32_4x {
         return f32_4x { v, v, v, v };
@@ -69,7 +80,46 @@ mod SIMD
     
     let rcp_ps = extern("llvm.x86.sse.rcp.ps") fun(v: f32_4x) => f32_4x;
     let rcp_ps = extern("llvm.x86.avx.rcp.ps.256") fun(v: f32_8x) => f32_8x;
+    let round_ps = extern("llvm.x86.avx.round.ps") fun(v: f32_4x; rounding: i32) => f32_4x;
+    let round_ps = extern("llvm.x86.avx.round.ps.256") fun(v: f32_8x; rounding: i32) => f32_8x;
+
     
+
+    let mod_ps = fun(a: f32_8x; b: f32_8x) => f32_8x {
+        return a - round_ps(a / b, _MM_FROUND_TO_ZERO|_MM_FROUND_NO_EXC) * b;
+        // return a - (((a / b)@i32_8x)@f32_8x) * b;
+    }
+    let xor_ps = fun (a: f32_8x; b: f32_8x) => f32_8x {
+        // TODO(magnus): we need to specify SIMD:: here because of stupid special function machanism,
+        return SIMD::cast_si_ps((SIMD::cast_ps_si(a) ^ SIMD::cast_ps_si(b)));
+    }
+    let neg_ps = fun(a: f32_8x) => f32_8x {
+        // TODO(magnus): -0.0f does not actually return the right hex float.
+        return xor_ps(a, set1_ps_256(NEG_ZERO_F32));
+    }
+
+    let cos_8x = fun(x: f32_8x) => f32_8x {
+        let one_8x = SIMD::set1_ps_256(1.0);
+        var x_mod_2pi = mod_ps(x, set1_ps_256(Math::tau_32));
+        var mask_a = cmp_ps(x_mod_2pi, set1_ps_256(Math::pi_32), _CMP_GT_OS);
+        var mask_b = cmp_ps(x_mod_2pi, set1_ps_256(-Math::pi_32), _CMP_LT_OS);
+        var mask = SIMD::cast_si_ps(SIMD::cast_ps_si(mask_a) | SIMD::cast_ps_si(mask_b));
+        var x_r = mod_ps(x, set1_ps_256(Math::pi_32));
+        var x2 = x_r * x_r;
+        var x4 = x2 * x2;
+        var x6 = x4 * x2;
+        var x8 = x6 * x2;
+        var pos_result = one_8x
+            - (x2 / set1_ps_256(2.0))
+            + (x4 / set1_ps_256(24.0))
+            - (x6 / set1_ps_256(720.0))
+            + (x8 / set1_ps_256(40320.0));
+        var neg_result = neg_ps(pos_result);
+        var result = blendv_ps(pos_result, neg_result, mask);
+        return result;
+    }
     
- 
+    let sin_8x = fun(x: f32_8x) => f32_8x {
+        return cos_8x(x - set1_ps_256(Math::half_pi_32));
+    }
 }

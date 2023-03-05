@@ -853,9 +853,26 @@ namespace PragmaScript
             public static readonly Value zero_i32_v = new ConstInt(i32_t, 0);
             public static readonly Value one_i32_v = new ConstInt(i32_t, 1);
             public static readonly Value two_i32_v = new ConstInt(i32_t, 2);
-            public static readonly Value neg_1_i32_v = new ConstInt(i32_t, unchecked((ulong)-1));
+            public static readonly Value neg_one_i32_v = new ConstInt(i32_t, unchecked((ulong)-1));
             public static readonly Value zero_i64_v = new ConstInt(i32_t, 0);
             public static readonly Value null_ptr_v = new ConstPtr(ptr_t, 0);
+
+            public static readonly Value neg_one_i32_8x_v = new ConstVec(i32_8x_t, new List<Value> {
+                neg_one_i32_v,
+                neg_one_i32_v,
+                neg_one_i32_v,
+                neg_one_i32_v,
+                neg_one_i32_v,
+                neg_one_i32_v,
+                neg_one_i32_v,
+                neg_one_i32_v
+            });
+            public static readonly Value neg_one_i32_4x_v = new ConstVec(i32_4x_t, new List<Value> {
+                neg_one_i32_v,
+                neg_one_i32_v,
+                neg_one_i32_v,
+                neg_one_i32_v
+            });
 
             public static SSAType GetTypeRef(FrontendType t)
             {

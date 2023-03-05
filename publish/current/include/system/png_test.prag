@@ -4,86 +4,8 @@ import "math.prag"
 import "memory.prag"
 
 import "zlib.prag"
+import "bmp.prag"
 
-
-let bitmap = struct (
-    width: i32;
-    height: i32;
-    pixels: i8*;
-);
-
-["PACKED"]
-let bmp_file_header = struct(
-	magic: i16;
-	size: i32;
-	reserverd: i32;
-	offset: i32;
-);
-
-let load_bitmap = fun(file: string) => bitmap {
-    var result = bitmap { };
-    var bmp = read_file(file);
-    var file_header = bmp.data@bmp_file_header*;
-    assert(file_header.magic == 0x4D42);
-    assert(file_header.size <= bmp.length);
-    
-    var bmp_info = (bmp.data + size_of(bmp_file_header))@Windows::BITMAPINFOHEADER*;
-    assert(bmp_info.biPlanes == 1);
-    assert(bmp_info.biCompression == 0);
-    assert(bmp_info.biBitCount == 24);
-    result.width = bmp_info.biWidth;
-    result.height = bmp_info.biHeight;
-    result.pixels = bmp.data + file_header.offset;
-    assert(result.width > 0 && result.width < 4096);
-    assert(result.height > 0 && result.height < 4096);
-    
-    return result;
-}
-
-let save_bitmap = fun(file: string; bmp: bitmap) => void {
-    var header = bmp_file_header { };
-    header.magic = 0x4D42;
-    
-    header.offset = size_of(bmp_file_header)@\i32 + size_of(Windows::BITMAPINFOHEADER)@i32;
-    header.size = header.offset + bmp.width * bmp.height * 4;
-    header.reserverd = 0;
-    var dib = Windows::BITMAPINFOHEADER{ };
-    dib.biSize = size_of(Windows::BITMAPINFOHEADER)@i32;
-    dib.biWidth = bmp.width;
-    dib.biHeight = -bmp.height;
-    dib.biPlanes = 1;
-    dib.biCompression = 0;
-    dib.biBitCount = 32;
-    
-    var buffer = allocate(header.size@mm);
-    var buf_ptr = buffer;
-    
-    *(buf_ptr@bmp_file_header*) = header;
-    buf_ptr += size_of(bmp_file_header);
-    *(buf_ptr@Windows::BITMAPINFOHEADER*) = dib;
-    buf_ptr += size_of(Windows::BITMAPINFOHEADER);
-    
-    var src = bmp.pixels@i32*;
-    var dst = buf_ptr@i32*;
-    
-    var width = bmp.width;
-    var height = bmp.height;
-    for (var j = 0; j < height; ++j) {
-        for (var i = 0; i < width; ++i) {
-            var r = channel(src, 0);
-            var g = channel(src, 1);
-            var b = channel(src, 2);
-            var a = channel(src, 3);
-            var dest_pixel = b + (g << 8) + (r << 16) + (a << 24);
-            *dst++ = dest_pixel;
-            src++;
-        }
-    }
-    
-    // memcpy(buf_ptr, bmp.pixels, (bmp.width * bmp.height * 4)@mm);
-    write_file(file, buffer[:header.size]);
-    free(buffer);
-}
 
 let png_info = struct(
     width: i32;
@@ -167,12 +89,6 @@ let read_next_chunk = fun(stream: png_stream*) => void {
     advance(stream, 4);
 }
 
-let channel = fun(pixel: i32*; idx: i32) => i32 {
-    var byte_ptr = pixel@i8*;
-    assert(idx >= 0 && idx < 4);
-    var result = (*(byte_ptr + idx))@\i32;
-    return result;
-}
 
 let paeth = fun(a: i32; b: i32; c: i32) => i32 {
     var p = a + b - c;

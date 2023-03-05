@@ -1107,8 +1107,33 @@ namespace PragmaScript
                     result = builder.BuildNot(v, node, "not_tmp");
                     break;
                 case AST.UnaryOp.UnaryOpType.Complement:
-                    result = builder.BuildXor(v, new ConstInt(vtype, unchecked((ulong)-1)), node, "complement_tmp");
-                    break;
+                {
+                    Value neg_ones = null;
+                    if (vtype.kind == TypeKind.Integer)
+                    {
+                        neg_ones = new ConstInt(vtype, unchecked((ulong)-1));
+                    }
+                    else if (vtype.kind == TypeKind.Vector)
+                    {
+                        var vecType = (VectorType)vtype;
+                        Debug.Assert(vecType.elementType.kind == TypeKind.Integer);
+                        var elementCount = vecType.elementCount;
+                        if (elementCount == 4)
+                        {
+                            neg_ones = Const.neg_one_i32_4x_v;
+                        }
+                        else if (elementCount == 8)
+                        {
+                            neg_ones = Const.neg_one_i32_8x_v;
+                        }
+                        else
+                        {
+                            throw new CompilerError($"UnaryComplementOperator: Unsupported vector type: {vtype}", node.token);
+                        }
+                    }
+                    result = builder.BuildXor(v, neg_ones, node, "complement_tmp");
+                }
+                break;
                 case AST.UnaryOp.UnaryOpType.AddressOf:
                     // HACK: for NOW this happens via returnPointer nonsense
                     result = v;
@@ -1178,7 +1203,7 @@ namespace PragmaScript
                                 result = builder.BuildFSub(result, new ConstReal(vet, 1.0), node, "predec");
                                 break;
                             case TypeKind.Pointer:
-                                result = builder.BuildGEP(result, node, "ptr_pre_dec", false, neg_1_i32_v);
+                                result = builder.BuildGEP(result, node, "ptr_pre_dec", false, neg_one_i32_v);
                                 break;
                             default:
                                 InvalidUnaryOp(node);
@@ -1251,7 +1276,7 @@ namespace PragmaScript
                                 break;
                             case TypeKind.Pointer:
                                 {
-                                    var inc = builder.BuildGEP(result, node, "ptr_post_dec", false, neg_1_i32_v);
+                                    var inc = builder.BuildGEP(result, node, "ptr_post_dec", false, neg_one_i32_v);
                                     builder.BuildStore(inc, v, node);
                                 }
                                 break;
@@ -1966,10 +1991,10 @@ namespace PragmaScript
                     throw new CompilerError("Cannot take pointer of element.", node.left.token);
                 }
                 var et = (targetType as PointerType).elementType;
-                if (!et.EqualType(resultType))
-                {
-                    target = builder.BuildBitCast(target, new PointerType(resultType), node, "hmpf");
-                }
+                // if (!et.EqualType(resultType))
+                // {
+                //     target = builder.BuildBitCast(target, new PointerType(resultType), node, "hmpf");
+                // }
                 var align = GetMinimumAlignmentForBackend(resultType);
                 
                 if (node.compoundType != AST.Assignment.CompoundAssignmentType.None)
@@ -2130,6 +2155,49 @@ namespace PragmaScript
                         var mask = new ConstVec(new VectorType(16, Const.i32_t), maskValues);
                         var shuffle = builder.BuildShuffleVector(bc, zero, mask, node, "slli_shuffle");
                         var result = builder.BuildBitCast(shuffle, v.type, node, "vec_bc");
+                        valueStack.Push(result);
+                    }
+                    break;
+                case "cast_ps_si":
+                    {
+                        Visit(node.argumentList[0]);
+                        var v = valueStack.Pop();
+                        var resultType = (FrontendVectorType)feft.returnType;
+                        Value result;
+                        if (resultType.length == 4)
+                        {
+                            result = builder.BuildBitCast(v, Const.i32_4x_t, node, "vec_bc");
+                        }
+                        else if (resultType.length == 8)
+                        {
+                            result = builder.BuildBitCast(v, Const.i32_8x_t, node, "vec_bc");
+                        }
+                        else
+                        {
+                            throw new CompilerError($"cast_ps_si: Unsupported vector length {resultType.length}", node.token);
+                        }
+                        
+                        valueStack.Push(result);
+                    }
+                    break;
+                    case "cast_si_ps":
+                    {
+                        Visit(node.argumentList[0]);
+                        var v = valueStack.Pop();
+                        var resultType = (FrontendVectorType)feft.returnType;
+                        Value result;
+                        if (resultType.length == 4)
+                        {
+                            result = builder.BuildBitCast(v, Const.f32_4x_t, node, "vec_bc");
+                        }
+                        else if (resultType.length == 8)
+                        {
+                            result = builder.BuildBitCast(v, Const.f32_8x_t, node, "vec_bc");
+                        }
+                        else
+                        {
+                            throw new CompilerError($"cast_si_ps: Unsupported vector length {resultType.length}", node.token);
+                        }
                         valueStack.Push(result);
                     }
                     break;
