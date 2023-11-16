@@ -23,7 +23,6 @@
             ],
             "problemMatcher": [
                 {
-                    "owner": "pragma",
                     "fileLocation": "absolute",
                     "pattern": {
                         "regexp": "error: (.*?) at \\(.*?file \"(.*?)\".*?line (.*?),.*?pos (.*?),",
@@ -32,7 +31,8 @@
                         "line": 3,
                         "column": 4
                     },
-                    "severity": "error"
+                    "severity": "error",
+                    "owner": "pragma",
                 },
                 {
                     "fileLocation": "absolute",
@@ -43,6 +43,7 @@
                         "line": 3,
                         "column": 4
                     },
+                    "owner": "pragma",
                 }
             ]
         },
@@ -66,7 +67,8 @@
                         "column": 4
                     },
                     "applyTo": "allDocuments",
-                    "severity": "error"
+                    "severity": "error",
+                    "owner": "pragma",
                 },
                 {
                     "fileLocation": "absolute",
@@ -77,7 +79,8 @@
                         "line": 3,
                         "column": 4
                     },
-                    "applyTo": "allDocuments"
+                    "applyTo": "allDocuments",
+                    "owner": "pragma",
                 }
             ]
         }

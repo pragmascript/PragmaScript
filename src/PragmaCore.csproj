@@ -11,16 +11,18 @@
 	  
     <!-- <Company>pragma</Company>
     <Authors>pragma</Authors> -->
-    <TargetFramework>net7.0</TargetFramework> 
+    <TargetFramework>net8.0</TargetFramework> 
     <RuntimeIdentifier Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' ">linux-x64</RuntimeIdentifier>
-    <RuntimeIdentifier Condition=" '$(OS)' == 'Windows_NT' ">win10-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$(OS)' == 'Windows_NT' ">win-x64</RuntimeIdentifier>
     <DefineConstants>DISPLAY_TIMINGS</DefineConstants>
     <StartupObject></StartupObject>
     <PublishReadyToRun>true</PublishReadyToRun>
     <PublishReadyToRunShowWarnings>true</PublishReadyToRunShowWarnings>
-	  <PublishSingleFile>true</PublishSingleFile>
+	  <!-- <PublishSingleFile>true</PublishSingleFile> -->
     <PublishTrimmed>true</PublishTrimmed>
     <SelfContained>true</SelfContained>
+    <PublishAot>true</PublishAot>
+    <StripSymbols>true</StripSymbols>
 
   </PropertyGroup>
   <PropertyGroup Condition="'$(CompileConfig)' == 'Release'">
@@ -38,7 +40,7 @@
     <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="CommandLineParser" Version="2.8.0" />
+    <!-- <PackageReference Include="CommandLineParser" Version="2.8.0" /> -->
   </ItemGroup>
 </Project>
   

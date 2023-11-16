@@ -436,6 +436,40 @@ namespace PragmaScript
 
             }
 
+
+            // handle binary literals
+            if (current == '0' && pos + 1 < line.Length && line[pos + 1] == 'b')
+            {
+                pos += 2;
+                t.length += 2;
+
+                if (pos >= line.Length)
+                {
+                    current = '\0';
+                }
+                else
+                {
+                    current = line[pos];
+                }
+                while (current == '0' || current == '1')
+                {
+                    t.length++;
+                    pos++;
+                    if (pos >= line.Length)
+                    {
+                        break;
+                    }
+                    current = line[pos];
+                }
+                t.type = TokenType.IntNumber;
+                t.text = line.Substring(t.pos_idx, t.length);
+                if (t.text.Length <= 2)
+                {
+                    throw new LexerError("Invalid binary literal!", t);
+                }
+                return t;
+            }
+
             // test if first char is a radix 10 digit
             if (char.IsDigit(current))
             {

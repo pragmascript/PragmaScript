@@ -1160,9 +1160,14 @@ namespace PragmaScript
         {
             ulong result;
             bool isHex = text.Length > 1 && text[1] == 'x';
+            bool isBin = text.Length > 1 && text[1] == 'b';
             if (isHex)
             {
                 result = ulong.Parse(text.Substring(2), NumberStyles.AllowHexSpecifier);
+            }
+            else if (isBin)
+            {
+                result = Convert.ToUInt64(text.Substring(2), 2);
             }
             else
             {

@@ -65,7 +65,7 @@ namespace PragmaScript
         string preamble = @"
 ; declare align 64 i8* @VirtualAlloc(i8* nocapture, i64, i32, i32) #0 
 
-define i64 @_rdtsc() #0 {
+define internal i64 @_rdtsc() #0 {
   %1 = tail call { i32, i32 } asm sideeffect ""rdtsc"", ""={ax},={dx},~{ dirflag},~{ fpsr},~{ flags}""() 
   %2 = extractvalue { i32, i32 } %1, 0
   %3 = extractvalue { i32, i32 } %1, 1
@@ -76,7 +76,7 @@ define i64 @_rdtsc() #0 {
   ret i64 %7
 }
 
-define void @__chkstk() #0 {
+define internal void @__chkstk() #0 {
   call void asm sideeffect ""push   %rcx \09\0Apush   %rax \09\0Acmp    $$0x1000,%rax \09\0Alea    24(%rsp),%rcx \09\0Ajb     1f \09\0A2: \09\0Asub    $$0x1000,%rcx \09\0Aorl    $$0,(%rcx) \09\0Asub    $$0x1000,%rax \09\0Acmp    $$0x1000,%rax \09\0Aja     2b \09\0A1: \09\0Asub    %rax,%rcx \09\0Aorl    $$0,(%rcx) \09\0Apop    %rax \09\0Apop    %rcx \09\0Aret \09\0A"", ""~{dirflag},~{fpsr},~{flags}""()
   ret void
 }
@@ -146,6 +146,12 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
                 AL("target triple = \"x86_64-pc-linux-gnu\"");
                 break;
             }
+            AP("@llvm.used = appending global [4 x i8*] [");
+            AP("i8* bitcast (void (i8*, i8*, i64)* @memcpy to i8*), ");
+            AP("i8* bitcast (i8* (i8*, i32, i64)* @memset to i8*), ");
+            AP("i8* bitcast (void ()* @__chkstk to i8*), ");
+            AP("i8* bitcast (i32* @_fltused to i8*)");
+            AL("], section \"llvm.metadata\"");
             
             AL();
             foreach (var v in mod.globals.args)

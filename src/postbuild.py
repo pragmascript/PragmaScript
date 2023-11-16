@@ -18,9 +18,9 @@ def nj(*paths):
     return os.path.normpath(os.path.join(*paths))
 
 if platform.system() == "Windows":
-    binPath = nj(cwd, prefixPath, "net7.0/win10-x64")
+    binPath = nj(cwd, prefixPath, "net8.0/win-x64")
 elif platform.system() == "Linux":
-    binPath = nj(cwd, prefixPath, "net7.0/linux-x64")
+    binPath = nj(cwd, prefixPath, "net8.0/linux-x64")
 
 publishPath = nj(cwd, "../publish/current/bin")
 
