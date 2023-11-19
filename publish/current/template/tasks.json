@@ -18,8 +18,8 @@
             },
             "args": [
                 "build",
-                "-d",
-                "\"${file}\""
+                "\"${file}\"",
+                "-d"
             ],
             "problemMatcher": [
                 {

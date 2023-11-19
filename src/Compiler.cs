@@ -4,100 +4,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using CommandLine;
 using static PragmaScript.AST;
 
 namespace PragmaScript
 {
-
-
-    [Verb("build", HelpText = "Compile and build the project.")]
-    public class CompilerOptionsBuild
-    {
-        public static CompilerOptionsBuild _i;
-
-        [Value(0, MetaName = "input-filename", Required = true, HelpText = "Source filename to compile.")]
-        public string inputFilename { get; set; }
-
-        [Option('d', "debug", HelpText = "Compile with DEBUG preprocessor define.")]
-        public bool debug { get; set; }
-
-        [Option('g', "generate-debug-info", HelpText = "Generate debugging information.")]
-        public bool debugInfo { get; set; }
-
-        [Option('o', "output-filename", HelpText = "Filename of the output executeable.", Default = "output.exe")]
-        public string output { get; set; }
-
-        [Option('O', "optimization-level", HelpText = "Backend optimization level between 0 and 4.", Default = 0)]
-        public int optimizationLevel { get; set; }
-
-        public string cpu = "native";
-
-        [Option('r', "run", HelpText = "Run executeable after compilation.")]
-        public bool runAfterCompile { get; set; }
-
-        [Option("emit-asm", HelpText = "Output generated assembly.")]
-        public bool asm { get; set; }
-        [Option("emit-llvm", HelpText = "Output generated LLVM IR.")]
-        public bool ll { get; set; }
-
-        public bool bc = false;
-
-        [Option('l', "libs", HelpText = "';' separated list of static libraries to link against.", Separator = ';')]
-        public IList<string> libs { get; set; }
-        [Option('L', "lib-dirs", HelpText = "';' separated list of library search directories.", Separator = ';')]
-        public IList<string> lib_path { get; set; }
-        
-        [Option('I', "include-dirs", HelpText = "';' separated list of include search directories.", Separator = ';')]
-        public IList<string> include_dirs { get; set; }
-
-        [Option("shared-library", HelpText = "Set binary type to a shared library file.")]
-        public bool dll { get; set; }
-
-        [Option('v', "verbose", HelpText = "Set output to verbose messages.")]
-        public bool verbose { get; set; }
-
-        [Option("dry-run", HelpText = "Compile and output errors only; no executeable will be generated.")]
-        public bool dryRun { get; set; }
-
-        public bool buildExecuteable { get { return !dryRun; } set { dryRun = !value; } }
-        public bool useFastMath
-        {
-            get { return optimizationLevel > 3; }
-        }
-
-        internal FunctionDefinition entry;
-        public CompilerOptionsBuild()
-        {
-            _i = this;
-        }
-
-        [CommandLine.Text.Usage(ApplicationAlias = "pragma")]
-        public static IEnumerable<CommandLine.Text.Example> Examples
-        {
-            get
-            {
-                yield return new CommandLine.Text.Example("Debug build \"hello.prag\" output \"hello.exe\"", new CommandLine.UnParserSettings() { PreferShortName = true },
-                    new CompilerOptionsBuild { inputFilename = "hello.prag", output = "hello.exe", debug = true, debugInfo = true });
-                yield return new CommandLine.Text.Example("Compile optimized release build and run", new CommandLine.UnParserSettings() { PreferShortName = true },
-                    new CompilerOptionsBuild { inputFilename = "hello.prag", output = "hello.exe", optimizationLevel = 3, runAfterCompile = true, libs = new string[] { "user32.lib", "libopenlibm.a" } });
-            }
-        }
-    }
-
-
-    [Verb("new", HelpText = "Creates a new pragma project.")]
-    public class CompilerOptionsNew
-    {
-        public enum NewProjectType { HelloWorld, Empty }
-
-        [Option("vscode", HelpText = "Generate default VSCode Tasks, Launch and Settings files.")]
-        public bool VSCode { get; set; } = false;
-        
-        [Option("copy-system-includes", HelpText = "Copies system includes to project directory.")]
-        public bool CopySystemIncludes { get; set; } = false;
-    }
-
 
     public class Compiler
     {
@@ -124,7 +34,6 @@ namespace PragmaScript
             }
             return result;
         }
-        
         public (Scope root, TypeChecker tc) Compile(CompilerOptionsBuild options)
         {
             CompilerOptionsBuild._i.lib_path.Add(Path.GetFullPath(Program.RelDir("..\\lib")));
@@ -274,7 +183,6 @@ namespace PragmaScript
             }
             return (scope, tc);
         }
-
         Token[] Tokenize(string text, string filename)
         {
             Token[] result = null;

@@ -6,9 +6,8 @@ using System.Diagnostics;
 
 using static PragmaScript.AST;
 
-using CommandLine;
-using CommandLine.Text;
 using System.Web;
+using System.Reflection;
 
 namespace PragmaScript
 {
@@ -34,46 +33,6 @@ namespace PragmaScript
             string result = Path.Combine(Program.exeDir, dir);
             return result;
         }
-         
-
-        static void TestCommandLineParser()
-        {
-            static void Test(string[] args)
-            {
-                CommandLine.Parser.Default.ParseArguments<CompilerOptionsBuild>(args)
-                .WithParsed<CompilerOptionsBuild>(co =>
-                {
-                    Console.WriteLine($"success: {co}");
-                }).WithNotParsed(err =>
-                {
-                    foreach (var e in err)
-                    {
-                        Console.WriteLine($"error: {e}");
-                    }
-                });
-            }
-            var arg_0 = new string[] { "-d", "nase.prag" };
-            Test(arg_0);
-
-            var arg_1 = new string[] { "-d", "--generate-debug-info", "nase.prag" };
-            Test(arg_1);
-
-            var arg_2 = new string[] { };
-            Test(arg_2);
-
-            var arg_3 = new string[] { "--help" };
-            Test(arg_3);
-
-            var arg_4 = new string[] { "-O3", "nase.prag" };
-            Test(arg_4);
-
-            var arg_5 = new string[] { "nase.prag", "-l", "kernel32.lib;user32.lib", "-v" };
-            Test(arg_5);
-
-            var arg_6 = @"-v -d c:\Projects\dotnet\PragmaScript\publish\current\samples\editor\edit.prag".Split();
-            Test(arg_6);
-        }
-
         static void CreateNewProject(CompilerOptionsNew co)
         {
             static void CopyFromTemplate(string srcFilename, string destDir = "", params (string oldStr, string newStr)[] replacements)
@@ -137,39 +96,71 @@ namespace PragmaScript
             }
         }
 
+
+        static string GetVersionString()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            var assemblyName = assembly.GetName();
+            var version = assemblyName.Version;
+            return version.ToString();
+        }
+        
         static void Main(string[] args)
         {
             Compiler compiler = new Compiler();
 
             StringWriter helpWriter = new StringWriter();
+            
             CompilerOptionsBuild coBuild = null;
             CompilerOptionsNew coNew = null;
-            var parserResult = (new CommandLine.Parser(with => with.HelpWriter = helpWriter))
-                .ParseArguments<CompilerOptionsBuild, CompilerOptionsNew>(args);
-            parserResult
-            .WithParsed<CompilerOptionsBuild>(r => coBuild = r)
-            .WithParsed<CompilerOptionsNew>(r => coNew = r)
-            .WithNotParsed(err =>
-            {
-                if (!err.IsVersion())
-                {
-                    // Console.WriteLine(helpWriter.ToString());
 
-                    var helpText = CommandLine.Text.HelpText.AutoBuild(parserResult, h =>
-                                    {
-                                        h.AdditionalNewLineAfterOption = false;
-                                        h.Copyright = "Copyright (c) 2023 pragmascript@googlemail.com";
-                                        return h;
-                                    }, e => e, verbsIndex: true);
-                    var helpStr = helpText.ToString().Replace("-O 3", "-O3");
-                    System.Console.WriteLine(helpStr);
-                }
-                else
+            var verbs = new List<CommandLineVerb>();
+
+            var buildVerb = CompilerVerbs.CreateBuildVerb().Init();
+            var newVerb = CompilerVerbs.CreateNewVerb().Init();
+            verbs.Add(buildVerb);
+            verbs.Add(newVerb);
+            
+            CommandLineParser commandLineParser = new CommandLineParser("pragma", GetVersionString(), verbs);
+            var parsed = commandLineParser.Parse(args);
+
+            if (parsed)
+            {
+                if (commandLineParser.activeVerb == buildVerb)
                 {
-                    var versionText = CommandLine.Text.HeadingInfo.Default.ToString();
-                    System.Console.WriteLine($"version {versionText}");
+                    coBuild = new CompilerOptionsBuild(buildVerb);
                 }
-            });
+                if (commandLineParser.activeVerb == newVerb)
+                {
+                    coNew = new CompilerOptionsNew(newVerb);
+                }
+            }
+            // var parserResult = (new CommandLine.Parser(with => with.HelpWriter = helpWriter))
+            //     .ParseArguments<CompilerOptionsBuild, CompilerOptionsNew>(args);
+            // parserResult
+            // .WithParsed<CompilerOptionsBuild>(r => coBuild = r)
+            // .WithParsed<CompilerOptionsNew>(r => coNew = r)
+            // .WithNotParsed(err =>
+            // {
+            //     if (!err.IsVersion())
+            //     {
+            //         // Console.WriteLine(helpWriter.ToString());
+
+            //         var helpText = CommandLine.Text.HelpText.AutoBuild(parserResult, h =>
+            //                         {
+            //                             h.AdditionalNewLineAfterOption = false;
+            //                             h.Copyright = "Copyright (c) 2023 pragmascript@googlemail.com";
+            //                             return h;
+            //                         }, e => e, verbsIndex: true);
+            //         var helpStr = helpText.ToString().Replace("-O 3", "-O3");
+            //         System.Console.WriteLine(helpStr);
+            //     }
+            //     else
+            //     {
+            //         var versionText = CommandLine.Text.HeadingInfo.Default.ToString();
+            //         System.Console.WriteLine($"version {versionText}");
+            //     }
+            // });
 
 #if false
             coBuild = new CompilerOptionsBuild();
@@ -211,8 +202,6 @@ namespace PragmaScript
                  }
             }
         }
-
-
         public static void CompilerMessage(string message, CompilerMessageType type)
         {
             bool shouldPrint = CompilerOptionsBuild._i.verbose;

@@ -3,7 +3,7 @@ import "system/preamble.prag"
             
 [
     "compile.entry", 
-    "compile.run":"true",
+    "compile.run":"false",
     "compile.opt": "0",
     "compile.debuginfo": "true"
 ]
