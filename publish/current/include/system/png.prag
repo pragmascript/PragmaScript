@@ -218,8 +218,7 @@ let load_png = fun(file: string) => bitmap {
     var result = bitmap { };
     
     // TODO(pragma): determine file size
-    var arena = create_arena(megabytes(35));
-    var f = read_file(file, &arena);
+    var f = read_file(file);
     assert(f.length > 0);
     
     var magic = f.data[:8];
@@ -249,6 +248,7 @@ let load_png = fun(file: string) => bitmap {
     
     apply_png_filters(scanlines, result);
     
+
+    free(f.data);
     return result;
-    
 }

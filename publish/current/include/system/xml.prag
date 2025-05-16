@@ -205,9 +205,12 @@ let parse_element = fun(text: string; pos: i32*; parent: xml_element*; arena: me
     }
 }
 
+
+
 let read_xml = fun(path: string; arena: memory_arena* = &temp_memory_arena) => xml_element {
+    // TODO: there is no way to free the memory of the xml file. 
     var root = xml_element { };
-    var text = read_file(path, arena);
+    var text = read_file(path);
     if (text.length == 0) 
     {
         return root;

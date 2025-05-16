@@ -802,7 +802,6 @@ let assert = fun
     }
 }
 
-
 let cstr = fun(value: string; filepos: string = __file_pos__()) => i8* 
 {
     assert(value[value.length - 1] == 0, "c-string not null terminated", filepos);
@@ -816,13 +815,16 @@ let strlen = fun(str: ptr) => mm {
     return result;
 }
 
-let from_cstr = fun(cstr: ptr; maxLength: i32 = 1024) => string {
+let from_cstr = fun(cstr: ptr; maxLength: i32 = 1024; include_zero: bool = false) => string {
     var result: string;
     result.data = cstr;
     result.length = 0;
     var ptr = cstr;
     while (*ptr++ != 0 && result.length <\ maxLength) {
         result.length++;
+    }
+    if (include_zero) {
+        result.length += 1;
     }
     result.capacity = result.length + 1;
     return result;
